@@ -4,9 +4,9 @@ Local-first personal AI operating system for Jean.
 
 ## Current milestone
 
-**M0 — Observable Voice Execution**
+**M0 — Observable Voice Execution + Intelligence Kernel foundations**
 
-Janus can listen, execute, expose verifiable activity and speak through replaceable local voice adapters. Voice is a first-class client of Janus Core, not a reduced chat mode.
+Janus can listen, execute, expose verifiable activity and speak through replaceable local voice adapters. Voice is a first-class client of Janus Core, not a reduced chat mode. Janus is also evolving from a single-model loop into a provider-independent analytical system that decomposes complex work, routes subtasks, verifies document coverage, preserves provenance and runs durable jobs.
 
 ### Non-negotiable rules
 
@@ -17,6 +17,7 @@ Janus can listen, execute, expose verifiable activity and speak through replacea
 5. **Voice parity.** Anything allowed from text should be invokable from voice under the same permissions and approval rules.
 6. **Provider independence.** Model Gateway, Voice Gateway and Tool Gateway isolate vendors.
 7. **Safety + traceability.** External actions are permissioned, idempotent where possible, logged and revalidated after offline periods.
+8. **Whole-work integrity.** Complex analysis must expose its work graph, full-document tasks must prove coverage, and sourced synthesis must preserve claim-level provenance.
 
 ## Current architecture
 
@@ -32,21 +33,22 @@ Janus can listen, execute, expose verifiable activity and speak through replacea
  │          JANUS CORE           │
  │                               │
  │ Task/Run Engine               │
+ │ Work Graph + Job contracts    │
  │ Event Stream + Audit Log      │
  │ SQLite durable state          │
  │ Approval / policy boundary    │
  └───────┬──────────┬────────────┘
          │          │
-   ┌─────▼────┐ ┌───▼─────────┐
-   │ Voice    │ │ Tool / Model│
-   │ Gateway  │ │ Gateways    │
-   └──┬────┬──┘ └─────────────┘
+   ┌─────▼────┐ ┌───▼───────────────┐
+   │ Voice    │ │ Model/Tool Gateway│
+   │ Gateway  │ │ + Model Router    │
+   └──┬────┬──┘ └───────────────────┘
       │    │
       │    └── TTS adapter -> local Qwen sidecar
       └─────── STT adapter -> local whisper.cpp server
 ```
 
-Neither Whisper nor Qwen is part of Janus Core. Both can be replaced without changing the task engine, PWA contract or durable state.
+Neither Whisper, Qwen nor any reasoning model is part of Janus Core. They can be replaced without changing durable Janus state or authority.
 
 ## Voice path
 
@@ -61,6 +63,21 @@ Neither Whisper nor Qwen is part of Janus Core. Both can be replaced without cha
 Barge-in is local and immediate: when the user starts speaking, scheduled TTS playback is cut without cancelling the underlying Janus task.
 
 Automatic spoken responses use only sanitized `artifact.updated.payload.preview` data. Raw tool payloads, file bodies, message snippets, tokens and error details are not automatically sent to TTS.
+
+## Intelligence Kernel
+
+The VIGENTE intelligence requirements are documented in `docs/intelligence-kernel.md`.
+
+Current primitives include:
+
+- structured dependency-aware Work Graphs for complex queries;
+- provider-independent Model Router policy;
+- whole-document coverage gates;
+- citation/provenance ledger;
+- partitioned durable-job contracts for work larger than one context window;
+- evidence-based, user-controlled improvement index.
+
+These primitives are intentionally independent of any model vendor. Runtime persistence, concrete document parsers, model inventory, job scheduler and proactive notification wiring are the next implementation layer.
 
 ## Execution event contract
 
@@ -103,24 +120,28 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Mobile PCM playback queue and immediate interruption.
 - Safe automatic spoken completion summaries.
 - End-to-end integration test: PCM -> STT -> task -> safe summary -> TTS -> PCM over WebSocket.
+- Intelligence Kernel foundation contracts: Work Graph, Model Router, whole-document coverage, citation ledger, durable job partitioning and improvement index.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Materialize the local voice runtime on the actual Janus host.
-- Install/build whisper.cpp locally and place multilingual model weights outside Git.
-- Install Qwen3-TTS in an isolated Python 3.12 environment and place selected model weights outside Git.
-- Create the private local voice configuration with the already approved canonical voice identity.
-- Add Jean's cloned voice only after a local approved reference recording + exact transcript exist.
+- Integrate the Intelligence Kernel primitives into the runtime execution path.
+- Persist Work Graph, job partitions, citation ledger and improvement-index history in SQLite.
+- Add model inventory/configuration so Model Router can choose among actual local and remote adapters.
+- Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
+- Materialize the local voice runtime on the actual Janus host when hardware is available.
 
-See `docs/voice-local-runtime.md` and `.env.voice.example`.
+See `docs/intelligence-kernel.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ### PENDIENTE
 
 - Physical-host latency benchmark and hardware profile.
 - Offline acceptance test on the actual host.
 - Final voice IDs and model checksums recorded as the VIGENTE runtime profile.
-- Wider Tool Gateway coverage and remaining Janus capabilities after M0 voice acceptance.
+- Durable scheduler/recovery for large LLM jobs beyond a process lifetime.
+- Client rendering of structured citations and provenance.
+- User-controlled proactive delivery of meaningful improvement-index changes.
+- Wider Tool Gateway coverage and remaining Janus capabilities.
 - Apple ecosystem and home-device bridges where they add real value.
 
 ### BLOQUEADO
@@ -129,22 +150,16 @@ See `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ## Verification
 
-The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies:
-
-1. PCM input reaches the STT adapter as an in-memory WAV.
-2. The final transcript starts a real Janus run.
-3. The completed run generates only a safe spoken preview.
-4. The TTS adapter receives the approved voice ID and returns typed PCM.
-5. WebSocket sends `speech.audio` metadata immediately before each binary PCM frame.
-6. The entire suite still passes the general runtime smoke.
+The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
 
 ## Repository layout
 
 ```text
 apps/pwa/                 Mobile-first Janus interface
 apps/runtime/             Local Janus runtime HTTP/WebSocket process
-packages/core/            Task/run state, event protocol, SQLite persistence
+packages/core/            Task/run state, durable jobs, document/citation/improvement primitives
 packages/gateways/        Model, Voice and Tool contracts
+packages/orchestrator/    Planning, Work Graph and model-routing policy
 packages/voice/           Voice session, duplex engine and transport
 packages/adapters/        Replaceable provider/tool/model/voice adapters
 sidecars/                 Optional local provider processes outside Core
