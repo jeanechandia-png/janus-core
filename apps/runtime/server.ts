@@ -9,6 +9,8 @@ import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
+import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
 import { EventHub } from '../../packages/core/src/event-hub.js';
 import type { EventSink, RunSnapshot } from '../../packages/core/src/events.js';
 import { SqliteStore } from '../../packages/core/src/sqlite-store.js';
@@ -50,6 +52,7 @@ const store = new SqliteStore(dbPath);
 const runners = new Map<string, TaskRunner>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
+const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
 
 toolGateway.register(new GitHubAdapter({
   tokenProvider: () => credentialBroker.accessToken('github'),
@@ -263,6 +266,7 @@ function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${i
 
   runner = new TaskRunner(command, {
     sink: durableSink,
+    deliveryGate,
     approvalHandler: async (action) => ({
       approved: action.risk === 'none' || action.risk === 'low',
       reason: action.risk === 'high'
@@ -420,6 +424,11 @@ const server = createServer(async (request, response) => {
             },
       },
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
+      deliveryGate: {
+        state: 'enforced',
+        dimensions: ['coherence', 'structural', 'visual', 'architectural', 'orthographic', 'synthesis'],
+        baseline: 'offline-reviewers-v1',
+      },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
       continuity: {
