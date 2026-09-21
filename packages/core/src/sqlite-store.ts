@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { ChronologyRecord, ErrorLesson } from './continuity.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
 
 export class SqliteStore {
@@ -33,6 +34,119 @@ export class SqliteStore {
       event.summary,
       JSON.stringify(event.payload ?? {}),
     );
+  }
+
+  appendChronologyRecord(record: ChronologyRecord): void {
+    this.db.prepare(`
+      INSERT INTO chronology_records
+        (id, session_id, at, seq, kind, subject, content, status, supersedes_id, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.id,
+      record.sessionId,
+      record.at,
+      record.sequence ?? null,
+      record.kind,
+      record.subject,
+      record.content,
+      record.status,
+      record.supersedesId ?? null,
+      JSON.stringify(record.metadata ?? {}),
+    );
+  }
+
+  listChronologyRecords(limit = 5000): ChronologyRecord[] {
+    const rows = this.db.prepare(`
+      SELECT id, session_id, at, seq, kind, subject, content, status, supersedes_id, metadata_json
+      FROM chronology_records
+      ORDER BY at ASC, COALESCE(seq, 0) ASC, id ASC
+      LIMIT ?
+    `).all(limit) as Record<string, unknown>[];
+
+    return rows.map((row) => ({
+      id: String(row.id),
+      sessionId: String(row.session_id),
+      at: String(row.at),
+      ...(row.seq == null ? {} : { sequence: Number(row.seq) }),
+      kind: String(row.kind) as ChronologyRecord['kind'],
+      subject: String(row.subject),
+      content: String(row.content),
+      status: String(row.status) as ChronologyRecord['status'],
+      ...(row.supersedes_id == null ? {} : { supersedesId: String(row.supersedes_id) }),
+      metadata: JSON.parse(String(row.metadata_json)) as Record<string, unknown>,
+    }));
+  }
+
+  upsertErrorLesson(lesson: ErrorLesson): void {
+    this.db.prepare(`
+      INSERT INTO error_lessons
+        (
+          fingerprint, id, at, error_text, cause, impact, lesson, preventive_rule,
+          solutions_json, change_text, verification, verified, recurrence_count,
+          priority, requires_protection_review
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(fingerprint) DO UPDATE SET
+        id = excluded.id,
+        at = excluded.at,
+        error_text = excluded.error_text,
+        cause = excluded.cause,
+        impact = excluded.impact,
+        lesson = excluded.lesson,
+        preventive_rule = excluded.preventive_rule,
+        solutions_json = excluded.solutions_json,
+        change_text = excluded.change_text,
+        verification = excluded.verification,
+        verified = excluded.verified,
+        recurrence_count = excluded.recurrence_count,
+        priority = excluded.priority,
+        requires_protection_review = excluded.requires_protection_review
+    `).run(
+      lesson.fingerprint,
+      lesson.id,
+      lesson.at,
+      lesson.error,
+      lesson.cause,
+      lesson.impact,
+      lesson.lesson,
+      lesson.preventiveRule,
+      JSON.stringify(lesson.solutions),
+      lesson.change,
+      lesson.verification,
+      lesson.verified ? 1 : 0,
+      lesson.recurrenceCount,
+      lesson.priority,
+      lesson.requiresProtectionReview ? 1 : 0,
+    );
+  }
+
+  listErrorLessons(): ErrorLesson[] {
+    const rows = this.db.prepare(`
+      SELECT
+        fingerprint, id, at, error_text, cause, impact, lesson, preventive_rule,
+        solutions_json, change_text, verification, verified, recurrence_count,
+        priority, requires_protection_review
+      FROM error_lessons
+      ORDER BY at ASC, id ASC
+    `).all() as Record<string, unknown>[];
+
+    return rows.map((row) => ({
+      fingerprint: String(row.fingerprint),
+      id: String(row.id),
+      at: String(row.at),
+      error: String(row.error_text),
+      cause: String(row.cause),
+      impact: String(row.impact),
+      lesson: String(row.lesson),
+      preventiveRule: String(row.preventive_rule),
+      solutions: JSON.parse(String(row.solutions_json)) as string[],
+      change: String(row.change_text),
+      verification: String(row.verification),
+      verified: Number(row.verified) === 1,
+      recurrenceCount: Number(row.recurrence_count),
+      priority: String(row.priority) as ErrorLesson['priority'],
+      requiresProtectionReview: Number(row.requires_protection_review) === 1,
+    }));
   }
 
   upsertRun(snapshot: RunSnapshot): void {
@@ -138,6 +252,43 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_events_run_seq
       ON events(run_id, seq);
+
+      CREATE TABLE IF NOT EXISTS chronology_records (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        seq INTEGER,
+        kind TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        content TEXT NOT NULL,
+        status TEXT NOT NULL,
+        supersedes_id TEXT,
+        metadata_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chronology_time
+      ON chronology_records(at, seq, id);
+
+      CREATE INDEX IF NOT EXISTS idx_chronology_subject
+      ON chronology_records(subject, at);
+
+      CREATE TABLE IF NOT EXISTS error_lessons (
+        fingerprint TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        error_text TEXT NOT NULL,
+        cause TEXT NOT NULL,
+        impact TEXT NOT NULL,
+        lesson TEXT NOT NULL,
+        preventive_rule TEXT NOT NULL,
+        solutions_json TEXT NOT NULL,
+        change_text TEXT NOT NULL,
+        verification TEXT NOT NULL,
+        verified INTEGER NOT NULL DEFAULT 0,
+        recurrence_count INTEGER NOT NULL DEFAULT 1,
+        priority TEXT NOT NULL,
+        requires_protection_review INTEGER NOT NULL DEFAULT 0
+      );
     `);
   }
 }
