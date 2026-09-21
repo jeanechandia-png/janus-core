@@ -40,7 +40,10 @@ Integrar el Intelligence Kernel y la nueva capa de continuidad en la ruta produc
 - Runtime carga continuidad antes del model planning.
 - Cada nueva orden runtime registra el trabajo cronológicamente.
 - `GET /api/continuity` devuelve snapshot reconstruido.
-- **Delivery Gate** fail-closed con dimensiones obligatorias:
+- Archivo local de conversaciones Janus en SQLite: sesiones + mensajes + replay cronológico.
+- Clasificación automática conservadora de instrucciones explícitas y errores reportados.
+- Errores reportados sin diagnóstico reaparecen como `unresolvedErrors` en futuras planificaciones.
+- **Delivery Gate** fail-closed conectado al TaskRunner con dimensiones obligatorias:
   - coherencia;
   - estructural;
   - visual;
@@ -55,9 +58,9 @@ Integrar el Intelligence Kernel y la nueva capa de continuidad en la ruta produc
 1. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
 2. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
 3. Persistir Work Graph/jobs/citations/improvement history en SQLite.
-4. Crear el archivo local de conversaciones de Janus y bootstrap automático de sesiones.
-5. Importadores/adapters para chats históricos externos (ChatGPT/Claude/etc.) sin convertirlos en autoridad.
-6. Clasificar imports en instrucción / decisión / tarea / error / lección manteniendo fuente y fecha.
+4. Importadores/adapters para chats históricos externos (ChatGPT/Claude/etc.) sin convertirlos en autoridad.
+5. Clasificar imports externos en instrucción / decisión / tarea / error / lección manteniendo fuente y fecha.
+6. Promover errores reportados desde `diagnosisRequired` al Error Ledger estructurado cuando CAUSA/IMPACTO/LECCIÓN/CAMBIO/VERIFICACIÓN estén confirmados.
 
 ### P1
 - Renderizar en PWA: "recuperando contexto", sesiones recorridas, punto de reanudación y Quality Gates.
