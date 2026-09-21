@@ -9,6 +9,7 @@ import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
 import { EventHub } from '../../packages/core/src/event-hub.js';
@@ -204,13 +205,18 @@ async function prepareSteps(command: string): Promise<JanusStep[] | null> {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
         continuity: {
-          activeInstructions: continuity.activeInstructions.map((record) => ({
+          activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
             subject: record.subject,
             content: record.content,
             status: record.status,
             at: record.at,
           })),
-          preventiveRules: continuity.preventiveRules,
+          unresolvedErrors: continuity.unresolvedErrors.slice(-20).map((record) => ({
+            subject: record.subject,
+            content: record.content,
+            at: record.at,
+          })),
+          preventiveRules: continuity.preventiveRules.slice(-50),
           resumeFrom: continuity.resumeFrom
             ? {
                 subject: continuity.resumeFrom.subject,
@@ -297,15 +303,19 @@ function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${i
     startedAt,
     metadata: { lastInputMode: inputMode },
   });
-  store.appendConversationMessage({
+  const userMessage = {
     id: `msg:user:${runId}`,
     sessionId,
     at: startedAt,
-    role: 'user',
+    role: 'user' as const,
     content: command,
-    source: 'janus',
+    source: 'janus' as const,
     metadata: { runId, inputMode },
-  });
+  };
+  store.appendConversationMessage(userMessage);
+  for (const record of classifyExplicitContinuity(userMessage)) {
+    store.appendChronologyRecord(record);
+  }
 
   const previousActive = continuitySnapshot().currentBySubject['active-work'];
   store.appendChronologyRecord({
@@ -486,6 +496,7 @@ const server = createServer(async (request, response) => {
       continuity: {
         latestSessionId: continuity.latestSessionId ?? null,
         activeInstructions: continuity.activeInstructions,
+        unresolvedErrors: continuity.unresolvedErrors,
         preventiveRules: continuity.preventiveRules,
         resumeFrom: continuity.resumeFrom ?? null,
         historicalCount: continuity.historical.length,
