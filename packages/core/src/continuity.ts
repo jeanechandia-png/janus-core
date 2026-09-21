@@ -56,6 +56,7 @@ export interface ContinuitySnapshot {
   currentBySubject: Record<string, ChronologyRecord>;
   historical: ChronologyRecord[];
   activeInstructions: ChronologyRecord[];
+  unresolvedErrors: ChronologyRecord[];
   errorLessons: ErrorLesson[];
   preventiveRules: string[];
   resumeFrom?: ChronologyRecord;
@@ -141,12 +142,16 @@ export function reconstructContinuity(
 
   const current = new Map<string, ChronologyRecord>();
   const historical: ChronologyRecord[] = [];
+  const unresolvedErrors: ChronologyRecord[] = [];
 
   for (const record of orderedRecords) {
     if (seenIds.has(record.id)) throw new Error(`duplicate chronology record id: ${record.id}`);
     seenIds.add(record.id);
 
-    if (record.kind === 'error') continue;
+    if (record.kind === 'error') {
+      if (record.status !== 'historical') unresolvedErrors.push(record);
+      continue;
+    }
     if (record.status === 'historical') {
       historical.push(record);
       continue;
@@ -169,6 +174,7 @@ export function reconstructContinuity(
     currentBySubject: Object.fromEntries(currentRecords.map((record) => [record.subject, record])),
     historical: historical.sort(compareRecords),
     activeInstructions,
+    unresolvedErrors: unresolvedErrors.sort(compareRecords),
     errorLessons: ledger.list(),
     preventiveRules: ledger.preventiveRules(),
     ...(resumeFrom ? { resumeFrom } : {}),
