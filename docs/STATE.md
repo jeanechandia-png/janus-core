@@ -1,66 +1,86 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-09-13
+Fecha: 2026-09-22
 
 ## AHORA
 
-**M0 — Observable Voice Execution**
+**M0/M1 — Observable Voice Execution + Intelligence Kernel + Continuidad Cronológica**
 
-Construir una vertical slice donde Jean pueda iniciar una tarea desde voz o texto, mantener la sesión activa, ver actividad verificable en tiempo real, pausar/reanudar y recibir el resultado sin abandonar el modo de voz.
+Integrar el Intelligence Kernel y la nueva capa de continuidad en la ruta productiva completa: una sesión nueva debe reconstruir automáticamente cronología, instrucciones vigentes, errores/lecciones y el último punto válido antes de planificar; toda entrega debe pasar Quality Gates obligatorios.
 
 ## HECHO
 
-- Repositorio `janus-core` inicializado.
-- Contrato de eventos de ejecución definido.
-- `TaskRunner` implementado con regla continue-by-default.
-- Estados de pausa, bloqueo, error, aprobación y finalización implementados.
-- EventHub con replay acotado implementado.
-- Model Gateway, Voice Gateway y Tool Gateway desacoplados por interfaces.
-- Tool Gateway base con registro de adaptadores implementado.
-- Runtime HTTP/SSE inicial implementado.
-- PWA mobile-first inicial implementada.
-- Entrada de voz de navegador añadida como prototipo temporal.
-- PWA shell con caché offline añadida.
-- Prueba manual del runner ejecutada: 11 eventos, estado final `completed`.
-- Pruebas automatizadas añadidas al repositorio.
-- ADR de voz + ejecución observable aceptado.
-- Activos previos de audición de voz localizados: Qwen3-TTS probado en español; voz canónica y validación NL aún pendientes.
+- Janus Core independiente de proveedor con Model, Voice y Tool Gateways.
+- TaskRunner durable con continuar-por-defecto, pausa, reanudación, cancelación, bloqueo y aprobaciones.
+- Eventos observables + PWA mobile-first.
+- SQLite para runs/events y recuperación de ejecuciones interrumpidas.
+- Voz full-duplex: PCM/WebSocket, STT Whisper adapter, TTS Qwen adapter, barge-in y respuesta hablada segura.
+- E2E full-duplex + runtime smoke + CI verde.
+- GitHub y Google Workspace read adapters.
+- Model planner validado por Janus Core.
+- Intelligence Kernel foundations:
+  - Work Graph;
+  - Model Router;
+  - cobertura documental completa;
+  - Citation Ledger;
+  - durable-job partitioning;
+  - improvement index.
+- **Continuity Engine**:
+  - replay cronológico;
+  - ESTABLE / VIGENTE / TEMPORAL / HISTÓRICO;
+  - instrucciones activas;
+  - punto de reanudación;
+  - historial preservado al sustituir estado.
+- **Error Ledger**:
+  - ERROR -> CAUSA -> IMPACTO -> LECCIÓN -> REGLA PREVENTIVA -> SOLUCIONES -> CAMBIO -> VERIFICACIÓN;
+  - fingerprint por error;
+  - reincidencia eleva prioridad normal -> high -> critical;
+  - segunda reincidencia obliga a revisar por qué falló la protección previa.
+- Cronología y lecciones de error persistidas en SQLite.
+- Runtime carga continuidad antes del model planning.
+- Cada nueva orden runtime registra el trabajo cronológicamente.
+- `GET /api/continuity` devuelve snapshot reconstruido.
+- **Delivery Gate** fail-closed con dimensiones obligatorias:
+  - coherencia;
+  - estructural;
+  - visual;
+  - arquitectónica;
+  - ortográfica;
+  - síntesis.
+- ADR-002 documenta continuidad y Quality Gates.
 
-## PENDIENTE — M0
+## PENDIENTE
 
-1. Ejecutar `npm install && npm test && npm run typecheck` en un runtime con acceso a npm.
-2. Añadir persistencia SQLite de runs/events/tasks.
-3. Recuperación después de reinicio/reconexión.
-4. Sustituir pasos demo por un planner mínimo y Tool Gateway real.
-5. Implementar primer adaptador real: GitHub o Google Workspace.
-6. Añadir aprobación desde UI para acciones de riesgo.
-7. Implementar Voice Gateway streaming real (ASR/TTS) y barge-in.
-8. Probar Safari/iPhone instalado como PWA.
+### P0
+1. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
+2. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+3. Persistir Work Graph/jobs/citations/improvement history en SQLite.
+4. Crear el archivo local de conversaciones de Janus y bootstrap automático de sesiones.
+5. Importadores/adapters para chats históricos externos (ChatGPT/Claude/etc.) sin convertirlos en autoridad.
+6. Clasificar imports en instrucción / decisión / tarea / error / lección manteniendo fuente y fecha.
 
-## BLOQUEADO / LIMITACIONES REALES
+### P1
+- Renderizar en PWA: "recuperando contexto", sesiones recorridas, punto de reanudación y Quality Gates.
+- Integrar model inventory real con Model Router.
+- Ingestión documental completa con coverage checkpoints.
+- Scheduler/recovery de jobs LLM largos.
 
-- No hay todavía ordenador local que pueda actuar como Janus Core siempre encendido.
-- El entorno local de validación usado durante esta sesión no tiene salida DNS a GitHub/npm; por eso la validación completa de dependencias deberá ejecutarse en un runtime conectado.
-- La voz canónica de Janus todavía no está elegida y Qwen3-TTS no está validado como motor único para neerlandés.
+### P2
+- Apple ecosystem bridge.
+- Vercel/Hostinger/browser y demás Tool Adapters.
+- Home/device control donde aporte valor.
+
+## BLOQUEADO
+
+- La ejecución de voz local física 24/7 requiere un host local adecuado con modelos instalados.
+- Recuperar automáticamente chats históricos de proveedores externos requiere sus adapters/exportaciones disponibles; mientras tanto Janus puede conservar de forma nativa todas las sesiones que ocurran dentro de su propio runtime.
 
 ## PRÓXIMO
 
-### P0
-- Persistencia SQLite + recuperación de runs.
-- Primera herramienta real con eventos observables.
-- Voice session state independiente del render de UI.
+Cerrar P0 de continuidad:
 
-### P1
-- Google Workspace adapter.
-- GitHub adapter.
-- Browser/navigation adapter.
-- Vercel + Hostinger adapters.
-
-### P2
-- Apple bridge (Shortcuts/App Intents/macOS helper cuando exista host local).
-- Canva/CapCut integration según API/automatización disponible.
-- Home/device control via HomeKit/Home Assistant-compatible gateway.
+**archivo local de sesiones -> import/replay cronológico -> Error Ledger -> contexto vigente -> planificación -> ejecución -> Delivery Gate -> entrega -> nuevo checkpoint cronológico.**
 
 ## Regla de continuidad
 
-El presente documento describe el **VIGENTE**. Cambios futuros no borran decisiones previas: las sustituyen dejando historial en Git/ADRs. Antes de trabajar se sincroniza este estado, los ADRs y las pruebas.
+Este documento representa el VIGENTE. Git y la cronología local preservan el HISTÓRICO. Antes de ejecutar trabajo nuevo, Janus sincroniza código/pruebas + cronología + Error Ledger + estado vigente. Si existe contradicción, PRESENTE gobierna ejecución y PASADO se conserva para aprendizaje y previsión.
