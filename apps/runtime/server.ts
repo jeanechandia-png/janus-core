@@ -260,6 +260,20 @@ function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${i
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
     store.appendEvent(event);
+    if (event.type === 'artifact.updated') {
+      const preview = typeof event.payload.preview === 'string' ? event.payload.preview.trim() : '';
+      if (preview) {
+        store.appendConversationMessage({
+          id: `msg:${event.id}`,
+          sessionId,
+          at: event.at,
+          role: 'assistant',
+          content: preview,
+          source: 'janus',
+          metadata: { runId: event.runId, eventType: event.type },
+        });
+      }
+    }
     await hub.sink(event);
     if (runner) store.upsertRun(runner.snapshot());
   };
@@ -276,11 +290,28 @@ function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${i
   });
 
   const runId = runner.snapshot().runId;
+  const startedAt = new Date().toISOString();
+  store.upsertConversationSession({
+    id: sessionId,
+    source: 'janus',
+    startedAt,
+    metadata: { lastInputMode: inputMode },
+  });
+  store.appendConversationMessage({
+    id: `msg:user:${runId}`,
+    sessionId,
+    at: startedAt,
+    role: 'user',
+    content: command,
+    source: 'janus',
+    metadata: { runId, inputMode },
+  });
+
   const previousActive = continuitySnapshot().currentBySubject['active-work'];
   store.appendChronologyRecord({
     id: `task:${runId}`,
     sessionId,
-    at: new Date().toISOString(),
+    at: startedAt,
     kind: 'task',
     subject: 'active-work',
     content: command,
@@ -434,6 +465,8 @@ const server = createServer(async (request, response) => {
       continuity: {
         records: store.listChronologyRecords().length,
         errorLessons: store.listErrorLessons().length,
+        conversationSessions: store.listConversationSessions().length,
+        conversationMessages: store.listConversationMessages().length,
         resumeFrom: continuitySnapshot().resumeFrom?.subject ?? null,
       },
       credentials: {
