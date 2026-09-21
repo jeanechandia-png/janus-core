@@ -121,14 +121,19 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Safe automatic spoken completion summaries.
 - End-to-end integration test: PCM -> STT -> task -> safe summary -> TTS -> PCM over WebSocket.
 - Intelligence Kernel foundation contracts: Work Graph, Model Router, whole-document coverage, citation ledger, durable job partitioning and improvement index.
+- Chronological continuity engine with current/history resolution, resume pointer, unresolved-error carryover and Error Ledger.
+- Janus-owned local conversation archive in SQLite with chronological replay.
+- Automatic extraction of explicit durable user instructions and reported errors into continuity records.
+- Delivery Gate enforced before artifact delivery with offline baseline reviewers for coherence, structure, visual presentation, architecture, orthography and synthesis.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Integrate the Intelligence Kernel primitives into the runtime execution path.
 - Persist Work Graph, job partitions, citation ledger and improvement-index history in SQLite.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
+- Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.
+- Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
 - Materialize the local voice runtime on the actual Janus host when hardware is available.
 
 See `docs/intelligence-kernel.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
@@ -139,6 +144,7 @@ See `docs/intelligence-kernel.md`, `docs/voice-local-runtime.md` and `.env.voice
 - Offline acceptance test on the actual host.
 - Final voice IDs and model checksums recorded as the VIGENTE runtime profile.
 - Durable scheduler/recovery for large LLM jobs beyond a process lifetime.
+- External historical chat importers for ChatGPT/Claude/other providers, treated as data sources rather than authority.
 - Client rendering of structured citations and provenance.
 - User-controlled proactive delivery of meaningful improvement-index changes.
 - Wider Tool Gateway coverage and remaining Janus capabilities.
