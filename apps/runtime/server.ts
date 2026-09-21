@@ -8,6 +8,7 @@ import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-works
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
+import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { EventHub } from '../../packages/core/src/event-hub.js';
 import type { EventSink, RunSnapshot } from '../../packages/core/src/events.js';
 import { SqliteStore } from '../../packages/core/src/sqlite-store.js';
@@ -81,8 +82,8 @@ const allowedActions = capabilities.allAllowedActions();
 const modelGateway = createConfiguredModelGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
-const voiceSessions = new VoiceSessionRegistry(() => ({
-  start: async (text) => startRun(text, 'voice'),
+const voiceSessions = new VoiceSessionRegistry((sessionId) => ({
+  start: async (text) => startRun(text, 'voice', sessionId),
   pause: async (runId) => controlActiveRun(runId, 'pause'),
   resume: async (runId) => controlActiveRun(runId, 'resume'),
   cancel: async (runId) => controlActiveRun(runId, 'cancel'),
@@ -95,6 +96,13 @@ if (interruptedRuns > 0) {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function continuitySnapshot() {
+  return reconstructContinuity(
+    store.listChronologyRecords(),
+    new ErrorLedger(store.listErrorLessons()),
+  );
+}
 
 function createConfiguredModelGateway(): ModelGateway | undefined {
   const baseUrl = process.env.JANUS_MODEL_BASE_URL?.trim();
@@ -182,6 +190,7 @@ function demoSteps(command: string): JanusStep[] {
 }
 
 async function prepareSteps(command: string): Promise<JanusStep[] | null> {
+  const continuity = continuitySnapshot();
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
 
   if (!plan && modelGateway) {
@@ -191,6 +200,22 @@ async function prepareSteps(command: string): Promise<JanusStep[] | null> {
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        continuity: {
+          activeInstructions: continuity.activeInstructions.map((record) => ({
+            subject: record.subject,
+            content: record.content,
+            status: record.status,
+            at: record.at,
+          })),
+          preventiveRules: continuity.preventiveRules,
+          resumeFrom: continuity.resumeFrom
+            ? {
+                subject: continuity.resumeFrom.subject,
+                content: continuity.resumeFrom.content,
+                at: continuity.resumeFrom.at,
+              }
+            : null,
+        },
       },
       maxSteps: 20,
       allowedTools,
@@ -228,7 +253,7 @@ function assertCapabilitiesReady(plan: JanusPlan): void {
   }
 }
 
-function startRun(command: string, inputMode: 'voice' | 'text'): string {
+function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${inputMode}-runtime`): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
     store.appendEvent(event);
@@ -247,6 +272,18 @@ function startRun(command: string, inputMode: 'voice' | 'text'): string {
   });
 
   const runId = runner.snapshot().runId;
+  const previousActive = continuitySnapshot().currentBySubject['active-work'];
+  store.appendChronologyRecord({
+    id: `task:${runId}`,
+    sessionId,
+    at: new Date().toISOString(),
+    kind: 'task',
+    subject: 'active-work',
+    content: command,
+    status: 'current',
+    ...(previousActive ? { supersedesId: previousActive.id } : {}),
+    metadata: { runId, inputMode },
+  });
   runners.set(runId, runner);
   store.upsertRun(runner.snapshot());
   const activeRunner = runner;
@@ -385,11 +422,33 @@ const server = createServer(async (request, response) => {
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
+      continuity: {
+        records: store.listChronologyRecords().length,
+        errorLessons: store.listErrorLessons().length,
+        resumeFrom: continuitySnapshot().resumeFrom?.subject ?? null,
+      },
       credentials: {
         githubConfigured: environmentCredentials.configured('github'),
         googleConfigured,
         modelConfigured: Boolean(modelGateway),
         provider: 'replaceable-broker',
+      },
+    });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/continuity') {
+    const continuity = continuitySnapshot();
+    json(response, 200, {
+      ok: true,
+      continuity: {
+        latestSessionId: continuity.latestSessionId ?? null,
+        activeInstructions: continuity.activeInstructions,
+        preventiveRules: continuity.preventiveRules,
+        resumeFrom: continuity.resumeFrom ?? null,
+        historicalCount: continuity.historical.length,
+        recordCount: continuity.orderedRecords.length,
+        errorLessons: continuity.errorLessons,
       },
     });
     return;
@@ -407,7 +466,10 @@ const server = createServer(async (request, response) => {
       json(response, 400, { ok: false, error: 'text is required' });
       return;
     }
-    const runId = startRun(text, body.inputMode === 'voice' ? 'voice' : 'text');
+    const sessionId = typeof body.sessionId === 'string' && body.sessionId.trim()
+      ? body.sessionId.trim()
+      : 'text-runtime';
+    const runId = startRun(text, body.inputMode === 'voice' ? 'voice' : 'text', sessionId);
     json(response, 202, { ok: true, runId });
     return;
   }
