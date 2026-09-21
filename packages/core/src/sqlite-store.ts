@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
+import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
 
 export class SqliteStore {
@@ -34,6 +35,89 @@ export class SqliteStore {
       event.summary,
       JSON.stringify(event.payload ?? {}),
     );
+  }
+
+  upsertConversationSession(session: ConversationSession): void {
+    this.db.prepare(`
+      INSERT INTO conversation_sessions
+        (id, source, started_at, ended_at, metadata_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        source = excluded.source,
+        started_at = MIN(conversation_sessions.started_at, excluded.started_at),
+        ended_at = COALESCE(excluded.ended_at, conversation_sessions.ended_at),
+        metadata_json = excluded.metadata_json
+    `).run(
+      session.id,
+      session.source,
+      session.startedAt,
+      session.endedAt ?? null,
+      JSON.stringify(session.metadata ?? {}),
+    );
+  }
+
+  appendConversationMessage(message: ConversationMessage): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO conversation_messages
+        (id, session_id, at, seq, role, content, source, source_ref, metadata_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      message.id,
+      message.sessionId,
+      message.at,
+      message.sequence ?? null,
+      message.role,
+      message.content,
+      message.source,
+      message.sourceRef ?? null,
+      JSON.stringify(message.metadata ?? {}),
+    );
+  }
+
+  listConversationSessions(limit = 500): ConversationSession[] {
+    const rows = this.db.prepare(`
+      SELECT id, source, started_at, ended_at, metadata_json
+      FROM conversation_sessions
+      ORDER BY started_at ASC, id ASC
+      LIMIT ?
+    `).all(limit) as Record<string, unknown>[];
+
+    return rows.map((row) => ({
+      id: String(row.id),
+      source: String(row.source) as ConversationSession['source'],
+      startedAt: String(row.started_at),
+      ...(row.ended_at == null ? {} : { endedAt: String(row.ended_at) }),
+      metadata: JSON.parse(String(row.metadata_json)) as Record<string, unknown>,
+    }));
+  }
+
+  listConversationMessages(sessionId?: string, limit = 5000): ConversationMessage[] {
+    const rows = sessionId
+      ? this.db.prepare(`
+          SELECT id, session_id, at, seq, role, content, source, source_ref, metadata_json
+          FROM conversation_messages
+          WHERE session_id = ?
+          ORDER BY at ASC, COALESCE(seq, 0) ASC, id ASC
+          LIMIT ?
+        `).all(sessionId, limit)
+      : this.db.prepare(`
+          SELECT id, session_id, at, seq, role, content, source, source_ref, metadata_json
+          FROM conversation_messages
+          ORDER BY at ASC, COALESCE(seq, 0) ASC, id ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      id: String(row.id),
+      sessionId: String(row.session_id),
+      at: String(row.at),
+      ...(row.seq == null ? {} : { sequence: Number(row.seq) }),
+      role: String(row.role) as ConversationMessage['role'],
+      content: String(row.content),
+      source: String(row.source) as ConversationMessage['source'],
+      ...(row.source_ref == null ? {} : { sourceRef: String(row.source_ref) }),
+      metadata: JSON.parse(String(row.metadata_json)) as Record<string, unknown>,
+    }));
   }
 
   appendChronologyRecord(record: ChronologyRecord): void {
@@ -252,6 +336,36 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_events_run_seq
       ON events(run_id, seq);
+
+      CREATE TABLE IF NOT EXISTS conversation_sessions (
+        id TEXT PRIMARY KEY,
+        source TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        metadata_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_sessions_started
+      ON conversation_sessions(started_at, id);
+
+      CREATE TABLE IF NOT EXISTS conversation_messages (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        seq INTEGER,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        source TEXT NOT NULL,
+        source_ref TEXT,
+        metadata_json TEXT NOT NULL,
+        FOREIGN KEY(session_id) REFERENCES conversation_sessions(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_messages_session_time
+      ON conversation_messages(session_id, at, seq, id);
+
+      CREATE INDEX IF NOT EXISTS idx_conversation_messages_time
+      ON conversation_messages(at, seq, id);
 
       CREATE TABLE IF NOT EXISTS chronology_records (
         id TEXT PRIMARY KEY,
