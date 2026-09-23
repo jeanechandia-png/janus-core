@@ -12,6 +12,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Capability Modules / IBA integration**:
+  - Identity & Presence definido como capacidad nativa de Janus y módulo reutilizable desacoplado;
+  - IBA corregido como nombre del producto (con B);
+  - casos iniciales: Admin Dashboard, Sensitive Vault, re-autenticación y auditoría;
+  - packaging comercial provisional: IBA Core / Secure Access / Secure Vault / Enterprise Security;
+  - precio marcado POR CONFIRMAR mediante estudio de mercado + willingness-to-pay;
+  - regla general para evaluar futuras capacidades Janus como módulos/SDK reutilizables.
+
 - **Janus Identity & Presence (ADR-006)**:
   - verificación facial como factor biométrico local, no como autoridad por sí sola;
   - liveness/anti-spoof obligatorio para assurance fuerte;
