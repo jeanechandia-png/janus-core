@@ -12,6 +12,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Coding & Agentic Engineering Expertise (2026-09-23)**:
+  - `coding` y `agentic_workflow` son tipos de trabajo nativos del Work Graph;
+  - Agent Swarm asigna Builder especializado a coding y Workflow Architect a agentic workflows;
+  - capacidades explícitas: arquitectura, debugging, testing, security/performance y, para workflows, multi-agent, tool use, MCP, memory/RAG, HITL, observability, recovery y evaluation;
+  - política de actualización continua exige conocimiento vigente y prioriza fuentes primarias antes de decisiones sensibles a cambios tecnológicos;
+  - verificación obligatoria por dominio y principios local-first/provider-independent quedan codificados como contrato ejecutable.
+
+
 - **Administrative Authority Control Plane (ADR-005)**:
   - Founder/Director autenticado como máxima autoridad humana de Janus;
   - identidad mediante principal interno estable, sin usar datos biográficos como secreto;
@@ -89,6 +97,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
+1. Conectar `expertisePolicy` al planner/runtime para insertar automáticamente investigación fresca cuando el conocimiento técnico esté vencido y bloquear entrega si faltan verificaciones obligatorias.
 1. Conectar Authority Control Plane al runtime, TaskRunner, Tool Gateway y Automation Engine antes de acciones privilegiadas.
 2. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
 1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
@@ -136,7 +145,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar la integración P0 del Super-Agent:
+Cerrar la integración P0 del Super-Agent e integrar el nuevo Expertise Policy al planner/runtime:
 
 **trigger/input -> continuidad -> Workflow revision + Blueprint -> planificación -> workflow graph/swarm -> ejecución -> approvals/retries/error paths -> Delivery Gate -> receipt -> outcome -> drift/calibración -> propuesta -> aprobación -> nueva revisión -> checkpoint cronológico.**
 
