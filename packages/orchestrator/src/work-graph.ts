@@ -1,4 +1,4 @@
-export type WorkNodeKind = 'research' | 'analysis' | 'tool' | 'synthesis' | 'verification';
+export type WorkNodeKind = 'research' | 'analysis' | 'coding' | 'agentic_workflow' | 'tool' | 'synthesis' | 'verification';
 
 export interface WorkNode {
   id: string;
