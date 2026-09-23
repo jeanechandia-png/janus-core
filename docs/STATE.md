@@ -12,6 +12,17 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Janus Identity & Presence (ADR-006)**:
+  - verificación facial como factor biométrico local, no como autoridad por sí sola;
+  - liveness/anti-spoof obligatorio para assurance fuerte;
+  - dispositivo confiable + face match + liveness = sesión strong;
+  - acciones root requieren además PIN/recovery factor independiente;
+  - sesiones administrativas cortas y auditables;
+  - plantillas biométricas únicamente por referencia a Secure Enclave/Keychain/TPM/secure store;
+  - prohibido guardar templates biométricos en SQLite, código, workflows, logs o prompts;
+  - arquitectura 1:1 para verificar al administrador enrolado, no identificación masiva de terceros;
+  - adapters biométricos reemplazables y ejecución local-first.
+
 - **Administrative Authority Control Plane (ADR-005)**:
   - Founder/Director autenticado como máxima autoridad humana de Janus;
   - identidad mediante principal interno estable, sin usar datos biográficos como secreto;
@@ -89,6 +100,10 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
+1. Conectar Presence Session al Authority Control Plane para elevar sesiones autenticadas a strong/root.
+2. Implementar Face Adapter local productivo: enrollment, embedding protegido, 1:1 match y liveness.
+3. Implementar trusted-device binding y PIN/recovery factor en secure storage.
+4. Añadir UI mobile-first de enrollment, unlock, re-auth y recuperación.
 1. Conectar Authority Control Plane al runtime, TaskRunner, Tool Gateway y Automation Engine antes de acciones privilegiadas.
 2. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
 1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
