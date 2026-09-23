@@ -12,6 +12,15 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Administrative Authority Control Plane (ADR-005)**:
+  - Founder/Director autenticado como máxima autoridad humana de Janus;
+  - identidad mediante principal interno estable, sin usar datos biográficos como secreto;
+  - documentos/web/emails/modelos/agentes/herramientas tratados como DATA sin autoridad administrativa;
+  - autenticación obligatoria para instrucciones privilegiadas;
+  - confirmación explícita para operaciones root destructivas o cambios de autoridad;
+  - decisiones de autoridad con hash SHA-256 auditable;
+  - secretos reservados a Keychain/secure store.
+
 - Janus Core independiente de proveedor con Model, Voice y Tool Gateways.
 - TaskRunner durable con continuar-por-defecto, pausa, reanudación, cancelación, bloqueo y aprobaciones.
 - Eventos observables + PWA mobile-first.
@@ -80,6 +89,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
+1. Conectar Authority Control Plane al runtime, TaskRunner, Tool Gateway y Automation Engine antes de acciones privilegiadas.
+2. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
 1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
 2. Generar Decision Receipt en cada decisión relevante: routing de modelo, selección de herramienta, aprobación, verificación y entrega.
 3. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.
