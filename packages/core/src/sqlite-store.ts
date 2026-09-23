@@ -3,6 +3,9 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
 import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
+import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
+import type { DecisionReceipt } from './decision-receipt.js';
+import type { LearningObservation, ImprovementProposal } from './outcome-learning.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
 
 export class SqliteStore {
@@ -233,6 +236,179 @@ export class SqliteStore {
     }));
   }
 
+
+  upsertDecisionBlueprint(blueprint: DecisionBlueprint): void {
+    this.db.prepare(`
+      INSERT INTO decision_blueprints
+        (blueprint_id, revision, status, created_at, blueprint_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(blueprint_id, revision) DO UPDATE SET
+        status = excluded.status,
+        created_at = excluded.created_at,
+        blueprint_json = excluded.blueprint_json
+    `).run(
+      blueprint.id,
+      blueprint.revision,
+      blueprint.status,
+      blueprint.createdAt,
+      JSON.stringify(blueprint),
+    );
+  }
+
+  getDecisionBlueprint(blueprintId: string, revision?: number): DecisionBlueprint | null {
+    const row = revision === undefined
+      ? this.db.prepare(`
+          SELECT blueprint_json
+          FROM decision_blueprints
+          WHERE blueprint_id = ?
+          ORDER BY revision DESC
+          LIMIT 1
+        `).get(blueprintId)
+      : this.db.prepare(`
+          SELECT blueprint_json
+          FROM decision_blueprints
+          WHERE blueprint_id = ? AND revision = ?
+        `).get(blueprintId, revision);
+
+    if (!row) return null;
+    return JSON.parse(String((row as Record<string, unknown>).blueprint_json)) as DecisionBlueprint;
+  }
+
+  listDecisionBlueprints(blueprintId?: string): DecisionBlueprint[] {
+    const rows = blueprintId
+      ? this.db.prepare(`
+          SELECT blueprint_json
+          FROM decision_blueprints
+          WHERE blueprint_id = ?
+          ORDER BY revision ASC
+        `).all(blueprintId)
+      : this.db.prepare(`
+          SELECT blueprint_json
+          FROM decision_blueprints
+          ORDER BY blueprint_id ASC, revision ASC
+        `).all();
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.blueprint_json)) as DecisionBlueprint,
+    );
+  }
+
+  appendDecisionReceipt(receipt: DecisionReceipt): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO decision_receipts
+        (
+          hash, id, run_id, at, blueprint_id, blueprint_revision,
+          previous_receipt_hash, receipt_json
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      receipt.hash,
+      receipt.id,
+      receipt.runId,
+      receipt.at,
+      receipt.blueprintId,
+      receipt.blueprintRevision,
+      receipt.previousReceiptHash ?? null,
+      JSON.stringify(receipt),
+    );
+  }
+
+  listDecisionReceipts(runId?: string, limit = 5000): DecisionReceipt[] {
+    const rows = runId
+      ? this.db.prepare(`
+          SELECT receipt_json
+          FROM decision_receipts
+          WHERE run_id = ?
+          ORDER BY at ASC, rowid ASC
+          LIMIT ?
+        `).all(runId, limit)
+      : this.db.prepare(`
+          SELECT receipt_json
+          FROM decision_receipts
+          ORDER BY at ASC, rowid ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.receipt_json)) as DecisionReceipt,
+    );
+  }
+
+  appendLearningObservation(observation: LearningObservation): void {
+    this.db.prepare(`
+      INSERT OR REPLACE INTO learning_observations
+        (id, receipt_hash, blueprint_id, blueprint_revision, at, observation_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      observation.id,
+      observation.receiptHash,
+      observation.blueprintId,
+      observation.blueprintRevision,
+      observation.at,
+      JSON.stringify(observation),
+    );
+  }
+
+  listLearningObservations(blueprintId?: string, limit = 5000): LearningObservation[] {
+    const rows = blueprintId
+      ? this.db.prepare(`
+          SELECT observation_json
+          FROM learning_observations
+          WHERE blueprint_id = ?
+          ORDER BY at ASC, id ASC
+          LIMIT ?
+        `).all(blueprintId, limit)
+      : this.db.prepare(`
+          SELECT observation_json
+          FROM learning_observations
+          ORDER BY at ASC, id ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.observation_json)) as LearningObservation,
+    );
+  }
+
+  upsertImprovementProposal(proposal: ImprovementProposal | BlueprintRevisionProposal): void {
+    this.db.prepare(`
+      INSERT INTO improvement_proposals
+        (id, blueprint_id, from_revision, status, created_at, proposal_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        status = excluded.status,
+        proposal_json = excluded.proposal_json
+    `).run(
+      proposal.id,
+      proposal.blueprintId,
+      proposal.fromRevision,
+      proposal.status,
+      proposal.createdAt,
+      JSON.stringify(proposal),
+    );
+  }
+
+  listImprovementProposals(
+    status?: ImprovementProposal['status'],
+  ): Array<ImprovementProposal | BlueprintRevisionProposal> {
+    const rows = status
+      ? this.db.prepare(`
+          SELECT proposal_json
+          FROM improvement_proposals
+          WHERE status = ?
+          ORDER BY created_at ASC, id ASC
+        `).all(status)
+      : this.db.prepare(`
+          SELECT proposal_json
+          FROM improvement_proposals
+          ORDER BY created_at ASC, id ASC
+        `).all();
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.proposal_json)) as ImprovementProposal | BlueprintRevisionProposal,
+    );
+  }
+
   upsertRun(snapshot: RunSnapshot): void {
     this.db.prepare(`
       INSERT INTO runs
@@ -403,6 +579,56 @@ export class SqliteStore {
         priority TEXT NOT NULL,
         requires_protection_review INTEGER NOT NULL DEFAULT 0
       );
+      CREATE TABLE IF NOT EXISTS decision_blueprints (
+        blueprint_id TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        blueprint_json TEXT NOT NULL,
+        PRIMARY KEY(blueprint_id, revision)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_decision_blueprints_status
+      ON decision_blueprints(status, blueprint_id, revision);
+
+      CREATE TABLE IF NOT EXISTS decision_receipts (
+        hash TEXT PRIMARY KEY,
+        id TEXT NOT NULL UNIQUE,
+        run_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        blueprint_id TEXT NOT NULL,
+        blueprint_revision INTEGER NOT NULL,
+        previous_receipt_hash TEXT,
+        receipt_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_decision_receipts_run_time
+      ON decision_receipts(run_id, at);
+
+      CREATE TABLE IF NOT EXISTS learning_observations (
+        id TEXT PRIMARY KEY,
+        receipt_hash TEXT NOT NULL,
+        blueprint_id TEXT NOT NULL,
+        blueprint_revision INTEGER NOT NULL,
+        at TEXT NOT NULL,
+        observation_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_learning_observations_blueprint_time
+      ON learning_observations(blueprint_id, at);
+
+      CREATE TABLE IF NOT EXISTS improvement_proposals (
+        id TEXT PRIMARY KEY,
+        blueprint_id TEXT NOT NULL,
+        from_revision INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        proposal_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_improvement_proposals_status
+      ON improvement_proposals(status, created_at);
+
     `);
   }
 }
