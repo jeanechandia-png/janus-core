@@ -4,11 +4,11 @@ Fecha: 2026-09-23
 
 ## AHORA
 
-**M1/M2 — Super-Agent Decision Loop + Continuidad + Ejecución observable**
+**M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
 
 Integrar la nueva capa de Super-Agent en la ruta productiva completa: continuidad vigente -> Decision Blueprint -> Work Graph -> Agent Swarm -> Model/Tool Gateway -> guardrails/aprobación -> ejecución -> Delivery Gate -> Decision Receipt -> outcome -> calibración/drift -> propuesta de mejora.
 
-La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pero no modificar silenciosamente producción.
+La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pero no modificar silenciosamente producción. La nueva capa de automatización convierte workflows deterministas y agentic workflows en una misma arquitectura Janus.
 
 ## HECHO
 
@@ -63,6 +63,19 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - persistencia SQLite de Blueprints, receipts, outcomes y propuestas;
   - capability map para Vision, Voice, Office, Research, Builder, Learning y cross-device continuity.
 - Pruebas unitarias para Blueprints, receipts, learning/drift, swarm y persistencia.
+- **Flow Automation Engine foundations (ADR-004)**:
+  - workflows versionados como grafos de nodos/conexiones;
+  - nodos deterministas y agentic dentro del mismo workflow;
+  - triggers manual / schedule / webhook / event / poll;
+  - Node Registry extensible y versionado para integraciones;
+  - expresiones low-code seguras por rutas de contexto, sin eval arbitrario en Core;
+  - políticas por nodo: riesgo, reversibilidad, aprobación, timeout, retry/backoff y error handling;
+  - referencias de credenciales sin secretos embebidos;
+  - primitives de concurrencia y ejecución reanudable;
+  - compilación Workflow -> Work Graph + Tool Plan;
+  - diff de revisiones y base para rollback;
+  - capability map de automatización con subflows, code isolation, dry-run/replay y visual editor como siguientes fases.
+- Pruebas unitarias para schema/validation, expressions, execution/concurrency, compiler y Node Registry.
 
 ## PENDIENTE
 
@@ -74,7 +87,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 5. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
 6. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
 7. Persistir Work Graph/jobs/citations/improvement history restantes en SQLite.
-8. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+8. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+9. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+10. Implementar error branches, waits y approvals completos sobre runtime durable.
+11. Añadir simulation/dry-run/replay antes de external writes.
+12. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -82,7 +99,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - Research Agent: investigación actual, evidencia y Citation Ledger.
 - Builder Agent: plan -> código -> test -> validación -> deploy con aprobación.
 - Learning Agent: tutoría adaptativa y ejercicios.
-- Proactive Monitor/Scheduler para drift, costos, deadlines, tareas bloqueadas y errores no resueltos.
+- Visual Workflow Editor mobile-first/desktop con canvas de nodos, conexiones, inspección y ejecución paso a paso.
+- Biblioteca de Janus Skills/Subflows reutilizables y templates versionados.
+- Custom Code nodes en runner aislado/hardened.
+- Webhook server + scheduler + event bus + polling adapters productivos.
+- Proactive Monitor/Scheduler para drift, costos, deadlines, workflows bloqueados y errores no resueltos.
 - Renderizar en PWA: contexto recuperado, Blueprint activo, agentes, receipts, drift, Quality Gates y punto de reanudación.
 - Integrar model inventory real con Model Router y métricas observadas de calidad/costo/latencia.
 - Ingestión documental completa con coverage checkpoints.
@@ -106,7 +127,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 Cerrar la integración P0 del Super-Agent:
 
-**continuidad -> Blueprint -> planificación -> swarm -> ejecución -> Delivery Gate -> receipt -> outcome -> drift/calibración -> propuesta -> aprobación -> revisión de Blueprint -> checkpoint cronológico.**
+**trigger/input -> continuidad -> Workflow revision + Blueprint -> planificación -> workflow graph/swarm -> ejecución -> approvals/retries/error paths -> Delivery Gate -> receipt -> outcome -> drift/calibración -> propuesta -> aprobación -> nueva revisión -> checkpoint cronológico.**
 
 ## Regla de continuidad
 
