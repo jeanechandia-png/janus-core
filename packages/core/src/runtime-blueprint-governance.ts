@@ -102,12 +102,10 @@ export function verifyRuntimeBlueprintCandidate(input: {
     }
   }
 
-  const registered = new Map(
-    Object.entries(input.registeredTools).map(([tool, actions]) => [
-      tool,
-      new Set(actions),
-    ]),
-  );
+  const registered = new Map<string, Set<string>>();
+  for (const [tool, actions] of Object.entries(input.registeredTools)) {
+    registered.set(tool, new Set(actions));
+  }
   for (const toolPolicy of input.candidate.tools) {
     const allowed = registered.get(toolPolicy.tool);
     if (!allowed) {
@@ -216,9 +214,6 @@ export function approveRuntimeImprovementProposal(input: {
       throw new Error('Approved proposal must have exactly one draft candidate');
     }
     const existing = existingDrafts[0]!;
-    if (stableJson(existing) !== stableJson(input.candidate)) {
-      throw new Error('Approved proposal candidate differs from persisted draft');
-    }
     const verification = verifyRuntimeBlueprintCandidate({
       current: input.current,
       candidate: existing,
