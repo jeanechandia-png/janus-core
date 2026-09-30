@@ -79,7 +79,39 @@ test('requires one active Blueprint and preserves historical revisions across ap
       registeredTools,
     });
     assert.equal(approved.proposal.status, 'approved');
+    assert.equal(
+      'proposedRevision' in approved.proposal
+        ? approved.proposal.proposedRevision
+        : undefined,
+      2,
+    );
     assert.equal(store.getDecisionBlueprint(current.id, 2)?.status, 'draft');
+
+    const replayCandidate = buildRuntimeBlueprintCandidate({
+      store,
+      current,
+      content: {
+        objective: current.objective,
+        modelPolicy: {
+          ...current.modelPolicy,
+          preferLowLatency: true,
+        },
+        agents: current.agents,
+        tools: current.tools,
+        guardrails: current.guardrails,
+        successMetrics: current.successMetrics,
+      },
+      createdAt: '2026-09-30T20:32:30.000Z',
+    });
+    const replayApproval = approveRuntimeImprovementProposal({
+      store,
+      proposalId: 'proposal_1',
+      current,
+      candidate: replayCandidate,
+      registeredTools,
+    });
+    assert.equal(replayApproval.candidate.revision, 2);
+    assert.equal(store.getDecisionBlueprint(current.id, 3), null);
 
     const applied = applyApprovedRuntimeBlueprint({
       store,
@@ -112,6 +144,15 @@ test('requires one active Blueprint and preserves historical revisions across ap
     assert.equal(
       resolveActiveRuntimeBlueprint(store, seedBlueprint()).revision,
       3,
+    );
+    assert.throws(
+      () => applyApprovedRuntimeBlueprint({
+        store,
+        proposalId: 'proposal_1',
+        current: rollback.active,
+        registeredTools,
+      }),
+      /superseded/i,
     );
   } finally {
     store.close();
