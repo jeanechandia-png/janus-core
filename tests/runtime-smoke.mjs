@@ -82,6 +82,32 @@ try {
   assert.equal(learningBody.ok, true);
   assert.equal(learningBody.calibration?.count, 0);
   assert.deepEqual(learningBody.observations, []);
+  assert.equal(learningBody.blueprint?.revision, 1);
+  assert.equal(learningBody.blueprintHistory?.length, 1);
+  assert.equal(learningBody.blueprintHistory?.[0]?.status, 'active');
+
+  const unauthenticatedGovernance = await fetch(
+    `${base}/api/learning/proposals/not-real/reject`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    },
+  );
+  assert.equal(unauthenticatedGovernance.status, 401);
+
+  const unauthenticatedRollback = await fetch(
+    `${base}/api/learning/blueprints/rollback`,
+    {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        targetRevision: 1,
+        confirmAction: 'rollback_blueprint_revision',
+      }),
+    },
+  );
+  assert.equal(unauthenticatedRollback.status, 401);
 
   const googleRunId = await startCommand(base, 'mira mi calendario');
   const googleRun = await waitForRun(base, googleRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
