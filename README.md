@@ -141,6 +141,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Operator revocation invalidates sessions and active coordination grants; Janus Core may coordinate local state globally without inheriting Founder authority for privileged external writes.
 - Reusable LEGO Library: versioned symbols/photos/logos/icons/buttons/fonts/design tokens/themes/components/modules/templates/workflows/prompts with dependency resolution and SHA-256 integrity.
 - Durable project workspaces with multiple threads, project-scoped chronology, resource references and automatic context checkpoints.
+- Projects can bind to coordination scopes; authenticated collaborators still need explicit project/scope access and cannot enumerate Founder-private projects.
 - A fresh project thread bootstraps from prior project instructions/decisions/resume state automatically; project-linked runs persist a new checkpoint at completion.
 - Project planning receives only that project's continuity plus its resources/latest checkpoint instead of relying on one overloaded chat window.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
