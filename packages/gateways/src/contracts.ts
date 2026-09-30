@@ -49,11 +49,18 @@ export interface TextToSpeechGateway {
 
 export interface VoiceGateway extends SpeechToTextGateway, TextToSpeechGateway {}
 
+export interface ToolExecutionAuthorization {
+  privileged: boolean;
+  authorityDecisionHash?: string;
+  principalId?: string;
+}
+
 export interface ToolRequest {
   tool: string;
   action: string;
   input: Record<string, unknown>;
   idempotencyKey?: string;
+  authorization?: ToolExecutionAuthorization;
 }
 
 export interface ToolProgress {

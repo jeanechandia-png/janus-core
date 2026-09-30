@@ -470,6 +470,12 @@ const server = createServer(async (request, response) => {
         dimensions: ['coherence', 'structural', 'visual', 'architectural', 'orthographic', 'synthesis'],
         baseline: 'offline-reviewers-v1',
       },
+      authority: {
+        privilegedActionGuard: 'enforced',
+        authentication: 'pending-secure-local-auth',
+        unauthenticatedMutations: 'blocked',
+        audit: 'event-log+sha256-decision-hash',
+      },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
       continuity: {

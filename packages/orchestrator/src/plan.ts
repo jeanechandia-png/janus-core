@@ -37,7 +37,7 @@ export interface PlanValidationResult {
   errors: string[];
 }
 
-const WRITE_LIKE_ACTION = /(^|\.)(create|update|delete|send|publish|deploy|pay|purchase)(\.|$)/i;
+const WRITE_LIKE_ACTION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
 
 export function validatePlan(
   plan: JanusPlan,

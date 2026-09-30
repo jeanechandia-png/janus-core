@@ -1,4 +1,10 @@
 import { randomUUID } from 'node:crypto';
+import {
+  evaluateAuthority,
+  type AuthorityInstruction,
+  type AuthorityPolicy,
+  type AuthorityPrincipal,
+} from './authority.js';
 import type { DeliveryGate } from './delivery-gate.js';
 import type {
   EventSink,
@@ -26,7 +32,19 @@ export interface StepContext {
     payload?: Record<string, unknown>,
     source?: JanusEvent['source'],
   ) => Promise<void>;
-  assertCanExecute: (action: ObservableAction) => Promise<void>;
+  assertCanExecute: (action: ObservableAction) => Promise<ActionExecutionPermit>;
+}
+
+export interface TaskAuthorityContext {
+  principal?: AuthorityPrincipal;
+  instruction: AuthorityInstruction;
+  confirmedActions?: readonly string[];
+}
+
+export interface ActionExecutionPermit {
+  privileged: boolean;
+  authorityDecisionHash?: string;
+  principalId?: string;
 }
 
 export interface JanusStep {
@@ -49,6 +67,8 @@ export interface TaskRunnerOptions {
   sink: EventSink;
   approvalHandler?: ApprovalHandler;
   deliveryGate?: DeliveryGate;
+  authorityContext?: TaskAuthorityContext;
+  authorityPolicy?: AuthorityPolicy;
   now?: () => Date;
 }
 
@@ -168,28 +188,104 @@ export class TaskRunner {
     await this.emit('run.blocked', reason, details);
   }
 
-  private async assertCanExecute(action: ObservableAction): Promise<void> {
+  private async assertCanExecute(action: ObservableAction): Promise<ActionExecutionPermit> {
     await this.checkpoint();
-    if (!action.requiresApproval) return;
 
-    this.status = 'waiting_approval';
-    await this.emit('approval.required', `Aprobación requerida: ${action.label}`, {
-      action,
-    });
+    const privileged = isPrivilegedAction(action);
+    let authorityDecisionHash: string | undefined;
+    let principalId: string | undefined;
 
-    if (!this.options.approvalHandler) {
-      await this.block('No hay manejador de aprobación disponible', { action });
-      throw new Error('Approval handler unavailable');
+    if (privileged) {
+      const authority = this.options.authorityContext;
+      const instruction: AuthorityInstruction = authority?.instruction ?? {
+        id: `authority:${this.runId}`,
+        principalId: 'anonymous',
+        source: 'message',
+        authenticated: false,
+        instruction: this.goal,
+        requestedAt: this.startedAt,
+      };
+      const operation = action.operation ?? action.id;
+      const authorityDecision = evaluateAuthority(
+        authority?.principal,
+        instruction,
+        operation,
+        this.options.authorityPolicy,
+      );
+
+      authorityDecisionHash = authorityDecision.auditHash;
+      principalId = authority?.principal?.id;
+
+      await this.emit('authority.evaluated', `Autoridad evaluada: ${action.label}`, {
+        actionId: action.id,
+        tool: action.tool,
+        operation,
+        principalId: principalId ?? null,
+        allowed: authorityDecision.allowed,
+        requiresConfirmation: authorityDecision.requiresConfirmation,
+        reason: authorityDecision.reason,
+        auditHash: authorityDecision.auditHash,
+      }, 'system');
+
+      if (!authorityDecision.allowed) {
+        await this.block('Autoridad insuficiente para acción privilegiada', {
+          action,
+          authority: {
+            reason: authorityDecision.reason,
+            auditHash: authorityDecision.auditHash,
+          },
+        });
+        throw new Error(`Authority denied: ${authorityDecision.reason}`);
+      }
+
+      const confirmed = authority?.confirmedActions?.includes(operation) ?? false;
+      if (authorityDecision.requiresConfirmation && !confirmed) {
+        this.status = 'waiting_approval';
+        await this.emit('approval.required', `Confirmación explícita requerida: ${action.label}`, {
+          action,
+          authority: {
+            reason: authorityDecision.reason,
+            auditHash: authorityDecision.auditHash,
+            confirmationAction: operation,
+          },
+        });
+        await this.block('La acción requiere confirmación explícita de autoridad', {
+          action,
+          authorityDecisionHash: authorityDecision.auditHash,
+        });
+        throw new Error('Explicit authority confirmation required');
+      }
     }
 
-    const decision = await this.options.approvalHandler(action, this.snapshot());
-    if (!decision.approved) {
-      await this.block(decision.reason ?? 'Acción no aprobada', { action });
-      throw new Error(decision.reason ?? 'Action not approved');
+    if (action.requiresApproval) {
+      this.status = 'waiting_approval';
+      await this.emit('approval.required', `Aprobación requerida: ${action.label}`, {
+        action,
+        ...(authorityDecisionHash ? { authorityDecisionHash } : {}),
+      });
+
+      if (!this.options.approvalHandler) {
+        await this.block('No hay manejador de aprobación disponible', { action });
+        throw new Error('Approval handler unavailable');
+      }
+
+      const decision = await this.options.approvalHandler(action, this.snapshot());
+      if (!decision.approved) {
+        await this.block(decision.reason ?? 'Acción no aprobada', { action });
+        throw new Error(decision.reason ?? 'Action not approved');
+      }
     }
 
     this.status = 'running';
     await this.checkpoint();
+
+    return privileged
+      ? {
+          privileged: true,
+          authorityDecisionHash,
+          ...(principalId ? { principalId } : {}),
+        }
+      : { privileged: false };
   }
 
   private async checkpoint(): Promise<void> {
@@ -295,3 +391,16 @@ export class TaskRunner {
     return (this.options.now?.() ?? new Date()).toISOString();
   }
 }
+
+const PRIVILEGED_OPERATION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
+
+function isPrivilegedAction(action: ObservableAction): boolean {
+  return (
+    action.risk === 'medium'
+    || action.risk === 'high'
+    || !action.reversible
+    || action.requiresApproval
+    || Boolean(action.operation && PRIVILEGED_OPERATION.test(action.operation))
+  );
+}
+

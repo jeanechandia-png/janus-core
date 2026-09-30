@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-09-23
+Fecha: 2026-09-30
 
 ## AHORA
 
@@ -20,6 +20,12 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - confirmación explícita para operaciones root destructivas o cambios de autoridad;
   - decisiones de autoridad con hash SHA-256 auditable;
   - secretos reservados a Keychain/secure store.
+  - TaskRunner evalúa autoridad antes de toda acción privilegiada;
+  - `authority.evaluated` deja decisión, causa y hash en el event/audit stream;
+  - Tool Gateway bloquea mutaciones sin idempotency key y permiso de autoridad auditado;
+  - planes compilados y Automation Engine heredan la misma frontera de autoridad;
+  - runtime expone estado fail-closed: lecturas permitidas, mutaciones no autenticadas bloqueadas;
+  - autoridad válida y aprobación humana permanecen como controles separados.
 
 - Janus Core independiente de proveedor con Model, Voice y Tool Gateways.
 - TaskRunner durable con continuar-por-defecto, pausa, reanudación, cancelación, bloqueo y aprobaciones.
@@ -95,8 +101,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Conectar Authority Control Plane al runtime, TaskRunner, Tool Gateway y Automation Engine antes de acciones privilegiadas.
-2. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
+1. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
 1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
 2. Generar Decision Receipt en cada decisión relevante: routing de modelo, selección de herramienta, aprobación, verificación y entrega.
 3. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.

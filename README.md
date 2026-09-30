@@ -126,10 +126,12 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Janus-owned local conversation archive in SQLite with chronological replay.
 - Automatic extraction of explicit durable user instructions and reported errors into continuity records.
 - Delivery Gate enforced before artifact delivery with offline baseline reviewers for coherence, structure, visual presentation, architecture, orthography and synthesis.
+- Administrative Authority Control Plane enforced in TaskRunner and Tool Gateway: privileged mutations fail closed without authenticated authority, idempotency and required approval/confirmation.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
+- Implement secure local Founder/Director authentication plus administrator delegation/revocation without storing secrets in SQLite.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
 - Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.

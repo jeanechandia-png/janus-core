@@ -20,6 +20,21 @@ export class DefaultToolGateway implements ToolGateway {
     request: ToolRequest,
     onProgress: (progress: ToolProgress) => void | Promise<void>,
   ): Promise<ToolResult> {
+    if (isPrivilegedToolAction(request.action)) {
+      if (!request.idempotencyKey?.trim()) {
+        return {
+          ok: false,
+          error: `Privileged tool action requires an idempotency key: ${request.tool}.${request.action}`,
+        };
+      }
+      if (!validAuthorityPermit(request.authorization)) {
+        return {
+          ok: false,
+          error: `Privileged tool action requires an audited authority permit: ${request.tool}.${request.action}`,
+        };
+      }
+    }
+
     const adapter = this.adapters.get(request.tool);
     if (!adapter) {
       return {
@@ -55,4 +70,21 @@ export class DefaultToolGateway implements ToolGateway {
       };
     }
   }
+}
+
+
+const PRIVILEGED_TOOL_ACTION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
+
+function isPrivilegedToolAction(action: string): boolean {
+  return PRIVILEGED_TOOL_ACTION.test(action);
+}
+
+function validAuthorityPermit(
+  authorization: ToolRequest['authorization'],
+): boolean {
+  return Boolean(
+    authorization?.privileged
+      && authorization.authorityDecisionHash
+      && /^[a-f0-9]{64}$/i.test(authorization.authorityDecisionHash),
+  );
 }

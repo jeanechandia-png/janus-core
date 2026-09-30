@@ -115,5 +115,5 @@ function mapWorkNodeKind(node: WorkflowNode): WorkNodeKind {
 }
 
 function isWriteLike(action: string): boolean {
-  return /(^|\.)(create|update|delete|send|publish|deploy|pay|purchase)(\.|$)/i.test(action);
+  return /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i.test(action);
 }

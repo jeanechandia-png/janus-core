@@ -20,6 +20,7 @@ export type JanusEventType =
   | 'quality.started'
   | 'quality.passed'
   | 'quality.failed'
+  | 'authority.evaluated'
   | 'approval.required'
   | 'run.blocked'
   | 'run.paused'
@@ -43,6 +44,7 @@ export interface ObservableAction {
   id: string;
   label: string;
   tool?: string;
+  operation?: string;
   target?: string;
   risk: 'none' | 'low' | 'medium' | 'high';
   reversible: boolean;
