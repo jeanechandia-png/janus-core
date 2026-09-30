@@ -35,6 +35,20 @@ import {
   resolveReusableSelection,
   type ReusableLibraryKind,
 } from '../../packages/core/src/reusable-library.js';
+import {
+  assertAssistantProfileRevisionAppendOnly,
+  createAssistantProfileRevision,
+  createAssistantSurface,
+  defaultLandingAssistantProfile,
+  defaultLandingAssistantSurfaces,
+  resolveAssistantSurfaceConfig,
+} from '../../packages/core/src/assistant-control-plane.js';
+import {
+  CONTINUE_BY_ALTERNATIVES_POLICY,
+  buildOperationalBlockerResolution,
+  defaultProviderAlternatives,
+  type OperationalBlockerResolution,
+} from '../../packages/core/src/progress-policy.js';
 import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
@@ -128,6 +142,7 @@ const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
 const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
 const runProjects = new Map<string, { projectId: string; threadId: string }>();
+const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -157,6 +172,31 @@ capabilities.register({
   state: googleConfigured ? 'available' : 'needs_auth',
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
 });
+
+function ensureLandingAssistantControlPlane(): void {
+  const seedProfile = defaultLandingAssistantProfile();
+  const existingProfile = store.getAssistantProfileRevision(seedProfile.profileId);
+  if (!existingProfile) store.upsertAssistantProfileRevision(seedProfile);
+
+  for (const surface of defaultLandingAssistantSurfaces()) {
+    if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
+  }
+}
+
+function assistantControlSnapshot() {
+  const profiles = store.listAssistantProfileRevisions();
+  const surfaces = store.listAssistantSurfaces();
+  return {
+    profiles,
+    surfaces,
+    resolved: surfaces.map((surface) => resolveAssistantSurfaceConfig({
+      surface,
+      profiles,
+    })),
+  };
+}
+
+ensureLandingAssistantControlPlane();
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
@@ -727,6 +767,13 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        progressPolicy: {
+          id: CONTINUE_BY_ALTERNATIVES_POLICY.id,
+          rule: CONTINUE_BY_ALTERNATIVES_POLICY.rule,
+          mandatoryStops: CONTINUE_BY_ALTERNATIVES_POLICY.mandatoryStops,
+          requiredResponseShape:
+            'PROBLEM -> RISK -> CAUSE -> 2-4 REAL OPTIONS -> EVIDENCE -> RECOMMENDATION -> NEXT ACTION',
+        },
         decisionBlueprint: {
           id: blueprint.id,
           revision: blueprint.revision,
@@ -776,6 +823,20 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     });
 
     if (modelResult.error) {
+      const resolution = buildOperationalBlockerResolution({
+        problem: 'Configured model planner is unavailable for the current task.',
+        risk: 'Stopping the entire project would create unnecessary provider dependency.',
+        cause: modelResult.error,
+        kind: 'provider',
+        alternatives: defaultProviderAlternatives({
+          providerName: modelResult.provider ?? 'configured model provider',
+          task: command,
+          localAvailable: false,
+          otherModelAvailable: false,
+        }),
+        parkedIssue: 'Restore or replace the unavailable model-planning path.',
+      });
+      runBlockerResolutions.set(runId, resolution);
       recordDecision({
         runId,
         decisionKind: 'planning_worker_selection',
@@ -783,6 +844,15 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
         confidence: 0.5,
         outputSummary: 'Configured model planner failed before an executable plan was accepted.',
         metadata: { ok: false, error: modelResult.error },
+      });
+      recordDecision({
+        runId,
+        decisionKind: 'blocker_resolution',
+        selectedWorker: 'janus-core/continue-by-alternatives-v1',
+        confidence: 1,
+        outputSummary:
+          'Provider obstacle diagnosed with multiple alternatives instead of a single dead end.',
+        metadata: { resolution },
       });
       throw new Error(modelResult.error);
     }
@@ -860,16 +930,60 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       metadata: { ok: true },
     });
   } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    const resolution = buildOperationalBlockerResolution({
+      problem: 'A capability required by the accepted plan is not currently ready.',
+      risk: 'The current execution cannot honestly complete that step without a compatible capability.',
+      cause,
+      kind: 'capability',
+      alternatives: [
+        {
+          id: 'compatible-capability',
+          title: 'compatible registered capability',
+          description: 'Use another registered tool/model that satisfies the same plan requirement.',
+          preservesGoal: true,
+          availableNow: false,
+          risk: 'low',
+          nextAction: 'Check the Capability Registry and Model Router for a compatible substitute.',
+        },
+        {
+          id: 'park-dependent-step',
+          title: 'park the dependent step',
+          description: 'Keep the unavailable dependency pending and continue independent project work.',
+          preservesGoal: true,
+          availableNow: true,
+          risk: 'low',
+          nextAction: 'Record the dependency in the project handoff and advance unrelated tasks.',
+        },
+        {
+          id: 'prepare-offline',
+          title: 'prepare offline inputs',
+          description: 'Complete local analysis, assets, code or documentation that does not require the missing capability.',
+          preservesGoal: true,
+          availableNow: true,
+          risk: 'low',
+          nextAction: 'Complete all dependency-free preparation and revalidate the missing capability later.',
+        },
+      ],
+      parkedIssue: cause,
+    });
+    runBlockerResolutions.set(runId, resolution);
     recordDecision({
       runId,
       decisionKind: 'capability_verification',
       selectedWorker: 'janus-core/capability-registry',
       confidence: 1,
       outputSummary: 'Execution was blocked because a required capability is not ready.',
-      metadata: {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
+      metadata: { ok: false, error: cause },
+    });
+    recordDecision({
+      runId,
+      decisionKind: 'blocker_resolution',
+      selectedWorker: 'janus-core/continue-by-alternatives-v1',
+      confidence: 1,
+      outputSummary:
+        'Capability obstacle diagnosed and converted into alternatives plus a parked dependency.',
+      metadata: { resolution },
     });
     throw error;
   }
@@ -1132,8 +1246,10 @@ function startRun(
       try {
         steps = (await prepareSteps(command, runId)) ?? demoSteps(command);
       } catch (error) {
-        await activeRunner.block('Janus Core rechazó el plan antes de ejecutar herramientas', {
+        const resolution = runBlockerResolutions.get(runId);
+        await activeRunner.block('Janus Core no puede completar esta ruta todavía', {
           error: error instanceof Error ? error.message : String(error),
+          ...(resolution ? { resolution } : {}),
         });
         finishRun(activeRunner.snapshot());
         return;
@@ -1239,6 +1355,7 @@ function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
       || receipt.decisionKind === 'tool_selection'
       || receipt.decisionKind === 'approval'
       || receipt.decisionKind === 'delivery_verification'
+      || receipt.decisionKind === 'blocker_resolution'
       || receipt.decisionKind === 'run_outcome'
     ))
     .slice(-12)
@@ -1310,12 +1427,14 @@ function finishRun(snapshot: RunSnapshot): void {
     voiceSessions.runBlocked(snapshot.runId);
     runners.delete(snapshot.runId);
     runBlueprints.delete(snapshot.runId);
+    runBlockerResolutions.delete(snapshot.runId);
     return;
   }
   if (snapshot.status === 'completed' || snapshot.status === 'cancelled') {
     voiceSessions.runCompleted(snapshot.runId);
     runners.delete(snapshot.runId);
     runBlueprints.delete(snapshot.runId);
+    runBlockerResolutions.delete(snapshot.runId);
   }
 }
 
@@ -1450,6 +1569,21 @@ const server = createServer(async (request, response) => {
       },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
+      assistantControl: (() => {
+        const snapshot = assistantControlSnapshot();
+        return {
+          profiles: snapshot.profiles.length,
+          surfaces: snapshot.surfaces.length,
+          activeSurfaces: snapshot.surfaces.filter((surface) => surface.status === 'active').length,
+          inheritedCurrent: snapshot.surfaces.filter((surface) => surface.tracking === 'current').length,
+          endpoint: '/api/assistant-control',
+        };
+      })(),
+      progressPolicy: {
+        id: CONTINUE_BY_ALTERNATIVES_POLICY.id,
+        rule: CONTINUE_BY_ALTERNATIVES_POLICY.rule,
+        mandatoryStops: CONTINUE_BY_ALTERNATIVES_POLICY.mandatoryStops,
+      },
       reusableLibrary: {
         currentItems: store.listReusableLibraryItems({ status: 'current' }).length,
         revisions: store.listReusableLibraryItems().length,
