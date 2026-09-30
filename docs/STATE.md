@@ -96,6 +96,15 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - receipts actuales cubren selección de Blueprint, planner, validación de plan, disponibilidad de capacidades, selección de herramienta, autoridad, aprobación y Delivery Gate;
   - `GET /api/runs/:runId/decisions` expone Blueprint + receipts + verificación criptográfica de la cadena;
   - el model planner recibe el Blueprint vigente como contexto, pero Janus Core conserva la autoridad de validación y ejecución.
+- **Outcome Learning productivo sobre ejecuciones verificadas**:
+  - planes ejecutables reciben un `execution_prediction` explícito; la versión inicial usa prior neutral 0.5 hasta disponer de historial calibrado;
+  - `completed` solo entra como éxito cuando existe predicción previa y evidencia de Delivery Gate aprobado;
+  - fallos posteriores a una predicción ejecutable entran como failure; bloqueos por dependencia/autoridad/aprobación, cancelaciones y fallbacks sin adaptador quedan fuera de calibración;
+  - Learning Observations se persisten en SQLite y conservan el hash del receipt de predicción como evidencia;
+  - calibración/Brier y detección de drift se recalculan sobre outcomes verificables;
+  - drift negativo puede generar una Improvement Proposal, pero nunca la aplica: `requiresHumanApproval=true`;
+  - propuestas abiertas por la misma revisión evitan duplicados;
+  - `GET /api/learning` expone observaciones, calibración, drift y propuestas; `/health` publica el resumen operativo.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -119,8 +128,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.
-2. Conectar drift -> Improvement Proposal -> aprobación -> nueva revisión de Blueprint -> verificación/rollback.
+1. Cerrar Improvement Proposal -> aprobación/rechazo humana -> nueva revisión de Blueprint -> regression verification -> apply/rollback, manteniendo revisiones históricas inmutables.
+2. Sustituir el prior neutral de `execution_prediction` por confianza calibrada derivada de evidencia suficiente, sin autoajuste silencioso.
 3. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
 4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
 5. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
@@ -161,11 +170,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar el siguiente tramo P0 del Super-Agent:
+Cerrar el control humano del loop de mejora:
 
-**receipt verificado -> outcome observado -> calibración/Brier -> drift -> Improvement Proposal -> aprobación humana -> nueva revisión de Blueprint -> verificación/rollback -> checkpoint cronológico.**
+**Improvement Proposal -> revisión/aprobación explícita -> nueva revisión de Blueprint -> regression verification -> apply o rollback -> revisión anterior HISTÓRICA.**
 
-Después: integrar Model Router multi-model real para que routing, costo, latencia y calidad observada alimenten la misma cadena de aprendizaje.
+Después: integrar Model Router multi-model real para sustituir el prior neutral por routing/confianza basados en calidad, costo y latencia observados.
 
 ## Regla de continuidad
 
