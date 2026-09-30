@@ -11,6 +11,19 @@ import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insi
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
+import {
+  buildProductOperationsSnapshot,
+  createMonetizationRequirementSnapshot,
+  createProductHealthSnapshot,
+  createProductLedgerEntry,
+  createProductOperationalRecord,
+  createSocialChannelSnapshot,
+  type MonetizationRequirementSnapshot,
+  type ProductHealthSnapshot,
+  type ProductLedgerEntry,
+  type ProductOperationalRecord,
+  type SocialChannelSnapshot,
+} from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
@@ -259,6 +272,25 @@ function ensureLandingAssistantControlPlane(): void {
   for (const surface of defaultLandingAssistantSurfaces()) {
     if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
   }
+}
+
+function productOperationsSnapshot(productId: string) {
+  const product = store.getProductOperationalRecord(productId);
+  if (!product) throw new HttpRequestError(404, 'product operations record not found');
+  return buildProductOperationsSnapshot({
+    product,
+    ledgerEntries: store.listProductLedgerEntries(productId),
+    healthSnapshots: store.listProductHealthSnapshots(productId),
+    channelSnapshots: store.listSocialChannelSnapshots(productId),
+    monetizationRequirements: store.listMonetizationRequirementSnapshots(),
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+function productOperationsPortfolioSnapshot() {
+  return store.listProductOperationalRecords().map((product) => (
+    productOperationsSnapshot(product.id)
+  ));
 }
 
 function assistantControlSnapshot() {
@@ -2514,6 +2546,137 @@ const server = createServer(async (request, response) => {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
         : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/operations') {
+    try {
+      requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        products: productOperationsPortfolioSnapshot(),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const productOperationsMatch = url.pathname.match(/^\/api\/operations\/products\/([^/]+)$/);
+  const productOperationsId = productOperationsMatch?.[1];
+  if (request.method === 'GET' && productOperationsId) {
+    try {
+      requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        snapshot: productOperationsSnapshot(decodeURIComponent(productOperationsId)),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/products') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const product = createProductOperationalRecord(body as unknown as ProductOperationalRecord);
+      store.upsertProductOperationalRecord(product);
+      json(response, 201, { ok: true, product });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/ledger') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const entry = createProductLedgerEntry(body as unknown as ProductLedgerEntry);
+      if (!store.getProductOperationalRecord(entry.productId)) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.appendProductLedgerEntry(entry);
+      json(response, 201, { ok: true, entry });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/health') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createProductHealthSnapshot(body as unknown as ProductHealthSnapshot);
+      if (!store.getProductOperationalRecord(snapshot.productId)) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.appendProductHealthSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/social') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createSocialChannelSnapshot(body as unknown as SocialChannelSnapshot);
+      if (
+        snapshot.productId
+        && !store.getProductOperationalRecord(snapshot.productId)
+      ) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.upsertSocialChannelSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST'
+    && url.pathname === '/api/operations/monetization-requirements'
+  ) {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createMonetizationRequirementSnapshot(
+        body as unknown as MonetizationRequirementSnapshot,
+      );
+      store.upsertMonetizationRequirementSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
       json(response, status, authErrorBody(error));
     }
     return;
