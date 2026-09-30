@@ -168,6 +168,17 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - los handoffs multioperador incluyen esos blocker resolutions para que Julio o cualquier operador reciba rutas de continuación, no solo el error;
   - Model Planner recibe la política de progreso como contexto;
   - cambio automático real de proveedor queda pendiente del Model Router multi-model; Janus no afirma haber cambiado de modelo si no existe adapter compatible registrado.
+- **Assistant Config Publisher productivo**:
+  - genera bundle saneado/determinista por superficie con revisión exacta, checksums, instrucciones, guardrails, capacidades, presentation y módulos reutilizables;
+  - serialización idempotente: misma config -> mismo bundle/checksum/contenido;
+  - GitHub adapter añade `branch.get` y `file.publish`;
+  - `file.publish` exige auth, ref explícita, HEAD esperado, doble revalidación de rama e idempotencia por contenido;
+  - publisher runtime exige Founder + `confirmAction=publish_assistant_surface`, capability disponible, idempotency key y authority audit hash;
+  - Janus nunca adivina la rama productiva: el targetRef debe resolverse/confirmarse para cada publicación;
+  - después del write, Janus lee el archivo por commit y valida el bundle checksum antes de marcar `published_verified`;
+  - `applied` es un estado distinto y solo se alcanza con acknowledgement separado del mismo checksum;
+  - deliveries se persisten en SQLite con target/ref/path/head/commit/estado/intentos/evidencia;
+  - sin GitHub write credentials el publisher falla cerrado y no crea una falsa entrega.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -191,18 +202,19 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Conectar el Assistant Control Plane a las tres landings productivas mediante publisher/sync versionado: resolver target validado -> generar bundle saneado -> publicar -> verificar checksum/revisión aplicada -> recibir acknowledgement/telemetría. No exponer Janus local públicamente.
-2. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
-3. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
-4. Integrar Model Router multi-model real para que provider/capability alternatives puedan ejecutarse automáticamente y registrar routing, calidad/costo/latencia y confianza en Decision Receipts.
-5. Completar coordinación operativa con agenda/availability por operador, ingestión de calendarios por identidad y selección del próximo operador sin compartir credenciales privadas.
-6. Crear vista PWA mobile-first de operadores: tarea actual, scope, último handoff, blocker alternatives, próximos pasos y punto de reanudación.
-7. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-8. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-9. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-10. Implementar error branches, waits y approvals completos sobre runtime durable.
-11. Añadir simulation/dry-run/replay antes de external writes.
-12. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Integrar consumidores del Assistant Config Bundle en Infinity Group, Infinity ChatBox e IBA y añadir acknowledgement/health verificable de `bundleChecksum`; solo entonces “actualizado en las tres” equivale a live aplicado.
+2. Resolver automáticamente el target/release VIGENTE de cada producto antes de publicar, manteniendo confirmación Founder para external write.
+3. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
+4. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
+5. Integrar Model Router multi-model real para ejecutar provider/capability alternatives automáticamente y registrar routing, calidad/costo/latencia y confianza.
+6. Completar coordinación con agenda/availability por operador y selección de siguiente operador sin compartir credenciales privadas.
+7. Crear vista PWA mobile-first de coordinación: tarea, scope, handoff, blocker alternatives, próximos pasos y resume point.
+8. Crear reviewers productivos de las seis dimensiones vía Model Router cuando convenga.
+9. Conectar Flow Automation Engine productivamente a TaskRunner/Tool Gateway/Model Router.
+10. Persistir workflow definitions/revisions/node state/execution checkpoints.
+11. Implementar error branches, waits y approvals completos sobre runtime durable.
+12. Añadir simulation/dry-run/replay antes de external writes.
+13. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -236,16 +248,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar la distribución productiva del Assistant Control Plane antes de afirmar sincronización live:
+Conectar los consumidores productivos del bundle:
 
-**perfil padre -> config resuelta por superficie -> bundle saneado/versionado -> target validado -> publish idempotente -> checksum aplicado -> acknowledgement -> rollback/pin si falla.**
+**Janus profile -> resolved surface bundle -> verified repository publish -> product loader -> runtime health reports bundleChecksum -> Janus verifies acknowledgement -> applied.**
 
-Targets conocidos:
-- Infinity Group website: repositorio separado.
-- Infinity ChatBox: repositorio canónico `infinity-chatbox-platform`, release target debe revalidarse antes de publicar.
-- IBA: misma línea canónica de ChatBox; no crear fork, resolver su target/branch vigente antes de publicar.
-
-Después: Asset Store + usage graph + Model Router multi-model. El Model Router convertirá las alternativas de provider hoy documentadas en rutas ejecutables reales.
+No considerar una landing actualizada solo porque el bundle llegó al repositorio. El estado live exige evidencia del runtime consumidor. Después de cerrar los tres consumidores, continuar Asset Store + usage graph + Model Router multi-model.
 
 ## Regla de continuidad
 
