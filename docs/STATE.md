@@ -117,6 +117,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - rollback nunca reactiva una revisión antigua en sitio: crea una revisión nueva basada en el histórico elegido, preservando secuencia append-only;
   - proposal aprobado queda ligado a su `proposedRevision` exacta; replay es idempotente y no puede reaplicar una revisión ya superseded;
   - decisiones de gobernanza dejan registro cronológico con principal autenticado y revisiones afectadas.
+- **Execution Confidence calibrada y auditable**:
+  - cada `execution_prediction` consulta únicamente outcomes verificables de la misma revisión de Blueprint;
+  - con menos de 20 observaciones se conserva un prior neutral explícito de 0.5;
+  - con evidencia suficiente se usa una estimación Bayesiana conservadora con prior Beta(2,2);
+  - la confianza queda acotada a 0.10–0.90 para evitar certeza extrema a partir de muestras finitas;
+  - cuando existe drift, la estimación usa la ventana reciente para no tratar historia obsoleta como representativa;
+  - cada receipt registra modo, sample count, evidence count, media observada, Brier, drift y límites;
+  - esta confianza es informativa: no modifica autoridad, riesgo, aprobación ni políticas y no activa cambios silenciosos.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -140,14 +148,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Sustituir el prior neutral de `execution_prediction` por confianza calibrada derivada de evidencia suficiente, sin autoajuste silencioso.
-2. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
-3. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-4. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-5. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-6. Implementar error branches, waits y approvals completos sobre runtime durable.
-7. Añadir simulation/dry-run/replay antes de external writes.
-8. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
+2. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+3. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+4. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+5. Implementar error branches, waits y approvals completos sobre runtime durable.
+6. Añadir simulation/dry-run/replay antes de external writes.
+7. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -181,11 +188,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar la transición de prior neutral a inteligencia calibrada:
+Integrar Model Router multi-model real:
 
-**outcomes verificables por revisión -> volumen mínimo de evidencia -> confianza calibrada -> execution prediction -> Model Router multi-model -> routing por calidad/costo/latencia -> receipt -> outcome.**
+**inventario local/remoto -> capacidades + disponibilidad -> routing por requisitos -> costo/latencia/calidad observados -> Decision Receipt -> outcome -> métricas del modelo.**
 
-La gobernanza de cambios queda humana y versionada: ninguna calibración puede modificar producción silenciosamente.
+El routing debe preferir local cuando cumpla requisitos y degradar de forma explícita, sin convertir ningún proveedor en autoridad o dependencia estructural.
 
 ## Regla de continuidad
 
