@@ -114,7 +114,16 @@ test('root-destructive action still requires explicit confirmation after founder
         source: 'authenticated_human',
         authenticated: true,
         instruction: 'Rotate root keys',
-        requestedAt: '2026-09-30T16:30:00.000Z',
+        requestedAt: '2026-09-30T16:30:05.000Z',
+        biometricAttestation: {
+          principalId: 'founder',
+          action: 'rotate_root_keys',
+          method: 'platform-face',
+          verifiedAt: '2026-09-30T16:30:00.000Z',
+          expiresAt: '2026-09-30T16:32:00.000Z',
+          keyId: 'face-key',
+          proofHash: 'b'.repeat(64),
+        },
       },
     },
   });
