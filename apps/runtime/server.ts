@@ -30,6 +30,7 @@ import {
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
+  deriveRuntimeExecutionPrediction,
   maybeProposeRuntimeImprovement,
   runtimeLearningReport,
 } from '../../packages/core/src/runtime-outcome-learning.js';
@@ -233,6 +234,7 @@ function outcomeLearningSnapshot() {
         observation.blueprintRevision === runtimeBlueprint.revision,
     );
   const report = runtimeLearningReport(observations);
+  const executionPrediction = deriveRuntimeExecutionPrediction(observations);
   const proposals = store.listImprovementProposals().filter(
     (proposal) =>
       proposal.blueprintId === runtimeBlueprint.id
@@ -242,6 +244,7 @@ function outcomeLearningSnapshot() {
     observations,
     calibration: report.calibration,
     drift: report.drift,
+    executionPrediction,
     proposals,
   };
 }
@@ -773,15 +776,26 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     });
   }
 
+  const observations = store
+    .listLearningObservations(blueprint.id)
+    .filter((item) => item.blueprintRevision === blueprint.revision);
+  const prediction = deriveRuntimeExecutionPrediction(observations);
   recordDecision({
     runId,
     decisionKind: 'execution_prediction',
-    selectedWorker: 'janus-core/runtime-outcome-prior-v1',
-    confidence: 0.5,
-    outputSummary:
-      'Neutral execution-success prior recorded until enough verified outcomes exist for calibration.',
+    selectedWorker: prediction.basis === 'verified-outcomes'
+      ? 'janus-core/runtime-calibration-v1'
+      : 'janus-core/runtime-neutral-prior-v1',
+    confidence: prediction.confidence,
+    outputSummary: prediction.basis === 'verified-outcomes'
+      ? 'Execution-success prediction derived from verified outcomes for this Blueprint revision.'
+      : 'Neutral execution-success prior retained until minimum verified evidence is available.',
     metadata: {
-      basis: 'neutral-prior-v1',
+      basis: prediction.basis,
+      sampleCount: prediction.sampleCount,
+      meanOutcome: prediction.meanOutcome,
+      shrinkagePrior: prediction.shrinkagePrior,
+      minimumSamples: prediction.minimumSamples,
       planSource: plan.source,
       stepCount: plan.steps.length,
     },
@@ -1094,6 +1108,7 @@ const server = createServer(async (request, response) => {
           observations: learning.observations.length,
           calibration: learning.calibration,
           drift: learning.drift,
+          nextExecutionPrediction: learning.executionPrediction,
           openImprovementProposals: learning.proposals.filter(
             (proposal) => proposal.status === 'proposed' || proposal.status === 'approved',
           ).length,
@@ -1275,6 +1290,7 @@ const server = createServer(async (request, response) => {
       observations: learning.observations,
       calibration: learning.calibration,
       drift: learning.drift,
+      nextExecutionPrediction: learning.executionPrediction,
       improvementProposals: learning.proposals,
     });
     return;

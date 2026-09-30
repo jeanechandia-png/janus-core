@@ -25,6 +25,70 @@ export interface RuntimeLearningReport {
   drift: DriftSignal;
 }
 
+export interface RuntimeExecutionPrediction {
+  confidence: number;
+  basis: 'neutral-prior' | 'verified-outcomes';
+  sampleCount: number;
+  meanOutcome: number;
+  shrinkagePrior: number;
+  minimumSamples: number;
+}
+
+export function deriveRuntimeExecutionPrediction(
+  observations: readonly LearningObservation[],
+  options: {
+    minimumSamples?: number;
+    priorMean?: number;
+    priorStrength?: number;
+    minConfidence?: number;
+    maxConfidence?: number;
+  } = {},
+): RuntimeExecutionPrediction {
+  const minimumSamples = Math.max(1, Math.floor(options.minimumSamples ?? 12));
+  const priorMean = clamp(options.priorMean ?? 0.5, 0, 1);
+  const priorStrength = Math.max(0, options.priorStrength ?? 4);
+  const minConfidence = clamp(options.minConfidence ?? 0.1, 0, 1);
+  const maxConfidence = clamp(options.maxConfidence ?? 0.9, minConfidence, 1);
+
+  if (observations.length < minimumSamples) {
+    return {
+      confidence: priorMean,
+      basis: 'neutral-prior',
+      sampleCount: observations.length,
+      meanOutcome: observations.length === 0
+        ? priorMean
+        : meanOutcome(observations),
+      shrinkagePrior: priorMean,
+      minimumSamples,
+    };
+  }
+
+  for (const observation of observations) {
+    if (
+      !Number.isFinite(observation.outcomeScore)
+      || observation.outcomeScore < 0
+      || observation.outcomeScore > 1
+    ) {
+      throw new Error('Runtime execution prediction requires outcomeScore in [0,1]');
+    }
+  }
+
+  const empiricalMean = meanOutcome(observations);
+  const posterior =
+    (observations.reduce((sum, observation) => sum + observation.outcomeScore, 0)
+      + priorMean * priorStrength)
+    / (observations.length + priorStrength);
+
+  return {
+    confidence: clamp(posterior, minConfidence, maxConfidence),
+    basis: 'verified-outcomes',
+    sampleCount: observations.length,
+    meanOutcome: empiricalMean,
+    shrinkagePrior: priorMean,
+    minimumSamples,
+  };
+}
+
 export function assessVerifiedRunOutcome(
   snapshot: RunSnapshot,
   events: readonly JanusEvent[],
@@ -210,4 +274,15 @@ export function maybeProposeRuntimeImprovement(input: {
     ],
     createdAt: input.createdAt,
   });
+}
+
+
+function meanOutcome(observations: readonly LearningObservation[]): number {
+  if (observations.length === 0) return 0;
+  return observations.reduce((sum, observation) => sum + observation.outcomeScore, 0)
+    / observations.length;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }

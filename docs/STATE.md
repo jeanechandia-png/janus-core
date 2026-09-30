@@ -117,6 +117,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - rollback nunca reactiva una revisión antigua en sitio: crea una revisión nueva basada en el histórico elegido, preservando secuencia append-only;
   - proposal aprobado queda ligado a su `proposedRevision` exacta; replay es idempotente y no puede reaplicar una revisión ya superseded;
   - decisiones de gobernanza dejan registro cronológico con principal autenticado y revisiones afectadas.
+- **Execution Prediction calibrada por revisión**:
+  - el prior 0.5 deja de ser permanente y pasa a ser un fallback temporal mientras no exista evidencia suficiente;
+  - Janus exige mínimo 12 Learning Observations verificadas de la misma Blueprint revision antes de usar evidencia histórica;
+  - la predicción calibrada usa shrinkage hacia 0.5 para evitar sobreajuste con muestras pequeñas;
+  - la probabilidad operativa queda limitada a 0.1–0.9 para evitar falsa certeza;
+  - cada `execution_prediction` registra basis, sampleCount, meanOutcome, prior y minimumSamples en su Decision Receipt;
+  - `/health` y `GET /api/learning` exponen la predicción que usaría el siguiente run;
+  - ninguna calibración modifica el Blueprint ni políticas de producción: solo informa la predicción del resultado.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -140,14 +148,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Sustituir el prior neutral de `execution_prediction` por confianza calibrada derivada de evidencia suficiente, sin autoajuste silencioso.
-2. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
-3. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-4. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-5. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-6. Implementar error branches, waits y approvals completos sobre runtime durable.
-7. Añadir simulation/dry-run/replay antes de external writes.
-8. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
+2. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+3. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+4. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+5. Implementar error branches, waits y approvals completos sobre runtime durable.
+6. Añadir simulation/dry-run/replay antes de external writes.
+7. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -181,11 +188,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar la transición de prior neutral a inteligencia calibrada:
+Integrar Model Router multi-model productivo:
 
-**outcomes verificables por revisión -> volumen mínimo de evidencia -> confianza calibrada -> execution prediction -> Model Router multi-model -> routing por calidad/costo/latencia -> receipt -> outcome.**
+**inventario real de modelos -> capacidades/restricciones -> local-first routing -> calidad/costo/latencia observados -> Decision Receipt -> outcome -> calibración por modelo -> routing futuro.**
 
-La gobernanza de cambios queda humana y versionada: ninguna calibración puede modificar producción silenciosamente.
+La gobernanza de políticas sigue humana y versionada; el router puede elegir entre adapters registrados, pero no alterar guardrails ni producción silenciosamente.
 
 ## Regla de continuidad
 
