@@ -138,10 +138,11 @@ export function buildCoordinationBrief(input: {
       if (
         input.principal.id === JANUS_SYSTEM_PRINCIPAL_ID
         || input.principal.role === 'founder_director'
-        || assignment.assigneePrincipalId === input.principal.id
       ) return true;
-      return assignment.scopeIds.length > 0
-        && assignment.scopeIds.every((scopeId) => visibleScopeIds.has(scopeId));
+      if (assignment.scopeIds.length === 0) {
+        return assignment.assigneePrincipalId === input.principal.id;
+      }
+      return assignment.scopeIds.every((scopeId) => visibleScopeIds.has(scopeId));
     })
     .map((assignment) => {
       const latestHandoff = [...input.handoffs]
@@ -181,13 +182,16 @@ export function assertAssignmentAccess(input: {
   if (
     input.principal.id === JANUS_SYSTEM_PRINCIPAL_ID
     || input.principal.role === 'founder_director'
-    || input.assignment.assigneePrincipalId === input.principal.id
   ) return;
+
+  if (input.assignment.scopeIds.length === 0) {
+    if (input.assignment.assigneePrincipalId === input.principal.id) return;
+    throw new Error('coordination assignment access denied');
+  }
 
   const byId = new Map(input.scopes.map((scope) => [scope.id, scope] as const));
   const permission = input.permission ?? 'read_context';
-  const allowed = input.assignment.scopeIds.length > 0
-    && input.assignment.scopeIds.every((scopeId) => {
+  const allowed = input.assignment.scopeIds.every((scopeId) => {
       const scope = byId.get(scopeId);
       return Boolean(scope && canAccessCoordinationScope({
         principal: input.principal,
