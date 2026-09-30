@@ -142,6 +142,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - nuevas revisiones son append-only: la revisión anterior pasa a histórico sin perder trazabilidad de su contenido;
   - resolución de dependencias fail-closed ante checksum alterado, dependencia faltante o ciclo;
   - proyectos, threads, resource refs y checkpoints se persisten en SQLite;
+  - cada proyecto puede enlazarse a un coordination scope; autenticación por sí sola no concede acceso: Founder ve todo, otros principals requieren ser creator o disponer del grant adecuado;
   - la cronología de un proyecto se filtra por `projectId` para evitar mezclar contexto de otros proyectos;
   - abrir un thread nuevo genera automáticamente un bootstrap checkpoint con instrucciones activas, decisiones, errores, resume point, próximos pasos y evidencia;
   - runs ligados a `projectId + threadId` producen checkpoint al terminar y el planner recibe continuidad/recursos/checkpoint del proyecto;
