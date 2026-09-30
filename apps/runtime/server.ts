@@ -42,6 +42,7 @@ import {
   defaultLandingAssistantProfile,
   defaultLandingAssistantSurfaces,
   resolveAssistantSurfaceConfig,
+  upgradeLandingAssistantProfileFor24x7Support,
 } from '../../packages/core/src/assistant-control-plane.js';
 import {
   CONTINUE_BY_ALTERNATIVES_POLICY,
@@ -196,8 +197,25 @@ capabilities.register({
 
 function ensureLandingAssistantControlPlane(): void {
   const seedProfile = defaultLandingAssistantProfile();
-  const existingProfile = store.getAssistantProfileRevision(seedProfile.profileId);
-  if (!existingProfile) store.upsertAssistantProfileRevision(seedProfile);
+  let currentProfile = store.getAssistantProfileRevision(seedProfile.profileId);
+  if (!currentProfile) {
+    store.upsertAssistantProfileRevision(seedProfile);
+    currentProfile = seedProfile;
+  }
+
+  const supportProfile = upgradeLandingAssistantProfileFor24x7Support(
+    currentProfile,
+    new Date().toISOString(),
+    'janus-core',
+  );
+  if (supportProfile.revision !== currentProfile.revision) {
+    assertAssistantProfileRevisionAppendOnly({
+      previous: currentProfile,
+      next: supportProfile,
+    });
+    store.upsertAssistantProfileRevision({ ...currentProfile, status: 'historical' });
+    store.upsertAssistantProfileRevision(supportProfile);
+  }
 
   for (const surface of defaultLandingAssistantSurfaces()) {
     if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
