@@ -35,6 +35,20 @@ import {
   resolveReusableSelection,
   type ReusableLibraryKind,
 } from '../../packages/core/src/reusable-library.js';
+import {
+  assertAssistantProfileRevisionAppendOnly,
+  createAssistantProfileRevision,
+  createAssistantSurface,
+  defaultLandingAssistantProfile,
+  defaultLandingAssistantSurfaces,
+  resolveAssistantSurfaceConfig,
+} from '../../packages/core/src/assistant-control-plane.js';
+import {
+  CONTINUE_BY_ALTERNATIVES_POLICY,
+  buildOperationalBlockerResolution,
+  defaultProviderAlternatives,
+  type OperationalBlockerResolution,
+} from '../../packages/core/src/progress-policy.js';
 import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
@@ -128,6 +142,7 @@ const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
 const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
 const runProjects = new Map<string, { projectId: string; threadId: string }>();
+const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -157,6 +172,31 @@ capabilities.register({
   state: googleConfigured ? 'available' : 'needs_auth',
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
 });
+
+function ensureLandingAssistantControlPlane(): void {
+  const seedProfile = defaultLandingAssistantProfile();
+  const existingProfile = store.getAssistantProfileRevision(seedProfile.profileId);
+  if (!existingProfile) store.upsertAssistantProfileRevision(seedProfile);
+
+  for (const surface of defaultLandingAssistantSurfaces()) {
+    if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
+  }
+}
+
+function assistantControlSnapshot() {
+  const profiles = store.listAssistantProfileRevisions();
+  const surfaces = store.listAssistantSurfaces();
+  return {
+    profiles,
+    surfaces,
+    resolved: surfaces.map((surface) => resolveAssistantSurfaceConfig({
+      surface,
+      profiles,
+    })),
+  };
+}
+
+ensureLandingAssistantControlPlane();
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
@@ -254,6 +294,44 @@ function reusableKind(value: unknown): ReusableLibraryKind | null {
   return typeof value === 'string' && allowed.has(value as ReusableLibraryKind)
     ? value as ReusableLibraryKind
     : null;
+}
+
+function assistantModuleRefs(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const record = item as Record<string, unknown>;
+    const itemId = typeof record.itemId === 'string' ? record.itemId.trim() : '';
+    if (!itemId) return [];
+    const revision = Number(record.revision);
+    return [{
+      itemId,
+      ...(Number.isInteger(revision) && revision > 0 ? { revision } : {}),
+      ...(record.optional === true ? { optional: true } : {}),
+    }];
+  });
+}
+
+function validateAssistantModules(profile: ReturnType<typeof createAssistantProfileRevision>): void {
+  const items = store.listReusableLibraryItems();
+  for (const moduleRef of profile.moduleRefs) {
+    try {
+      resolveReusableSelection({
+        itemId: moduleRef.itemId,
+        items,
+        ...(moduleRef.revision == null ? {} : { revision: moduleRef.revision }),
+      });
+    } catch (error) {
+      if (moduleRef.optional) continue;
+      throw new HttpRequestError(
+        409,
+        'required assistant module unavailable: '
+        + moduleRef.itemId
+        + ' — '
+        + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
 }
 
 function coordinationStringList(value: unknown): string[] {
@@ -727,6 +805,13 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        progressPolicy: {
+          id: CONTINUE_BY_ALTERNATIVES_POLICY.id,
+          rule: CONTINUE_BY_ALTERNATIVES_POLICY.rule,
+          mandatoryStops: CONTINUE_BY_ALTERNATIVES_POLICY.mandatoryStops,
+          requiredResponseShape:
+            'PROBLEM -> RISK -> CAUSE -> 2-4 REAL OPTIONS -> EVIDENCE -> RECOMMENDATION -> NEXT ACTION',
+        },
         decisionBlueprint: {
           id: blueprint.id,
           revision: blueprint.revision,
@@ -776,6 +861,20 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     });
 
     if (modelResult.error) {
+      const resolution = buildOperationalBlockerResolution({
+        problem: 'Configured model planner is unavailable for the current task.',
+        risk: 'Stopping the entire project would create unnecessary provider dependency.',
+        cause: modelResult.error,
+        kind: 'provider',
+        alternatives: defaultProviderAlternatives({
+          providerName: modelResult.provider ?? 'configured model provider',
+          task: command,
+          localAvailable: false,
+          otherModelAvailable: false,
+        }),
+        parkedIssue: 'Restore or replace the unavailable model-planning path.',
+      });
+      runBlockerResolutions.set(runId, resolution);
       recordDecision({
         runId,
         decisionKind: 'planning_worker_selection',
@@ -783,6 +882,15 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
         confidence: 0.5,
         outputSummary: 'Configured model planner failed before an executable plan was accepted.',
         metadata: { ok: false, error: modelResult.error },
+      });
+      recordDecision({
+        runId,
+        decisionKind: 'blocker_resolution',
+        selectedWorker: 'janus-core/continue-by-alternatives-v1',
+        confidence: 1,
+        outputSummary:
+          'Provider obstacle diagnosed with multiple alternatives instead of a single dead end.',
+        metadata: { resolution },
       });
       throw new Error(modelResult.error);
     }
@@ -860,16 +968,60 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       metadata: { ok: true },
     });
   } catch (error) {
+    const cause = error instanceof Error ? error.message : String(error);
+    const resolution = buildOperationalBlockerResolution({
+      problem: 'A capability required by the accepted plan is not currently ready.',
+      risk: 'The current execution cannot honestly complete that step without a compatible capability.',
+      cause,
+      kind: 'capability',
+      alternatives: [
+        {
+          id: 'compatible-capability',
+          title: 'compatible registered capability',
+          description: 'Use another registered tool/model that satisfies the same plan requirement.',
+          preservesGoal: true,
+          availableNow: false,
+          risk: 'low',
+          nextAction: 'Check the Capability Registry and Model Router for a compatible substitute.',
+        },
+        {
+          id: 'park-dependent-step',
+          title: 'park the dependent step',
+          description: 'Keep the unavailable dependency pending and continue independent project work.',
+          preservesGoal: true,
+          availableNow: true,
+          risk: 'low',
+          nextAction: 'Record the dependency in the project handoff and advance unrelated tasks.',
+        },
+        {
+          id: 'prepare-offline',
+          title: 'prepare offline inputs',
+          description: 'Complete local analysis, assets, code or documentation that does not require the missing capability.',
+          preservesGoal: true,
+          availableNow: true,
+          risk: 'low',
+          nextAction: 'Complete all dependency-free preparation and revalidate the missing capability later.',
+        },
+      ],
+      parkedIssue: cause,
+    });
+    runBlockerResolutions.set(runId, resolution);
     recordDecision({
       runId,
       decisionKind: 'capability_verification',
       selectedWorker: 'janus-core/capability-registry',
       confidence: 1,
       outputSummary: 'Execution was blocked because a required capability is not ready.',
-      metadata: {
-        ok: false,
-        error: error instanceof Error ? error.message : String(error),
-      },
+      metadata: { ok: false, error: cause },
+    });
+    recordDecision({
+      runId,
+      decisionKind: 'blocker_resolution',
+      selectedWorker: 'janus-core/continue-by-alternatives-v1',
+      confidence: 1,
+      outputSummary:
+        'Capability obstacle diagnosed and converted into alternatives plus a parked dependency.',
+      metadata: { resolution },
     });
     throw error;
   }
@@ -1132,8 +1284,10 @@ function startRun(
       try {
         steps = (await prepareSteps(command, runId)) ?? demoSteps(command);
       } catch (error) {
-        await activeRunner.block('Janus Core rechazó el plan antes de ejecutar herramientas', {
+        const resolution = runBlockerResolutions.get(runId);
+        await activeRunner.block('Janus Core no puede completar esta ruta todavía', {
           error: error instanceof Error ? error.message : String(error),
+          ...(resolution ? { resolution } : {}),
         });
         finishRun(activeRunner.snapshot());
         return;
@@ -1205,6 +1359,120 @@ function finalizeProjectCheckpoint(snapshot: RunSnapshot): void {
   runProjects.delete(snapshot.runId);
 }
 
+function ensureBlockedRunResolution(snapshot: RunSnapshot): void {
+  if (snapshot.status !== 'blocked') return;
+  const existing = store.listDecisionReceipts(snapshot.runId)
+    .find((receipt) => receipt.decisionKind === 'blocker_resolution');
+  if (existing) return;
+
+  const events = store.listEvents(snapshot.runId);
+  const latestBlocked = [...events]
+    .reverse()
+    .find((event) => event.type === 'run.blocked');
+  const approvalRequired = events.some((event) => event.type === 'approval.required');
+  const summary = latestBlocked?.summary ?? 'The current execution path is blocked.';
+  const normalized = summary.toLowerCase();
+  const authorityStop = /autoridad|authority|confirmaci[oó]n|confirmation/.test(normalized);
+  const approvalStop = approvalRequired || /aprobaci[oó]n|approval/.test(normalized);
+  const mandatoryStop = authorityStop || approvalStop;
+
+  const resolution = buildOperationalBlockerResolution({
+    problem: summary,
+    risk: mandatoryStop
+      ? 'Bypassing this blocker could violate authority, approval or safety boundaries.'
+      : 'Treating this path as the only path would unnecessarily stop project progress.',
+    cause: latestBlocked
+      ? JSON.stringify(latestBlocked.payload ?? {})
+      : 'No more specific blocker payload was recorded.',
+    kind: approvalStop
+      ? 'approval'
+      : authorityStop
+        ? 'authentication'
+        : /tool|adapter|capabil|credencial|credential|configur/.test(normalized)
+          ? 'capability'
+          : 'dependency',
+    alternatives: mandatoryStop
+      ? [
+          {
+            id: 'prepare-safe-work',
+            title: 'prepare safe work without executing the blocked action',
+            description:
+              'Complete analysis, dry-run, documentation or reversible preparation while preserving the protected boundary.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Prepare the safe dependency-free work and keep the protected action pending.',
+          },
+          {
+            id: 'obtain-required-authority',
+            title: 'obtain the required approval or authority',
+            description:
+              'Request the exact missing approval, confirmation or authenticated authority instead of bypassing it.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Request the required approval/authority and preserve the exact resume point.',
+          },
+          {
+            id: 'continue-independent-work',
+            title: 'continue independent project work',
+            description:
+              'Advance unrelated tasks that do not require the protected action.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Move to the next independent task and keep this action blocked until authorized.',
+          },
+        ]
+      : [
+          {
+            id: 'compatible-path',
+            title: 'compatible registered path',
+            description:
+              'Use another registered model, tool or workflow that can satisfy the same requirement.',
+            preservesGoal: true,
+            availableNow: false,
+            risk: 'low',
+            nextAction: 'Check registered capabilities and the Model Router for a compatible substitute.',
+          },
+          {
+            id: 'park-blocked-step',
+            title: 'park only the blocked step',
+            description:
+              'Keep this dependency pending while the rest of the project continues.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Record the blocker and continue the next independent task.',
+          },
+          {
+            id: 'prepare-independent-inputs',
+            title: 'prepare dependency-free inputs',
+            description:
+              'Advance local analysis, code, assets, documentation or validation that does not require the blocked path.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Complete dependency-free preparation and revalidate this blocker later.',
+          },
+        ],
+    mandatoryStop,
+    parkedIssue: mandatoryStop ? undefined : summary,
+  });
+
+  runBlockerResolutions.set(snapshot.runId, resolution);
+  recordDecision({
+    runId: snapshot.runId,
+    decisionKind: 'blocker_resolution',
+    selectedWorker: 'janus-core/continue-by-alternatives-v1',
+    confidence: 1,
+    inputRefs: latestBlocked ? ['event:' + latestBlocked.id] : ['run:' + snapshot.runId],
+    outputSummary:
+      'Blocked run converted into explicit alternatives, recommendation and next action.',
+    metadata: { resolution },
+  });
+}
+
 function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
   const link = runAssignments.get(snapshot.runId);
   if (!link) return;
@@ -1239,6 +1507,7 @@ function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
       || receipt.decisionKind === 'tool_selection'
       || receipt.decisionKind === 'approval'
       || receipt.decisionKind === 'delivery_verification'
+      || receipt.decisionKind === 'blocker_resolution'
       || receipt.decisionKind === 'run_outcome'
     ))
     .slice(-12)
@@ -1303,6 +1572,7 @@ function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
 function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
   recordRunOutcome(snapshot);
+  ensureBlockedRunResolution(snapshot);
   finalizeCoordinationHandoff(snapshot);
   finalizeProjectCheckpoint(snapshot);
 
@@ -1310,12 +1580,14 @@ function finishRun(snapshot: RunSnapshot): void {
     voiceSessions.runBlocked(snapshot.runId);
     runners.delete(snapshot.runId);
     runBlueprints.delete(snapshot.runId);
+    runBlockerResolutions.delete(snapshot.runId);
     return;
   }
   if (snapshot.status === 'completed' || snapshot.status === 'cancelled') {
     voiceSessions.runCompleted(snapshot.runId);
     runners.delete(snapshot.runId);
     runBlueprints.delete(snapshot.runId);
+    runBlockerResolutions.delete(snapshot.runId);
   }
 }
 
@@ -1450,6 +1722,21 @@ const server = createServer(async (request, response) => {
       },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
+      assistantControl: (() => {
+        const snapshot = assistantControlSnapshot();
+        return {
+          profiles: snapshot.profiles.length,
+          surfaces: snapshot.surfaces.length,
+          activeSurfaces: snapshot.surfaces.filter((surface) => surface.status === 'active').length,
+          inheritedCurrent: snapshot.surfaces.filter((surface) => surface.tracking === 'current').length,
+          endpoint: '/api/assistant-control',
+        };
+      })(),
+      progressPolicy: {
+        id: CONTINUE_BY_ALTERNATIVES_POLICY.id,
+        rule: CONTINUE_BY_ALTERNATIVES_POLICY.rule,
+        mandatoryStops: CONTINUE_BY_ALTERNATIVES_POLICY.mandatoryStops,
+      },
       reusableLibrary: {
         currentItems: store.listReusableLibraryItems({ status: 'current' }).length,
         revisions: store.listReusableLibraryItems().length,
@@ -1857,6 +2144,7 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         brief: coordinationBriefFor(principal),
+        progressPolicy: CONTINUE_BY_ALTERNATIVES_POLICY,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
@@ -2082,6 +2370,232 @@ const server = createServer(async (request, response) => {
         updatedAt: handoff.createdAt,
       });
       json(response, 201, { ok: true, handoff });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/assistant-control') {
+    try {
+      requireAuthoritySession(request);
+      const snapshot = assistantControlSnapshot();
+      json(response, 200, { ok: true, ...snapshot });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantSurfaceConfigMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)\/config$/,
+  );
+  const assistantSurfaceConfigId = assistantSurfaceConfigMatch?.[1];
+  if (request.method === 'GET' && assistantSurfaceConfigId) {
+    try {
+      requireAuthoritySession(request);
+      const surface = store.getAssistantSurface(
+        decodeURIComponent(assistantSurfaceConfigId),
+      );
+      if (!surface) throw new HttpRequestError(404, 'assistant surface not found');
+      const resolved = resolveAssistantSurfaceConfig({
+        surface,
+        profiles: store.listAssistantProfileRevisions(surface.profileId),
+      });
+      json(response, 200, { ok: true, config: resolved });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantProfileRevisionMatch = url.pathname.match(
+    /^\/api\/assistant-control\/profiles\/([^/]+)\/revisions$/,
+  );
+  const assistantProfileRevisionId = assistantProfileRevisionMatch?.[1];
+  if (request.method === 'POST' && assistantProfileRevisionId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const profileId = decodeURIComponent(assistantProfileRevisionId);
+      const current = store.getAssistantProfileRevision(profileId);
+      if (!current) throw new HttpRequestError(404, 'assistant profile not found');
+      const body = await readJson(request);
+      const next = createAssistantProfileRevision({
+        profileId,
+        revision: current.revision + 1,
+        status: 'current',
+        name: typeof body.name === 'string' && body.name.trim()
+          ? body.name.trim()
+          : current.name,
+        objective: typeof body.objective === 'string' && body.objective.trim()
+          ? body.objective.trim()
+          : current.objective,
+        sharedInstructions: Array.isArray(body.sharedInstructions)
+          ? coordinationStringList(body.sharedInstructions)
+          : current.sharedInstructions,
+        guardrails: Array.isArray(body.guardrails)
+          ? coordinationStringList(body.guardrails)
+          : current.guardrails,
+        capabilities: Array.isArray(body.capabilities)
+          ? coordinationStringList(body.capabilities)
+          : current.capabilities,
+        moduleRefs: Array.isArray(body.moduleRefs)
+          ? assistantModuleRefs(body.moduleRefs)
+          : current.moduleRefs,
+        createdAt: new Date().toISOString(),
+        createdBy: principal.id,
+        supersedesRevision: current.revision,
+      });
+      assertAssistantProfileRevisionAppendOnly({ previous: current, next });
+      validateAssistantModules(next);
+      store.upsertAssistantProfileRevision({ ...current, status: 'historical' });
+      store.upsertAssistantProfileRevision(next);
+
+      const affectedSurfaces = store.listAssistantSurfaces()
+        .filter((surface) => (
+          surface.profileId === profileId
+          && surface.tracking === 'current'
+        ))
+        .map((surface) => resolveAssistantSurfaceConfig({
+          surface,
+          profiles: store.listAssistantProfileRevisions(profileId),
+        }));
+
+      appendGovernanceDecision({
+        subject: 'assistant-control:' + profileId,
+        content:
+          'Assistant profile advanced from revision '
+          + current.revision
+          + ' to '
+          + next.revision
+          + '; current-tracking surfaces inherit automatically.',
+        principalId: principal.id,
+        metadata: {
+          profileId,
+          fromRevision: current.revision,
+          toRevision: next.revision,
+          affectedSurfaceIds: affectedSurfaces.map((item) => item.surface.id),
+        },
+      });
+      json(response, 201, {
+        ok: true,
+        profile: next,
+        affectedSurfaces,
+      });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantSurfaceUpdateMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)$/,
+  );
+  const assistantSurfaceUpdateId = assistantSurfaceUpdateMatch?.[1];
+  if (request.method === 'POST' && assistantSurfaceUpdateId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const id = decodeURIComponent(assistantSurfaceUpdateId);
+      const current = store.getAssistantSurface(id);
+      if (!current) throw new HttpRequestError(404, 'assistant surface not found');
+      const body = await readJson(request);
+      const tracking = body.tracking === 'pinned'
+        ? 'pinned'
+        : body.tracking === 'current'
+          ? 'current'
+          : current.tracking;
+      const pinnedRevisionRaw = Number(body.pinnedRevision);
+      const pinnedRevision = tracking === 'pinned'
+        ? Number.isInteger(pinnedRevisionRaw) && pinnedRevisionRaw > 0
+          ? pinnedRevisionRaw
+          : current.tracking === 'pinned'
+            ? current.pinnedRevision
+            : undefined
+        : undefined;
+      if (tracking === 'pinned' && !pinnedRevision) {
+        throw new HttpRequestError(400, 'pinnedRevision is required for pinned tracking');
+      }
+      if (
+        tracking === 'pinned'
+        && !store.getAssistantProfileRevision(current.profileId, pinnedRevision)
+      ) {
+        throw new HttpRequestError(404, 'pinned assistant profile revision not found');
+      }
+
+      const presentationInput = body.presentation
+        && typeof body.presentation === 'object'
+        && !Array.isArray(body.presentation)
+        ? body.presentation as Record<string, unknown>
+        : {};
+      const surface = createAssistantSurface({
+        id: current.id,
+        name: typeof body.name === 'string' && body.name.trim()
+          ? body.name.trim()
+          : current.name,
+        product: current.product,
+        profileId: current.profileId,
+        status: body.status === 'paused'
+          ? 'paused'
+          : body.status === 'active'
+            ? 'active'
+            : current.status,
+        tracking,
+        ...(pinnedRevision ? { pinnedRevision } : {}),
+        presentation: {
+          ...current.presentation,
+          ...(typeof presentationInput.brandName === 'string'
+            ? { brandName: presentationInput.brandName }
+            : {}),
+          ...(typeof presentationInput.defaultLanguage === 'string'
+            ? { defaultLanguage: presentationInput.defaultLanguage }
+            : {}),
+          ...(typeof presentationInput.greeting === 'string'
+            ? { greeting: presentationInput.greeting }
+            : {}),
+          ...(typeof presentationInput.disclosure === 'string'
+            ? { disclosure: presentationInput.disclosure }
+            : {}),
+          ...(typeof presentationInput.accentTokenRef === 'string'
+            ? { accentTokenRef: presentationInput.accentTokenRef }
+            : {}),
+        },
+        disabledCapabilities: Array.isArray(body.disabledCapabilities)
+          ? coordinationStringList(body.disabledCapabilities)
+          : current.disabledCapabilities,
+        deliveryTargets: current.deliveryTargets,
+        createdAt: current.createdAt,
+        updatedAt: new Date().toISOString(),
+        createdBy: current.createdBy,
+      });
+      store.upsertAssistantSurface(surface);
+      const resolved = resolveAssistantSurfaceConfig({
+        surface,
+        profiles: store.listAssistantProfileRevisions(surface.profileId),
+      });
+
+      appendGovernanceDecision({
+        subject: 'assistant-surface:' + surface.id,
+        content:
+          'Assistant surface configuration updated; shared behavior remains inherited from profile '
+          + surface.profileId
+          + '.',
+        principalId: principal.id,
+        metadata: {
+          surfaceId: surface.id,
+          tracking: surface.tracking,
+          inheritedRevision: resolved.inheritedRevision,
+        },
+      });
+      json(response, 200, { ok: true, surface, resolved });
     } catch (error) {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)

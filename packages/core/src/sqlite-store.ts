@@ -31,6 +31,10 @@ import type {
   ProjectThread,
   ProjectWorkspace,
 } from './project-context.js';
+import type {
+  AssistantProfileRevision,
+  AssistantSurface,
+} from './assistant-control-plane.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -661,6 +665,100 @@ export class SqliteStore {
     return (rows as Record<string, unknown>[]).map((row) => (
       JSON.parse(String(row.handoff_json)) as CoordinationHandoff
     ));
+  }
+
+  upsertAssistantProfileRevision(profile: AssistantProfileRevision): void {
+    this.db.prepare(`
+      INSERT INTO assistant_profile_revisions
+        (profile_id, revision, status, created_at, checksum, profile_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(profile_id, revision) DO UPDATE SET
+        status = excluded.status,
+        checksum = excluded.checksum,
+        profile_json = excluded.profile_json
+    `).run(
+      profile.profileId,
+      profile.revision,
+      profile.status,
+      profile.createdAt,
+      profile.checksum,
+      JSON.stringify(profile),
+    );
+  }
+
+  getAssistantProfileRevision(
+    profileId: string,
+    revision?: number,
+  ): AssistantProfileRevision | null {
+    const row = revision == null
+      ? this.db.prepare(`
+          SELECT profile_json FROM assistant_profile_revisions
+          WHERE profile_id = ? AND status = 'current'
+          ORDER BY revision DESC LIMIT 1
+        `).get(profileId)
+      : this.db.prepare(`
+          SELECT profile_json FROM assistant_profile_revisions
+          WHERE profile_id = ? AND revision = ?
+        `).get(profileId, revision);
+    return row
+      ? JSON.parse(String((row as Record<string, unknown>).profile_json)) as AssistantProfileRevision
+      : null;
+  }
+
+  listAssistantProfileRevisions(profileId?: string): AssistantProfileRevision[] {
+    const rows = profileId
+      ? this.db.prepare(`
+          SELECT profile_json FROM assistant_profile_revisions
+          WHERE profile_id = ?
+          ORDER BY revision ASC
+        `).all(profileId)
+      : this.db.prepare(`
+          SELECT profile_json FROM assistant_profile_revisions
+          ORDER BY profile_id ASC, revision ASC
+        `).all();
+    return (rows as Record<string, unknown>[]).map((row) => (
+      JSON.parse(String(row.profile_json)) as AssistantProfileRevision
+    ));
+  }
+
+  upsertAssistantSurface(surface: AssistantSurface): void {
+    this.db.prepare(`
+      INSERT INTO assistant_surfaces
+        (id, profile_id, status, tracking, updated_at, checksum, surface_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        profile_id = excluded.profile_id,
+        status = excluded.status,
+        tracking = excluded.tracking,
+        updated_at = excluded.updated_at,
+        checksum = excluded.checksum,
+        surface_json = excluded.surface_json
+    `).run(
+      surface.id,
+      surface.profileId,
+      surface.status,
+      surface.tracking,
+      surface.updatedAt,
+      surface.checksum,
+      JSON.stringify(surface),
+    );
+  }
+
+  getAssistantSurface(id: string): AssistantSurface | null {
+    const row = this.db.prepare(`
+      SELECT surface_json FROM assistant_surfaces WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.surface_json)) as AssistantSurface
+      : null;
+  }
+
+  listAssistantSurfaces(): AssistantSurface[] {
+    const rows = this.db.prepare(`
+      SELECT surface_json FROM assistant_surfaces
+      ORDER BY id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.surface_json)) as AssistantSurface);
   }
 
   upsertReusableLibraryItem(item: ReusableLibraryItem): void {
@@ -1334,6 +1432,32 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_coordination_handoffs_assignment
       ON coordination_handoffs(assignment_id, created_at, id);
+
+      CREATE TABLE IF NOT EXISTS assistant_profile_revisions (
+        profile_id TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        checksum TEXT NOT NULL,
+        profile_json TEXT NOT NULL,
+        PRIMARY KEY(profile_id, revision)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_assistant_profile_current
+      ON assistant_profile_revisions(profile_id, status, revision);
+
+      CREATE TABLE IF NOT EXISTS assistant_surfaces (
+        id TEXT PRIMARY KEY,
+        profile_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        tracking TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        checksum TEXT NOT NULL,
+        surface_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_assistant_surfaces_profile
+      ON assistant_surfaces(profile_id, status, tracking, id);
 
       CREATE TABLE IF NOT EXISTS reusable_library_items (
         item_id TEXT NOT NULL,

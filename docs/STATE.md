@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-09-30
+Fecha: 2026-10-01
 
 ## AHORA
 
@@ -148,6 +148,26 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - runs ligados a `projectId + threadId` producen checkpoint al terminar y el planner recibe continuidad/recursos/checkpoint del proyecto;
   - cambiar de chat no reinicia el proyecto: el chat es una ventana y el proyecto es la memoria;
   - resource refs ya modelan local / Google Drive / iCloud / upload / import como backends reemplazables; los binarios siguen pendientes de content-addressed local storage productivo.
+- **Assistant Control Plane centralizado**:
+  - un perfil padre versionado `infinity-landing-assistant` gobierna comportamiento compartido, guardrails, capacidades y módulos reutilizables;
+  - superficies seed: `landing.infinity-group`, `landing.infinity-chatbox`, `landing.iba`;
+  - las tres usan `tracking=current` por defecto y heredan automáticamente la revisión vigente sin editar cada superficie;
+  - una superficie puede quedar `pinned` temporalmente para congelar una revisión compatible sin bifurcar la ingeniería común;
+  - las superficies solo pueden quitar capacidades compartidas, no inventar capacidades fuera del perfil padre;
+  - perfiles/superficies tienen checksum SHA-256 y persistencia SQLite;
+  - nuevas revisiones son append-only: la anterior pasa a `historical`, la nueva a `current`;
+  - módulos requeridos se resuelven contra la Reusable LEGO Library antes de promover una revisión;
+  - actualización de perfil registra cronología de gobernanza y lista las superficies afectadas;
+  - runtime expone `GET /api/assistant-control`, config resuelta por superficie y mutaciones Founder-only;
+  - smoke E2E prueba una sola actualización del perfil -> las tres superficies pasan de rev1 a rev2 sin cambiar sus registros propios.
+- **Continue-by-Alternatives Policy**:
+  - bloqueo operativo exige PROBLEMA -> RIESGO -> CAUSA -> 2-4 OPCIONES REALES -> EVIDENCIA -> RECOMENDACIÓN -> SIGUIENTE ACCIÓN;
+  - dependencia no obligatoria puede quedar aparcada mientras avanza trabajo independiente;
+  - faltas de aprobación/autoridad, acciones irreversibles de alto riesgo y ausencia de datos materialmente necesarios siguen siendo stops obligatorios;
+  - fallos de provider/capability producen `blocker_resolution` Decision Receipt con alternativas estructuradas;
+  - los handoffs multioperador incluyen esos blocker resolutions para que Julio o cualquier operador reciba rutas de continuación, no solo el error;
+  - Model Planner recibe la política de progreso como contexto;
+  - cambio automático real de proveedor queda pendiente del Model Router multi-model; Janus no afirma haber cambiado de modelo si no existe adapter compatible registrado.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -171,17 +191,18 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
-2. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
-3. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
-2. Completar coordinación operativa con agenda/availability por operador, ingestión de calendarios por identidad y selección del próximo operador sin compartir credenciales privadas.
-3. Crear vista PWA mobile-first de operadores: tarea actual, scope, último handoff, blockers, próximos pasos y punto de reanudación.
-4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-5. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-6. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-7. Implementar error branches, waits y approvals completos sobre runtime durable.
-8. Añadir simulation/dry-run/replay antes de external writes.
-9. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Conectar el Assistant Control Plane a las tres landings productivas mediante publisher/sync versionado: resolver target validado -> generar bundle saneado -> publicar -> verificar checksum/revisión aplicada -> recibir acknowledgement/telemetría. No exponer Janus local públicamente.
+2. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
+3. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
+4. Integrar Model Router multi-model real para que provider/capability alternatives puedan ejecutarse automáticamente y registrar routing, calidad/costo/latencia y confianza en Decision Receipts.
+5. Completar coordinación operativa con agenda/availability por operador, ingestión de calendarios por identidad y selección del próximo operador sin compartir credenciales privadas.
+6. Crear vista PWA mobile-first de operadores: tarea actual, scope, último handoff, blocker alternatives, próximos pasos y punto de reanudación.
+7. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+8. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+9. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+10. Implementar error branches, waits y approvals completos sobre runtime durable.
+11. Añadir simulation/dry-run/replay antes de external writes.
+12. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -215,13 +236,16 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar primero la LEGO Library productiva con almacenamiento local de contenido + usage graph; después continuar con Model Router multi-model:
+Cerrar la distribución productiva del Assistant Control Plane antes de afirmar sincronización live:
 
-**asset/blob local -> deduplicación -> reusable catalog -> usage graph -> project composition -> model inventory -> local-first routing -> métricas -> Decision Receipt -> outcome.**
+**perfil padre -> config resuelta por superficie -> bundle saneado/versionado -> target validado -> publish idempotente -> checksum aplicado -> acknowledgement -> rollback/pin si falla.**
 
-La gobernanza de políticas sigue humana y versionada; el router puede elegir entre adapters registrados, pero no alterar guardrails ni producción silenciosamente.
+Targets conocidos:
+- Infinity Group website: repositorio separado.
+- Infinity ChatBox: repositorio canónico `infinity-chatbox-platform`, release target debe revalidarse antes de publicar.
+- IBA: misma línea canónica de ChatBox; no crear fork, resolver su target/branch vigente antes de publicar.
 
-La coordinación multioperador ya queda desacoplada del proveedor de IA: aunque cambie o desaparezca un modelo, assignments, permisos, historial y handoffs permanecen en Janus Core. Después del Model Router, el siguiente cierre P0 es agenda/availability multi-identidad + PWA de coordinación.
+Después: Asset Store + usage graph + Model Router multi-model. El Model Router convertirá las alternativas de provider hoy documentadas en rutas ejecutables reales.
 
 ## Regla de continuidad
 
