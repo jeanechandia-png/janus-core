@@ -288,6 +288,12 @@ try {
   assert.equal(assignmentBody.assignment?.assigneePrincipalId, 'operator-smoke');
 
   const operatorToken = await authenticate(base, 'operator-smoke', operatorKeys.privateKey);
+
+  const privateProjectResponse = await fetch(`${base}/api/projects/project-smoke/context`, {
+    headers: { authorization: `Bearer ${operatorToken}` },
+  });
+  assert.equal(privateProjectResponse.status, 403);
+
   const operatorBriefBefore = await getJson(base, '/api/coordination', operatorToken, 200);
   assert.deepEqual(
     operatorBriefBefore.brief?.scopes?.map((scope) => scope.id),
