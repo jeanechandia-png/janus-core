@@ -1136,13 +1136,12 @@ function finalizeProjectCheckpoint(snapshot: RunSnapshot): void {
     return;
   }
 
-  const assignmentLink = runAssignments.get(snapshot.runId);
-  const assignment = assignmentLink
-    ? store.getCoordinationAssignment(assignmentLink.assignmentId)
+  const latestHandoff = store.listCoordinationHandoffs()
+    .filter((handoff) => handoff.runId === snapshot.runId)
+    .at(-1);
+  const assignment = latestHandoff
+    ? store.getCoordinationAssignment(latestHandoff.assignmentId)
     : null;
-  const latestHandoff = assignment
-    ? store.listCoordinationHandoffs(assignment.id).at(-1)
-    : undefined;
   const checkpoint = buildProjectCheckpoint({
     project,
     thread,
