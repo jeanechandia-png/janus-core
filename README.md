@@ -130,11 +130,14 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Strong local authority authentication via ECDSA P-256 challenge-response; private keys remain outside Janus, public credentials/revocation metadata live in SQLite, and bearer sessions are memory-only.
 - Productive Decision Blueprint enforcement: every run selects an active immutable Blueprint describing agents, tool policy, guardrails and success metrics.
 - Tamper-evident runtime Decision Receipt chains persisted in SQLite for planning, plan/capability verification, tool selection, authority, approval and Delivery Gate decisions; `GET /api/runs/:runId/decisions` verifies the chain.
+- Verified runtime Outcome Learning: executable runs record a prediction receipt, verified success/failure becomes a SQLite learning observation, blockers/fallbacks stay out of calibration, Brier/drift are recalculated and negative drift may only propose a human-approved improvement.
+- `GET /api/learning` exposes current observations, calibration, drift and pending improvement proposals without silently applying changes.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Connect verified TaskRunner/Delivery Gate outcomes to the Outcome Learning Loop, calibration and drift detection.
+- Close the human-controlled improvement loop: proposal review/approval, new immutable Blueprint revision, regression verification and apply/rollback.
+- Replace the neutral execution prior only after enough verified history exists for evidence-based calibration.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
 - Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.
