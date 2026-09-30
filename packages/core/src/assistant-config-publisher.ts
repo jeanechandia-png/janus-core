@@ -64,7 +64,11 @@ export function createAssistantConfigBundle(input: {
   modules: readonly AssistantBundleModule[];
   generatedAt?: string;
 }): AssistantConfigBundle {
-  const generatedAt = input.generatedAt ?? new Date().toISOString();
+  const generatedAt = input.generatedAt ?? (
+    Date.parse(input.resolved.surface.updatedAt) >= Date.parse(input.resolved.profile.createdAt)
+      ? input.resolved.surface.updatedAt
+      : input.resolved.profile.createdAt
+  );
   if (!Number.isFinite(Date.parse(generatedAt))) {
     throw new Error('assistant config bundle generatedAt is invalid');
   }
