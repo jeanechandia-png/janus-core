@@ -144,13 +144,18 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Projects can bind to coordination scopes; authenticated collaborators still need explicit project/scope access and cannot enumerate Founder-private projects.
 - A fresh project thread bootstraps from prior project instructions/decisions/resume state automatically; project-linked runs persist a new checkpoint at completion.
 - Project planning receives only that project's continuity plus its resources/latest checkpoint instead of relying on one overloaded chat window.
+- Central Assistant Control Plane: one versioned shared profile controls Infinity Group, Infinity ChatBox and IBA landing-assistant behavior, guardrails, capabilities and reusable module references.
+- All three landing surfaces track the current shared profile revision by default; one profile update changes their resolved config without editing each surface.
+- Surfaces may temporarily pin a compatible profile revision and may disable shared capabilities, but cannot invent capabilities outside the parent profile.
+- Continue-by-Alternatives policy converts provider/capability dead ends into structured blocker resolutions with 2-4 alternatives, recommendation and next action; coordinated handoffs retain those alternatives.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
+- Connect the Assistant Control Plane to the actual landing runtimes through a sanitized versioned publisher/sync path with applied-revision acknowledgement and rollback/pin support.
 - Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
 - Add a usage graph from products/projects to exact reusable item revisions so updates can be impact-checked and upgraded safely.
-- Add real model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
+- Add real model inventory/configuration so Model Router can execute provider alternatives automatically and record observed routing quality/cost/latency in Decision Receipts.
 - Extend multi-operator coordination with per-identity agenda/availability, calendar ingestion and next-operator selection without sharing private credentials.
 - Add a mobile-first coordination view for current assignment, visible scope, latest handoff, blockers, next actions and resume point.
 - Route productive Quality Gate reviewers through the Model Router while preserving the offline baseline.
@@ -160,7 +165,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
 - Materialize the local voice runtime on the actual Janus host when hardware is available.
 
-See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-library-projects.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
+See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-library-projects.md`, `docs/assistant-control-plane.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ### PENDIENTE
 
@@ -180,7 +185,7 @@ See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-l
 
 ## Verification
 
-The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The runtime smoke also authenticates Founder/operator identities, verifies scoped operator handoff, creates reusable library items with dependencies, creates a project with resources, executes a project-linked run, opens a fresh thread and verifies that the new thread automatically receives the prior project instructions/resume point. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
+The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The runtime smoke also authenticates Founder/operator identities, verifies scoped operator handoff, creates reusable library items with dependencies, creates a project with resources, executes a project-linked run, opens a fresh thread and verifies automatic context recovery. It additionally verifies that one shared assistant-profile revision propagates to all three landing surfaces without per-surface edits, and that a real capability blocker leaves a structured `blocker_resolution` with multiple alternatives. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
 
 ## Repository layout
 
