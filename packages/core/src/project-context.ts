@@ -18,6 +18,7 @@ export interface ProjectWorkspace {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
+  coordinationScopeId?: string;
   description?: string;
   metadata?: Record<string, unknown>;
 }
@@ -90,6 +91,7 @@ export function validateProjectWorkspace(project: ProjectWorkspace): ProjectWork
     id: project.id.trim(),
     name: project.name.trim(),
     createdBy: project.createdBy.trim(),
+    coordinationScopeId: project.coordinationScopeId?.trim() || undefined,
     description: project.description?.trim() || undefined,
     metadata: project.metadata ? structuredClone(project.metadata) : undefined,
   };
