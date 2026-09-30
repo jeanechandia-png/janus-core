@@ -72,7 +72,6 @@ export function createReusableLibraryItem(
   const checksum = createHash('sha256').update(stableJson({
     id: normalized.id,
     revision: normalized.revision,
-    status: normalized.status,
     kind: normalized.kind,
     name: normalized.name,
     description: normalized.description ?? null,
