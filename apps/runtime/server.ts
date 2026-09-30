@@ -1460,12 +1460,18 @@ const server = createServer(async (request, response) => {
       const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
       if (!principalId) throw new HttpRequestError(400, 'principalId is required');
       const credential = authorityAuth.revokeOperator(token, principalId);
+      const revokedAt = credential.revokedAt ?? new Date().toISOString();
+      for (const grant of store.listCoordinationGrants()) {
+        if (grant.principalId === principalId && !grant.revokedAt) {
+          store.upsertCoordinationGrant({ ...grant, revokedAt });
+        }
+      }
       const profile = store.getCoordinationOperator(principalId);
       if (profile) {
         store.upsertCoordinationOperator({
           ...profile,
           status: 'inactive',
-          updatedAt: credential.revokedAt ?? new Date().toISOString(),
+          updatedAt: revokedAt,
         });
       }
       json(response, 200, {
@@ -1753,6 +1759,30 @@ const server = createServer(async (request, response) => {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
         : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const coordinationGrantRevokeMatch = url.pathname.match(
+    /^\/api\/coordination\/grants\/([^/]+)\/revoke$/,
+  );
+  const coordinationGrantId = coordinationGrantRevokeMatch?.[1];
+  if (request.method === 'POST' && coordinationGrantId) {
+    try {
+      requireFounderAuthority(request);
+      const grantId = decodeURIComponent(coordinationGrantId);
+      const grant = store.listCoordinationGrants().find((item) => item.id === grantId);
+      if (!grant) throw new HttpRequestError(404, 'coordination grant not found');
+      const revoked = grant.revokedAt
+        ? grant
+        : { ...grant, revokedAt: new Date().toISOString() };
+      store.upsertCoordinationGrant(revoked);
+      json(response, 200, { ok: true, grant: revoked });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
       json(response, status, authErrorBody(error));
     }
     return;
