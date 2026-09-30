@@ -26,6 +26,16 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - planes compilados y Automation Engine heredan la misma frontera de autoridad;
   - runtime expone estado fail-closed: lecturas permitidas, mutaciones no autenticadas bloqueadas;
   - autoridad válida y aprobación humana permanecen como controles separados.
+  - **Autenticación local fuerte (ADR-006)**:
+    - challenge-response ECDSA P-256 de un solo uso;
+    - claves privadas fuera de Janus; SQLite guarda solo claves públicas y metadatos no secretos;
+    - sesiones bearer efímeras, almacenadas solo como hash SHA-256 en memoria;
+    - bootstrap de Founder con mismatch fail-closed;
+    - delegación/revocación de administradores exclusiva del Founder;
+    - revocación invalida inmediatamente sesiones del administrador;
+    - endpoints de auth restringidos a loopback o proxy HTTPS explícitamente confiado;
+    - comandos autenticados inyectan principal verificado al TaskRunner;
+    - voz privilegiada permanece bloqueada hasta disponer de transporte de voz autenticado.
 
 - Janus Core independiente de proveedor con Model, Voice y Tool Gateways.
 - TaskRunner durable con continuar-por-defecto, pausa, reanudación, cancelación, bloqueo y aprobaciones.
@@ -101,18 +111,17 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Implementar autenticación local fuerte del principal fundador y delegación/revocación de administradores en secure storage.
 1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
 2. Generar Decision Receipt en cada decisión relevante: routing de modelo, selección de herramienta, aprobación, verificación y entrega.
 3. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.
 4. Conectar drift -> Improvement Proposal -> aprobación -> nueva revisión de Blueprint -> verificación/rollback.
 5. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
 6. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-8. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-9. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-10. Implementar error branches, waits y approvals completos sobre runtime durable.
-11. Añadir simulation/dry-run/replay antes de external writes.
-12. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+7. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+8. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+9. Implementar error branches, waits y approvals completos sobre runtime durable.
+10. Añadir simulation/dry-run/replay antes de external writes.
+11. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
