@@ -73,7 +73,7 @@ export class DefaultToolGateway implements ToolGateway {
 }
 
 
-const PRIVILEGED_TOOL_ACTION = /(^|\.)(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)(\.|$)/i;
+const PRIVILEGED_TOOL_ACTION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
 
 function isPrivilegedToolAction(action: string): boolean {
   return PRIVILEGED_TOOL_ACTION.test(action);
