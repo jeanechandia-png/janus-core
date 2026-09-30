@@ -147,3 +147,53 @@ test('founder can delegate administrator and revocation invalidates admin sessio
   assert.ok(revoked.revokedAt);
   assert.equal(auth.authenticateSession(adminSession.token), undefined);
 });
+
+
+test('founder can delegate a least-privilege operator and revocation invalidates operator sessions', () => {
+  const store = new MemoryCredentialStore();
+  const founder = p256KeyPair();
+  const operator = p256KeyPair();
+  const auth = new LocalAuthorityAuthService(store);
+  auth.ensureFounderCredential(founder.publicKey, 'Founder');
+
+  const founderChallenge = auth.issueChallenge('founder');
+  const founderSession = auth.verifyChallenge({
+    challengeId: founderChallenge.id,
+    principalId: 'founder',
+    signature: signature(founderChallenge.signingPayload, founder.privateKey),
+  });
+
+  const delegated = auth.delegateOperator(founderSession.token, {
+    principalId: 'operator-1',
+    displayName: 'Operator One',
+    publicKeyPem: operator.publicKey,
+  });
+  assert.equal(delegated.principal.role, 'operator');
+  assert.equal(delegated.delegatedBy, 'founder');
+  assert.equal(auth.status().activeOperators, 1);
+
+  const operatorChallenge = auth.issueChallenge('operator-1');
+  const operatorSession = auth.verifyChallenge({
+    challengeId: operatorChallenge.id,
+    principalId: 'operator-1',
+    signature: signature(operatorChallenge.signingPayload, operator.privateKey),
+  });
+  assert.equal(auth.authenticateSession(operatorSession.token)?.role, 'operator');
+
+  assert.throws(
+    () => auth.delegateOperator(operatorSession.token, {
+      principalId: 'operator-2',
+      publicKeyPem: p256KeyPair().publicKey,
+    }),
+    (error: unknown) => (
+      error instanceof AuthorityAuthenticationError
+      && error.code === 'founder_required'
+    ),
+  );
+
+  const revoked = auth.revokeOperator(founderSession.token, 'operator-1');
+  assert.equal(revoked.principal.active, false);
+  assert.ok(revoked.revokedAt);
+  assert.equal(auth.authenticateSession(operatorSession.token), undefined);
+  assert.equal(auth.status().activeOperators, 0);
+});

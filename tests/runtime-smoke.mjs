@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
+import { generateKeyPairSync, sign } from 'node:crypto';
 
 const port = await freePort();
 const base = `http://127.0.0.1:${port}`;
+const founderKeys = generateKeyPairSync('ec', {
+  namedCurve: 'prime256v1',
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+});
 const child = spawn(
   process.execPath,
   ['--import', 'tsx', 'apps/runtime/server.ts'],
@@ -17,6 +23,7 @@ const child = spawn(
       GOOGLE_ACCESS_TOKEN: '',
       JANUS_MODEL_BASE_URL: '',
       JANUS_MODEL_NAME: '',
+      JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   },
@@ -43,6 +50,10 @@ try {
   assert.equal(health.outcomeLearning?.nextExecutionPrediction?.confidence, 0.5);
   assert.equal(health.outcomeLearning?.nextExecutionPrediction?.minimumSamples, 12);
   assert.equal(health.outcomeLearning?.endpoint, '/api/learning');
+  assert.equal(health.coordination?.operators, 0);
+  assert.equal(health.coordination?.assignments, 0);
+  assert.equal(health.coordination?.handoffs, 0);
+  assert.equal(health.coordination?.accessModel, 'explicit-scopes-and-grants');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -114,6 +125,99 @@ try {
   );
   assert.equal(unauthenticatedRollback.status, 401);
 
+  const unauthenticatedCoordination = await fetch(`${base}/api/coordination`);
+  assert.equal(unauthenticatedCoordination.status, 401);
+
+  const founderToken = await authenticate(base, 'founder', founderKeys.privateKey);
+  const operatorKeys = generateKeyPairSync('ec', {
+    namedCurve: 'prime256v1',
+    publicKeyEncoding: { type: 'spki', format: 'pem' },
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  });
+  const delegated = await postJson(base, '/api/auth/operator/delegate', {
+    principalId: 'operator-smoke',
+    displayName: 'Operator Smoke',
+    publicKeyPem: operatorKeys.publicKey,
+  }, founderToken, 201);
+  assert.equal(delegated.operator?.principal?.role, 'operator');
+
+  const scopeBody = await postJson(base, '/api/coordination/scopes', {
+    id: 'scope-smoke-shared',
+    label: 'Smoke shared workspace',
+    classification: 'shared',
+  }, founderToken, 201);
+  assert.equal(scopeBody.scope?.classification, 'shared');
+
+  await postJson(base, '/api/coordination/grants', {
+    id: 'grant-smoke-operator',
+    principalId: 'operator-smoke',
+    scopeId: 'scope-smoke-shared',
+    permissions: ['read_context', 'write_work', 'coordinate', 'handoff'],
+  }, founderToken, 201);
+
+  const assignmentBody = await postJson(base, '/api/coordination/assignments', {
+    id: 'assignment-smoke',
+    title: 'Continue smoke task',
+    goal: 'Complete a local run and leave a reproducible handoff',
+    assigneePrincipalId: 'operator-smoke',
+    scopeIds: ['scope-smoke-shared'],
+    nextActions: ['Review the generated handoff'],
+  }, founderToken, 201);
+  assert.equal(assignmentBody.assignment?.assigneePrincipalId, 'operator-smoke');
+
+  const operatorToken = await authenticate(base, 'operator-smoke', operatorKeys.privateKey);
+  const operatorBriefBefore = await getJson(base, '/api/coordination', operatorToken, 200);
+  assert.deepEqual(
+    operatorBriefBefore.brief?.scopes?.map((scope) => scope.id),
+    ['scope-smoke-shared'],
+  );
+
+  const linkedResponse = await fetch(`${base}/api/command`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${operatorToken}`,
+    },
+    body: JSON.stringify({
+      text: 'haz una tarea local sin herramienta',
+      inputMode: 'text',
+      assignmentId: 'assignment-smoke',
+      sessionId: 'operator-smoke-session',
+    }),
+  });
+  assert.equal(linkedResponse.status, 202);
+  const linkedBody = await linkedResponse.json();
+  assert.equal(linkedBody.assignmentId, 'assignment-smoke');
+  assert.equal(linkedBody.authenticatedPrincipal, 'operator-smoke');
+  const linkedRun = await waitForRun(
+    base,
+    linkedBody.runId,
+    new Set(['completed', 'failed', 'blocked']),
+    5_000,
+  );
+  assert.equal(linkedRun.status, 'completed');
+
+  const operatorBriefAfter = await getJson(base, '/api/coordination', operatorToken, 200);
+  const linkedAssignment = operatorBriefAfter.brief?.assignments?.find(
+    (item) => item?.assignment?.id === 'assignment-smoke',
+  );
+  assert.equal(linkedAssignment?.latestHandoff?.runId, linkedBody.runId);
+  assert.equal(linkedAssignment?.latestHandoff?.fromPrincipalId, 'operator-smoke');
+  assert.equal(
+    linkedAssignment?.latestHandoff?.nextActions?.includes('Review the generated handoff'),
+    true,
+  );
+
+  const linkedDecisionResponse = await fetch(
+    `${base}/api/runs/${encodeURIComponent(linkedBody.runId)}/decisions`,
+  );
+  assert.equal(linkedDecisionResponse.status, 200);
+  const linkedDecisions = await linkedDecisionResponse.json();
+  assert.equal(
+    linkedDecisions.receipts?.some((receipt) => receipt?.decisionKind === 'coordination_handoff'),
+    true,
+  );
+
   const googleRunId = await startCommand(base, 'mira mi calendario');
   const googleRun = await waitForRun(base, googleRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
   assert.equal(googleRun.status, 'blocked');
@@ -140,6 +244,53 @@ try {
     new Promise((resolve) => setTimeout(resolve, 1_000)),
   ]);
   if (!child.killed) child.kill('SIGKILL');
+}
+
+async function authenticate(baseUrl, principalId, privateKey) {
+  const challengeResponse = await fetch(`${baseUrl}/api/auth/challenge`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ principalId }),
+  });
+  assert.equal(challengeResponse.status, 200);
+  const challengeBody = await challengeResponse.json();
+  const payload = challengeBody.challenge?.signingPayload;
+  assert.equal(typeof payload, 'string');
+  const signature = sign('sha256', Buffer.from(payload, 'utf8'), privateKey).toString('base64url');
+  const verifyResponse = await fetch(`${baseUrl}/api/auth/verify`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      challengeId: challengeBody.challenge.id,
+      principalId,
+      signature,
+    }),
+  });
+  assert.equal(verifyResponse.status, 200);
+  const verifyBody = await verifyResponse.json();
+  assert.equal(typeof verifyBody.session?.token, 'string');
+  return verifyBody.session.token;
+}
+
+async function postJson(baseUrl, path, body, token, expectedStatus) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  assert.equal(response.status, expectedStatus);
+  return await response.json();
+}
+
+async function getJson(baseUrl, path, token, expectedStatus) {
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: token ? { authorization: `Bearer ${token}` } : {},
+  });
+  assert.equal(response.status, expectedStatus);
+  return await response.json();
 }
 
 async function startCommand(baseUrl, text) {

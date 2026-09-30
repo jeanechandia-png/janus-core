@@ -135,11 +135,17 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Founder-only Blueprint governance: approve/reject proposals, verify a new draft revision against mandatory security/runtime invariants, explicitly apply it, or rollback by creating a new append-only revision from historical policy.
 - In-flight runs remain pinned to their starting Blueprint revision; learning/calibration is revision-scoped and historical run audits resolve the Blueprint actually used.
 - Evidence-based execution prediction: Janus retains a neutral 0.5 prior until at least 12 verified outcomes exist for the same Blueprint revision, then uses shrinkage-calibrated evidence bounded away from false certainty.
+- Productive multi-operator coordination: authenticated `operator` identities, explicit private/shared/project/system scopes, revocable grants, assignments and SQLite handoffs.
+- Assignment never implies private-data access: scope permissions are revalidated for the assignee before linked execution.
+- Linked operator runs automatically leave an evidence-linked executive handoff and a `coordination_handoff` Decision Receipt so another authorized operator can continue.
+- Operator revocation invalidates sessions and active coordination grants; Janus Core may coordinate local state globally without inheriting Founder authority for privileged external writes.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
 - Add real model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
+- Extend multi-operator coordination with per-identity agenda/availability, calendar ingestion and next-operator selection without sharing private credentials.
+- Add a mobile-first coordination view for current assignment, visible scope, latest handoff, blockers, next actions and resume point.
 - Route productive Quality Gate reviewers through the Model Router while preserving the offline baseline.
 - Feed per-model observed outcomes back into routing without letting adapters mutate Core policy.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
@@ -147,7 +153,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
 - Materialize the local voice runtime on the actual Janus host when hardware is available.
 
-See `docs/intelligence-kernel.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
+See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ### PENDIENTE
 
@@ -167,7 +173,7 @@ See `docs/intelligence-kernel.md`, `docs/voice-local-runtime.md` and `.env.voice
 
 ## Verification
 
-The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
+The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The same runtime smoke now authenticates Founder and operator P-256 identities, creates a shared scope/grant/assignment, executes a linked operator run and verifies the automatic coordination handoff plus Decision Receipt. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
 
 ## Repository layout
 

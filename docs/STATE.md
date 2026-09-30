@@ -125,6 +125,17 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - cada `execution_prediction` registra basis, sampleCount, meanOutcome, prior y minimumSamples en su Decision Receipt;
   - `/health` y `GET /api/learning` exponen la predicción que usaría el siguiente run;
   - ninguna calibración modifica el Blueprint ni políticas de producción: solo informa la predicción del resultado.
+- **Coordinación multioperador productiva**:
+  - operadores humanos autenticados usan rol `operator` de mínimo privilegio y claves públicas P-256; no heredan autoridad administrativa;
+  - el Founder define scopes `private/shared/project/system` y grants explícitos `read_context/write_work/coordinate/handoff`;
+  - una asignación nunca concede acceso implícito a un scope privado: el grant se valida incluso para el assignee;
+  - perfiles, scopes, grants, assignments y handoffs viven en SQLite local; revocar un operador invalida sesiones y revoca sus grants activos;
+  - `GET /api/coordination` entrega un brief filtrado por identidad con trabajo visible y último handoff;
+  - `POST /api/command` puede enlazar un `assignmentId`; antes de ejecutar se revalida `write_work` para todos los scopes;
+  - todo run enlazado que termina, falla, se bloquea o cancela genera un handoff durable con resumen ejecutivo, conclusiones, completado, pendientes, blockers, próximos pasos, decisiones, referencias de evidencia y checksum SHA-256;
+  - el handoff automático añade un Decision Receipt `coordination_handoff`, preservando quién operó y desde qué run;
+  - Janus Core puede coordinar el estado local global sin convertirse por ello en la identidad del Founder para external writes;
+  - prueba de humo E2E cubre Founder -> alta operator -> scope -> grant -> assignment -> login operator -> linked run -> handoff -> receipt.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -149,12 +160,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ### P0
 1. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
-2. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-3. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-4. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-5. Implementar error branches, waits y approvals completos sobre runtime durable.
-6. Añadir simulation/dry-run/replay antes de external writes.
-7. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+2. Completar coordinación operativa con agenda/availability por operador, ingestión de calendarios por identidad y selección del próximo operador sin compartir credenciales privadas.
+3. Crear vista PWA mobile-first de operadores: tarea actual, scope, último handoff, blockers, próximos pasos y punto de reanudación.
+4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+5. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+6. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+7. Implementar error branches, waits y approvals completos sobre runtime durable.
+8. Añadir simulation/dry-run/replay antes de external writes.
+9. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -193,6 +206,8 @@ Integrar Model Router multi-model productivo:
 **inventario real de modelos -> capacidades/restricciones -> local-first routing -> calidad/costo/latencia observados -> Decision Receipt -> outcome -> calibración por modelo -> routing futuro.**
 
 La gobernanza de políticas sigue humana y versionada; el router puede elegir entre adapters registrados, pero no alterar guardrails ni producción silenciosamente.
+
+La coordinación multioperador ya queda desacoplada del proveedor de IA: aunque cambie o desaparezca un modelo, assignments, permisos, historial y handoffs permanecen en Janus Core. Después del Model Router, el siguiente cierre P0 es agenda/availability multi-identidad + PWA de coordinación.
 
 ## Regla de continuidad
 

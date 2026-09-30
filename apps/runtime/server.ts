@@ -12,6 +12,15 @@ import { CapabilityRegistry } from '../../packages/core/src/capability-registry.
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
+import type { AuthorityPrincipal } from '../../packages/core/src/authority.js';
+import {
+  assertAssignmentAccess,
+  buildCoordinationBrief,
+  createCoordinationHandoff,
+  validateCoordinationAssignment,
+  validateCoordinationGrant,
+  validateCoordinationScope,
+} from '../../packages/core/src/operator-coordination.js';
 import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
@@ -103,6 +112,7 @@ if (configuredFounderPublicKey) {
 }
 const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
+const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -164,6 +174,25 @@ function continuitySnapshot() {
     store.listChronologyRecords(),
     new ErrorLedger(store.listErrorLessons()),
   );
+}
+
+function coordinationBriefFor(principal: AuthorityPrincipal) {
+  return buildCoordinationBrief({
+    principal,
+    operators: store.listCoordinationOperators(),
+    scopes: store.listCoordinationScopes(),
+    grants: store.listCoordinationGrants(),
+    assignments: store.listCoordinationAssignments(),
+    handoffs: store.listCoordinationHandoffs(),
+  });
+}
+
+function coordinationStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter(Boolean))]
+    : [];
 }
 
 function capabilityPolicyCatalog(): Record<string, string[]> {
@@ -478,6 +507,7 @@ function authErrorStatus(error: unknown): number {
     case 'founder_required':
       return 403;
     case 'administrator_required':
+    case 'operator_required':
     case 'founder_credential_mismatch':
       return 409;
   }
@@ -820,6 +850,7 @@ function startRun(
   inputMode: 'voice' | 'text',
   sessionId = `${inputMode}-runtime`,
   authorityContext?: TaskAuthorityContext,
+  coordinationLink?: { assignmentId: string; principalId: string },
 ): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
@@ -935,7 +966,14 @@ function startRun(
     role: 'user' as const,
     content: command,
     source: 'janus' as const,
-    metadata: { runId, inputMode },
+    metadata: {
+      runId,
+      inputMode,
+      ...(authorityContext?.principal?.id
+        ? { principalId: authorityContext.principal.id }
+        : {}),
+      ...(coordinationLink ? { assignmentId: coordinationLink.assignmentId } : {}),
+    },
   };
   store.appendConversationMessage(userMessage);
   for (const record of classifyExplicitContinuity(userMessage)) {
@@ -952,8 +990,26 @@ function startRun(
     content: command,
     status: 'current',
     ...(previousActive ? { supersedesId: previousActive.id } : {}),
-    metadata: { runId, inputMode },
+    metadata: {
+      runId,
+      inputMode,
+      ...(authorityContext?.principal?.id
+        ? { principalId: authorityContext.principal.id }
+        : {}),
+      ...(coordinationLink ? { assignmentId: coordinationLink.assignmentId } : {}),
+    },
   });
+  if (coordinationLink) {
+    const assignment = store.getCoordinationAssignment(coordinationLink.assignmentId);
+    if (!assignment) throw new Error('coordination assignment disappeared before run start');
+    runAssignments.set(runId, coordinationLink);
+    store.upsertCoordinationAssignment({
+      ...assignment,
+      status: 'active',
+      updatedAt: startedAt,
+      lastRunId: runId,
+    });
+  }
   runners.set(runId, runner);
   store.upsertRun(runner.snapshot());
   const activeRunner = runner;
@@ -984,9 +1040,105 @@ function startRun(
   return runId;
 }
 
+function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
+  const link = runAssignments.get(snapshot.runId);
+  if (!link) return;
+
+  const assignment = store.getCoordinationAssignment(link.assignmentId);
+  if (!assignment) {
+    runAssignments.delete(snapshot.runId);
+    return;
+  }
+  const existing = store.listCoordinationHandoffs(assignment.id)
+    .find((handoff) => handoff.runId === snapshot.runId);
+  if (existing) {
+    runAssignments.delete(snapshot.runId);
+    return;
+  }
+
+  const events = store.listEvents(snapshot.runId);
+  const artifactPreviews = events
+    .filter((event) => event.type === 'artifact.updated')
+    .map((event) => typeof event.payload.preview === 'string' ? event.payload.preview.trim() : '')
+    .filter(Boolean);
+  const completed = events
+    .filter((event) => event.type === 'run.step.completed')
+    .map((event) => event.summary);
+  const blockers = events
+    .filter((event) => event.type === 'run.blocked' || event.type === 'run.failed')
+    .map((event) => event.summary);
+  const receipts = store.listDecisionReceipts(snapshot.runId);
+  const decisions = receipts
+    .filter((receipt) => (
+      receipt.decisionKind === 'planning_worker_selection'
+      || receipt.decisionKind === 'tool_selection'
+      || receipt.decisionKind === 'approval'
+      || receipt.decisionKind === 'delivery_verification'
+      || receipt.decisionKind === 'run_outcome'
+    ))
+    .slice(-12)
+    .map((receipt) => receipt.outputSummary);
+  const executiveSummary = artifactPreviews.at(-1)
+    ?? `Run ${snapshot.runId} ended with status ${snapshot.status} for: ${snapshot.goal}`;
+  const nextActions = assignment.nextActions;
+  const handoff = createCoordinationHandoff({
+    assignmentId: assignment.id,
+    fromPrincipalId: link.principalId,
+    runId: snapshot.runId,
+    createdAt: snapshot.updatedAt,
+    executiveSummary,
+    conclusions: artifactPreviews.length > 0
+      ? [artifactPreviews.at(-1)!]
+      : [`Execution finished with status ${snapshot.status}.`],
+    completed,
+    pending: nextActions,
+    blockers,
+    nextActions,
+    decisions,
+    evidenceRefs: [
+      ...events.slice(-20).map((event) => `event:${event.id}`),
+      ...receipts.slice(-12).map((receipt) => `receipt:${receipt.hash}`),
+    ],
+  });
+  store.appendCoordinationHandoff(handoff);
+
+  const status = snapshot.status === 'blocked' || snapshot.status === 'failed'
+    ? 'blocked'
+    : snapshot.status === 'cancelled'
+      ? 'cancelled'
+      : nextActions.length > 0
+        ? 'active'
+        : 'completed';
+  store.upsertCoordinationAssignment({
+    ...assignment,
+    status,
+    updatedAt: snapshot.updatedAt,
+    lastRunId: snapshot.runId,
+  });
+
+  recordDecision({
+    runId: snapshot.runId,
+    decisionKind: 'coordination_handoff',
+    selectedWorker: 'janus-core/multi-operator-coordinator-v1',
+    confidence: 1,
+    inputRefs: handoff.evidenceRefs,
+    outputSummary: 'Coordination handoff persisted for the next authorized operator.',
+    metadata: {
+      assignmentId: assignment.id,
+      fromPrincipalId: link.principalId,
+      handoffId: handoff.id,
+      checksum: handoff.checksum,
+      nextActionCount: handoff.nextActions.length,
+      blockerCount: handoff.blockers.length,
+    },
+  });
+  runAssignments.delete(snapshot.runId);
+}
+
 function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
   recordRunOutcome(snapshot);
+  finalizeCoordinationHandoff(snapshot);
 
   if (snapshot.status === 'blocked' || snapshot.status === 'failed') {
     voiceSessions.runBlocked(snapshot.runId);
@@ -1132,6 +1284,14 @@ const server = createServer(async (request, response) => {
       },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
+      coordination: {
+        operators: store.listCoordinationOperators().filter((operator) => operator.status === 'active').length,
+        assignments: store.listCoordinationAssignments().length,
+        handoffs: store.listCoordinationHandoffs().length,
+        accessModel: 'explicit-scopes-and-grants',
+        handoffPolicy: 'automatic-on-linked-run-terminal-state',
+        endpoint: '/api/coordination',
+      },
       continuity: {
         records: store.listChronologyRecords().length,
         errorLessons: store.listErrorLessons().length,
@@ -1245,6 +1405,78 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         administrator: {
+          principal: credential.principal,
+          revokedAt: credential.revokedAt,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/operator/delegate') {
+    try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : undefined;
+      const notes = typeof body.notes === 'string' ? body.notes.trim() : undefined;
+      if (!principalId || !publicKeyPem.trim()) {
+        throw new HttpRequestError(400, 'principalId and publicKeyPem are required');
+      }
+      const credential = authorityAuth.delegateOperator(token, {
+        principalId,
+        publicKeyPem,
+        ...(displayName ? { displayName } : {}),
+      });
+      store.upsertCoordinationOperator({
+        principalId,
+        status: 'active',
+        createdAt: credential.createdAt,
+        updatedAt: credential.createdAt,
+        ...(displayName ? { displayName } : {}),
+        ...(notes ? { notes } : {}),
+      });
+      json(response, 201, {
+        ok: true,
+        operator: {
+          principal: credential.principal,
+          createdAt: credential.createdAt,
+          delegatedBy: credential.delegatedBy,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/operator/revoke') {
+    try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      if (!principalId) throw new HttpRequestError(400, 'principalId is required');
+      const credential = authorityAuth.revokeOperator(token, principalId);
+      const revokedAt = credential.revokedAt ?? new Date().toISOString();
+      for (const grant of store.listCoordinationGrants()) {
+        if (grant.principalId === principalId && !grant.revokedAt) {
+          store.upsertCoordinationGrant({ ...grant, revokedAt });
+        }
+      }
+      const profile = store.getCoordinationOperator(principalId);
+      if (profile) {
+        store.upsertCoordinationOperator({
+          ...profile,
+          status: 'inactive',
+          updatedAt: revokedAt,
+        });
+      }
+      json(response, 200, {
+        ok: true,
+        operator: {
           principal: credential.principal,
           revokedAt: credential.revokedAt,
         },
@@ -1440,6 +1672,246 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/coordination') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        brief: coordinationBriefFor(principal),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/coordination/scopes') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const label = typeof body.label === 'string' ? body.label.trim() : '';
+      const description = typeof body.description === 'string' ? body.description.trim() : undefined;
+      const classification = body.classification === 'private'
+        || body.classification === 'shared'
+        || body.classification === 'project'
+        || body.classification === 'system'
+        ? body.classification
+        : null;
+      if (!label || !classification) {
+        throw new HttpRequestError(400, 'label and valid classification are required');
+      }
+      const ownerPrincipalId = typeof body.ownerPrincipalId === 'string' && body.ownerPrincipalId.trim()
+        ? body.ownerPrincipalId.trim()
+        : principal.id;
+      const scope = validateCoordinationScope({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `scope_${randomUUID()}`,
+        label,
+        classification,
+        ownerPrincipalId,
+        createdAt: new Date().toISOString(),
+        ...(description ? { description } : {}),
+      });
+      store.upsertCoordinationScope(scope);
+      json(response, 201, { ok: true, scope });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/coordination/grants') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      const scopeId = typeof body.scopeId === 'string' ? body.scopeId.trim() : '';
+      const allowedPermissions = new Set(['read_context', 'write_work', 'coordinate', 'handoff']);
+      const permissions = coordinationStringList(body.permissions)
+        .filter((permission) => allowedPermissions.has(permission));
+      if (!principalId || !scopeId || permissions.length === 0) {
+        throw new HttpRequestError(400, 'principalId, scopeId and valid permissions are required');
+      }
+      if (!store.listCoordinationScopes().some((scope) => scope.id === scopeId)) {
+        throw new HttpRequestError(404, 'coordination scope not found');
+      }
+      const target = store.getAuthorityCredential(principalId);
+      if (!target || !target.principal.active || target.revokedAt) {
+        throw new HttpRequestError(409, 'active authenticated principal is required');
+      }
+      const grant = validateCoordinationGrant({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `grant_${randomUUID()}`,
+        principalId,
+        scopeId,
+        permissions: permissions as Array<'read_context' | 'write_work' | 'coordinate' | 'handoff'>,
+        grantedBy: principal.id,
+        createdAt: new Date().toISOString(),
+      });
+      store.upsertCoordinationGrant(grant);
+      json(response, 201, { ok: true, grant });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const coordinationGrantRevokeMatch = url.pathname.match(
+    /^\/api\/coordination\/grants\/([^/]+)\/revoke$/,
+  );
+  const coordinationGrantId = coordinationGrantRevokeMatch?.[1];
+  if (request.method === 'POST' && coordinationGrantId) {
+    try {
+      requireFounderAuthority(request);
+      const grantId = decodeURIComponent(coordinationGrantId);
+      const grant = store.listCoordinationGrants().find((item) => item.id === grantId);
+      if (!grant) throw new HttpRequestError(404, 'coordination grant not found');
+      const revoked = grant.revokedAt
+        ? grant
+        : { ...grant, revokedAt: new Date().toISOString() };
+      store.upsertCoordinationGrant(revoked);
+      json(response, 200, { ok: true, grant: revoked });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/coordination/assignments') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const goal = typeof body.goal === 'string' ? body.goal.trim() : '';
+      const assigneePrincipalId = typeof body.assigneePrincipalId === 'string'
+        ? body.assigneePrincipalId.trim()
+        : '';
+      const scopeIds = coordinationStringList(body.scopeIds);
+      if (!title || !goal || !assigneePrincipalId || scopeIds.length === 0) {
+        throw new HttpRequestError(400, 'title, goal, assigneePrincipalId and scopeIds are required');
+      }
+      const assigneeCredential = store.getAuthorityCredential(assigneePrincipalId);
+      if (
+        !assigneeCredential
+        || !assigneeCredential.principal.active
+        || assigneeCredential.revokedAt
+      ) {
+        throw new HttpRequestError(409, 'active authenticated assignee is required');
+      }
+      const scopes = store.listCoordinationScopes();
+      if (!scopeIds.every((scopeId) => scopes.some((scope) => scope.id === scopeId))) {
+        throw new HttpRequestError(404, 'one or more coordination scopes were not found');
+      }
+      const now = new Date().toISOString();
+      const priority = body.priority === 'low'
+        || body.priority === 'high'
+        || body.priority === 'critical'
+        ? body.priority
+        : 'normal';
+      const assignment = validateCoordinationAssignment({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `assignment_${randomUUID()}`,
+        title,
+        goal,
+        assigneePrincipalId,
+        scopeIds,
+        status: 'queued',
+        priority,
+        createdBy: principal.id,
+        createdAt: now,
+        updatedAt: now,
+        nextActions: coordinationStringList(body.nextActions),
+      });
+      assertAssignmentAccess({
+        principal: assigneeCredential.principal,
+        assignment,
+        scopes,
+        grants: store.listCoordinationGrants(),
+        permission: 'write_work',
+      });
+      store.upsertCoordinationAssignment(assignment);
+      json(response, 201, { ok: true, assignment });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const coordinationHandoffMatch = url.pathname.match(
+    /^\/api\/coordination\/assignments\/([^/]+)\/handoffs$/,
+  );
+  const coordinationAssignmentId = coordinationHandoffMatch?.[1];
+  if (request.method === 'POST' && coordinationAssignmentId) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const assignment = store.getCoordinationAssignment(
+        decodeURIComponent(coordinationAssignmentId),
+      );
+      if (!assignment) throw new HttpRequestError(404, 'coordination assignment not found');
+      assertAssignmentAccess({
+        principal,
+        assignment,
+        scopes: store.listCoordinationScopes(),
+        grants: store.listCoordinationGrants(),
+        permission: 'handoff',
+      });
+      const body = await readJson(request);
+      const executiveSummary = typeof body.executiveSummary === 'string'
+        ? body.executiveSummary.trim()
+        : '';
+      if (!executiveSummary) {
+        throw new HttpRequestError(400, 'executiveSummary is required');
+      }
+      const handoff = createCoordinationHandoff({
+        assignmentId: assignment.id,
+        fromPrincipalId: principal.id,
+        createdAt: new Date().toISOString(),
+        executiveSummary,
+        conclusions: coordinationStringList(body.conclusions),
+        completed: coordinationStringList(body.completed),
+        pending: coordinationStringList(body.pending),
+        blockers: coordinationStringList(body.blockers),
+        nextActions: coordinationStringList(body.nextActions),
+        decisions: coordinationStringList(body.decisions),
+        evidenceRefs: coordinationStringList(body.evidenceRefs),
+        ...(typeof body.toPrincipalId === 'string' && body.toPrincipalId.trim()
+          ? { toPrincipalId: body.toPrincipalId.trim() }
+          : {}),
+        ...(typeof body.runId === 'string' && body.runId.trim()
+          ? { runId: body.runId.trim() }
+          : {}),
+      });
+      store.appendCoordinationHandoff(handoff);
+      store.upsertCoordinationAssignment({
+        ...assignment,
+        status: body.completeAssignment === true ? 'completed' : 'active',
+        updatedAt: handoff.createdAt,
+      });
+      json(response, 201, { ok: true, handoff });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/command') {
     try {
       const body = await readJson(request);
@@ -1452,16 +1924,36 @@ const server = createServer(async (request, response) => {
         ? body.sessionId.trim()
         : 'text-runtime';
       const authorityContext = authorityContextForCommand(request, text, body);
+      const assignmentId = typeof body.assignmentId === 'string'
+        ? body.assignmentId.trim()
+        : '';
+      let coordinationLink: { assignmentId: string; principalId: string } | undefined;
+      if (assignmentId) {
+        const principal = authorityContext?.principal;
+        if (!principal) throw new HttpRequestError(401, 'authenticated operator is required');
+        const assignment = store.getCoordinationAssignment(assignmentId);
+        if (!assignment) throw new HttpRequestError(404, 'coordination assignment not found');
+        assertAssignmentAccess({
+          principal,
+          assignment,
+          scopes: store.listCoordinationScopes(),
+          grants: store.listCoordinationGrants(),
+          permission: 'write_work',
+        });
+        coordinationLink = { assignmentId, principalId: principal.id };
+      }
       const runId = startRun(
         text,
         body.inputMode === 'voice' ? 'voice' : 'text',
         sessionId,
         authorityContext,
+        coordinationLink,
       );
       json(response, 202, {
         ok: true,
         runId,
         authenticatedPrincipal: authorityContext?.principal?.id ?? null,
+        assignmentId: coordinationLink?.assignmentId ?? null,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
