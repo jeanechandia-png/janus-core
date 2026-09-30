@@ -438,6 +438,20 @@ try {
   const googleRun = await waitForRun(base, googleRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
   assert.equal(googleRun.status, 'blocked');
 
+  const googleDecisionResponse = await fetch(
+    `${base}/api/runs/${encodeURIComponent(googleRunId)}/decisions`,
+  );
+  assert.equal(googleDecisionResponse.status, 200);
+  const googleDecisions = await googleDecisionResponse.json();
+  const blockerResolution = googleDecisions.receipts?.find(
+    (receipt) => receipt?.decisionKind === 'blocker_resolution',
+  );
+  assert.equal(blockerResolution?.metadata?.resolution?.alternatives?.length, 3);
+  assert.equal(
+    blockerResolution?.metadata?.resolution?.disposition,
+    'park_and_continue',
+  );
+
   const eventsResponse = await fetch(`${base}/api/events?runId=${encodeURIComponent(googleRunId)}`, {
     headers: { accept: 'text/event-stream' },
     signal: AbortSignal.timeout(500),
