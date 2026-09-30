@@ -18,10 +18,11 @@ function compileToolStep(step: PlannedToolStep, options: CompilePlanOptions): Ja
     label: step.label,
     run: async ({ emit, checkpoint, assertCanExecute }) => {
       await checkpoint();
-      await assertCanExecute({
+      const permit = await assertCanExecute({
         id: step.id,
         label: step.label,
         tool: step.tool,
+        operation: step.action,
         target: describeTarget(step.input),
         risk: step.risk,
         reversible: step.reversible,
@@ -34,6 +35,7 @@ function compileToolStep(step: PlannedToolStep, options: CompilePlanOptions): Ja
           action: step.action,
           input: step.input,
           idempotencyKey: step.idempotencyKey,
+          authorization: permit,
         },
         async (progress: ToolProgress) => {
           await checkpoint();
