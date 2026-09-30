@@ -54,6 +54,9 @@ try {
   assert.equal(health.coordination?.assignments, 0);
   assert.equal(health.coordination?.handoffs, 0);
   assert.equal(health.coordination?.accessModel, 'explicit-scopes-and-grants');
+  assert.equal(health.reusableLibrary?.currentItems, 0);
+  assert.equal(health.projects?.active, 0);
+  assert.equal(health.projects?.threads, 0);
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -129,6 +132,125 @@ try {
   assert.equal(unauthenticatedCoordination.status, 401);
 
   const founderToken = await authenticate(base, 'founder', founderKeys.privateKey);
+
+  const iconItem = await postJson(base, '/api/library/items', {
+    id: 'icon.translator.medallion',
+    kind: 'icon',
+    name: 'Translator medallion',
+    tags: ['translator', 'approved'],
+    compatibility: ['web', 'pwa'],
+    spec: { shape: 'medallion', approved: true },
+  }, founderToken, 201);
+  assert.equal(iconItem.item?.revision, 1);
+
+  const buttonItem = await postJson(base, '/api/library/items', {
+    id: 'button.hyperreal.glow',
+    kind: 'button',
+    name: 'Hyperreal illuminated button',
+    tags: ['button', 'approved'],
+    dependencies: [{ itemId: 'icon.translator.medallion', revision: 1 }],
+    spec: { illuminated: true, depth: 'high' },
+  }, founderToken, 201);
+  assert.equal(buttonItem.item?.revision, 1);
+
+  const librarySelection = await getJson(
+    base,
+    '/api/library/button.hyperreal.glow',
+    founderToken,
+    200,
+  );
+  assert.equal(librarySelection.selection?.item?.id, 'button.hyperreal.glow');
+  assert.equal(librarySelection.selection?.dependencyItems?.[0]?.id, 'icon.translator.medallion');
+
+  const projectBody = await postJson(base, '/api/projects', {
+    id: 'project-smoke',
+    name: 'Smoke Project',
+    description: 'Project continuity smoke',
+  }, founderToken, 201);
+  assert.equal(projectBody.project?.id, 'project-smoke');
+
+  const threadOneBody = await postJson(base, '/api/projects/project-smoke/threads', {
+    id: 'thread-smoke-1',
+    title: 'Initial chat',
+  }, founderToken, 201);
+  assert.equal(threadOneBody.thread?.projectId, 'project-smoke');
+
+  await postJson(base, '/api/projects/project-smoke/resources', {
+    id: 'resource-smoke-logo',
+    threadId: 'thread-smoke-1',
+    name: 'Approved logo',
+    source: 'local',
+    sourceRef: 'local://library/logo.svg',
+    mimeType: 'image/svg+xml',
+    checksum: 'smoke-checksum',
+  }, founderToken, 201);
+
+  const projectRunResponse = await fetch(`${base}/api/command`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${founderToken}`,
+    },
+    body: JSON.stringify({
+      text: 'Siempre reutiliza los componentes aprobados del catálogo y nunca empieces desde cero.',
+      inputMode: 'text',
+      projectId: 'project-smoke',
+      threadId: 'thread-smoke-1',
+    }),
+  });
+  assert.equal(projectRunResponse.status, 202);
+  const projectRunBody = await projectRunResponse.json();
+  assert.equal(projectRunBody.projectId, 'project-smoke');
+  assert.equal(projectRunBody.threadId, 'thread-smoke-1');
+  const projectRun = await waitForRun(
+    base,
+    projectRunBody.runId,
+    new Set(['completed', 'failed', 'blocked']),
+    5_000,
+  );
+  assert.equal(projectRun.status, 'completed');
+
+  const projectDecisionResponse = await fetch(
+    `${base}/api/runs/${encodeURIComponent(projectRunBody.runId)}/decisions`,
+  );
+  assert.equal(projectDecisionResponse.status, 200);
+  const projectDecisions = await projectDecisionResponse.json();
+  assert.equal(
+    projectDecisions.receipts?.some(
+      (receipt) => receipt?.decisionKind === 'project_context_checkpoint',
+    ),
+    true,
+  );
+
+  const threadTwoBody = await postJson(base, '/api/projects/project-smoke/threads', {
+    id: 'thread-smoke-2',
+    title: 'Fresh chat after rollover',
+  }, founderToken, 201);
+  assert.equal(threadTwoBody.bootstrapCheckpoint?.threadId, 'thread-smoke-2');
+  assert.equal(
+    threadTwoBody.bootstrapCheckpoint?.activeInstructions?.some(
+      (instruction) => instruction?.content?.includes('nunca empieces desde cero'),
+    ),
+    true,
+  );
+  assert.equal(
+    threadTwoBody.bootstrapCheckpoint?.resumeFrom?.content?.includes(
+      'Siempre reutiliza los componentes aprobados',
+    ),
+    true,
+  );
+
+  const projectContext = await getJson(
+    base,
+    '/api/projects/project-smoke/context',
+    founderToken,
+    200,
+  );
+  assert.equal(projectContext.project?.id, 'project-smoke');
+  assert.equal(projectContext.threads?.length, 2);
+  assert.equal(projectContext.resources?.length, 1);
+  assert.equal(projectContext.latestCheckpoint?.threadId, 'thread-smoke-2');
+
   const operatorKeys = generateKeyPairSync('ec', {
     namedCurve: 'prime256v1',
     publicKeyEncoding: { type: 'spki', format: 'pem' },
