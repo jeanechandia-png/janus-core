@@ -62,6 +62,9 @@ try {
   assert.equal(health.assistantControl?.activeSurfaces, 3);
   assert.equal(health.assistantControl?.inheritedCurrent, 3);
   assert.equal(health.progressPolicy?.id, 'continue-by-alternatives-v1');
+  assert.equal(health.assistantControl?.deliveries, 0);
+  assert.equal(health.assistantControl?.appliedDeliveries, 0);
+  assert.equal(health.assistantControl?.publisher, 'needs-auth');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -226,6 +229,42 @@ try {
     ),
     true,
   );
+
+  const generatedBundle = await getJson(
+    base,
+    '/api/assistant-control/surfaces/landing.iba/bundle',
+    founderToken,
+    200,
+  );
+  assert.equal(generatedBundle.bundle?.surfaceId, 'landing.iba');
+  assert.equal(generatedBundle.bundle?.profileRevision, 2);
+  assert.equal(typeof generatedBundle.bundle?.bundleChecksum, 'string');
+  assert.equal(
+    JSON.parse(generatedBundle.content).bundleChecksum,
+    generatedBundle.bundle.bundleChecksum,
+  );
+
+  const unauthenticatedPublishCapability = await postJson(
+    base,
+    '/api/assistant-control/surfaces/landing.iba/publish',
+    {
+      confirmAction: 'publish_assistant_surface',
+      targetRef: 'feature/iba-live-ai-landing',
+    },
+    founderToken,
+    409,
+  );
+  assert.match(
+    unauthenticatedPublishCapability.error ?? '',
+    /GitHub write authentication|required/i,
+  );
+  const deliveryState = await getJson(
+    base,
+    '/api/assistant-control/deliveries',
+    founderToken,
+    200,
+  );
+  assert.equal(deliveryState.deliveries?.length, 0);
 
   for (const surfaceId of [
     'landing.infinity-group',
