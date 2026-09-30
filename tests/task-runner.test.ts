@@ -44,9 +44,22 @@ test('voice run stays observable from heard to completed', async () => {
   }
 });
 
-test('high-risk action blocks without an approval handler', async () => {
+test('high-risk action blocks without an approval handler after authority passes', async () => {
   const hub = new EventHub();
-  const runner = new TaskRunner('Acción externa', { sink: hub.sink });
+  const runner = new TaskRunner('Acción externa', {
+    sink: hub.sink,
+    authorityContext: {
+      principal: { id: 'founder', role: 'founder_director', active: true },
+      instruction: {
+        id: 'i-high-risk',
+        principalId: 'founder',
+        source: 'authenticated_human',
+        authenticated: true,
+        instruction: 'Enviar mensaje externo',
+        requestedAt: '2026-09-30T16:00:00.000Z',
+      },
+    },
+  });
 
   await runner.heard('text');
   const snapshot = await runner.execute([
@@ -58,6 +71,7 @@ test('high-risk action blocks without an approval handler', async () => {
           id: 'send',
           label: 'Enviar mensaje externo',
           tool: 'messaging',
+          operation: 'send',
           risk: 'high',
           reversible: false,
           requiresApproval: true,
@@ -68,6 +82,37 @@ test('high-risk action blocks without an approval handler', async () => {
 
   assert.equal(snapshot.status, 'blocked');
   const types = hub.replay(snapshot.runId).map((event) => event.type);
+  assert.ok(types.includes('authority.evaluated'));
   assert.ok(types.includes('approval.required'));
   assert.ok(types.includes('run.blocked'));
+});
+
+test('privileged action fails closed without authenticated authority', async () => {
+  const hub = new EventHub();
+  const runner = new TaskRunner('Crear recurso externo', { sink: hub.sink });
+
+  const snapshot = await runner.execute([
+    {
+      id: 'write',
+      label: 'Crear recurso',
+      run: async ({ assertCanExecute }) => {
+        await assertCanExecute({
+          id: 'create',
+          label: 'Crear recurso',
+          tool: 'external',
+          operation: 'create.item',
+          risk: 'low',
+          reversible: true,
+          requiresApproval: false,
+        });
+      },
+    },
+  ]);
+
+  assert.equal(snapshot.status, 'blocked');
+  const events = hub.replay(snapshot.runId);
+  const authority = events.find((event) => event.type === 'authority.evaluated');
+  assert.equal(authority?.payload.allowed, false);
+  assert.equal(authority?.payload.reason, 'unknown_or_inactive_principal');
+  assert.ok(events.some((event) => event.type === 'run.blocked'));
 });
