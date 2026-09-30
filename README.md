@@ -150,10 +150,20 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Continue-by-Alternatives policy converts provider/capability dead ends into structured blocker resolutions with 2-4 alternatives, recommendation and next action; coordinated handoffs retain those alternatives.
 - Verified Assistant Config Publisher: deterministic bundles, explicit branch revalidation, idempotent GitHub writes, commit read-back checksum verification and durable delivery states.
 - Repository publication and live application are separate: `published_verified` does not become `applied` without a matching product acknowledgement.
+- Founder biometric authority layer: sensitive founder-only scopes fail closed unless a fresh, action-scoped, one-time `platform-face` proof has been verified; administrators/operators cannot substitute for Founder identity.
+- Janus never receives or stores raw face images/templates; the runtime accepts only a public-key assertion whose private key is expected to remain behind platform biometric/Secure Enclave policy.
+- Authority delegation/revocation and root security actions are explicitly face-gated in addition to existing authenticated-session and confirmation controls.
+- Shared assistant profile is 24/7-support-ready: grounded product answers, product-scope routing, unresolved-question capture and human handoff are inherited by all tracked landing surfaces.
+- Local Business Operations Hub: product registry, append-only ledger entries, product health, social-channel snapshots and monetization-requirement evidence persist in SQLite and aggregate without mixing currencies.
+- Read-only Meta and YouTube analytics adapters are registered behind the Tool Gateway; tokens stay in the credential broker/environment boundary and Meta API version must be explicitly configured/revalidated.
+- Monetization targets are stored as sourced snapshots rather than hardcoded platform rules, so eligibility changes can be revalidated instead of becoming stale logic.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
+- Connect the iPhone/native security adapter that creates and uses the Founder P-256 private key under Face ID + current-biometry policy; Core enforcement and challenge/proof verification are implemented, but the physical Face ID signer is still a deployment dependency.
+- Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
+- Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
 - Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
 - Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
 - Add a usage graph from products/projects to exact reusable item revisions so updates can be impact-checked and upgraded safely.
@@ -171,6 +181,9 @@ See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-l
 
 ### PENDIENTE
 
+- Native Face ID/Secure Enclave enrollment and key-rotation/recovery UX on the actual Founder device.
+- Product-specific ingestion adapters for billing, runtime health, app usage and accounting sources after their authoritative endpoints/databases are identified.
+- Campaign orchestration above the read-only social analytics layer: publish/ads mutations must remain separately permissioned, idempotent and approval-gated.
 - Physical-host latency benchmark and hardware profile.
 - Offline acceptance test on the actual host.
 - Final voice IDs and model checksums recorded as the VIGENTE runtime profile.
@@ -183,11 +196,13 @@ See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-l
 
 ### BLOQUEADO
 
+- Physical Face ID prompting cannot be claimed end-to-end until a native/platform bridge is running on the Founder device with a biometric-bound private key; Core intentionally fails closed for configured face-only scopes.
+- Live financial/health/social values cannot be claimed until the real product/platform credentials and data sources are connected and revalidated.
 - Physical always-on local voice execution remains blocked until a suitable Janus host is available/configured with local models. This is a deployment/hardware dependency, not an architecture dependency.
 
 ## Verification
 
-The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The runtime smoke also authenticates Founder/operator identities, verifies scoped operator handoff, creates reusable library items with dependencies, creates a project with resources, executes a project-linked run, opens a fresh thread and verifies automatic context recovery. It additionally verifies that one shared assistant-profile revision propagates to all three landing surfaces without per-surface edits, and that a real capability blocker leaves a structured `blocker_resolution` with multiple alternatives. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
+The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The runtime smoke also authenticates Founder/operator identities, verifies that operator delegation is refused without a fresh Founder face proof and accepted with a valid one-time proof, verifies scoped operator handoff, creates reusable library items with dependencies, creates a project with resources, executes a project-linked run, opens a fresh thread and verifies automatic context recovery. It additionally verifies that one shared assistant-profile revision propagates to all three landing surfaces without per-surface edits, and that a real capability blocker leaves a structured `blocker_resolution` with multiple alternatives. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
 
 ## Repository layout
 
