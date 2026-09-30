@@ -173,8 +173,8 @@ export function rejectRuntimeImprovementProposal(input: {
 }): RuntimeImprovementProposal {
   const proposal = findRuntimeImprovementProposal(input.store, input.proposalId);
   if (proposal.status === 'rejected') return proposal;
-  if (proposal.status === 'applied') {
-    throw new Error('Applied improvement proposal cannot be rejected');
+  if (proposal.status !== 'proposed') {
+    throw new Error('Only a proposed improvement can be rejected');
   }
 
   const rejected = { ...proposal, status: 'rejected' as const };
@@ -204,6 +204,42 @@ export function approveRuntimeImprovementProposal(input: {
     throw new Error('Improvement proposal is stale relative to the active Blueprint');
   }
 
+  if (proposal.status === 'approved') {
+    const existingDrafts = input.store
+      .listDecisionBlueprints(input.current.id)
+      .filter(
+        (blueprint) =>
+          blueprint.status === 'draft'
+          && blueprint.supersedesRevision === input.current.revision,
+      );
+    if (existingDrafts.length !== 1) {
+      throw new Error('Approved proposal must have exactly one draft candidate');
+    }
+    const existing = existingDrafts[0]!;
+    if (stableJson(existing) !== stableJson(input.candidate)) {
+      throw new Error('Approved proposal candidate differs from persisted draft');
+    }
+    const verification = verifyRuntimeBlueprintCandidate({
+      current: input.current,
+      candidate: existing,
+      registeredTools: input.registeredTools,
+    });
+    if (!verification.ok) {
+      throw new Error(
+        'Persisted candidate failed regression verification: '
+        + verification.errors.join('; '),
+      );
+    }
+    return { proposal, candidate: existing, verification };
+  }
+
+  const expectedRevision = nextBlueprintRevision(input.store, input.current.id);
+  if (input.candidate.revision !== expectedRevision) {
+    throw new Error(
+      'Candidate revision must be the next available revision: ' + expectedRevision,
+    );
+  }
+
   const verification = verifyRuntimeBlueprintCandidate({
     current: input.current,
     candidate: input.candidate,
@@ -225,9 +261,7 @@ export function approveRuntimeImprovementProposal(input: {
   }
   if (!existing) input.store.upsertDecisionBlueprint(input.candidate);
 
-  const approved = proposal.status === 'approved'
-    ? proposal
-    : { ...proposal, status: 'approved' as const };
+  const approved = { ...proposal, status: 'approved' as const };
   input.store.upsertImprovementProposal(approved);
   return { proposal: approved, candidate: existing ?? input.candidate, verification };
 }
@@ -247,25 +281,29 @@ export function applyApprovedRuntimeBlueprint(input: {
 
   if (proposal.status === 'applied') {
     const alreadyActive = input.store
-      .listDecisionBlueprints(input.current.id)
+      .listDecisionBlueprints(proposal.blueprintId)
       .find((blueprint) => blueprint.status === 'active');
-    if (!alreadyActive) throw new Error('Applied proposal has no active Blueprint');
+    const previous = input.store.getDecisionBlueprint(
+      proposal.blueprintId,
+      proposal.fromRevision,
+    );
+    if (!alreadyActive || !previous) {
+      throw new Error('Applied proposal has incomplete Blueprint history');
+    }
+    const verification = verifyRuntimeBlueprintCandidate({
+      current: { ...previous, status: 'active' },
+      candidate: {
+        ...alreadyActive,
+        status: 'draft',
+        supersedesRevision: previous.revision,
+      },
+      registeredTools: input.registeredTools,
+    });
     return {
       proposal,
-      previous: input.current,
+      previous,
       active: alreadyActive,
-      verification: verifyRuntimeBlueprintCandidate({
-        current: {
-          ...input.current,
-          status: 'active',
-        },
-        candidate: {
-          ...alreadyActive,
-          status: 'draft',
-          supersedesRevision: input.current.revision,
-        },
-        registeredTools: input.registeredTools,
-      }),
+      verification,
     };
   }
 
@@ -279,13 +317,20 @@ export function applyApprovedRuntimeBlueprint(input: {
     throw new Error('Approved proposal is stale relative to the active Blueprint');
   }
 
-  const candidate = input.store.getDecisionBlueprint(
-    input.current.id,
-    nextRevisionAfter(input.store, input.current.revision),
-  );
-  if (!candidate || candidate.status !== 'draft') {
-    throw new Error('Approved proposal has no draft candidate revision');
+  const draftCandidates = input.store
+    .listDecisionBlueprints(input.current.id)
+    .filter(
+      (blueprint) =>
+        blueprint.status === 'draft'
+        && blueprint.supersedesRevision === input.current.revision,
+    );
+  if (draftCandidates.length !== 1) {
+    throw new Error(
+      'Approved proposal must have exactly one draft candidate revision; found '
+      + draftCandidates.length,
+    );
   }
+  const candidate = draftCandidates[0]!;
 
   const verification = verifyRuntimeBlueprintCandidate({
     current: input.current,
@@ -385,25 +430,6 @@ export function rollbackRuntimeBlueprint(input: {
     sourceRevision: target.revision,
     verification,
   };
-}
-
-function nextRevisionAfter(
-  store: RuntimeBlueprintGovernanceStore,
-  revision: number,
-): number {
-  const candidates = store
-    .listDecisionBlueprints()
-    .filter((blueprint) => blueprint.revision > revision && blueprint.status === 'draft')
-    .sort((a, b) => a.revision - b.revision);
-  if (candidates.length !== 1) {
-    throw new Error(
-      'Expected exactly one draft candidate after revision '
-      + revision
-      + '; found '
-      + candidates.length,
-    );
-  }
-  return candidates[0]!.revision;
 }
 
 function stableJson(value: unknown): string {
