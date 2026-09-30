@@ -122,10 +122,16 @@ export function createProductOperationalRecord(
   const id = safeId(input.id, 'product id');
   const name = requiredText(input.name, 'product name', 200);
   const sources = input.sources.map(validateSourceRef);
+  const status = enumValue(
+    input.status,
+    ['active', 'pilot', 'development', 'standby', 'paused', 'historical'] as const,
+    'product status',
+  );
   return {
     ...input,
     id,
     name,
+    status,
     sources,
     ...(input.supportSurfaceId
       ? { supportSurfaceId: safeId(input.supportSurfaceId, 'support surface id') }
@@ -138,10 +144,16 @@ export function createProductLedgerEntry(input: ProductLedgerEntry): ProductLedg
   if (!Number.isSafeInteger(input.amountMinor) || input.amountMinor < 0) {
     throw new Error('ledger amountMinor must be a non-negative safe integer');
   }
+  const kind = enumValue(
+    input.kind,
+    ['income', 'expense', 'refund', 'fee', 'tax'] as const,
+    'ledger kind',
+  );
   return {
     ...input,
     id: safeId(input.id, 'ledger id'),
     productId: safeId(input.productId, 'product id'),
+    kind,
     currency: normalizeCurrency(input.currency),
     occurredAt: validIso(input.occurredAt, 'ledger occurredAt'),
     source: requiredText(input.source, 'ledger source', 300),
@@ -273,9 +285,15 @@ function latestHealth(
 }
 
 function validateHealthSnapshot(input: ProductHealthSnapshot): ProductHealthSnapshot {
+  const state = enumValue(
+    input.state,
+    ['healthy', 'degraded', 'down', 'unknown'] as const,
+    'health state',
+  );
   return {
     ...input,
     productId: safeId(input.productId, 'product id'),
+    state,
     observedAt: validIso(input.observedAt, 'health observedAt'),
     source: requiredText(input.source, 'health source', 300),
     ...(input.metrics ? { metrics: { ...input.metrics } } : {}),
@@ -283,10 +301,22 @@ function validateHealthSnapshot(input: ProductHealthSnapshot): ProductHealthSnap
 }
 
 function validateChannelSnapshot(input: SocialChannelSnapshot): SocialChannelSnapshot {
+  const platform = enumValue(
+    input.platform,
+    ['facebook', 'instagram', 'youtube', 'other'] as const,
+    'social platform',
+  );
+  const monetizationState = enumValue(
+    input.monetizationState,
+    ['not_configured', 'building_eligibility', 'eligible', 'monetized', 'restricted', 'unknown'] as const,
+    'monetization state',
+  );
   return {
     ...input,
     id: safeId(input.id, 'channel snapshot id'),
+    platform,
     channelId: requiredText(input.channelId, 'channel id', 300),
+    monetizationState,
     ...(input.productId ? { productId: safeId(input.productId, 'product id') } : {}),
     verifiedAt: validIso(input.verifiedAt, 'channel verifiedAt'),
     source: requiredText(input.source, 'channel source', 500),
@@ -306,9 +336,21 @@ function validateRequirementSnapshot(
     && (!Number.isFinite(input.targetValue) || input.targetValue < 0)
   ) throw new Error('requirement targetValue must be a non-negative number');
 
+  const platform = enumValue(
+    input.platform,
+    ['facebook', 'instagram', 'youtube', 'other'] as const,
+    'requirement platform',
+  );
+  const state = enumValue(
+    input.state,
+    ['met', 'not_met', 'unknown'] as const,
+    'requirement state',
+  );
   return {
     ...input,
     id: safeId(input.id, 'requirement id'),
+    platform,
+    state,
     channelId: requiredText(input.channelId, 'requirement channelId', 300),
     requirement: requiredText(input.requirement, 'requirement', 300),
     verifiedAt: validIso(input.verifiedAt, 'requirement verifiedAt'),
@@ -318,14 +360,31 @@ function validateRequirementSnapshot(
 }
 
 function validateSourceRef(input: ProductDataSourceRef): ProductDataSourceRef {
+  const kind = enumValue(
+    input.kind,
+    ['local_db', 'api', 'analytics', 'accounting', 'repository', 'manual', 'other'] as const,
+    'source kind',
+  );
   return {
     ...input,
+    kind,
     ref: requiredText(input.ref, 'source ref', 1000),
     purpose: requiredText(input.purpose, 'source purpose', 300),
     ...(input.verifiedAt
       ? { verifiedAt: validIso(input.verifiedAt, 'source verifiedAt') }
       : {}),
   };
+}
+
+function enumValue<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  label: string,
+): T {
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new Error(`${label} is invalid`);
+  }
+  return value as T;
 }
 
 function normalizeCurrency(value: string): string {
