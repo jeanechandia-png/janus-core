@@ -2181,6 +2181,11 @@ const server = createServer(async (request, response) => {
           : undefined,
       });
       assertReusableRevisionAppendOnly({ previous: current ?? undefined, next: item });
+      resolveReusableSelection({
+        itemId: item.id,
+        revision: item.revision,
+        items: [...store.listReusableLibraryItems(), item],
+      });
       if (current) store.upsertReusableLibraryItem({ ...current, status: 'historical' });
       store.upsertReusableLibraryItem(item);
       json(response, 201, { ok: true, item });
