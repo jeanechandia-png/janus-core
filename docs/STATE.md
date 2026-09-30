@@ -88,6 +88,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - persistencia SQLite de Blueprints, receipts, outcomes y propuestas;
   - capability map para Vision, Voice, Office, Research, Builder, Learning y cross-device continuity.
 - Pruebas unitarias para Blueprints, receipts, learning/drift, swarm y persistencia.
+- **Decision Blueprint + Decision Receipt en la ruta productiva**:
+  - cada run selecciona un Blueprint activo, versionado e inmutable;
+  - el Blueprint productivo declara agentes, herramientas, guardrails y métricas de éxito;
+  - cambios de política/capacidades requieren una nueva revisión en lugar de mutar una revisión histórica;
+  - cada ejecución genera una cadena SHA-256 de Decision Receipts persistida en SQLite;
+  - receipts actuales cubren selección de Blueprint, planner, validación de plan, disponibilidad de capacidades, selección de herramienta, autoridad, aprobación y Delivery Gate;
+  - `GET /api/runs/:runId/decisions` expone Blueprint + receipts + verificación criptográfica de la cadena;
+  - el model planner recibe el Blueprint vigente como contexto, pero Janus Core conserva la autoridad de validación y ejecución.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -111,17 +119,15 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Conectar Decision Blueprint obligatorio a toda planificación productiva.
-2. Generar Decision Receipt en cada decisión relevante: routing de modelo, selección de herramienta, aprobación, verificación y entrega.
-3. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.
-4. Conectar drift -> Improvement Proposal -> aprobación -> nueva revisión de Blueprint -> verificación/rollback.
-5. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
-6. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-7. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-8. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-9. Implementar error branches, waits y approvals completos sobre runtime durable.
-10. Añadir simulation/dry-run/replay antes de external writes.
-11. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Conectar outcomes verificados del Delivery Gate y TaskRunner al Outcome Learning Loop.
+2. Conectar drift -> Improvement Proposal -> aprobación -> nueva revisión de Blueprint -> verificación/rollback.
+3. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
+4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+5. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+6. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+7. Implementar error branches, waits y approvals completos sobre runtime durable.
+8. Añadir simulation/dry-run/replay antes de external writes.
+9. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -155,9 +161,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar la integración P0 del Super-Agent:
+Cerrar el siguiente tramo P0 del Super-Agent:
 
-**trigger/input -> continuidad -> Workflow revision + Blueprint -> planificación -> workflow graph/swarm -> ejecución -> approvals/retries/error paths -> Delivery Gate -> receipt -> outcome -> drift/calibración -> propuesta -> aprobación -> nueva revisión -> checkpoint cronológico.**
+**receipt verificado -> outcome observado -> calibración/Brier -> drift -> Improvement Proposal -> aprobación humana -> nueva revisión de Blueprint -> verificación/rollback -> checkpoint cronológico.**
+
+Después: integrar Model Router multi-model real para que routing, costo, latencia y calidad observada alimenten la misma cadena de aprendizaje.
 
 ## Regla de continuidad
 
