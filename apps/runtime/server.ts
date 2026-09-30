@@ -2029,6 +2029,7 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         brief: coordinationBriefFor(principal),
+        progressPolicy: CONTINUE_BY_ALTERNATIVES_POLICY,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
