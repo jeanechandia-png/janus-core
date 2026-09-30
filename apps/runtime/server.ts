@@ -16,11 +16,25 @@ import type { AuthorityPrincipal } from '../../packages/core/src/authority.js';
 import {
   assertAssignmentAccess,
   buildCoordinationBrief,
+  canAccessCoordinationScope,
   createCoordinationHandoff,
   validateCoordinationAssignment,
   validateCoordinationGrant,
   validateCoordinationScope,
 } from '../../packages/core/src/operator-coordination.js';
+import {
+  buildProjectCheckpoint,
+  projectRecords,
+  validateProjectResource,
+  validateProjectThread,
+  validateProjectWorkspace,
+} from '../../packages/core/src/project-context.js';
+import {
+  assertReusableRevisionAppendOnly,
+  createReusableLibraryItem,
+  resolveReusableSelection,
+  type ReusableLibraryKind,
+} from '../../packages/core/src/reusable-library.js';
 import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
@@ -113,6 +127,7 @@ if (configuredFounderPublicKey) {
 const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
 const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
+const runProjects = new Map<string, { projectId: string; threadId: string }>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -169,9 +184,10 @@ if (interruptedRuns > 0) {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-function continuitySnapshot() {
+function continuitySnapshot(projectId?: string) {
+  const records = store.listChronologyRecords();
   return reconstructContinuity(
-    store.listChronologyRecords(),
+    projectId ? projectRecords(records, projectId) : records,
     new ErrorLedger(store.listErrorLessons()),
   );
 }
@@ -185,6 +201,59 @@ function coordinationBriefFor(principal: AuthorityPrincipal) {
     assignments: store.listCoordinationAssignments(),
     handoffs: store.listCoordinationHandoffs(),
   });
+}
+
+function canAccessProject(
+  principal: AuthorityPrincipal,
+  project: NonNullable<ReturnType<SqliteStore['getProjectWorkspace']>>,
+  permission: 'read_context' | 'write_work' = 'read_context',
+): boolean {
+  if (principal.role === 'founder_director') return true;
+  if (project.createdBy === principal.id) return true;
+  const scopeId = project.coordinationScopeId;
+  if (!scopeId) return false;
+  const scope = store.listCoordinationScopes().find((item) => item.id === scopeId);
+  if (!scope) return false;
+  return canAccessCoordinationScope({
+    principal,
+    scope,
+    grants: store.listCoordinationGrants(),
+    permission,
+  });
+}
+
+function requireProjectAccess(
+  principal: AuthorityPrincipal,
+  project: NonNullable<ReturnType<SqliteStore['getProjectWorkspace']>>,
+  permission: 'read_context' | 'write_work' = 'read_context',
+): void {
+  if (!canAccessProject(principal, project, permission)) {
+    throw new HttpRequestError(403, 'project access denied');
+  }
+}
+
+function projectContextFor(projectId: string, principal: AuthorityPrincipal) {
+  const project = store.getProjectWorkspace(projectId);
+  if (!project) throw new HttpRequestError(404, 'project not found');
+  requireProjectAccess(principal, project, 'read_context');
+  const continuity = continuitySnapshot(projectId);
+  return {
+    project,
+    threads: store.listProjectThreads(projectId),
+    resources: store.listProjectResources(projectId),
+    latestCheckpoint: store.latestProjectCheckpoint(projectId),
+    continuity,
+  };
+}
+
+function reusableKind(value: unknown): ReusableLibraryKind | null {
+  const allowed = new Set<ReusableLibraryKind>([
+    'symbol', 'photo', 'logo', 'icon', 'button', 'font', 'design_token',
+    'theme', 'component', 'module', 'template', 'workflow', 'prompt', 'other',
+  ]);
+  return typeof value === 'string' && allowed.has(value as ReusableLibraryKind)
+    ? value as ReusableLibraryKind
+    : null;
 }
 
 function coordinationStringList(value: unknown): string[] {
@@ -642,7 +711,8 @@ function demoSteps(command: string): JanusStep[] {
 }
 
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
-  const continuity = continuitySnapshot();
+  const projectLink = runProjects.get(runId);
+  const continuity = continuitySnapshot(projectLink?.projectId);
   const blueprint = blueprintForRun(runId);
   const executionPolicy = blueprintExecutionPolicy(blueprint);
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
@@ -664,6 +734,20 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
           modelPolicy: blueprint.modelPolicy,
           guardrails: blueprint.guardrails,
         },
+        project: projectLink
+          ? {
+              id: projectLink.projectId,
+              threadId: projectLink.threadId,
+              latestCheckpoint: store.latestProjectCheckpoint(projectLink.projectId),
+              resources: store.listProjectResources(projectLink.projectId).slice(-100).map((resource) => ({
+                id: resource.id,
+                name: resource.name,
+                source: resource.source,
+                sourceRef: resource.sourceRef,
+                mimeType: resource.mimeType ?? null,
+              })),
+            }
+          : null,
         continuity: {
           activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
             subject: record.subject,
@@ -851,6 +935,7 @@ function startRun(
   sessionId = `${inputMode}-runtime`,
   authorityContext?: TaskAuthorityContext,
   coordinationLink?: { assignmentId: string; principalId: string },
+  projectLink?: { projectId: string; threadId: string },
 ): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
@@ -957,7 +1042,13 @@ function startRun(
     id: sessionId,
     source: 'janus',
     startedAt,
-    metadata: { lastInputMode: inputMode },
+    metadata: {
+      lastInputMode: inputMode,
+      ...(projectLink ? {
+        projectId: projectLink.projectId,
+        threadId: projectLink.threadId,
+      } : {}),
+    },
   });
   const userMessage = {
     id: `msg:user:${runId}`,
@@ -973,6 +1064,10 @@ function startRun(
         ? { principalId: authorityContext.principal.id }
         : {}),
       ...(coordinationLink ? { assignmentId: coordinationLink.assignmentId } : {}),
+      ...(projectLink ? {
+        projectId: projectLink.projectId,
+        threadId: projectLink.threadId,
+      } : {}),
     },
   };
   store.appendConversationMessage(userMessage);
@@ -980,7 +1075,7 @@ function startRun(
     store.appendChronologyRecord(record);
   }
 
-  const previousActive = continuitySnapshot().currentBySubject['active-work'];
+  const previousActive = continuitySnapshot(projectLink?.projectId).currentBySubject['active-work'];
   store.appendChronologyRecord({
     id: `task:${runId}`,
     sessionId,
@@ -997,8 +1092,23 @@ function startRun(
         ? { principalId: authorityContext.principal.id }
         : {}),
       ...(coordinationLink ? { assignmentId: coordinationLink.assignmentId } : {}),
+      ...(projectLink ? {
+        projectId: projectLink.projectId,
+        threadId: projectLink.threadId,
+      } : {}),
     },
   });
+  if (projectLink) {
+    runProjects.set(runId, projectLink);
+    const thread = store.getProjectThread(projectLink.threadId);
+    const project = store.getProjectWorkspace(projectLink.projectId);
+    if (!thread || !project || thread.projectId !== project.id) {
+      throw new Error('project/thread disappeared before run start');
+    }
+    const updatedAt = startedAt;
+    store.upsertProjectThread({ ...thread, updatedAt });
+    store.upsertProjectWorkspace({ ...project, updatedAt });
+  }
   if (coordinationLink) {
     const assignment = store.getCoordinationAssignment(coordinationLink.assignmentId);
     if (!assignment) throw new Error('coordination assignment disappeared before run start');
@@ -1038,6 +1148,61 @@ function startRun(
   }, 25);
 
   return runId;
+}
+
+function finalizeProjectCheckpoint(snapshot: RunSnapshot): void {
+  const link = runProjects.get(snapshot.runId);
+  if (!link) return;
+  const project = store.getProjectWorkspace(link.projectId);
+  const thread = store.getProjectThread(link.threadId);
+  if (!project || !thread) {
+    runProjects.delete(snapshot.runId);
+    return;
+  }
+
+  const existing = store.listProjectCheckpoints(project.id)
+    .find((checkpoint) => checkpoint.evidenceRefs.includes(`run:${snapshot.runId}`));
+  if (existing) {
+    runProjects.delete(snapshot.runId);
+    return;
+  }
+
+  const latestHandoff = store.listCoordinationHandoffs()
+    .filter((handoff) => handoff.runId === snapshot.runId)
+    .at(-1);
+  const assignment = latestHandoff
+    ? store.getCoordinationAssignment(latestHandoff.assignmentId)
+    : null;
+  const checkpoint = buildProjectCheckpoint({
+    project,
+    thread,
+    continuity: continuitySnapshot(project.id),
+    nextActions: latestHandoff?.nextActions ?? assignment?.nextActions ?? [],
+    evidenceRefs: [
+      `run:${snapshot.runId}`,
+      ...store.listEvents(snapshot.runId).slice(-20).map((event) => `event:${event.id}`),
+      ...store.listDecisionReceipts(snapshot.runId).slice(-12).map((receipt) => `receipt:${receipt.hash}`),
+    ],
+    createdAt: snapshot.updatedAt,
+  });
+  store.appendProjectCheckpoint(checkpoint);
+  store.upsertProjectThread({ ...thread, updatedAt: snapshot.updatedAt });
+  store.upsertProjectWorkspace({ ...project, updatedAt: snapshot.updatedAt });
+  recordDecision({
+    runId: snapshot.runId,
+    decisionKind: 'project_context_checkpoint',
+    selectedWorker: 'janus-core/project-continuity-v1',
+    confidence: 1,
+    inputRefs: checkpoint.evidenceRefs,
+    outputSummary: 'Project context checkpoint persisted for automatic thread continuity.',
+    metadata: {
+      projectId: project.id,
+      threadId: thread.id,
+      checkpointId: checkpoint.id,
+      checksum: checkpoint.checksum,
+    },
+  });
+  runProjects.delete(snapshot.runId);
 }
 
 function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
@@ -1139,6 +1304,7 @@ function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
   recordRunOutcome(snapshot);
   finalizeCoordinationHandoff(snapshot);
+  finalizeProjectCheckpoint(snapshot);
 
   if (snapshot.status === 'blocked' || snapshot.status === 'failed') {
     voiceSessions.runBlocked(snapshot.runId);
@@ -1284,6 +1450,19 @@ const server = createServer(async (request, response) => {
       },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
+      reusableLibrary: {
+        currentItems: store.listReusableLibraryItems({ status: 'current' }).length,
+        revisions: store.listReusableLibraryItems().length,
+        endpoint: '/api/library',
+      },
+      projects: {
+        active: store.listProjectWorkspaces('active').length,
+        threads: store.listProjectWorkspaces().reduce(
+          (total, project) => total + store.listProjectThreads(project.id).length,
+          0,
+        ),
+        endpoint: '/api/projects',
+      },
       coordination: {
         operators: store.listCoordinationOperators().filter((operator) => operator.status === 'active').length,
         assignments: store.listCoordinationAssignments().length,
@@ -1912,6 +2091,319 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/library') {
+    try {
+      if (authorityAuth.status().founderConfigured) requireAuthoritySession(request);
+      const kind = reusableKind(url.searchParams.get('kind'));
+      const tag = url.searchParams.get('tag')?.trim() || undefined;
+      const items = store.listReusableLibraryItems({
+        status: 'current',
+        ...(kind ? { kind } : {}),
+        ...(tag ? { tag } : {}),
+      });
+      json(response, 200, { ok: true, items });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const libraryItemMatch = url.pathname.match(/^\/api\/library\/([^/]+)$/);
+  const libraryItemId = libraryItemMatch?.[1];
+  if (request.method === 'GET' && libraryItemId) {
+    try {
+      if (authorityAuth.status().founderConfigured) requireAuthoritySession(request);
+      const itemId = decodeURIComponent(libraryItemId);
+      const revisionRaw = url.searchParams.get('revision');
+      const revision = revisionRaw == null ? undefined : Number(revisionRaw);
+      if (revision != null && (!Number.isInteger(revision) || revision < 1)) {
+        throw new HttpRequestError(400, 'revision must be a positive integer');
+      }
+      const selection = resolveReusableSelection({
+        itemId,
+        items: store.listReusableLibraryItems(),
+        ...(revision == null ? {} : { revision }),
+      });
+      json(response, 200, { ok: true, selection });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 404;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/library/items') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const id = typeof body.id === 'string' ? body.id.trim() : '';
+      const kind = reusableKind(body.kind);
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!id || !kind || !name) {
+        throw new HttpRequestError(400, 'id, valid kind and name are required');
+      }
+      const current = store.getReusableLibraryItem(id);
+      const revision = current ? current.revision + 1 : 1;
+      const item = createReusableLibraryItem({
+        id,
+        revision,
+        status: 'current',
+        kind,
+        name,
+        description: typeof body.description === 'string' ? body.description : undefined,
+        createdAt: new Date().toISOString(),
+        createdBy: principal.id,
+        ...(current ? { supersedesRevision: current.revision } : {}),
+        tags: coordinationStringList(body.tags),
+        compatibility: coordinationStringList(body.compatibility),
+        dependencies: Array.isArray(body.dependencies)
+          ? body.dependencies.flatMap((value) => {
+              if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+              const dep = value as Record<string, unknown>;
+              const itemId = typeof dep.itemId === 'string' ? dep.itemId.trim() : '';
+              if (!itemId) return [];
+              const depRevision = Number(dep.revision);
+              return [{
+                itemId,
+                ...(Number.isInteger(depRevision) && depRevision > 0
+                  ? { revision: depRevision }
+                  : {}),
+                ...(dep.optional === true ? { optional: true } : {}),
+              }];
+            })
+          : [],
+        contentRef: typeof body.contentRef === 'string' ? body.contentRef : undefined,
+        previewRef: typeof body.previewRef === 'string' ? body.previewRef : undefined,
+        spec: body.spec && typeof body.spec === 'object' && !Array.isArray(body.spec)
+          ? body.spec as Record<string, unknown>
+          : undefined,
+      });
+      assertReusableRevisionAppendOnly({ previous: current ?? undefined, next: item });
+      resolveReusableSelection({
+        itemId: item.id,
+        revision: item.revision,
+        items: [...store.listReusableLibraryItems(), item],
+      });
+      if (current) store.upsertReusableLibraryItem({ ...current, status: 'historical' });
+      store.upsertReusableLibraryItem(item);
+      json(response, 201, { ok: true, item });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/projects') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        projects: store.listProjectWorkspaces().filter(
+          (project) => canAccessProject(principal, project, 'read_context'),
+        ),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/projects') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (!['founder_director', 'administrator', 'operator'].includes(principal.role)) {
+        throw new HttpRequestError(403, 'authenticated human principal is required');
+      }
+      const body = await readJson(request);
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) throw new HttpRequestError(400, 'name is required');
+      const coordinationScopeId = typeof body.coordinationScopeId === 'string'
+        && body.coordinationScopeId.trim()
+        ? body.coordinationScopeId.trim()
+        : undefined;
+      if (coordinationScopeId) {
+        const scope = store.listCoordinationScopes().find((item) => item.id === coordinationScopeId);
+        if (!scope) throw new HttpRequestError(404, 'coordination scope not found');
+        if (principal.role !== 'founder_director' && !canAccessCoordinationScope({
+          principal,
+          scope,
+          grants: store.listCoordinationGrants(),
+          permission: 'write_work',
+        })) {
+          throw new HttpRequestError(403, 'coordination scope write access denied');
+        }
+      }
+      const now = new Date().toISOString();
+      const project = validateProjectWorkspace({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `project_${randomUUID()}`,
+        name,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: principal.id,
+        ...(coordinationScopeId ? { coordinationScopeId } : {}),
+        description: typeof body.description === 'string' ? body.description : undefined,
+      });
+      if (store.getProjectWorkspace(project.id)) {
+        throw new HttpRequestError(409, 'project id already exists');
+      }
+      store.upsertProjectWorkspace(project);
+      json(response, 201, { ok: true, project });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const projectContextMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/context$/);
+  const projectContextId = projectContextMatch?.[1];
+  if (request.method === 'GET' && projectContextId) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const context = projectContextFor(decodeURIComponent(projectContextId), principal);
+      json(response, 200, {
+        ok: true,
+        project: context.project,
+        threads: context.threads,
+        resources: context.resources,
+        latestCheckpoint: context.latestCheckpoint,
+        continuity: {
+          activeInstructions: context.continuity.activeInstructions,
+          unresolvedErrors: context.continuity.unresolvedErrors,
+          preventiveRules: context.continuity.preventiveRules,
+          resumeFrom: context.continuity.resumeFrom ?? null,
+        },
+      });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const projectThreadsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/threads$/);
+  const projectThreadsId = projectThreadsMatch?.[1];
+  if (request.method === 'POST' && projectThreadsId) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const projectId = decodeURIComponent(projectThreadsId);
+      const project = store.getProjectWorkspace(projectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
+      const body = await readJson(request);
+      const title = typeof body.title === 'string' && body.title.trim()
+        ? body.title.trim()
+        : 'New thread';
+      const now = new Date().toISOString();
+      const thread = validateProjectThread({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `thread_${randomUUID()}`,
+        projectId,
+        title,
+        status: 'active',
+        createdAt: now,
+        updatedAt: now,
+        createdBy: principal.id,
+      });
+      if (store.getProjectThread(thread.id)) {
+        throw new HttpRequestError(409, 'thread id already exists');
+      }
+      store.upsertProjectThread(thread);
+      store.upsertProjectWorkspace({ ...project, updatedAt: now });
+      const checkpoint = buildProjectCheckpoint({
+        project,
+        thread,
+        continuity: continuitySnapshot(projectId),
+        evidenceRefs: [
+          ...store.listProjectCheckpoints(projectId).slice(-5).map((item) => `checkpoint:${item.id}`),
+        ],
+        createdAt: now,
+      });
+      store.appendProjectCheckpoint(checkpoint);
+      json(response, 201, {
+        ok: true,
+        thread,
+        bootstrapCheckpoint: checkpoint,
+      });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const projectResourcesMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/resources$/);
+  const projectResourcesId = projectResourcesMatch?.[1];
+  if (request.method === 'POST' && projectResourcesId) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const projectId = decodeURIComponent(projectResourcesId);
+      const project = store.getProjectWorkspace(projectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
+      const body = await readJson(request);
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      const sourceRef = typeof body.sourceRef === 'string' ? body.sourceRef.trim() : '';
+      const source = body.source === 'local'
+        || body.source === 'google_drive'
+        || body.source === 'apple_icloud'
+        || body.source === 'upload'
+        || body.source === 'import'
+        || body.source === 'other'
+        ? body.source
+        : null;
+      if (!name || !sourceRef || !source) {
+        throw new HttpRequestError(400, 'name, sourceRef and valid source are required');
+      }
+      const threadId = typeof body.threadId === 'string' && body.threadId.trim()
+        ? body.threadId.trim()
+        : undefined;
+      if (threadId) {
+        const thread = store.getProjectThread(threadId);
+        if (!thread || thread.projectId !== projectId) {
+          throw new HttpRequestError(409, 'thread does not belong to project');
+        }
+      }
+      const resource = validateProjectResource({
+        id: typeof body.id === 'string' && body.id.trim()
+          ? body.id.trim()
+          : `resource_${randomUUID()}`,
+        projectId,
+        ...(threadId ? { threadId } : {}),
+        name,
+        source,
+        sourceRef,
+        createdAt: new Date().toISOString(),
+        addedBy: principal.id,
+        mimeType: typeof body.mimeType === 'string' ? body.mimeType : undefined,
+        checksum: typeof body.checksum === 'string' ? body.checksum : undefined,
+      });
+      store.upsertProjectResource(resource);
+      json(response, 201, { ok: true, resource });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/command') {
     try {
       const body = await readJson(request);
@@ -1920,10 +2412,31 @@ const server = createServer(async (request, response) => {
         json(response, 400, { ok: false, error: 'text is required' });
         return;
       }
-      const sessionId = typeof body.sessionId === 'string' && body.sessionId.trim()
-        ? body.sessionId.trim()
-        : 'text-runtime';
       const authorityContext = authorityContextForCommand(request, text, body);
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const threadId = typeof body.threadId === 'string' ? body.threadId.trim() : '';
+      let projectLink: { projectId: string; threadId: string } | undefined;
+      if (projectId || threadId) {
+        if (!projectId || !threadId) {
+          throw new HttpRequestError(400, 'projectId and threadId must be provided together');
+        }
+        const principal = authorityContext?.principal;
+        if (!principal) {
+          throw new HttpRequestError(401, 'authenticated principal is required for project commands');
+        }
+        const project = store.getProjectWorkspace(projectId);
+        const thread = store.getProjectThread(threadId);
+        if (!project || !thread || thread.projectId !== project.id) {
+          throw new HttpRequestError(404, 'project/thread not found');
+        }
+        requireProjectAccess(principal, project, 'write_work');
+        projectLink = { projectId, threadId };
+      }
+      const sessionId = projectLink
+        ? projectLink.threadId
+        : typeof body.sessionId === 'string' && body.sessionId.trim()
+          ? body.sessionId.trim()
+          : 'text-runtime';
       const assignmentId = typeof body.assignmentId === 'string'
         ? body.assignmentId.trim()
         : '';
@@ -1948,12 +2461,15 @@ const server = createServer(async (request, response) => {
         sessionId,
         authorityContext,
         coordinationLink,
+        projectLink,
       );
       json(response, 202, {
         ok: true,
         runId,
         authenticatedPrincipal: authorityContext?.principal?.id ?? null,
         assignmentId: coordinationLink?.assignmentId ?? null,
+        projectId: projectLink?.projectId ?? null,
+        threadId: projectLink?.threadId ?? null,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));

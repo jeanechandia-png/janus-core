@@ -18,7 +18,11 @@ export function classifyExplicitContinuity(message: ConversationMessage): Chrono
       subject: 'directive:' + fingerprint(content),
       content,
       status: isStableDirective(content) ? 'stable' : 'current',
-      metadata: { sourceMessageId: message.id, classifier: 'explicit-v1' },
+      metadata: {
+        sourceMessageId: message.id,
+        classifier: 'explicit-v1',
+        ...continuityContextMetadata(message.metadata),
+      },
     });
   }
 
@@ -36,6 +40,7 @@ export function classifyExplicitContinuity(message: ConversationMessage): Chrono
         sourceMessageId: message.id,
         classifier: 'explicit-v1',
         diagnosisRequired: true,
+        ...continuityContextMetadata(message.metadata),
       },
     });
   }
@@ -55,6 +60,18 @@ function isExplicitErrorReport(content: string): boolean {
   const namesError = /\b(error|fallo|equivocaci[oó]n|problema repetido|reincidencia)\b/i.test(content);
   const learningIntent = /\b(no (?:se )?repita|no olvidar|lecci[oó]n|regla preventiva|causa|impacto|corregir)\b/i.test(content);
   return namesError && learningIntent;
+}
+
+function continuityContextMetadata(
+  metadata: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!metadata) return {};
+  const result: Record<string, unknown> = {};
+  for (const key of ['projectId', 'threadId', 'assignmentId', 'principalId']) {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) result[key] = value.trim();
+  }
+  return result;
 }
 
 function compact(value: string): string {

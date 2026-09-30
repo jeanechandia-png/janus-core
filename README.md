@@ -139,10 +139,17 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Assignment never implies private-data access: scope permissions are revalidated for the assignee before linked execution.
 - Linked operator runs automatically leave an evidence-linked executive handoff and a `coordination_handoff` Decision Receipt so another authorized operator can continue.
 - Operator revocation invalidates sessions and active coordination grants; Janus Core may coordinate local state globally without inheriting Founder authority for privileged external writes.
+- Reusable LEGO Library: versioned symbols/photos/logos/icons/buttons/fonts/design tokens/themes/components/modules/templates/workflows/prompts with dependency resolution and SHA-256 integrity.
+- Durable project workspaces with multiple threads, project-scoped chronology, resource references and automatic context checkpoints.
+- Projects can bind to coordination scopes; authenticated collaborators still need explicit project/scope access and cannot enumerate Founder-private projects.
+- A fresh project thread bootstraps from prior project instructions/decisions/resume state automatically; project-linked runs persist a new checkpoint at completion.
+- Project planning receives only that project's continuity plus its resources/latest checkpoint instead of relying on one overloaded chat window.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
+- Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
+- Add a usage graph from products/projects to exact reusable item revisions so updates can be impact-checked and upgraded safely.
 - Add real model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
 - Extend multi-operator coordination with per-identity agenda/availability, calendar ingestion and next-operator selection without sharing private credentials.
 - Add a mobile-first coordination view for current assignment, visible scope, latest handoff, blockers, next actions and resume point.
@@ -153,7 +160,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
 - Materialize the local voice runtime on the actual Janus host when hardware is available.
 
-See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
+See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-library-projects.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ### PENDIENTE
 
@@ -173,7 +180,7 @@ See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/voice-
 
 ## Verification
 
-The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The same runtime smoke now authenticates Founder and operator P-256 identities, creates a shared scope/grant/assignment, executes a linked operator run and verifies the automatic coordination handoff plus Decision Receipt. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
+The CI suite includes an end-to-end full-duplex smoke that starts local simulated STT/TTS services plus the real Janus runtime and verifies the complete voice path. The runtime smoke also authenticates Founder/operator identities, verifies scoped operator handoff, creates reusable library items with dependencies, creates a project with resources, executes a project-linked run, opens a fresh thread and verifies that the new thread automatically receives the prior project instructions/resume point. Intelligence Kernel unit tests verify hard-requirement model routing, Work Graph dependencies, whole-document coverage refusal, citation provenance validation, partitioned-job progress and evidence-based improvement updates.
 
 ## Repository layout
 
