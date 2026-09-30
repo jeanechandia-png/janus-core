@@ -392,7 +392,7 @@ export class TaskRunner {
   }
 }
 
-const PRIVILEGED_OPERATION = /(^|\.)(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)(\.|$)/i;
+const PRIVILEGED_OPERATION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
 
 function isPrivilegedAction(action: ObservableAction): boolean {
   return (
