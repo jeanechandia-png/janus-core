@@ -19,6 +19,12 @@ import {
   createRuntimeDecisionBlueprint,
   ensureDecisionBlueprint,
 } from '../../packages/core/src/runtime-decision-trace.js';
+import {
+  assessVerifiedRunOutcome,
+  createRuntimeLearningObservation,
+  maybeProposeRuntimeImprovement,
+  runtimeLearningReport,
+} from '../../packages/core/src/runtime-outcome-learning.js';
 import { EventHub } from '../../packages/core/src/event-hub.js';
 import type { EventSink, RunSnapshot } from '../../packages/core/src/events.js';
 import { SqliteStore } from '../../packages/core/src/sqlite-store.js';
@@ -169,8 +175,8 @@ function recordDecision(input: {
   inputRefs?: string[];
   outputSummary: string;
   metadata?: Record<string, unknown>;
-}): void {
-  appendChainedDecisionReceipt(store, {
+}) {
+  return appendChainedDecisionReceipt(store, {
     blueprint: runtimeBlueprint,
     runId: input.runId,
     decisionKind: input.decisionKind,
@@ -183,6 +189,97 @@ function recordDecision(input: {
     outputSummary: input.outputSummary,
     ...(input.metadata ? { metadata: input.metadata } : {}),
   });
+}
+
+function outcomeLearningSnapshot() {
+  const observations = store.listLearningObservations(runtimeBlueprint.id);
+  const report = runtimeLearningReport(observations);
+  const proposals = store.listImprovementProposals().filter(
+    (proposal) =>
+      proposal.blueprintId === runtimeBlueprint.id
+      && proposal.fromRevision === runtimeBlueprint.revision,
+  );
+  return {
+    observations,
+    calibration: report.calibration,
+    drift: report.drift,
+    proposals,
+  };
+}
+
+function recordRunOutcome(snapshot: RunSnapshot): void {
+  const existingReceipts = store.listDecisionReceipts(snapshot.runId);
+  if (existingReceipts.some((receipt) => receipt.decisionKind === 'run_outcome')) return;
+
+  const prediction = existingReceipts
+    .filter((receipt) => receipt.decisionKind === 'execution_prediction')
+    .at(-1);
+  const assessment = assessVerifiedRunOutcome(
+    snapshot,
+    store.listEvents(snapshot.runId),
+    { hasExecutionPrediction: Boolean(prediction) },
+  );
+
+  const outcomeReceipt = recordDecision({
+    runId: snapshot.runId,
+    decisionKind: 'run_outcome',
+    selectedWorker: 'janus-core/runtime-outcome-learning-v1',
+    confidence: 1,
+    inputRefs: assessment.evidenceRefs.length > 0
+      ? assessment.evidenceRefs
+      : ['run:' + snapshot.runId],
+    outputSummary:
+      'Observed runtime outcome: '
+      + assessment.outcome
+      + ' (score '
+      + assessment.outcomeScore.toFixed(2)
+      + ').',
+    metadata: {
+      runStatus: snapshot.status,
+      outcome: assessment.outcome,
+      outcomeScore: assessment.outcomeScore,
+      learningEligible: assessment.learningEligible && Boolean(prediction),
+      reasons: assessment.reasons,
+      metrics: assessment.metrics,
+      predictionReceiptHash: prediction?.hash ?? null,
+    },
+  });
+
+  if (!prediction || !assessment.learningEligible) return;
+
+  const observation = createRuntimeLearningObservation({
+    snapshot,
+    blueprint: runtimeBlueprint,
+    prediction,
+    assessment,
+  });
+  store.appendLearningObservation(observation);
+
+  const observations = store.listLearningObservations(runtimeBlueprint.id);
+  const proposal = maybeProposeRuntimeImprovement({
+    blueprint: runtimeBlueprint,
+    observations,
+    existingProposals: store.listImprovementProposals(),
+    createdAt: snapshot.updatedAt,
+  });
+  if (proposal) {
+    store.upsertImprovementProposal(proposal);
+    recordDecision({
+      runId: snapshot.runId,
+      decisionKind: 'improvement_proposal',
+      selectedWorker: 'janus-core/outcome-drift-detector',
+      confidence: 1,
+      inputRefs: ['receipt:' + outcomeReceipt.hash, ...proposal.evidenceRefs],
+      outputSummary:
+        'Negative outcome drift produced a human-approval-required improvement proposal.',
+      metadata: {
+        proposalId: proposal.id,
+        fromRevision: proposal.fromRevision,
+        status: proposal.status,
+        requiresHumanApproval: proposal.requiresHumanApproval,
+      },
+    });
+  }
 }
 
 function createConfiguredModelGateway(): ModelGateway | undefined {
@@ -540,6 +637,20 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     });
   }
 
+  recordDecision({
+    runId,
+    decisionKind: 'execution_prediction',
+    selectedWorker: 'janus-core/runtime-outcome-prior-v1',
+    confidence: 0.5,
+    outputSummary:
+      'Neutral execution-success prior recorded until enough verified outcomes exist for calibration.',
+    metadata: {
+      basis: 'neutral-prior-v1',
+      planSource: plan.source,
+      stepCount: plan.steps.length,
+    },
+  });
+
   return compilePlan(plan, { toolGateway });
 }
 
@@ -715,8 +826,7 @@ function startRun(
       finishRun(snapshot);
     })().catch((error) => {
       console.error('run failed', error instanceof Error ? error.message : String(error));
-      voiceSessions.runBlocked(runId);
-      runners.delete(runId);
+      finishRun(activeRunner.snapshot());
     });
   }, 25);
 
@@ -725,12 +835,14 @@ function startRun(
 
 function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
-  if (snapshot.status === 'blocked') {
+  recordRunOutcome(snapshot);
+
+  if (snapshot.status === 'blocked' || snapshot.status === 'failed') {
     voiceSessions.runBlocked(snapshot.runId);
     runners.delete(snapshot.runId);
     return;
   }
-  if (snapshot.status === 'completed' || snapshot.status === 'cancelled' || snapshot.status === 'failed') {
+  if (snapshot.status === 'completed' || snapshot.status === 'cancelled') {
     voiceSessions.runCompleted(snapshot.runId);
     runners.delete(snapshot.runId);
   }
@@ -837,6 +949,18 @@ const server = createServer(async (request, response) => {
         receipts: 'sha256-chained-sqlite',
         endpoint: '/api/runs/:runId/decisions',
       },
+      outcomeLearning: (() => {
+        const learning = outcomeLearningSnapshot();
+        return {
+          observations: learning.observations.length,
+          calibration: learning.calibration,
+          drift: learning.drift,
+          openImprovementProposals: learning.proposals.filter(
+            (proposal) => proposal.status === 'proposed' || proposal.status === 'approved',
+          ).length,
+          endpoint: '/api/learning',
+        };
+      })(),
       deliveryGate: {
         state: 'enforced',
         dimensions: ['coherence', 'structural', 'visual', 'architectural', 'orthographic', 'synthesis'],
@@ -997,6 +1121,22 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname === '/api/events') {
     handleEvents(request, response);
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/learning') {
+    const learning = outcomeLearningSnapshot();
+    json(response, 200, {
+      ok: true,
+      blueprint: {
+        id: runtimeBlueprint.id,
+        revision: runtimeBlueprint.revision,
+      },
+      observations: learning.observations,
+      calibration: learning.calibration,
+      drift: learning.drift,
+      improvementProposals: learning.proposals,
+    });
     return;
   }
 

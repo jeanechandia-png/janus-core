@@ -37,6 +37,9 @@ try {
   assert.equal(health.decisionTrace?.blueprint?.id, 'janus-runtime-execution');
   assert.equal(health.decisionTrace?.blueprint?.revision, 1);
   assert.equal(health.decisionTrace?.receipts, 'sha256-chained-sqlite');
+  assert.equal(health.outcomeLearning?.observations, 0);
+  assert.equal(health.outcomeLearning?.calibration?.count, 0);
+  assert.equal(health.outcomeLearning?.endpoint, '/api/learning');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -63,6 +66,22 @@ try {
   assert.equal(decisionBody.receipts[0]?.decisionKind, 'blueprint_selection');
   assert.ok(decisionBody.receipts.some((receipt) => receipt?.decisionKind === 'planning_fallback'));
   assert.ok(decisionBody.receipts.some((receipt) => receipt?.decisionKind === 'delivery_verification'));
+  assert.equal(
+    decisionBody.receipts.some((receipt) => receipt?.decisionKind === 'execution_prediction'),
+    false,
+  );
+  const fallbackOutcome = decisionBody.receipts.find(
+    (receipt) => receipt?.decisionKind === 'run_outcome',
+  );
+  assert.equal(fallbackOutcome?.metadata?.outcome, 'unknown');
+  assert.equal(fallbackOutcome?.metadata?.learningEligible, false);
+
+  const learningResponse = await fetch(`${base}/api/learning`);
+  assert.equal(learningResponse.status, 200);
+  const learningBody = await learningResponse.json();
+  assert.equal(learningBody.ok, true);
+  assert.equal(learningBody.calibration?.count, 0);
+  assert.deepEqual(learningBody.observations, []);
 
   const googleRunId = await startCommand(base, 'mira mi calendario');
   const googleRun = await waitForRun(base, googleRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
