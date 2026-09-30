@@ -779,9 +779,50 @@ function requireFounderAuthority(request: IncomingMessage): {
   if (session.principal.role !== 'founder_director') {
     throw new HttpRequestError(
       403,
-      'Authenticated Founder/Director authority is required for Blueprint governance',
+      'Authenticated Founder/Director authority is required',
     );
   }
+  return session;
+}
+
+function founderBiometricProofId(request: IncomingMessage): string | undefined {
+  const value = request.headers['x-janus-biometric-proof'];
+  if (Array.isArray(value)) return value[0]?.trim() || undefined;
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function requireFounderBiometricAuthority(
+  request: IncomingMessage,
+  action: string,
+): {
+  token: string;
+  principal: NonNullable<ReturnType<typeof authorityAuth.authenticateSession>>;
+} {
+  const session = requireFounderAuthority(request);
+  const requestedAt = new Date().toISOString();
+  const proofId = founderBiometricProofId(request);
+  const biometricAttestation = proofId
+    ? founderBiometric.consumeProof({
+        proofId,
+        principalId: session.principal.id,
+        action,
+        requestedAt,
+      })
+    : undefined;
+  const decision = evaluateAuthority(
+    session.principal,
+    {
+      id: `authority_instruction_${randomUUID()}`,
+      principalId: session.principal.id,
+      source: 'authenticated_human',
+      authenticated: true,
+      instruction: action,
+      requestedAt,
+      ...(biometricAttestation ? { biometricAttestation } : {}),
+    },
+    action,
+  );
+  if (!decision.allowed) throw new HttpRequestError(403, decision.reason);
   return session;
 }
 
@@ -2074,7 +2115,10 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/auth/admin/delegate') {
     try {
-      const { token } = requireAuthoritySession(request);
+      const { token } = requireFounderBiometricAuthority(
+        request,
+        'security.authority.delegate_admin',
+      );
       const body = await readJson(request);
       const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
       const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
@@ -2103,7 +2147,10 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/auth/admin/revoke') {
     try {
-      const { token } = requireAuthoritySession(request);
+      const { token } = requireFounderBiometricAuthority(
+        request,
+        'security.authority.revoke_admin',
+      );
       const body = await readJson(request);
       const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
       if (!principalId) throw new HttpRequestError(400, 'principalId is required');
@@ -2123,7 +2170,10 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/auth/operator/delegate') {
     try {
-      const { token } = requireFounderAuthority(request);
+      const { token } = requireFounderBiometricAuthority(
+        request,
+        'security.authority.delegate_operator',
+      );
       const body = await readJson(request);
       const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
       const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
@@ -2161,7 +2211,10 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'POST' && url.pathname === '/api/auth/operator/revoke') {
     try {
-      const { token } = requireFounderAuthority(request);
+      const { token } = requireFounderBiometricAuthority(
+        request,
+        'security.authority.revoke_operator',
+      );
       const body = await readJson(request);
       const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
       if (!principalId) throw new HttpRequestError(400, 'principalId is required');
