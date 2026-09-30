@@ -72,6 +72,12 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - persistencia SQLite de Blueprints, receipts, outcomes y propuestas;
   - capability map para Vision, Voice, Office, Research, Builder, Learning y cross-device continuity.
 - Pruebas unitarias para Blueprints, receipts, learning/drift, swarm y persistencia.
+- **Persistencia Intelligence Kernel restante**:
+  - Work Graph snapshots con progreso de nodos;
+  - durable jobs y particiones/checkpoints;
+  - Citation Ledgers por run;
+  - historial append-only del Improvement Index por scope;
+  - recuperación SQLite validada con prueba de round-trip.
 - **Flow Automation Engine foundations (ADR-004)**:
   - workflows versionados como grafos de nodos/conexiones;
   - nodos deterministas y agentic dentro del mismo workflow;
@@ -97,7 +103,6 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 4. Conectar drift -> Improvement Proposal -> aprobación -> nueva revisión de Blueprint -> verificación/rollback.
 5. Conectar Delivery Gate obligatoriamente a cada salida final/artifact boundary.
 6. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-7. Persistir Work Graph/jobs/citations/improvement history restantes en SQLite.
 8. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
 9. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
 10. Implementar error branches, waits y approvals completos sobre runtime durable.
