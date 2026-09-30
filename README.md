@@ -121,6 +121,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Safe automatic spoken completion summaries.
 - End-to-end integration test: PCM -> STT -> task -> safe summary -> TTS -> PCM over WebSocket.
 - Intelligence Kernel foundation contracts: Work Graph, Model Router, whole-document coverage, citation ledger, durable job partitioning and improvement index.
+- SQLite persistence for Work Graph snapshots, durable jobs, Citation Ledgers and append-only Improvement Index history.
 - Chronological continuity engine with current/history resolution, resume pointer, unresolved-error carryover and Error Ledger.
 - Janus-owned local conversation archive in SQLite with chronological replay.
 - Automatic extraction of explicit durable user instructions and reported errors into continuity records.
@@ -129,7 +130,6 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 
 ### AHORA
 
-- Persist Work Graph, job partitions, citation ledger and improvement-index history in SQLite.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
 - Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.
