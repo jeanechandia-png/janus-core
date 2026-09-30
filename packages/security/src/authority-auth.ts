@@ -37,6 +37,12 @@ export interface DelegateAdministratorInput {
   displayName?: string;
 }
 
+export interface DelegateOperatorInput {
+  principalId: string;
+  publicKeyPem: string;
+  displayName?: string;
+}
+
 export interface LocalAuthorityAuthOptions {
   challengeTtlMs?: number;
   sessionTtlMs?: number;
@@ -54,7 +60,8 @@ export type AuthorityAuthenticationErrorCode =
   | 'invalid_principal'
   | 'invalid_public_key'
   | 'founder_credential_mismatch'
-  | 'administrator_required';
+  | 'administrator_required'
+  | 'operator_required';
 
 export class AuthorityAuthenticationError extends Error {
   readonly code: AuthorityAuthenticationErrorCode;
@@ -267,6 +274,36 @@ export class LocalAuthorityAuthService {
     return credential;
   }
 
+  delegateOperator(
+    founderSessionToken: string,
+    input: DelegateOperatorInput,
+  ): AuthorityPublicCredential {
+    const founder = this.requireFounder(founderSessionToken);
+    assertPrincipalId(input.principalId);
+    if (input.principalId === this.founderPrincipalId) {
+      throw new AuthorityAuthenticationError(
+        'invalid_principal',
+        'Founder credential cannot be replaced through operator delegation',
+      );
+    }
+
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    const credential: AuthorityPublicCredential = {
+      principal: {
+        id: input.principalId,
+        role: 'operator',
+        active: true,
+        ...(input.displayName?.trim() ? { displayName: clipDisplayName(input.displayName) } : {}),
+      },
+      algorithm: 'ecdsa-p256-sha256',
+      publicKeyPem,
+      createdAt: this.now().toISOString(),
+      delegatedBy: founder.id,
+    };
+    this.store.upsert(credential);
+    return credential;
+  }
+
   revokeAdministrator(founderSessionToken: string, principalId: string): AuthorityPublicCredential {
     this.requireFounder(founderSessionToken);
     if (principalId === this.founderPrincipalId) {
@@ -298,9 +335,41 @@ export class LocalAuthorityAuthService {
     return revoked;
   }
 
+  revokeOperator(founderSessionToken: string, principalId: string): AuthorityPublicCredential {
+    this.requireFounder(founderSessionToken);
+    if (principalId === this.founderPrincipalId) {
+      throw new AuthorityAuthenticationError(
+        'invalid_principal',
+        'Founder credential cannot be revoked through operator delegation',
+      );
+    }
+
+    const credential = this.store.get(principalId);
+    if (!credential || credential.principal.role !== 'operator') {
+      throw new AuthorityAuthenticationError(
+        'operator_required',
+        'Active operator credential is required',
+      );
+    }
+
+    const revokedAt = this.now().toISOString();
+    if (!this.store.revoke(principalId, revokedAt)) {
+      throw new AuthorityAuthenticationError(
+        'operator_required',
+        'Active operator credential is required',
+      );
+    }
+    this.revokePrincipalSessions(principalId);
+
+    const revoked = this.store.get(principalId);
+    if (!revoked) throw new Error('Revoked operator record disappeared');
+    return revoked;
+  }
+
   status(): {
     founderConfigured: boolean;
     activeAdministrators: number;
+    activeOperators: number;
     activeSessions: number;
   } {
     this.prune();
@@ -310,6 +379,10 @@ export class LocalAuthorityAuthService {
       activeAdministrators: this.store
         .list(true)
         .filter((credential) => credential.principal.role === 'administrator')
+        .length,
+      activeOperators: this.store
+        .list(true)
+        .filter((credential) => credential.principal.role === 'operator')
         .length,
       activeSessions: this.sessions.size,
     };
