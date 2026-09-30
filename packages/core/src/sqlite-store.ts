@@ -24,6 +24,13 @@ import type {
   CoordinationOperatorProfile,
   CoordinationScope,
 } from './operator-coordination.js';
+import type { ReusableLibraryItem } from './reusable-library.js';
+import type {
+  ProjectContextCheckpoint,
+  ProjectResourceRef,
+  ProjectThread,
+  ProjectWorkspace,
+} from './project-context.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -656,6 +663,192 @@ export class SqliteStore {
     ));
   }
 
+  upsertReusableLibraryItem(item: ReusableLibraryItem): void {
+    this.db.prepare(`
+      INSERT INTO reusable_library_items
+        (item_id, revision, status, kind, created_at, checksum, item_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(item_id, revision) DO UPDATE SET
+        status = excluded.status,
+        kind = excluded.kind,
+        checksum = excluded.checksum,
+        item_json = excluded.item_json
+    `).run(
+      item.id,
+      item.revision,
+      item.status,
+      item.kind,
+      item.createdAt,
+      item.checksum,
+      JSON.stringify(item),
+    );
+  }
+
+  getReusableLibraryItem(itemId: string, revision?: number): ReusableLibraryItem | null {
+    const row = revision == null
+      ? this.db.prepare(`
+          SELECT item_json FROM reusable_library_items
+          WHERE item_id = ? AND status = 'current'
+          ORDER BY revision DESC LIMIT 1
+        `).get(itemId)
+      : this.db.prepare(`
+          SELECT item_json FROM reusable_library_items
+          WHERE item_id = ? AND revision = ?
+        `).get(itemId, revision);
+    return row
+      ? JSON.parse(String((row as Record<string, unknown>).item_json)) as ReusableLibraryItem
+      : null;
+  }
+
+  listReusableLibraryItems(options: {
+    kind?: ReusableLibraryItem['kind'];
+    status?: ReusableLibraryItem['status'];
+    tag?: string;
+  } = {}): ReusableLibraryItem[] {
+    const rows = this.db.prepare(`
+      SELECT item_json FROM reusable_library_items
+      ORDER BY item_id ASC, revision ASC
+    `).all() as Record<string, unknown>[];
+    return rows
+      .map((row) => JSON.parse(String(row.item_json)) as ReusableLibraryItem)
+      .filter((item) => !options.kind || item.kind === options.kind)
+      .filter((item) => !options.status || item.status === options.status)
+      .filter((item) => !options.tag || item.tags.includes(options.tag));
+  }
+
+  upsertProjectWorkspace(project: ProjectWorkspace): void {
+    this.db.prepare(`
+      INSERT INTO project_workspaces
+        (id, status, updated_at, project_json)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        project_json = excluded.project_json
+    `).run(project.id, project.status, project.updatedAt, JSON.stringify(project));
+  }
+
+  getProjectWorkspace(id: string): ProjectWorkspace | null {
+    const row = this.db.prepare(`
+      SELECT project_json FROM project_workspaces WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.project_json)) as ProjectWorkspace : null;
+  }
+
+  listProjectWorkspaces(status?: ProjectWorkspace['status']): ProjectWorkspace[] {
+    const rows = this.db.prepare(`
+      SELECT project_json FROM project_workspaces
+      ORDER BY updated_at DESC, id ASC
+    `).all() as Record<string, unknown>[];
+    const projects = rows.map((row) => (
+      JSON.parse(String(row.project_json)) as ProjectWorkspace
+    ));
+    return status ? projects.filter((project) => project.status === status) : projects;
+  }
+
+  upsertProjectThread(thread: ProjectThread): void {
+    this.db.prepare(`
+      INSERT INTO project_threads
+        (id, project_id, status, updated_at, thread_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        thread_json = excluded.thread_json
+    `).run(
+      thread.id,
+      thread.projectId,
+      thread.status,
+      thread.updatedAt,
+      JSON.stringify(thread),
+    );
+  }
+
+  getProjectThread(id: string): ProjectThread | null {
+    const row = this.db.prepare(`
+      SELECT thread_json FROM project_threads WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.thread_json)) as ProjectThread : null;
+  }
+
+  listProjectThreads(projectId: string): ProjectThread[] {
+    const rows = this.db.prepare(`
+      SELECT thread_json FROM project_threads
+      WHERE project_id = ?
+      ORDER BY updated_at ASC, id ASC
+    `).all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.thread_json)) as ProjectThread);
+  }
+
+  upsertProjectResource(resource: ProjectResourceRef): void {
+    this.db.prepare(`
+      INSERT INTO project_resources
+        (id, project_id, thread_id, source, created_at, resource_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        project_id = excluded.project_id,
+        thread_id = excluded.thread_id,
+        source = excluded.source,
+        resource_json = excluded.resource_json
+    `).run(
+      resource.id,
+      resource.projectId,
+      resource.threadId ?? null,
+      resource.source,
+      resource.createdAt,
+      JSON.stringify(resource),
+    );
+  }
+
+  listProjectResources(projectId: string): ProjectResourceRef[] {
+    const rows = this.db.prepare(`
+      SELECT resource_json FROM project_resources
+      WHERE project_id = ?
+      ORDER BY created_at ASC, id ASC
+    `).all(projectId) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.resource_json)) as ProjectResourceRef);
+  }
+
+  appendProjectCheckpoint(checkpoint: ProjectContextCheckpoint): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO project_context_checkpoints
+        (checksum, id, project_id, thread_id, created_at, checkpoint_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      checkpoint.checksum,
+      checkpoint.id,
+      checkpoint.projectId,
+      checkpoint.threadId,
+      checkpoint.createdAt,
+      JSON.stringify(checkpoint),
+    );
+  }
+
+  listProjectCheckpoints(projectId: string, limit = 100): ProjectContextCheckpoint[] {
+    const rows = this.db.prepare(`
+      SELECT checkpoint_json FROM project_context_checkpoints
+      WHERE project_id = ?
+      ORDER BY created_at ASC, id ASC
+      LIMIT ?
+    `).all(projectId, limit) as Record<string, unknown>[];
+    return rows.map((row) => (
+      JSON.parse(String(row.checkpoint_json)) as ProjectContextCheckpoint
+    ));
+  }
+
+  latestProjectCheckpoint(projectId: string): ProjectContextCheckpoint | null {
+    const row = this.db.prepare(`
+      SELECT checkpoint_json FROM project_context_checkpoints
+      WHERE project_id = ?
+      ORDER BY created_at DESC, rowid DESC
+      LIMIT 1
+    `).get(projectId) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.checkpoint_json)) as ProjectContextCheckpoint
+      : null;
+  }
+
   upsertWorkGraph(snapshot: WorkGraphSnapshot): void {
     this.db.prepare(`
       INSERT INTO work_graph_snapshots
@@ -1141,6 +1334,65 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_coordination_handoffs_assignment
       ON coordination_handoffs(assignment_id, created_at, id);
+
+      CREATE TABLE IF NOT EXISTS reusable_library_items (
+        item_id TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        checksum TEXT NOT NULL,
+        item_json TEXT NOT NULL,
+        PRIMARY KEY(item_id, revision)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_reusable_library_status_kind
+      ON reusable_library_items(status, kind, item_id, revision);
+
+      CREATE TABLE IF NOT EXISTS project_workspaces (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        project_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_workspaces_status
+      ON project_workspaces(status, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS project_threads (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        thread_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_threads_project
+      ON project_threads(project_id, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS project_resources (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        thread_id TEXT,
+        source TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        resource_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_resources_project
+      ON project_resources(project_id, created_at, id);
+
+      CREATE TABLE IF NOT EXISTS project_context_checkpoints (
+        checksum TEXT PRIMARY KEY,
+        id TEXT NOT NULL UNIQUE,
+        project_id TEXT NOT NULL,
+        thread_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        checkpoint_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_project_context_checkpoints_project
+      ON project_context_checkpoints(project_id, created_at, id);
 
       CREATE TABLE IF NOT EXISTS work_graph_snapshots (
         id TEXT PRIMARY KEY,
