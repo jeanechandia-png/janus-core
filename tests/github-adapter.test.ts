@@ -81,7 +81,7 @@ test('GitHub adapter returns API errors as tool errors', async () => {
 test('GitHub adapter resolves an explicit branch head', async () => {
   const adapter = new GitHubAdapter({
     fetchImpl: async (input) => {
-      assert.match(String(input), /git\/ref\/heads\/release%2Fassistant-control$/);
+      assert.match(String(input), /git\/ref\/heads\/release\/assistant-control$/);
       return jsonResponse({ object: { sha: 'head123' } });
     },
   });
