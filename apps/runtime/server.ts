@@ -1359,6 +1359,120 @@ function finalizeProjectCheckpoint(snapshot: RunSnapshot): void {
   runProjects.delete(snapshot.runId);
 }
 
+function ensureBlockedRunResolution(snapshot: RunSnapshot): void {
+  if (snapshot.status !== 'blocked') return;
+  const existing = store.listDecisionReceipts(snapshot.runId)
+    .find((receipt) => receipt.decisionKind === 'blocker_resolution');
+  if (existing) return;
+
+  const events = store.listEvents(snapshot.runId);
+  const latestBlocked = [...events]
+    .reverse()
+    .find((event) => event.type === 'run.blocked');
+  const approvalRequired = events.some((event) => event.type === 'approval.required');
+  const summary = latestBlocked?.summary ?? 'The current execution path is blocked.';
+  const normalized = summary.toLowerCase();
+  const authorityStop = /autoridad|authority|confirmaci[oó]n|confirmation/.test(normalized);
+  const approvalStop = approvalRequired || /aprobaci[oó]n|approval/.test(normalized);
+  const mandatoryStop = authorityStop || approvalStop;
+
+  const resolution = buildOperationalBlockerResolution({
+    problem: summary,
+    risk: mandatoryStop
+      ? 'Bypassing this blocker could violate authority, approval or safety boundaries.'
+      : 'Treating this path as the only path would unnecessarily stop project progress.',
+    cause: latestBlocked
+      ? JSON.stringify(latestBlocked.payload ?? {})
+      : 'No more specific blocker payload was recorded.',
+    kind: approvalStop
+      ? 'approval'
+      : authorityStop
+        ? 'authentication'
+        : /tool|adapter|capabil|credencial|credential|configur/.test(normalized)
+          ? 'capability'
+          : 'dependency',
+    alternatives: mandatoryStop
+      ? [
+          {
+            id: 'prepare-safe-work',
+            title: 'prepare safe work without executing the blocked action',
+            description:
+              'Complete analysis, dry-run, documentation or reversible preparation while preserving the protected boundary.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Prepare the safe dependency-free work and keep the protected action pending.',
+          },
+          {
+            id: 'obtain-required-authority',
+            title: 'obtain the required approval or authority',
+            description:
+              'Request the exact missing approval, confirmation or authenticated authority instead of bypassing it.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Request the required approval/authority and preserve the exact resume point.',
+          },
+          {
+            id: 'continue-independent-work',
+            title: 'continue independent project work',
+            description:
+              'Advance unrelated tasks that do not require the protected action.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Move to the next independent task and keep this action blocked until authorized.',
+          },
+        ]
+      : [
+          {
+            id: 'compatible-path',
+            title: 'compatible registered path',
+            description:
+              'Use another registered model, tool or workflow that can satisfy the same requirement.',
+            preservesGoal: true,
+            availableNow: false,
+            risk: 'low',
+            nextAction: 'Check registered capabilities and the Model Router for a compatible substitute.',
+          },
+          {
+            id: 'park-blocked-step',
+            title: 'park only the blocked step',
+            description:
+              'Keep this dependency pending while the rest of the project continues.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Record the blocker and continue the next independent task.',
+          },
+          {
+            id: 'prepare-independent-inputs',
+            title: 'prepare dependency-free inputs',
+            description:
+              'Advance local analysis, code, assets, documentation or validation that does not require the blocked path.',
+            preservesGoal: true,
+            availableNow: true,
+            risk: 'low',
+            nextAction: 'Complete dependency-free preparation and revalidate this blocker later.',
+          },
+        ],
+    mandatoryStop,
+    parkedIssue: mandatoryStop ? undefined : summary,
+  });
+
+  runBlockerResolutions.set(snapshot.runId, resolution);
+  recordDecision({
+    runId: snapshot.runId,
+    decisionKind: 'blocker_resolution',
+    selectedWorker: 'janus-core/continue-by-alternatives-v1',
+    confidence: 1,
+    inputRefs: latestBlocked ? ['event:' + latestBlocked.id] : ['run:' + snapshot.runId],
+    outputSummary:
+      'Blocked run converted into explicit alternatives, recommendation and next action.',
+    metadata: { resolution },
+  });
+}
+
 function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
   const link = runAssignments.get(snapshot.runId);
   if (!link) return;
@@ -1458,6 +1572,7 @@ function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
 function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
   recordRunOutcome(snapshot);
+  ensureBlockedRunResolution(snapshot);
   finalizeCoordinationHandoff(snapshot);
   finalizeProjectCheckpoint(snapshot);
 
