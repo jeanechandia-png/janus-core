@@ -35,6 +35,7 @@ import type {
   AssistantProfileRevision,
   AssistantSurface,
 } from './assistant-control-plane.js';
+import type { AssistantConfigDelivery } from './assistant-config-publisher.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -761,6 +762,52 @@ export class SqliteStore {
     return rows.map((row) => JSON.parse(String(row.surface_json)) as AssistantSurface);
   }
 
+  upsertAssistantConfigDelivery(delivery: AssistantConfigDelivery): void {
+    this.db.prepare(`
+      INSERT INTO assistant_config_deliveries
+        (id, surface_id, bundle_checksum, status, updated_at, delivery_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        surface_id = excluded.surface_id,
+        bundle_checksum = excluded.bundle_checksum,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        delivery_json = excluded.delivery_json
+    `).run(
+      delivery.id,
+      delivery.surfaceId,
+      delivery.bundleChecksum,
+      delivery.status,
+      delivery.updatedAt,
+      JSON.stringify(delivery),
+    );
+  }
+
+  getAssistantConfigDelivery(id: string): AssistantConfigDelivery | null {
+    const row = this.db.prepare(`
+      SELECT delivery_json FROM assistant_config_deliveries WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.delivery_json)) as AssistantConfigDelivery
+      : null;
+  }
+
+  listAssistantConfigDeliveries(surfaceId?: string): AssistantConfigDelivery[] {
+    const rows = surfaceId
+      ? this.db.prepare(`
+          SELECT delivery_json FROM assistant_config_deliveries
+          WHERE surface_id = ?
+          ORDER BY updated_at ASC, id ASC
+        `).all(surfaceId)
+      : this.db.prepare(`
+          SELECT delivery_json FROM assistant_config_deliveries
+          ORDER BY updated_at ASC, id ASC
+        `).all();
+    return (rows as Record<string, unknown>[]).map((row) => (
+      JSON.parse(String(row.delivery_json)) as AssistantConfigDelivery
+    ));
+  }
+
   upsertReusableLibraryItem(item: ReusableLibraryItem): void {
     this.db.prepare(`
       INSERT INTO reusable_library_items
@@ -1458,6 +1505,18 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_assistant_surfaces_profile
       ON assistant_surfaces(profile_id, status, tracking, id);
+
+      CREATE TABLE IF NOT EXISTS assistant_config_deliveries (
+        id TEXT PRIMARY KEY,
+        surface_id TEXT NOT NULL,
+        bundle_checksum TEXT NOT NULL,
+        status TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        delivery_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_assistant_config_deliveries_surface
+      ON assistant_config_deliveries(surface_id, updated_at, id);
 
       CREATE TABLE IF NOT EXISTS reusable_library_items (
         item_id TEXT NOT NULL,
