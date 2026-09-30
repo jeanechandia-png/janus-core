@@ -203,17 +203,19 @@ export function approveRuntimeImprovementProposal(input: {
   }
 
   if (proposal.status === 'approved') {
-    const existingDrafts = input.store
-      .listDecisionBlueprints(input.current.id)
-      .filter(
-        (blueprint) =>
-          blueprint.status === 'draft'
-          && blueprint.supersedesRevision === input.current.revision,
-      );
-    if (existingDrafts.length !== 1) {
-      throw new Error('Approved proposal must have exactly one draft candidate');
+    const proposedRevision = 'proposedRevision' in proposal
+      ? proposal.proposedRevision
+      : undefined;
+    const existing = proposedRevision
+      ? input.store.getDecisionBlueprint(input.current.id, proposedRevision)
+      : null;
+    if (
+      !existing
+      || existing.status !== 'draft'
+      || existing.supersedesRevision !== input.current.revision
+    ) {
+      throw new Error('Approved proposal must reference one persisted draft candidate');
     }
-    const existing = existingDrafts[0]!;
     const verification = verifyRuntimeBlueprintCandidate({
       current: input.current,
       candidate: existing,
@@ -256,7 +258,11 @@ export function approveRuntimeImprovementProposal(input: {
   }
   if (!existing) input.store.upsertDecisionBlueprint(input.candidate);
 
-  const approved = { ...proposal, status: 'approved' as const };
+  const approved: BlueprintRevisionProposal = {
+    ...proposal,
+    status: 'approved',
+    proposedRevision: input.candidate.revision,
+  };
   input.store.upsertImprovementProposal(approved);
   return { proposal: approved, candidate: existing ?? input.candidate, verification };
 }
@@ -275,20 +281,28 @@ export function applyApprovedRuntimeBlueprint(input: {
   const proposal = findRuntimeImprovementProposal(input.store, input.proposalId);
 
   if (proposal.status === 'applied') {
-    const alreadyActive = input.store
-      .listDecisionBlueprints(proposal.blueprintId)
-      .find((blueprint) => blueprint.status === 'active');
+    const proposedRevision = 'proposedRevision' in proposal
+      ? proposal.proposedRevision
+      : undefined;
+    const appliedRevision = proposedRevision
+      ? input.store.getDecisionBlueprint(proposal.blueprintId, proposedRevision)
+      : null;
     const previous = input.store.getDecisionBlueprint(
       proposal.blueprintId,
       proposal.fromRevision,
     );
-    if (!alreadyActive || !previous) {
+    if (!appliedRevision || !previous) {
       throw new Error('Applied proposal has incomplete Blueprint history');
+    }
+    if (appliedRevision.status !== 'active') {
+      throw new Error(
+        'Improvement proposal was already applied and has since been superseded',
+      );
     }
     const verification = verifyRuntimeBlueprintCandidate({
       current: { ...previous, status: 'active' },
       candidate: {
-        ...alreadyActive,
+        ...appliedRevision,
         status: 'draft',
         supersedesRevision: previous.revision,
       },
@@ -297,7 +311,7 @@ export function applyApprovedRuntimeBlueprint(input: {
     return {
       proposal,
       previous,
-      active: alreadyActive,
+      active: appliedRevision,
       verification,
     };
   }
@@ -312,20 +326,19 @@ export function applyApprovedRuntimeBlueprint(input: {
     throw new Error('Approved proposal is stale relative to the active Blueprint');
   }
 
-  const draftCandidates = input.store
-    .listDecisionBlueprints(input.current.id)
-    .filter(
-      (blueprint) =>
-        blueprint.status === 'draft'
-        && blueprint.supersedesRevision === input.current.revision,
-    );
-  if (draftCandidates.length !== 1) {
-    throw new Error(
-      'Approved proposal must have exactly one draft candidate revision; found '
-      + draftCandidates.length,
-    );
+  const proposedRevision = 'proposedRevision' in proposal
+    ? proposal.proposedRevision
+    : undefined;
+  const candidate = proposedRevision
+    ? input.store.getDecisionBlueprint(input.current.id, proposedRevision)
+    : null;
+  if (
+    !candidate
+    || candidate.status !== 'draft'
+    || candidate.supersedesRevision !== input.current.revision
+  ) {
+    throw new Error('Approved proposal does not reference a valid draft candidate');
   }
-  const candidate = draftCandidates[0]!;
 
   const verification = verifyRuntimeBlueprintCandidate({
     current: input.current,
