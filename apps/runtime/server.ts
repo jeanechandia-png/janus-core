@@ -296,6 +296,44 @@ function reusableKind(value: unknown): ReusableLibraryKind | null {
     : null;
 }
 
+function assistantModuleRefs(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const record = item as Record<string, unknown>;
+    const itemId = typeof record.itemId === 'string' ? record.itemId.trim() : '';
+    if (!itemId) return [];
+    const revision = Number(record.revision);
+    return [{
+      itemId,
+      ...(Number.isInteger(revision) && revision > 0 ? { revision } : {}),
+      ...(record.optional === true ? { optional: true } : {}),
+    }];
+  });
+}
+
+function validateAssistantModules(profile: ReturnType<typeof createAssistantProfileRevision>): void {
+  const items = store.listReusableLibraryItems();
+  for (const moduleRef of profile.moduleRefs) {
+    try {
+      resolveReusableSelection({
+        itemId: moduleRef.itemId,
+        items,
+        ...(moduleRef.revision == null ? {} : { revision: moduleRef.revision }),
+      });
+    } catch (error) {
+      if (moduleRef.optional) continue;
+      throw new HttpRequestError(
+        409,
+        'required assistant module unavailable: '
+        + moduleRef.itemId
+        + ' — '
+        + (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+}
+
 function coordinationStringList(value: unknown): string[] {
   return Array.isArray(value)
     ? [...new Set(value.filter((item): item is string => typeof item === 'string')
@@ -2216,6 +2254,232 @@ const server = createServer(async (request, response) => {
         updatedAt: handoff.createdAt,
       });
       json(response, 201, { ok: true, handoff });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/assistant-control') {
+    try {
+      requireAuthoritySession(request);
+      const snapshot = assistantControlSnapshot();
+      json(response, 200, { ok: true, ...snapshot });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantSurfaceConfigMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)\/config$/,
+  );
+  const assistantSurfaceConfigId = assistantSurfaceConfigMatch?.[1];
+  if (request.method === 'GET' && assistantSurfaceConfigId) {
+    try {
+      requireAuthoritySession(request);
+      const surface = store.getAssistantSurface(
+        decodeURIComponent(assistantSurfaceConfigId),
+      );
+      if (!surface) throw new HttpRequestError(404, 'assistant surface not found');
+      const resolved = resolveAssistantSurfaceConfig({
+        surface,
+        profiles: store.listAssistantProfileRevisions(surface.profileId),
+      });
+      json(response, 200, { ok: true, config: resolved });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantProfileRevisionMatch = url.pathname.match(
+    /^\/api\/assistant-control\/profiles\/([^/]+)\/revisions$/,
+  );
+  const assistantProfileRevisionId = assistantProfileRevisionMatch?.[1];
+  if (request.method === 'POST' && assistantProfileRevisionId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const profileId = decodeURIComponent(assistantProfileRevisionId);
+      const current = store.getAssistantProfileRevision(profileId);
+      if (!current) throw new HttpRequestError(404, 'assistant profile not found');
+      const body = await readJson(request);
+      const next = createAssistantProfileRevision({
+        profileId,
+        revision: current.revision + 1,
+        status: 'current',
+        name: typeof body.name === 'string' && body.name.trim()
+          ? body.name.trim()
+          : current.name,
+        objective: typeof body.objective === 'string' && body.objective.trim()
+          ? body.objective.trim()
+          : current.objective,
+        sharedInstructions: Array.isArray(body.sharedInstructions)
+          ? coordinationStringList(body.sharedInstructions)
+          : current.sharedInstructions,
+        guardrails: Array.isArray(body.guardrails)
+          ? coordinationStringList(body.guardrails)
+          : current.guardrails,
+        capabilities: Array.isArray(body.capabilities)
+          ? coordinationStringList(body.capabilities)
+          : current.capabilities,
+        moduleRefs: Array.isArray(body.moduleRefs)
+          ? assistantModuleRefs(body.moduleRefs)
+          : current.moduleRefs,
+        createdAt: new Date().toISOString(),
+        createdBy: principal.id,
+        supersedesRevision: current.revision,
+      });
+      assertAssistantProfileRevisionAppendOnly({ previous: current, next });
+      validateAssistantModules(next);
+      store.upsertAssistantProfileRevision({ ...current, status: 'historical' });
+      store.upsertAssistantProfileRevision(next);
+
+      const affectedSurfaces = store.listAssistantSurfaces()
+        .filter((surface) => (
+          surface.profileId === profileId
+          && surface.tracking === 'current'
+        ))
+        .map((surface) => resolveAssistantSurfaceConfig({
+          surface,
+          profiles: store.listAssistantProfileRevisions(profileId),
+        }));
+
+      appendGovernanceDecision({
+        subject: 'assistant-control:' + profileId,
+        content:
+          'Assistant profile advanced from revision '
+          + current.revision
+          + ' to '
+          + next.revision
+          + '; current-tracking surfaces inherit automatically.',
+        principalId: principal.id,
+        metadata: {
+          profileId,
+          fromRevision: current.revision,
+          toRevision: next.revision,
+          affectedSurfaceIds: affectedSurfaces.map((item) => item.surface.id),
+        },
+      });
+      json(response, 201, {
+        ok: true,
+        profile: next,
+        affectedSurfaces,
+      });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantSurfaceUpdateMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)$/,
+  );
+  const assistantSurfaceUpdateId = assistantSurfaceUpdateMatch?.[1];
+  if (request.method === 'POST' && assistantSurfaceUpdateId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const id = decodeURIComponent(assistantSurfaceUpdateId);
+      const current = store.getAssistantSurface(id);
+      if (!current) throw new HttpRequestError(404, 'assistant surface not found');
+      const body = await readJson(request);
+      const tracking = body.tracking === 'pinned'
+        ? 'pinned'
+        : body.tracking === 'current'
+          ? 'current'
+          : current.tracking;
+      const pinnedRevisionRaw = Number(body.pinnedRevision);
+      const pinnedRevision = tracking === 'pinned'
+        ? Number.isInteger(pinnedRevisionRaw) && pinnedRevisionRaw > 0
+          ? pinnedRevisionRaw
+          : current.tracking === 'pinned'
+            ? current.pinnedRevision
+            : undefined
+        : undefined;
+      if (tracking === 'pinned' && !pinnedRevision) {
+        throw new HttpRequestError(400, 'pinnedRevision is required for pinned tracking');
+      }
+      if (
+        tracking === 'pinned'
+        && !store.getAssistantProfileRevision(current.profileId, pinnedRevision)
+      ) {
+        throw new HttpRequestError(404, 'pinned assistant profile revision not found');
+      }
+
+      const presentationInput = body.presentation
+        && typeof body.presentation === 'object'
+        && !Array.isArray(body.presentation)
+        ? body.presentation as Record<string, unknown>
+        : {};
+      const surface = createAssistantSurface({
+        id: current.id,
+        name: typeof body.name === 'string' && body.name.trim()
+          ? body.name.trim()
+          : current.name,
+        product: current.product,
+        profileId: current.profileId,
+        status: body.status === 'paused'
+          ? 'paused'
+          : body.status === 'active'
+            ? 'active'
+            : current.status,
+        tracking,
+        ...(pinnedRevision ? { pinnedRevision } : {}),
+        presentation: {
+          ...current.presentation,
+          ...(typeof presentationInput.brandName === 'string'
+            ? { brandName: presentationInput.brandName }
+            : {}),
+          ...(typeof presentationInput.defaultLanguage === 'string'
+            ? { defaultLanguage: presentationInput.defaultLanguage }
+            : {}),
+          ...(typeof presentationInput.greeting === 'string'
+            ? { greeting: presentationInput.greeting }
+            : {}),
+          ...(typeof presentationInput.disclosure === 'string'
+            ? { disclosure: presentationInput.disclosure }
+            : {}),
+          ...(typeof presentationInput.accentTokenRef === 'string'
+            ? { accentTokenRef: presentationInput.accentTokenRef }
+            : {}),
+        },
+        disabledCapabilities: Array.isArray(body.disabledCapabilities)
+          ? coordinationStringList(body.disabledCapabilities)
+          : current.disabledCapabilities,
+        deliveryTargets: current.deliveryTargets,
+        createdAt: current.createdAt,
+        updatedAt: new Date().toISOString(),
+        createdBy: current.createdBy,
+      });
+      store.upsertAssistantSurface(surface);
+      const resolved = resolveAssistantSurfaceConfig({
+        surface,
+        profiles: store.listAssistantProfileRevisions(surface.profileId),
+      });
+
+      appendGovernanceDecision({
+        subject: 'assistant-surface:' + surface.id,
+        content:
+          'Assistant surface configuration updated; shared behavior remains inherited from profile '
+          + surface.profileId
+          + '.',
+        principalId: principal.id,
+        metadata: {
+          surfaceId: surface.id,
+          tracking: surface.tracking,
+          inheritedRevision: resolved.inheritedRevision,
+        },
+      });
+      json(response, 200, { ok: true, surface, resolved });
     } catch (error) {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
