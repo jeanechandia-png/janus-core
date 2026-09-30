@@ -136,6 +136,17 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - el handoff automático añade un Decision Receipt `coordination_handoff`, preservando quién operó y desde qué run;
   - Janus Core puede coordinar el estado local global sin convertirse por ello en la identidad del Founder para external writes;
   - prueba de humo E2E cubre Founder -> alta operator -> scope -> grant -> assignment -> login operator -> linked run -> handoff -> receipt.
+- **Reusable LEGO Library + Project Context Continuity**:
+  - catálogo central versionado para símbolos, fotos, logos, iconos, botones, tipografías, design tokens, themes, componentes, módulos, templates, workflows y prompts;
+  - cada pieza conserva id estable, revisión, tags, compatibilidad, dependencias, spec, content/preview refs y checksum SHA-256;
+  - nuevas revisiones son append-only: la revisión anterior pasa a histórico sin perder trazabilidad de su contenido;
+  - resolución de dependencias fail-closed ante checksum alterado, dependencia faltante o ciclo;
+  - proyectos, threads, resource refs y checkpoints se persisten en SQLite;
+  - la cronología de un proyecto se filtra por `projectId` para evitar mezclar contexto de otros proyectos;
+  - abrir un thread nuevo genera automáticamente un bootstrap checkpoint con instrucciones activas, decisiones, errores, resume point, próximos pasos y evidencia;
+  - runs ligados a `projectId + threadId` producen checkpoint al terminar y el planner recibe continuidad/recursos/checkpoint del proyecto;
+  - cambiar de chat no reinicia el proyecto: el chat es una ventana y el proyecto es la memoria;
+  - resource refs ya modelan local / Google Drive / iCloud / upload / import como backends reemplazables; los binarios siguen pendientes de content-addressed local storage productivo.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -159,7 +170,9 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
+1. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
+2. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
+3. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
 2. Completar coordinación operativa con agenda/availability por operador, ingestión de calendarios por identidad y selección del próximo operador sin compartir credenciales privadas.
 3. Crear vista PWA mobile-first de operadores: tarea actual, scope, último handoff, blockers, próximos pasos y punto de reanudación.
 4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
@@ -176,7 +189,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - Builder Agent: plan -> código -> test -> validación -> deploy con aprobación.
 - Learning Agent: tutoría adaptativa y ejercicios.
 - Visual Workflow Editor mobile-first/desktop con canvas de nodos, conexiones, inspección y ejecución paso a paso.
-- Biblioteca de Janus Skills/Subflows reutilizables y templates versionados.
+- Biblioteca visual/productiva en PWA para buscar, previsualizar, importar y componer reusable items y Skills/Subflows versionados.
 - Custom Code nodes en runner aislado/hardened.
 - Webhook server + scheduler + event bus + polling adapters productivos.
 - Proactive Monitor/Scheduler para drift, costos, deadlines, workflows bloqueados y errores no resueltos.
@@ -201,9 +214,9 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Integrar Model Router multi-model productivo:
+Cerrar primero la LEGO Library productiva con almacenamiento local de contenido + usage graph; después continuar con Model Router multi-model:
 
-**inventario real de modelos -> capacidades/restricciones -> local-first routing -> calidad/costo/latencia observados -> Decision Receipt -> outcome -> calibración por modelo -> routing futuro.**
+**asset/blob local -> deduplicación -> reusable catalog -> usage graph -> project composition -> model inventory -> local-first routing -> métricas -> Decision Receipt -> outcome.**
 
 La gobernanza de políticas sigue humana y versionada; el router puede elegir entre adapters registrados, pero no alterar guardrails ni producción silenciosamente.
 
