@@ -148,11 +148,13 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - All three landing surfaces track the current shared profile revision by default; one profile update changes their resolved config without editing each surface.
 - Surfaces may temporarily pin a compatible profile revision and may disable shared capabilities, but cannot invent capabilities outside the parent profile.
 - Continue-by-Alternatives policy converts provider/capability dead ends into structured blocker resolutions with 2-4 alternatives, recommendation and next action; coordinated handoffs retain those alternatives.
+- Verified Assistant Config Publisher: deterministic bundles, explicit branch revalidation, idempotent GitHub writes, commit read-back checksum verification and durable delivery states.
+- Repository publication and live application are separate: `published_verified` does not become `applied` without a matching product acknowledgement.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Connect the Assistant Control Plane to the actual landing runtimes through a sanitized versioned publisher/sync path with applied-revision acknowledgement and rollback/pin support.
+- Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
 - Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
 - Add a usage graph from products/projects to exact reusable item revisions so updates can be impact-checked and upgraded safely.
 - Add real model inventory/configuration so Model Router can execute provider alternatives automatically and record observed routing quality/cost/latency in Decision Receipts.
