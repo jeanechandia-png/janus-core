@@ -44,7 +44,7 @@ A Janus project is durable state independent of any single conversation thread.
 
 A project contains:
 
-- project metadata;
+- project metadata and an optional coordination scope binding;
 - multiple conversation threads;
 - local/import/Google Drive/iCloud/upload resource references;
 - project-scoped chronology;
@@ -78,6 +78,8 @@ Project
 ```
 
 Changing the thread does not erase the project context.
+
+Project access is identity-aware. Founder access remains global; other principals can access a project only when they created it or when its linked coordination scope grants the required `read_context` / `write_work` permission. Authentication alone never reveals every project.
 
 ## Reusable composition flow
 
