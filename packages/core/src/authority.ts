@@ -10,6 +10,17 @@ export interface AuthorityPrincipal {
   active: boolean;
 }
 
+export type AuthorityCredentialAlgorithm = 'ecdsa-p256-sha256';
+
+export interface AuthorityPublicCredential {
+  principal: AuthorityPrincipal;
+  algorithm: AuthorityCredentialAlgorithm;
+  publicKeyPem: string;
+  createdAt: string;
+  delegatedBy?: string;
+  revokedAt?: string;
+}
+
 export interface AuthorityInstruction {
   id: string;
   principalId: string;
