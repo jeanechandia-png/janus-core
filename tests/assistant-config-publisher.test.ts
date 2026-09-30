@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  createAssistantProfileRevision,
   defaultLandingAssistantProfile,
   defaultLandingAssistantSurfaces,
   resolveAssistantSurfaceConfig,
@@ -31,10 +32,20 @@ test('assistant config bundle is deterministic for the same resolved config', ()
 
 test('assistant config bundle pins exact reusable module revisions', () => {
   const base = defaultLandingAssistantProfile('2026-10-01T00:00:00.000Z');
-  const profile = {
-    ...base,
+  const profile = createAssistantProfileRevision({
+    profileId: base.profileId,
+    revision: 2,
+    status: 'current',
+    name: base.name,
+    objective: base.objective,
+    sharedInstructions: base.sharedInstructions,
+    guardrails: base.guardrails,
+    capabilities: base.capabilities,
     moduleRefs: [{ itemId: 'module.shared', revision: 3 }],
-  };
+    createdAt: '2026-10-01T01:00:00.000Z',
+    createdBy: 'founder',
+    supersedesRevision: 1,
+  });
   const surface = defaultLandingAssistantSurfaces('2026-10-01T00:00:00.000Z')[1]!;
   const resolved = resolveAssistantSurfaceConfig({ surface, profiles: [profile] });
 
