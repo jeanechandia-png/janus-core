@@ -39,6 +39,9 @@ try {
   assert.equal(health.decisionTrace?.receipts, 'sha256-chained-sqlite');
   assert.equal(health.outcomeLearning?.observations, 0);
   assert.equal(health.outcomeLearning?.calibration?.count, 0);
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.mode, 'neutral_prior');
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.confidence, 0.5);
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.minimumSamples, 20);
   assert.equal(health.outcomeLearning?.endpoint, '/api/learning');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
@@ -82,6 +85,8 @@ try {
   assert.equal(learningBody.ok, true);
   assert.equal(learningBody.calibration?.count, 0);
   assert.deepEqual(learningBody.observations, []);
+  assert.equal(learningBody.executionConfidence?.mode, 'neutral_prior');
+  assert.equal(learningBody.executionConfidence?.confidence, 0.5);
   assert.equal(learningBody.blueprint?.revision, 1);
   assert.equal(learningBody.blueprintHistory?.length, 1);
   assert.equal(learningBody.blueprintHistory?.[0]?.status, 'active');

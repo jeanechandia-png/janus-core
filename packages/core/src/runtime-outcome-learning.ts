@@ -25,6 +25,92 @@ export interface RuntimeLearningReport {
   drift: DriftSignal;
 }
 
+export interface ExecutionConfidenceEstimate {
+  confidence: number;
+  mode: 'neutral_prior' | 'calibrated_history' | 'drift_adjusted_recent';
+  sampleCount: number;
+  evidenceCount: number;
+  minimumSamples: number;
+  empiricalMean: number;
+  brierScore: number;
+  drift: DriftSignal;
+  bounds: {
+    min: number;
+    max: number;
+  };
+}
+
+export function estimateExecutionConfidence(
+  observations: readonly LearningObservation[],
+  options: {
+    minimumSamples?: number;
+    priorAlpha?: number;
+    priorBeta?: number;
+    minConfidence?: number;
+    maxConfidence?: number;
+    driftRecentWindow?: number;
+  } = {},
+): ExecutionConfidenceEstimate {
+  const minimumSamples = positiveInteger(options.minimumSamples, 20);
+  const priorAlpha = positiveNumber(options.priorAlpha, 2);
+  const priorBeta = positiveNumber(options.priorBeta, 2);
+  const minConfidence = boundedProbability(options.minConfidence, 0.1);
+  const maxConfidence = boundedProbability(options.maxConfidence, 0.9);
+  const driftRecentWindow = positiveInteger(options.driftRecentWindow, 10);
+  if (minConfidence >= maxConfidence) {
+    throw new Error('execution confidence min bound must be lower than max bound');
+  }
+
+  const ordered = [...observations].sort((a, b) => a.at.localeCompare(b.at));
+  const calibration = summarizeCalibration(ordered);
+  const drift = detectOutcomeDrift(ordered, {
+    recentWindow: driftRecentWindow,
+  });
+
+  if (ordered.length < minimumSamples) {
+    return {
+      confidence: 0.5,
+      mode: 'neutral_prior',
+      sampleCount: ordered.length,
+      evidenceCount: ordered.length,
+      minimumSamples,
+      empiricalMean: calibration.meanOutcome,
+      brierScore: calibration.brierScore,
+      drift,
+      bounds: { min: minConfidence, max: maxConfidence },
+    };
+  }
+
+  const evidence = drift.detected
+    ? ordered.slice(-Math.min(driftRecentWindow, ordered.length))
+    : ordered;
+  const outcomeSum = evidence.reduce(
+    (sum, observation) => sum + observation.outcomeScore,
+    0,
+  );
+  const posteriorMean =
+    (priorAlpha + outcomeSum)
+    / (priorAlpha + priorBeta + evidence.length);
+  const confidence = Math.min(
+    maxConfidence,
+    Math.max(minConfidence, posteriorMean),
+  );
+
+  return {
+    confidence,
+    mode: drift.detected ? 'drift_adjusted_recent' : 'calibrated_history',
+    sampleCount: ordered.length,
+    evidenceCount: evidence.length,
+    minimumSamples,
+    empiricalMean:
+      evidence.reduce((sum, observation) => sum + observation.outcomeScore, 0)
+      / evidence.length,
+    brierScore: calibration.brierScore,
+    drift,
+    bounds: { min: minConfidence, max: maxConfidence },
+  };
+}
+
 export function assessVerifiedRunOutcome(
   snapshot: RunSnapshot,
   events: readonly JanusEvent[],
@@ -210,4 +296,29 @@ export function maybeProposeRuntimeImprovement(input: {
     ],
     createdAt: input.createdAt,
   });
+}
+
+
+function positiveInteger(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error('expected a positive integer');
+  }
+  return value;
+}
+
+function positiveNumber(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error('expected a positive number');
+  }
+  return value;
+}
+
+function boundedProbability(value: number | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error('expected probability between 0 and 1');
+  }
+  return value;
 }
