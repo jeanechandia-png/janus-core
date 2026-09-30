@@ -662,6 +662,20 @@ function authorityContextForCommand(
 
 function authErrorStatus(error: unknown): number {
   if (error instanceof HttpRequestError) return error.status;
+  if (error instanceof FounderBiometricError) {
+    switch (error.code) {
+      case 'invalid_key':
+      case 'invalid_action':
+        return 400;
+      case 'invalid_challenge':
+      case 'challenge_expired':
+      case 'invalid_signature':
+        return 401;
+      case 'key_unavailable':
+      case 'face_required':
+        return 409;
+    }
+  }
   if (!(error instanceof AuthorityAuthenticationError)) return 500;
 
   switch (error.code) {
@@ -684,7 +698,7 @@ function authErrorStatus(error: unknown): number {
 }
 
 function authErrorBody(error: unknown): { ok: false; error: string; code?: string } {
-  if (error instanceof AuthorityAuthenticationError) {
+  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError) {
     return { ok: false, error: error.message, code: error.code };
   }
   if (error instanceof HttpRequestError) {
@@ -1816,6 +1830,12 @@ const server = createServer(async (request, response) => {
         secureTransport: 'loopback-or-explicit-trusted-https-proxy',
         ...authorityAuth.status(),
       },
+      biometric: {
+        protocol: 'platform-face-p256-action-proof',
+        rawBiometricData: 'never-received-or-stored',
+        privateKeyStorage: 'platform-secure-hardware-required',
+        ...founderBiometric.status(),
+      },
     });
     return;
   }
@@ -1846,6 +1866,38 @@ const server = createServer(async (request, response) => {
       }
       const session = authorityAuth.verifyChallenge({ challengeId, principalId, signature });
       json(response, 200, { ok: true, session });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/biometric/challenge') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const action = typeof body.action === 'string' ? body.action.trim() : '';
+      if (!action) throw new HttpRequestError(400, 'action is required');
+      const challenge = founderBiometric.issueChallenge(action);
+      json(response, 200, { ok: true, challenge });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/biometric/verify') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const challengeId = typeof body.challengeId === 'string' ? body.challengeId.trim() : '';
+      const keyId = typeof body.keyId === 'string' ? body.keyId.trim() : '';
+      const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+      if (!challengeId || !keyId || !signature) {
+        throw new HttpRequestError(400, 'challengeId, keyId and signature are required');
+      }
+      const proof = founderBiometric.verifyAssertion({ challengeId, keyId, signature });
+      json(response, 200, { ok: true, proof });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }
