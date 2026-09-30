@@ -57,6 +57,11 @@ try {
   assert.equal(health.reusableLibrary?.currentItems, 0);
   assert.equal(health.projects?.active, 0);
   assert.equal(health.projects?.threads, 0);
+  assert.equal(health.assistantControl?.profiles, 1);
+  assert.equal(health.assistantControl?.surfaces, 3);
+  assert.equal(health.assistantControl?.activeSurfaces, 3);
+  assert.equal(health.assistantControl?.inheritedCurrent, 3);
+  assert.equal(health.progressPolicy?.id, 'continue-by-alternatives-v1');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -131,6 +136,9 @@ try {
   const unauthenticatedCoordination = await fetch(`${base}/api/coordination`);
   assert.equal(unauthenticatedCoordination.status, 401);
 
+  const unauthenticatedAssistantControl = await fetch(`${base}/api/assistant-control`);
+  assert.equal(unauthenticatedAssistantControl.status, 401);
+
   const founderToken = await authenticate(base, 'founder', founderKeys.privateKey);
 
   const iconItem = await postJson(base, '/api/library/items', {
@@ -152,6 +160,86 @@ try {
     spec: { illuminated: true, depth: 'high' },
   }, founderToken, 201);
   assert.equal(buttonItem.item?.revision, 1);
+
+  const sharedAssistantModule = await postJson(base, '/api/library/items', {
+    id: 'module.assistant.shared-core',
+    kind: 'module',
+    name: 'Shared landing assistant module',
+    tags: ['assistant', 'shared', 'approved'],
+    dependencies: [{ itemId: 'button.hyperreal.glow', revision: 1 }],
+    spec: { purpose: 'shared landing assistant behavior and presentation dependency' },
+  }, founderToken, 201);
+  assert.equal(sharedAssistantModule.item?.revision, 1);
+
+  const assistantBefore = await getJson(
+    base,
+    '/api/assistant-control',
+    founderToken,
+    200,
+  );
+  assert.equal(assistantBefore.surfaces?.length, 3);
+  assert.deepEqual(
+    assistantBefore.resolved?.map((item) => item.inheritedRevision),
+    [1, 1, 1],
+  );
+  const surfaceChecksumsBefore = assistantBefore.surfaces.map((surface) => surface.checksum);
+
+  const sharedProfileUpdate = await postJson(
+    base,
+    '/api/assistant-control/profiles/infinity-landing-assistant/revisions',
+    {
+      sharedInstructions: [
+        ...(assistantBefore.profiles?.find(
+          (profile) => profile.profileId === 'infinity-landing-assistant' && profile.status === 'current',
+        )?.sharedInstructions ?? []),
+        'Reuse the approved shared assistant module instead of rebuilding landing behavior per product.',
+      ],
+      moduleRefs: [{ itemId: 'module.assistant.shared-core', revision: 1 }],
+    },
+    founderToken,
+    201,
+  );
+  assert.equal(sharedProfileUpdate.profile?.revision, 2);
+  assert.equal(sharedProfileUpdate.affectedSurfaces?.length, 3);
+  assert.deepEqual(
+    sharedProfileUpdate.affectedSurfaces?.map((item) => item.inheritedRevision),
+    [2, 2, 2],
+  );
+
+  const assistantAfter = await getJson(
+    base,
+    '/api/assistant-control',
+    founderToken,
+    200,
+  );
+  assert.deepEqual(
+    assistantAfter.surfaces.map((surface) => surface.checksum),
+    surfaceChecksumsBefore,
+  );
+  assert.deepEqual(
+    assistantAfter.resolved.map((item) => item.inheritedRevision),
+    [2, 2, 2],
+  );
+  assert.equal(
+    assistantAfter.resolved.every(
+      (item) => item.moduleRefs?.[0]?.itemId === 'module.assistant.shared-core',
+    ),
+    true,
+  );
+
+  for (const surfaceId of [
+    'landing.infinity-group',
+    'landing.infinity-chatbox',
+    'landing.iba',
+  ]) {
+    const surfaceConfig = await getJson(
+      base,
+      `/api/assistant-control/surfaces/${encodeURIComponent(surfaceId)}/config`,
+      founderToken,
+      200,
+    );
+    assert.equal(surfaceConfig.config?.inheritedRevision, 2);
+  }
 
   const librarySelection = await getJson(
     base,
