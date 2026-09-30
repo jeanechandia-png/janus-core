@@ -7,6 +7,7 @@ import type { LearningObservation } from '../packages/core/src/outcome-learning.
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
+  deriveRuntimeExecutionPrediction,
   maybeProposeRuntimeImprovement,
   runtimeLearningReport,
 } from '../packages/core/src/runtime-outcome-learning.js';
@@ -152,4 +153,66 @@ test('detects negative drift and creates at most one human-approved improvement 
     createdAt: '2026-09-30T20:01:00.000Z',
   });
   assert.equal(duplicate, null);
+});
+
+
+test('uses a neutral prior until enough verified outcomes exist, then shrinks empirical evidence', () => {
+  const few: LearningObservation[] = Array.from({ length: 5 }, (_, index) => ({
+    id: 'few_' + index,
+    receiptHash: 'few_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: 1,
+    outcome: 'success',
+    at: new Date(Date.UTC(2026, 8, 30, 21, index)).toISOString(),
+  }));
+
+  const neutral = deriveRuntimeExecutionPrediction(few);
+  assert.equal(neutral.basis, 'neutral-prior');
+  assert.equal(neutral.confidence, 0.5);
+  assert.equal(neutral.sampleCount, 5);
+
+  const enough: LearningObservation[] = Array.from({ length: 12 }, (_, index) => ({
+    id: 'enough_' + index,
+    receiptHash: 'enough_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: 1,
+    outcome: 'success',
+    at: new Date(Date.UTC(2026, 8, 30, 22, index)).toISOString(),
+  }));
+
+  const calibrated = deriveRuntimeExecutionPrediction(enough);
+  assert.equal(calibrated.basis, 'verified-outcomes');
+  assert.equal(calibrated.sampleCount, 12);
+  assert.equal(calibrated.meanOutcome, 1);
+  assert.equal(calibrated.confidence, 0.875);
+});
+
+test('bounds calibrated execution predictions away from false certainty', () => {
+  const failures: LearningObservation[] = Array.from({ length: 20 }, (_, index) => ({
+    id: 'failure_' + index,
+    receiptHash: 'failure_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: 0,
+    outcome: 'failure',
+    at: new Date(Date.UTC(2026, 8, 30, 23, index)).toISOString(),
+  }));
+  const low = deriveRuntimeExecutionPrediction(failures);
+  assert.equal(low.basis, 'verified-outcomes');
+  assert.equal(low.confidence, 0.1);
+
+  const successes = failures.map((item, index) => ({
+    ...item,
+    id: 'success_' + index,
+    receiptHash: 'success_hash_' + index,
+    outcomeScore: 1,
+    outcome: 'success' as const,
+  }));
+  const high = deriveRuntimeExecutionPrediction(successes);
+  assert.equal(high.confidence, 0.9);
 });
