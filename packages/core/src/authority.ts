@@ -10,6 +10,17 @@ export interface AuthorityPrincipal {
   active: boolean;
 }
 
+export type AuthorityCredentialAlgorithm = 'ecdsa-p256-sha256';
+
+export interface AuthorityPublicCredential {
+  principal: AuthorityPrincipal;
+  algorithm: AuthorityCredentialAlgorithm;
+  publicKeyPem: string;
+  createdAt: string;
+  delegatedBy?: string;
+  revokedAt?: string;
+}
+
 export interface AuthorityInstruction {
   id: string;
   principalId: string;
@@ -57,16 +68,20 @@ export function evaluateAuthority(
   } else if (request.source !== 'authenticated_human' && request.source !== 'local_system') {
     allowed = false;
     reason = 'untrusted_source_cannot_issue_privileged_instruction';
-  } else if (principal.role === 'external_data' || principal.role === 'agent') {
+  } else if (principal.role !== 'founder_director' && principal.role !== 'administrator') {
     allowed = false;
     reason = 'role_cannot_issue_privileged_instruction';
-  } else if (
-    principal.id === policy.founderPrincipalId &&
-    principal.role === 'founder_director' &&
-    policy.confirmationActions.includes(action)
-  ) {
-    requiresConfirmation = true;
-    reason = 'founder_authorized_but_explicit_confirmation_required';
+  } else if (policy.confirmationActions.includes(action)) {
+    if (
+      principal.id !== policy.founderPrincipalId
+      || principal.role !== 'founder_director'
+    ) {
+      allowed = false;
+      reason = 'founder_required_for_root_action';
+    } else {
+      requiresConfirmation = true;
+      reason = 'founder_authorized_but_explicit_confirmation_required';
+    }
   }
 
   return {

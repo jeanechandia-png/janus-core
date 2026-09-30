@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
@@ -15,7 +16,11 @@ import { createOfflineQualityReviewers } from '../../packages/core/src/quality-r
 import { EventHub } from '../../packages/core/src/event-hub.js';
 import type { EventSink, RunSnapshot } from '../../packages/core/src/events.js';
 import { SqliteStore } from '../../packages/core/src/sqlite-store.js';
-import { TaskRunner, type JanusStep } from '../../packages/core/src/task-runner.js';
+import {
+  TaskRunner,
+  type JanusStep,
+  type TaskAuthorityContext,
+} from '../../packages/core/src/task-runner.js';
 import type { ModelGateway, VoiceGateway } from '../../packages/gateways/src/contracts.js';
 import { DefaultToolGateway } from '../../packages/gateways/src/tool-gateway.js';
 import { compilePlan } from '../../packages/orchestrator/src/compile-plan.js';
@@ -26,6 +31,16 @@ import {
   CredentialBroker,
   EnvironmentCredentialProvider,
 } from '../../packages/security/src/credential-provider.js';
+import {
+  AuthorityAuthenticationError,
+  LocalAuthorityAuthService,
+  type AuthorityCredentialStore,
+} from '../../packages/security/src/authority-auth.js';
+import {
+  bearerTokenFromAuthorization,
+  confirmedActionsFromBody,
+  isSecureAuthorityTransport,
+} from '../../packages/security/src/http-auth.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
@@ -38,6 +53,7 @@ const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
+const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
 
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
@@ -50,6 +66,20 @@ const credentialBroker = new CredentialBroker([environmentCredentials]);
 
 const hub = new EventHub();
 const store = new SqliteStore(dbPath);
+const authorityCredentialStore: AuthorityCredentialStore = {
+  get: (principalId) => store.getAuthorityCredential(principalId),
+  list: (activeOnly) => store.listAuthorityCredentials(activeOnly),
+  upsert: (credential) => store.upsertAuthorityCredential(credential),
+  revoke: (principalId, revokedAt) => store.revokeAuthorityCredential(principalId, revokedAt),
+};
+const authorityAuth = new LocalAuthorityAuthService(authorityCredentialStore);
+const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
+if (configuredFounderPublicKey) {
+  authorityAuth.ensureFounderCredential(
+    configuredFounderPublicKey,
+    process.env.JANUS_FOUNDER_DISPLAY_NAME?.trim() || undefined,
+  );
+}
 const runners = new Map<string, TaskRunner>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
@@ -145,6 +175,113 @@ function numericEnv(name: string): number | undefined {
   if (!raw) return undefined;
   const value = Number(raw);
   return Number.isFinite(value) ? value : undefined;
+}
+
+function environmentPem(name: string): string | undefined {
+  const raw = process.env[name]?.trim();
+  if (!raw) return undefined;
+  return raw.replace(/\\n/g, '\n').trim();
+}
+
+class HttpRequestError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'HttpRequestError';
+    this.status = status;
+  }
+}
+
+function requireSecureAuthorityTransport(request: IncomingMessage): void {
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  if (isSecureAuthorityTransport({
+    remoteAddress: request.socket.remoteAddress,
+    forwardedProto,
+    trustSecureProxy: trustSecureAuthProxy,
+  })) return;
+
+  throw new HttpRequestError(
+    426,
+    'Authority authentication requires loopback or an explicitly trusted HTTPS proxy.',
+  );
+}
+
+function bearerToken(request: IncomingMessage): string | undefined {
+  return bearerTokenFromAuthorization(request.headers.authorization);
+}
+
+function requireAuthoritySession(request: IncomingMessage): {
+  token: string;
+  principal: NonNullable<ReturnType<typeof authorityAuth.authenticateSession>>;
+} {
+  requireSecureAuthorityTransport(request);
+  const token = bearerToken(request);
+  if (!token) throw new HttpRequestError(401, 'Authority session is required');
+  const principal = authorityAuth.authenticateSession(token);
+  if (!principal) throw new HttpRequestError(401, 'Authority session is invalid or expired');
+  return { token, principal };
+}
+
+function authorityContextForCommand(
+  request: IncomingMessage,
+  command: string,
+  body: Record<string, unknown>,
+): TaskAuthorityContext | undefined {
+  const token = bearerToken(request);
+  if (!token) return undefined;
+
+  requireSecureAuthorityTransport(request);
+  const principal = authorityAuth.authenticateSession(token);
+  if (!principal) throw new HttpRequestError(401, 'Authority session is invalid or expired');
+
+  return {
+    principal,
+    instruction: {
+      id: `authority_instruction_${randomUUID()}`,
+      principalId: principal.id,
+      source: 'authenticated_human',
+      authenticated: true,
+      instruction: command,
+      requestedAt: new Date().toISOString(),
+    },
+    confirmedActions: confirmedActionsFromBody(body.confirmActions),
+  };
+}
+
+function authErrorStatus(error: unknown): number {
+  if (error instanceof HttpRequestError) return error.status;
+  if (!(error instanceof AuthorityAuthenticationError)) return 500;
+
+  switch (error.code) {
+    case 'invalid_principal':
+    case 'invalid_public_key':
+      return 400;
+    case 'invalid_challenge':
+    case 'challenge_expired':
+    case 'invalid_signature':
+    case 'invalid_session':
+    case 'credential_unavailable':
+      return 401;
+    case 'founder_required':
+      return 403;
+    case 'administrator_required':
+    case 'founder_credential_mismatch':
+      return 409;
+  }
+}
+
+function authErrorBody(error: unknown): { ok: false; error: string; code?: string } {
+  if (error instanceof AuthorityAuthenticationError) {
+    return { ok: false, error: error.message, code: error.code };
+  }
+  if (error instanceof HttpRequestError) {
+    return { ok: false, error: error.message };
+  }
+  return {
+    ok: false,
+    error: error instanceof Error ? error.message : String(error),
+  };
 }
 
 async function readJson(request: IncomingMessage): Promise<Record<string, unknown>> {
@@ -262,7 +399,12 @@ function assertCapabilitiesReady(plan: JanusPlan): void {
   }
 }
 
-function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${inputMode}-runtime`): string {
+function startRun(
+  command: string,
+  inputMode: 'voice' | 'text',
+  sessionId = `${inputMode}-runtime`,
+  authorityContext?: TaskAuthorityContext,
+): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
     store.appendEvent(event);
@@ -287,6 +429,7 @@ function startRun(command: string, inputMode: 'voice' | 'text', sessionId = `${i
   runner = new TaskRunner(command, {
     sink: durableSink,
     deliveryGate,
+    authorityContext,
     approvalHandler: async (action) => ({
       approved: action.risk === 'none' || action.risk === 'low',
       reason: action.risk === 'high'
@@ -472,9 +615,13 @@ const server = createServer(async (request, response) => {
       },
       authority: {
         privilegedActionGuard: 'enforced',
-        authentication: 'pending-secure-local-auth',
+        authentication: 'ecdsa-p256-challenge-response',
+        privateKeyStorage: 'external-to-janus',
+        sessionStorage: 'memory-only-hashed-token',
         unauthenticatedMutations: 'blocked',
+        voicePrivilegedActions: 'blocked-until-authenticated-voice-transport',
         audit: 'event-log+sha256-decision-hash',
+        ...authorityAuth.status(),
       },
       tools: capabilities.availableCatalog(),
       capabilities: capabilities.snapshot(),
@@ -492,6 +639,112 @@ const server = createServer(async (request, response) => {
         provider: 'replaceable-broker',
       },
     });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/auth/status') {
+    json(response, 200, {
+      ok: true,
+      authority: {
+        protocol: 'ecdsa-p256-challenge-response',
+        privateKeyStorage: 'external-to-janus',
+        sessionStorage: 'memory-only-hashed-token',
+        secureTransport: 'loopback-or-explicit-trusted-https-proxy',
+        ...authorityAuth.status(),
+      },
+    });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/challenge') {
+    try {
+      requireSecureAuthorityTransport(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      if (!principalId) throw new HttpRequestError(400, 'principalId is required');
+      const challenge = authorityAuth.issueChallenge(principalId);
+      json(response, 200, { ok: true, challenge });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/verify') {
+    try {
+      requireSecureAuthorityTransport(request);
+      const body = await readJson(request);
+      const challengeId = typeof body.challengeId === 'string' ? body.challengeId.trim() : '';
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+      if (!challengeId || !principalId || !signature) {
+        throw new HttpRequestError(400, 'challengeId, principalId and signature are required');
+      }
+      const session = authorityAuth.verifyChallenge({ challengeId, principalId, signature });
+      json(response, 200, { ok: true, session });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/logout') {
+    try {
+      const { token } = requireAuthoritySession(request);
+      authorityAuth.revokeSession(token);
+      json(response, 200, { ok: true });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/admin/delegate') {
+    try {
+      const { token } = requireAuthoritySession(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : undefined;
+      if (!principalId || !publicKeyPem.trim()) {
+        throw new HttpRequestError(400, 'principalId and publicKeyPem are required');
+      }
+      const credential = authorityAuth.delegateAdministrator(token, {
+        principalId,
+        publicKeyPem,
+        ...(displayName ? { displayName } : {}),
+      });
+      json(response, 201, {
+        ok: true,
+        administrator: {
+          principal: credential.principal,
+          createdAt: credential.createdAt,
+          delegatedBy: credential.delegatedBy,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/admin/revoke') {
+    try {
+      const { token } = requireAuthoritySession(request);
+      const body = await readJson(request);
+      const principalId = typeof body.principalId === 'string' ? body.principalId.trim() : '';
+      if (!principalId) throw new HttpRequestError(400, 'principalId is required');
+      const credential = authorityAuth.revokeAdministrator(token, principalId);
+      json(response, 200, {
+        ok: true,
+        administrator: {
+          principal: credential.principal,
+          revokedAt: credential.revokedAt,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
     return;
   }
 
@@ -519,17 +772,31 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/command') {
-    const body = await readJson(request);
-    const text = typeof body.text === 'string' ? body.text.trim() : '';
-    if (!text) {
-      json(response, 400, { ok: false, error: 'text is required' });
-      return;
+    try {
+      const body = await readJson(request);
+      const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (!text) {
+        json(response, 400, { ok: false, error: 'text is required' });
+        return;
+      }
+      const sessionId = typeof body.sessionId === 'string' && body.sessionId.trim()
+        ? body.sessionId.trim()
+        : 'text-runtime';
+      const authorityContext = authorityContextForCommand(request, text, body);
+      const runId = startRun(
+        text,
+        body.inputMode === 'voice' ? 'voice' : 'text',
+        sessionId,
+        authorityContext,
+      );
+      json(response, 202, {
+        ok: true,
+        runId,
+        authenticatedPrincipal: authorityContext?.principal?.id ?? null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
     }
-    const sessionId = typeof body.sessionId === 'string' && body.sessionId.trim()
-      ? body.sessionId.trim()
-      : 'text-runtime';
-    const runId = startRun(text, body.inputMode === 'voice' ? 'voice' : 'text', sessionId);
-    json(response, 202, { ok: true, runId });
     return;
   }
 
@@ -614,13 +881,17 @@ const server = createServer(async (request, response) => {
   const controlAction = control?.[2] as 'pause' | 'resume' | 'cancel' | undefined;
   if (request.method === 'POST' && controlRunId && controlAction) {
     try {
+      if (authorityAuth.status().founderConfigured) requireAuthoritySession(request);
       await controlActiveRun(controlRunId, controlAction);
       json(response, 200, {
         ok: true,
         snapshot: runners.get(controlRunId)?.snapshot() ?? store.getRun(controlRunId),
       });
     } catch (error) {
-      json(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
     }
     return;
   }

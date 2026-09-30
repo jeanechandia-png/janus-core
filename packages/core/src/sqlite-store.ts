@@ -16,6 +16,7 @@ import {
   type WorkGraphSnapshot,
 } from './kernel-persistence.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
+import type { AuthorityPublicCredential } from './authority.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -416,6 +417,77 @@ export class SqliteStore {
     return (rows as Record<string, unknown>[]).map(
       (row) => JSON.parse(String(row.proposal_json)) as ImprovementProposal | BlueprintRevisionProposal,
     );
+  }
+
+  upsertAuthorityCredential(credential: AuthorityPublicCredential): void {
+    this.db.prepare(`
+      INSERT INTO authority_credentials
+        (
+          principal_id, role, display_name, active, algorithm, public_key_pem,
+          created_at, delegated_by, revoked_at
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(principal_id) DO UPDATE SET
+        role = excluded.role,
+        display_name = excluded.display_name,
+        active = excluded.active,
+        algorithm = excluded.algorithm,
+        public_key_pem = excluded.public_key_pem,
+        delegated_by = excluded.delegated_by,
+        revoked_at = excluded.revoked_at
+    `).run(
+      credential.principal.id,
+      credential.principal.role,
+      credential.principal.displayName ?? null,
+      credential.principal.active ? 1 : 0,
+      credential.algorithm,
+      credential.publicKeyPem,
+      credential.createdAt,
+      credential.delegatedBy ?? null,
+      credential.revokedAt ?? null,
+    );
+  }
+
+  getAuthorityCredential(principalId: string): AuthorityPublicCredential | null {
+    const row = this.db.prepare(`
+      SELECT
+        principal_id, role, display_name, active, algorithm, public_key_pem,
+        created_at, delegated_by, revoked_at
+      FROM authority_credentials
+      WHERE principal_id = ?
+    `).get(principalId) as Record<string, unknown> | undefined;
+
+    return row ? authorityCredentialFromRow(row) : null;
+  }
+
+  listAuthorityCredentials(activeOnly = false): AuthorityPublicCredential[] {
+    const rows = activeOnly
+      ? this.db.prepare(`
+          SELECT
+            principal_id, role, display_name, active, algorithm, public_key_pem,
+            created_at, delegated_by, revoked_at
+          FROM authority_credentials
+          WHERE active = 1 AND revoked_at IS NULL
+          ORDER BY created_at ASC, principal_id ASC
+        `).all()
+      : this.db.prepare(`
+          SELECT
+            principal_id, role, display_name, active, algorithm, public_key_pem,
+            created_at, delegated_by, revoked_at
+          FROM authority_credentials
+          ORDER BY created_at ASC, principal_id ASC
+        `).all();
+
+    return (rows as Record<string, unknown>[]).map(authorityCredentialFromRow);
+  }
+
+  revokeAuthorityCredential(principalId: string, revokedAt: string): boolean {
+    const result = this.db.prepare(`
+      UPDATE authority_credentials
+      SET active = 0, revoked_at = ?
+      WHERE principal_id = ? AND active = 1
+    `).run(revokedAt, principalId);
+    return Number(result.changes) > 0;
   }
 
   upsertWorkGraph(snapshot: WorkGraphSnapshot): void {
@@ -839,6 +911,21 @@ export class SqliteStore {
       ON improvement_proposals(status, created_at);
 
 
+      CREATE TABLE IF NOT EXISTS authority_credentials (
+        principal_id TEXT PRIMARY KEY,
+        role TEXT NOT NULL,
+        display_name TEXT,
+        active INTEGER NOT NULL,
+        algorithm TEXT NOT NULL,
+        public_key_pem TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        delegated_by TEXT,
+        revoked_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_authority_credentials_active
+      ON authority_credentials(active, role, principal_id);
+
       CREATE TABLE IF NOT EXISTS work_graph_snapshots (
         id TEXT PRIMARY KEY,
         run_id TEXT,
@@ -883,6 +970,22 @@ export class SqliteStore {
       ON improvement_index_history(scope_id, generated_at);
     `);
   }
+}
+
+function authorityCredentialFromRow(row: Record<string, unknown>): AuthorityPublicCredential {
+  return {
+    principal: {
+      id: String(row.principal_id),
+      role: String(row.role) as AuthorityPublicCredential['principal']['role'],
+      ...(row.display_name == null ? {} : { displayName: String(row.display_name) }),
+      active: Number(row.active) === 1 && row.revoked_at == null,
+    },
+    algorithm: String(row.algorithm) as AuthorityPublicCredential['algorithm'],
+    publicKeyPem: String(row.public_key_pem),
+    createdAt: String(row.created_at),
+    ...(row.delegated_by == null ? {} : { delegatedBy: String(row.delegated_by) }),
+    ...(row.revoked_at == null ? {} : { revokedAt: String(row.revoked_at) }),
+  };
 }
 
 export function combineEventSinks(...sinks: EventSink[]): EventSink {
