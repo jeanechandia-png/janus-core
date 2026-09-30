@@ -131,14 +131,16 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Productive Decision Blueprint enforcement: every run selects an active immutable Blueprint describing agents, tool policy, guardrails and success metrics.
 - Tamper-evident runtime Decision Receipt chains persisted in SQLite for planning, plan/capability verification, tool selection, authority, approval and Delivery Gate decisions; `GET /api/runs/:runId/decisions` verifies the chain.
 - Verified runtime Outcome Learning: executable runs record a prediction receipt, verified success/failure becomes a SQLite learning observation, blockers/fallbacks stay out of calibration, Brier/drift are recalculated and negative drift may only propose a human-approved improvement.
-- `GET /api/learning` exposes current observations, calibration, drift and pending improvement proposals without silently applying changes.
+- `GET /api/learning` exposes current observations, calibration, drift, Blueprint history and pending improvement proposals without silently applying changes.
+- Founder-only Blueprint governance: approve/reject proposals, verify a new draft revision against mandatory security/runtime invariants, explicitly apply it, or rollback by creating a new append-only revision from historical policy.
+- In-flight runs remain pinned to their starting Blueprint revision; learning/calibration is revision-scoped and historical run audits resolve the Blueprint actually used.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Close the human-controlled improvement loop: proposal review/approval, new immutable Blueprint revision, regression verification and apply/rollback.
 - Replace the neutral execution prior only after enough verified history exists for evidence-based calibration.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
+- Route productive Quality Gate reviewers through the Model Router while preserving the offline baseline.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
 - Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
