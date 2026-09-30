@@ -96,9 +96,15 @@ import {
 } from '../../packages/security/src/authority-auth.js';
 import {
   bearerTokenFromAuthorization,
+  biometricProofIdsFromBody,
   confirmedActionsFromBody,
   isSecureAuthorityTransport,
 } from '../../packages/security/src/http-auth.js';
+import {
+  FounderBiometricError,
+  FounderBiometricService,
+  InMemoryBiometricKeyStore,
+} from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
@@ -112,6 +118,8 @@ const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
+const founderBiometricKeyId =
+  process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
@@ -131,12 +139,25 @@ const authorityCredentialStore: AuthorityCredentialStore = {
   revoke: (principalId, revokedAt) => store.revokeAuthorityCredential(principalId, revokedAt),
 };
 const authorityAuth = new LocalAuthorityAuthService(authorityCredentialStore);
+const founderBiometric = new FounderBiometricService(
+  new InMemoryBiometricKeyStore(),
+);
 const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
 if (configuredFounderPublicKey) {
   authorityAuth.ensureFounderCredential(
     configuredFounderPublicKey,
     process.env.JANUS_FOUNDER_DISPLAY_NAME?.trim() || undefined,
   );
+}
+const configuredFounderBiometricPublicKey =
+  environmentPem('JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM');
+if (configuredFounderBiometricPublicKey) {
+  founderBiometric.registerFaceKey({
+    keyId: founderBiometricKeyId,
+    publicKeyPem: configuredFounderBiometricPublicKey,
+    biometry: 'face',
+    binding: 'biometry-current-set',
+  });
 }
 const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
@@ -623,6 +644,7 @@ function authorityContextForCommand(
   const principal = authorityAuth.authenticateSession(token);
   if (!principal) throw new HttpRequestError(401, 'Authority session is invalid or expired');
 
+  const biometricProofIds = biometricProofIdsFromBody(body.biometricProofIds);
   return {
     principal,
     instruction: {
@@ -634,6 +656,7 @@ function authorityContextForCommand(
       requestedAt: new Date().toISOString(),
     },
     confirmedActions: confirmedActionsFromBody(body.confirmActions),
+    ...(biometricProofIds.length > 0 ? { biometricProofIds } : {}),
   };
 }
 
@@ -1151,6 +1174,14 @@ function startRun(
     sink: durableSink,
     deliveryGate,
     authorityContext,
+    biometricVerifier: ({ proofId, principal, action, requestedAt }) => (
+      founderBiometric.consumeProof({
+        proofId,
+        principalId: principal.id,
+        action,
+        requestedAt,
+      })
+    ),
     approvalHandler: async (action) => {
       const decision = {
         approved: action.risk === 'none' || action.risk === 'low',
