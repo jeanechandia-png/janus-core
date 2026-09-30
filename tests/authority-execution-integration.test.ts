@@ -92,6 +92,49 @@ test('authenticated founder permit reaches Tool Gateway and allows mutation', as
   assert.match(adapter.calls[0]?.authorization?.authorityDecisionHash ?? '', /^[a-f0-9]{64}$/);
 });
 
+test('root-destructive action still requires explicit confirmation after founder authority passes', async () => {
+  const hub = new EventHub();
+  const runner = new TaskRunner('Rotate root keys', {
+    sink: hub.sink,
+    approvalHandler: async () => ({ approved: true }),
+    authorityContext: {
+      principal: { id: 'founder', role: 'founder_director', active: true },
+      instruction: {
+        id: 'root-1',
+        principalId: 'founder',
+        source: 'authenticated_human',
+        authenticated: true,
+        instruction: 'Rotate root keys',
+        requestedAt: '2026-09-30T16:30:00.000Z',
+      },
+    },
+  });
+
+  const snapshot = await runner.execute([{
+    id: 'rotate',
+    label: 'Rotate root keys',
+    run: async ({ assertCanExecute }) => {
+      await assertCanExecute({
+        id: 'rotate',
+        label: 'Rotate root keys',
+        tool: 'system',
+        operation: 'rotate_root_keys',
+        risk: 'high',
+        reversible: false,
+        requiresApproval: true,
+      });
+    },
+  }]);
+
+  assert.equal(snapshot.status, 'blocked');
+  const events = hub.replay(snapshot.runId);
+  const authority = events.find((event) => event.type === 'authority.evaluated');
+  assert.equal(authority?.payload.allowed, true);
+  assert.equal(authority?.payload.requiresConfirmation, true);
+  assert.ok(events.some((event) => event.type === 'approval.required'));
+  assert.ok(events.some((event) => event.type === 'run.blocked'));
+});
+
 test('automation write node inherits the same authority boundary', async () => {
   const workflow = createAutomationWorkflow({
     id: 'authority-flow',
