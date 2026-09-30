@@ -17,6 +17,13 @@ import {
 } from './kernel-persistence.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
 import type { AuthorityPublicCredential } from './authority.js';
+import type {
+  CoordinationAssignment,
+  CoordinationGrant,
+  CoordinationHandoff,
+  CoordinationOperatorProfile,
+  CoordinationScope,
+} from './operator-coordination.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -490,6 +497,165 @@ export class SqliteStore {
     return Number(result.changes) > 0;
   }
 
+  upsertCoordinationOperator(profile: CoordinationOperatorProfile): void {
+    this.db.prepare(`
+      INSERT INTO coordination_operators
+        (principal_id, status, updated_at, profile_json)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(principal_id) DO UPDATE SET
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        profile_json = excluded.profile_json
+    `).run(
+      profile.principalId,
+      profile.status,
+      profile.updatedAt,
+      JSON.stringify(profile),
+    );
+  }
+
+  getCoordinationOperator(principalId: string): CoordinationOperatorProfile | null {
+    const row = this.db.prepare(`
+      SELECT profile_json FROM coordination_operators WHERE principal_id = ?
+    `).get(principalId) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.profile_json)) as CoordinationOperatorProfile
+      : null;
+  }
+
+  listCoordinationOperators(): CoordinationOperatorProfile[] {
+    const rows = this.db.prepare(`
+      SELECT profile_json FROM coordination_operators
+      ORDER BY updated_at ASC, principal_id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => (
+      JSON.parse(String(row.profile_json)) as CoordinationOperatorProfile
+    ));
+  }
+
+  upsertCoordinationScope(scope: CoordinationScope): void {
+    this.db.prepare(`
+      INSERT INTO coordination_scopes
+        (id, classification, owner_principal_id, created_at, scope_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        classification = excluded.classification,
+        owner_principal_id = excluded.owner_principal_id,
+        scope_json = excluded.scope_json
+    `).run(
+      scope.id,
+      scope.classification,
+      scope.ownerPrincipalId,
+      scope.createdAt,
+      JSON.stringify(scope),
+    );
+  }
+
+  listCoordinationScopes(): CoordinationScope[] {
+    const rows = this.db.prepare(`
+      SELECT scope_json FROM coordination_scopes
+      ORDER BY created_at ASC, id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.scope_json)) as CoordinationScope);
+  }
+
+  upsertCoordinationGrant(grant: CoordinationGrant): void {
+    this.db.prepare(`
+      INSERT INTO coordination_grants
+        (id, principal_id, scope_id, revoked_at, created_at, grant_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        principal_id = excluded.principal_id,
+        scope_id = excluded.scope_id,
+        revoked_at = excluded.revoked_at,
+        grant_json = excluded.grant_json
+    `).run(
+      grant.id,
+      grant.principalId,
+      grant.scopeId,
+      grant.revokedAt ?? null,
+      grant.createdAt,
+      JSON.stringify(grant),
+    );
+  }
+
+  listCoordinationGrants(): CoordinationGrant[] {
+    const rows = this.db.prepare(`
+      SELECT grant_json FROM coordination_grants
+      ORDER BY created_at ASC, id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.grant_json)) as CoordinationGrant);
+  }
+
+  upsertCoordinationAssignment(assignment: CoordinationAssignment): void {
+    this.db.prepare(`
+      INSERT INTO coordination_assignments
+        (id, assignee_principal_id, status, updated_at, assignment_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        assignee_principal_id = excluded.assignee_principal_id,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        assignment_json = excluded.assignment_json
+    `).run(
+      assignment.id,
+      assignment.assigneePrincipalId,
+      assignment.status,
+      assignment.updatedAt,
+      JSON.stringify(assignment),
+    );
+  }
+
+  getCoordinationAssignment(id: string): CoordinationAssignment | null {
+    const row = this.db.prepare(`
+      SELECT assignment_json FROM coordination_assignments WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.assignment_json)) as CoordinationAssignment
+      : null;
+  }
+
+  listCoordinationAssignments(): CoordinationAssignment[] {
+    const rows = this.db.prepare(`
+      SELECT assignment_json FROM coordination_assignments
+      ORDER BY updated_at ASC, id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => (
+      JSON.parse(String(row.assignment_json)) as CoordinationAssignment
+    ));
+  }
+
+  appendCoordinationHandoff(handoff: CoordinationHandoff): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO coordination_handoffs
+        (checksum, id, assignment_id, run_id, created_at, handoff_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      handoff.checksum,
+      handoff.id,
+      handoff.assignmentId,
+      handoff.runId ?? null,
+      handoff.createdAt,
+      JSON.stringify(handoff),
+    );
+  }
+
+  listCoordinationHandoffs(assignmentId?: string): CoordinationHandoff[] {
+    const rows = assignmentId
+      ? this.db.prepare(`
+          SELECT handoff_json FROM coordination_handoffs
+          WHERE assignment_id = ?
+          ORDER BY created_at ASC, id ASC
+        `).all(assignmentId)
+      : this.db.prepare(`
+          SELECT handoff_json FROM coordination_handoffs
+          ORDER BY created_at ASC, id ASC
+        `).all();
+    return (rows as Record<string, unknown>[]).map((row) => (
+      JSON.parse(String(row.handoff_json)) as CoordinationHandoff
+    ));
+  }
+
   upsertWorkGraph(snapshot: WorkGraphSnapshot): void {
     this.db.prepare(`
       INSERT INTO work_graph_snapshots
@@ -925,6 +1091,56 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_authority_credentials_active
       ON authority_credentials(active, role, principal_id);
+
+      CREATE TABLE IF NOT EXISTS coordination_operators (
+        principal_id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        profile_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS coordination_scopes (
+        id TEXT PRIMARY KEY,
+        classification TEXT NOT NULL,
+        owner_principal_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        scope_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS coordination_grants (
+        id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        scope_id TEXT NOT NULL,
+        revoked_at TEXT,
+        created_at TEXT NOT NULL,
+        grant_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_coordination_grants_principal_scope
+      ON coordination_grants(principal_id, scope_id, revoked_at);
+
+      CREATE TABLE IF NOT EXISTS coordination_assignments (
+        id TEXT PRIMARY KEY,
+        assignee_principal_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        assignment_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_coordination_assignments_assignee
+      ON coordination_assignments(assignee_principal_id, status, updated_at);
+
+      CREATE TABLE IF NOT EXISTS coordination_handoffs (
+        checksum TEXT PRIMARY KEY,
+        id TEXT NOT NULL UNIQUE,
+        assignment_id TEXT NOT NULL,
+        run_id TEXT,
+        created_at TEXT NOT NULL,
+        handoff_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_coordination_handoffs_assignment
+      ON coordination_handoffs(assignment_id, created_at, id);
 
       CREATE TABLE IF NOT EXISTS work_graph_snapshots (
         id TEXT PRIMARY KEY,
