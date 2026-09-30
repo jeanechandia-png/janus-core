@@ -89,12 +89,19 @@ Founder-only mutation:
 
 - `POST /api/assistant-control/profiles/:profileId/revisions`
 - `POST /api/assistant-control/surfaces/:surfaceId`
+- `POST /api/assistant-control/surfaces/:surfaceId/publish`
+- `POST /api/assistant-control/deliveries/:deliveryId/ack`
+
+Publisher/readback:
+
+- `GET /api/assistant-control/surfaces/:surfaceId/bundle`
+- `GET /api/assistant-control/deliveries`
 
 The resolved config includes a checksum and exact inherited profile revision.
 
 ## Delivery boundary
 
-The Janus control plane is now the source of truth for shared assistant configuration, but the three production websites are not yet all consuming this runtime directly.
+Janus now has a productive repository publisher for resolved assistant bundles. The three production websites are still not all consuming the bundle automatically, so repository publication and live application remain distinct states.
 
 Current verified product topology:
 
@@ -107,11 +114,15 @@ Therefore the next productive delivery layer is **publish/sync**, not duplicate 
 
 ```text
 Janus Assistant Control Plane
-  -> versioned resolved config bundle
-  -> Infinity API / Tool Gateway publisher
-  -> validated product target
+  -> deterministic sanitized config bundle
+  -> GitHub Tool Gateway publisher
+  -> explicit branch HEAD revalidation
+  -> idempotent repository write
+  -> read-back verification by commit checksum
+  -> status: published_verified
   -> product consumes exact config revision
-  -> health/telemetry reports applied revision back to Janus
+  -> product health/telemetry acknowledges bundle checksum
+  -> status: applied
 ```
 
 Do not expose the local Janus runtime publicly merely to make landings fetch configuration. Janus should publish sanitized signed/versioned configuration snapshots through a replaceable gateway. Secrets remain outside the bundle.
@@ -154,4 +165,8 @@ Blocked runtime paths now persist a `blocker_resolution` Decision Receipt. For c
 
 ## Current boundary
 
-The policy and control-plane inheritance are productive inside Janus Core. Automatic cross-repository deployment of new assistant revisions is still pending the publishing/sync layer. Until that exists, Janus must not claim that a profile revision has reached a live landing merely because it is current in Core.
+The policy, inheritance and repository publishing path are productive inside Janus Core. Publishing requires Founder authentication, explicit `confirmAction`, an explicit target branch, GitHub write authentication, authority audit hash and idempotency key.
+
+A successful publish is marked `published_verified` only after Janus reads the bundle back from the resulting commit and verifies its checksum. It is **not** marked `applied` until a separate acknowledgement reports the same bundle checksum.
+
+The remaining integration is product-side consumption and trustworthy acknowledgement/telemetry. Until each landing actually loads the published bundle and reports it, Janus must not claim that a repository-published revision is live.

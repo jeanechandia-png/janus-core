@@ -12,7 +12,10 @@ import { CapabilityRegistry } from '../../packages/core/src/capability-registry.
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
-import type { AuthorityPrincipal } from '../../packages/core/src/authority.js';
+import {
+  evaluateAuthority,
+  type AuthorityPrincipal,
+} from '../../packages/core/src/authority.js';
 import {
   assertAssignmentAccess,
   buildCoordinationBrief,
@@ -43,6 +46,16 @@ import {
   defaultLandingAssistantSurfaces,
   resolveAssistantSurfaceConfig,
 } from '../../packages/core/src/assistant-control-plane.js';
+import {
+  acknowledgeAssistantDelivery,
+  createAssistantConfigBundle,
+  createAssistantConfigDelivery,
+  defaultAssistantBundlePath,
+  markAssistantDeliveryFailed,
+  markAssistantDeliveryPublished,
+  parseAssistantConfigBundle,
+  serializeAssistantConfigBundle,
+} from '../../packages/core/src/assistant-config-publisher.js';
 import {
   CONTINUE_BY_ALTERNATIVES_POLICY,
   buildOperationalBlockerResolution,
@@ -160,11 +173,20 @@ toolGateway.register(new GoogleWorkspaceAdapter({
   ) ?? '',
 }));
 
+const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
 capabilities.register({
   tool: 'github',
-  actions: ['repo.get', 'contents.list', 'file.read'],
+  actions: ['repo.get', 'contents.list', 'branch.get', 'file.read'],
   state: 'available',
+});
+capabilities.register({
+  tool: 'github',
+  actions: ['file.publish'],
+  state: githubConfigured ? 'available' : 'needs_auth',
+  ...(!githubConfigured
+    ? { reason: 'GitHub write authentication is required before assistant config publishing.' }
+    : {}),
 });
 capabilities.register({
   tool: 'google-workspace',
@@ -294,6 +316,48 @@ function reusableKind(value: unknown): ReusableLibraryKind | null {
   return typeof value === 'string' && allowed.has(value as ReusableLibraryKind)
     ? value as ReusableLibraryKind
     : null;
+}
+
+function assistantBundleForSurface(surfaceId: string) {
+  const surface = store.getAssistantSurface(surfaceId);
+  if (!surface) throw new HttpRequestError(404, 'assistant surface not found');
+  const resolved = resolveAssistantSurfaceConfig({
+    surface,
+    profiles: store.listAssistantProfileRevisions(surface.profileId),
+  });
+  const modules = resolved.moduleRefs.flatMap((moduleRef) => {
+    try {
+      const selection = resolveReusableSelection({
+        itemId: moduleRef.itemId,
+        items: store.listReusableLibraryItems(),
+        ...(moduleRef.revision == null ? {} : { revision: moduleRef.revision }),
+      });
+      return [{
+        itemId: selection.item.id,
+        revision: selection.item.revision,
+        checksum: selection.item.checksum,
+        kind: selection.item.kind,
+      }];
+    } catch (error) {
+      if (moduleRef.optional) return [];
+      throw error;
+    }
+  });
+  return createAssistantConfigBundle({ resolved, modules });
+}
+
+function repositoryTarget(value: string): { owner: string; repo: string } {
+  const parts = value.trim().split('/');
+  if (
+    parts.length !== 2
+    || !parts[0]
+    || !parts[1]
+    || !/^[A-Za-z0-9_.-]+$/.test(parts[0])
+    || !/^[A-Za-z0-9_.-]+$/.test(parts[1])
+  ) {
+    throw new HttpRequestError(409, 'assistant repository delivery target is invalid');
+  }
+  return { owner: parts[0], repo: parts[1] };
 }
 
 function assistantModuleRefs(value: unknown) {
@@ -1729,6 +1793,10 @@ const server = createServer(async (request, response) => {
           surfaces: snapshot.surfaces.length,
           activeSurfaces: snapshot.surfaces.filter((surface) => surface.status === 'active').length,
           inheritedCurrent: snapshot.surfaces.filter((surface) => surface.tracking === 'current').length,
+          deliveries: store.listAssistantConfigDeliveries().length,
+          appliedDeliveries: store.listAssistantConfigDeliveries()
+            .filter((delivery) => delivery.status === 'applied').length,
+          publisher: githubConfigured ? 'github-revalidated-idempotent' : 'needs-auth',
           endpoint: '/api/assistant-control',
         };
       })(),
@@ -1766,7 +1834,7 @@ const server = createServer(async (request, response) => {
         resumeFrom: continuitySnapshot().resumeFrom?.subject ?? null,
       },
       credentials: {
-        githubConfigured: environmentCredentials.configured('github'),
+        githubConfigured,
         googleConfigured,
         modelConfigured: Boolean(modelGateway),
         provider: 'replaceable-broker',
@@ -2370,6 +2438,323 @@ const server = createServer(async (request, response) => {
         updatedAt: handoff.createdAt,
       });
       json(response, 201, { ok: true, handoff });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantBundleMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)\/bundle$/,
+  );
+  const assistantBundleSurfaceId = assistantBundleMatch?.[1];
+  if (request.method === 'GET' && assistantBundleSurfaceId) {
+    try {
+      requireAuthoritySession(request);
+      const bundle = assistantBundleForSurface(
+        decodeURIComponent(assistantBundleSurfaceId),
+      );
+      json(response, 200, {
+        ok: true,
+        bundle,
+        content: serializeAssistantConfigBundle(bundle),
+      });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantPublishMatch = url.pathname.match(
+    /^\/api\/assistant-control\/surfaces\/([^/]+)\/publish$/,
+  );
+  const assistantPublishSurfaceId = assistantPublishMatch?.[1];
+  if (request.method === 'POST' && assistantPublishSurfaceId) {
+    let delivery: ReturnType<typeof createAssistantConfigDelivery> | undefined;
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (body.confirmAction !== 'publish_assistant_surface') {
+        throw new HttpRequestError(
+          400,
+          'confirmAction="publish_assistant_surface" is required',
+        );
+      }
+      const surfaceId = decodeURIComponent(assistantPublishSurfaceId);
+      const surface = store.getAssistantSurface(surfaceId);
+      if (!surface) throw new HttpRequestError(404, 'assistant surface not found');
+      if (surface.status !== 'active') {
+        throw new HttpRequestError(409, 'paused assistant surface cannot be published');
+      }
+      const targetIndex = Number(body.targetIndex ?? 0);
+      if (!Number.isInteger(targetIndex) || targetIndex < 0) {
+        throw new HttpRequestError(400, 'targetIndex must be a non-negative integer');
+      }
+      const target = surface.deliveryTargets[targetIndex];
+      if (!target) throw new HttpRequestError(404, 'assistant delivery target not found');
+      if (target.kind !== 'repository') {
+        throw new HttpRequestError(409, 'only repository assistant publishing is wired productively');
+      }
+      const targetRef = typeof body.targetRef === 'string' ? body.targetRef.trim() : '';
+      if (!targetRef) {
+        throw new HttpRequestError(
+          400,
+          'targetRef is required; Janus will not guess a production branch',
+        );
+      }
+      const capability = capabilities.check('github', 'file.publish');
+      if (!capability.ok) {
+        throw new HttpRequestError(
+          409,
+          capability.reason ?? 'GitHub publishing capability is unavailable',
+        );
+      }
+
+      const bundle = assistantBundleForSurface(surfaceId);
+      const content = serializeAssistantConfigBundle(bundle);
+      const { owner, repo } = repositoryTarget(target.target);
+      const targetPath = defaultAssistantBundlePath(target.productKey);
+
+      const branchResult = await toolGateway.execute({
+        tool: 'github',
+        action: 'branch.get',
+        input: { owner, repo, ref: targetRef },
+      }, async () => {});
+      if (!branchResult.ok) {
+        throw new HttpRequestError(409, branchResult.error ?? 'target branch revalidation failed');
+      }
+      const expectedHeadSha = typeof branchResult.output?.sha === 'string'
+        ? branchResult.output.sha
+        : '';
+      if (!expectedHeadSha) {
+        throw new HttpRequestError(409, 'target branch head SHA is unavailable');
+      }
+
+      delivery = createAssistantConfigDelivery({
+        surfaceId,
+        profileId: bundle.profileId,
+        profileRevision: bundle.profileRevision,
+        bundleChecksum: bundle.bundleChecksum,
+        targetKind: target.kind,
+        target: target.target,
+        targetRef,
+        targetPath,
+        createdBy: principal.id,
+        expectedHeadSha,
+      });
+      store.upsertAssistantConfigDelivery(delivery);
+
+      const authorityDecision = evaluateAuthority(
+        principal,
+        {
+          id: 'authority_instruction_' + randomUUID(),
+          principalId: principal.id,
+          source: 'authenticated_human',
+          authenticated: true,
+          instruction:
+            'Publish assistant config '
+            + surfaceId
+            + ' to '
+            + target.target
+            + '@'
+            + targetRef,
+          requestedAt: new Date().toISOString(),
+        },
+        'publish_assistant_surface',
+      );
+      if (!authorityDecision.allowed) {
+        throw new HttpRequestError(403, authorityDecision.reason);
+      }
+
+      const publishResult = await toolGateway.execute({
+        tool: 'github',
+        action: 'file.publish',
+        input: {
+          owner,
+          repo,
+          path: targetPath,
+          ref: targetRef,
+          content,
+          expectedHeadSha,
+          message:
+            'Update '
+            + surfaceId
+            + ' assistant config to '
+            + bundle.profileId
+            + '@'
+            + bundle.profileRevision,
+        },
+        idempotencyKey:
+          surfaceId
+          + ':'
+          + bundle.bundleChecksum
+          + ':'
+          + target.target
+          + ':'
+          + targetRef,
+        authorization: {
+          privileged: true,
+          authorityDecisionHash: authorityDecision.auditHash,
+          principalId: principal.id,
+        },
+      }, async () => {});
+      if (!publishResult.ok) {
+        delivery = markAssistantDeliveryFailed({
+          delivery,
+          error: publishResult.error ?? 'assistant config publish failed',
+        });
+        store.upsertAssistantConfigDelivery(delivery);
+        throw new HttpRequestError(409, delivery.error ?? 'assistant config publish failed');
+      }
+
+      const commitSha = typeof publishResult.output?.commitSha === 'string'
+        ? publishResult.output.commitSha
+        : expectedHeadSha;
+      const verifyResult = await toolGateway.execute({
+        tool: 'github',
+        action: 'file.read',
+        input: {
+          owner,
+          repo,
+          path: targetPath,
+          ref: commitSha,
+        },
+      }, async () => {});
+      if (!verifyResult.ok || typeof verifyResult.output?.content !== 'string') {
+        delivery = markAssistantDeliveryFailed({
+          delivery,
+          error: verifyResult.error ?? 'published assistant config could not be read back',
+        });
+        store.upsertAssistantConfigDelivery(delivery);
+        throw new HttpRequestError(409, delivery.error ?? 'publish verification failed');
+      }
+      const observed = parseAssistantConfigBundle(verifyResult.output.content);
+      if (observed.bundleChecksum !== bundle.bundleChecksum) {
+        delivery = markAssistantDeliveryFailed({
+          delivery,
+          error: 'published assistant config checksum does not match desired bundle',
+        });
+        store.upsertAssistantConfigDelivery(delivery);
+        throw new HttpRequestError(409, delivery.error);
+      }
+
+      delivery = markAssistantDeliveryPublished({
+        delivery,
+        commitSha,
+        externalReference: publishResult.externalReference,
+        verified: true,
+      });
+      store.upsertAssistantConfigDelivery(delivery);
+      appendGovernanceDecision({
+        subject: 'assistant-delivery:' + surfaceId,
+        content:
+          'Assistant config published and read-back verified at '
+          + target.target
+          + '@'
+          + targetRef
+          + '; live application acknowledgement is still pending.',
+        principalId: principal.id,
+        metadata: {
+          deliveryId: delivery.id,
+          bundleChecksum: bundle.bundleChecksum,
+          profileRevision: bundle.profileRevision,
+          target: target.target,
+          targetRef,
+          targetPath,
+          commitSha,
+          status: delivery.status,
+        },
+      });
+      json(response, 201, {
+        ok: true,
+        delivery,
+        bundle,
+        applied: false,
+        note:
+          'Published content is verified in the target repository; live runtime application requires a separate acknowledgement.',
+      });
+    } catch (error) {
+      if (delivery && delivery.status === 'desired') {
+        const failed = markAssistantDeliveryFailed({
+          delivery,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        store.upsertAssistantConfigDelivery(failed);
+      }
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/assistant-control/deliveries') {
+    try {
+      requireAuthoritySession(request);
+      const surfaceId = url.searchParams.get('surfaceId')?.trim() || undefined;
+      json(response, 200, {
+        ok: true,
+        deliveries: store.listAssistantConfigDeliveries(surfaceId),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantDeliveryAckMatch = url.pathname.match(
+    /^\/api\/assistant-control\/deliveries\/([^/]+)\/ack$/,
+  );
+  const assistantDeliveryAckId = assistantDeliveryAckMatch?.[1];
+  if (request.method === 'POST' && assistantDeliveryAckId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (body.confirmAction !== 'ack_assistant_surface_applied') {
+        throw new HttpRequestError(
+          400,
+          'confirmAction="ack_assistant_surface_applied" is required',
+        );
+      }
+      const id = decodeURIComponent(assistantDeliveryAckId);
+      const delivery = store.getAssistantConfigDelivery(id);
+      if (!delivery) throw new HttpRequestError(404, 'assistant config delivery not found');
+      const observedBundleChecksum = typeof body.observedBundleChecksum === 'string'
+        ? body.observedBundleChecksum.trim()
+        : '';
+      const acknowledgementSource = typeof body.acknowledgementSource === 'string'
+        ? body.acknowledgementSource.trim()
+        : '';
+      const applied = acknowledgeAssistantDelivery({
+        delivery,
+        observedBundleChecksum,
+        acknowledgementSource,
+      });
+      store.upsertAssistantConfigDelivery(applied);
+      appendGovernanceDecision({
+        subject: 'assistant-delivery:' + applied.surfaceId,
+        content:
+          'Assistant config application acknowledged for delivery '
+          + applied.id
+          + ' with matching checksum.',
+        principalId: principal.id,
+        metadata: {
+          deliveryId: applied.id,
+          surfaceId: applied.surfaceId,
+          profileRevision: applied.profileRevision,
+          observedBundleChecksum: applied.observedBundleChecksum,
+          acknowledgementSource: applied.acknowledgementSource,
+          status: applied.status,
+        },
+      });
+      json(response, 200, { ok: true, delivery: applied });
     } catch (error) {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
