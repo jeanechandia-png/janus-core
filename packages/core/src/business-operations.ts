@@ -154,6 +154,24 @@ export function createProductLedgerEntry(input: ProductLedgerEntry): ProductLedg
   };
 }
 
+export function createProductHealthSnapshot(
+  input: ProductHealthSnapshot,
+): ProductHealthSnapshot {
+  return validateHealthSnapshot(input);
+}
+
+export function createSocialChannelSnapshot(
+  input: SocialChannelSnapshot,
+): SocialChannelSnapshot {
+  return validateChannelSnapshot(input);
+}
+
+export function createMonetizationRequirementSnapshot(
+  input: MonetizationRequirementSnapshot,
+): MonetizationRequirementSnapshot {
+  return validateRequirementSnapshot(input);
+}
+
 export function buildProductOperationsSnapshot(input: {
   product: ProductOperationalRecord;
   ledgerEntries?: readonly ProductLedgerEntry[];
