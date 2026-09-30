@@ -12,13 +12,21 @@ import { CapabilityRegistry } from '../../packages/core/src/capability-registry.
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
+import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
 import {
   appendChainedDecisionReceipt,
   createRuntimeDecisionBlueprint,
-  ensureDecisionBlueprint,
 } from '../../packages/core/src/runtime-decision-trace.js';
+import {
+  applyApprovedRuntimeBlueprint,
+  approveRuntimeImprovementProposal,
+  buildRuntimeBlueprintCandidate,
+  rejectRuntimeImprovementProposal,
+  resolveActiveRuntimeBlueprint,
+  rollbackRuntimeBlueprint,
+} from '../../packages/core/src/runtime-blueprint-governance.js';
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
@@ -93,6 +101,7 @@ if (configuredFounderPublicKey) {
   );
 }
 const runners = new Map<string, TaskRunner>();
+const runBlueprints = new Map<string, DecisionBlueprint>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -123,7 +132,7 @@ capabilities.register({
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
 });
 
-const runtimeBlueprint = ensureDecisionBlueprint(
+let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
   createRuntimeDecisionBlueprint({
     createdAt: '2026-09-30T18:30:00.000Z',
@@ -131,8 +140,6 @@ const runtimeBlueprint = ensureDecisionBlueprint(
   }),
 );
 
-const allowedTools = capabilities.allAllowedTools();
-const allowedActions = capabilities.allAllowedActions();
 const modelGateway = createConfiguredModelGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
@@ -167,6 +174,32 @@ function capabilityPolicyCatalog(): Record<string, string[]> {
   return catalog;
 }
 
+function blueprintForRun(runId: string): DecisionBlueprint {
+  return runBlueprints.get(runId) ?? runtimeBlueprint;
+}
+
+function blueprintExecutionPolicy(blueprint: DecisionBlueprint): {
+  allowedTools: Set<string>;
+  allowedActions: Map<string, Set<string>>;
+  toolCatalog: Record<string, string[]>;
+} {
+  const allowedTools = new Set<string>();
+  const allowedActions = new Map<string, Set<string>>();
+  const available = capabilities.availableCatalog();
+  const toolCatalog: Record<string, string[]> = {};
+
+  for (const policy of blueprint.tools) {
+    const availableActions = new Set(available[policy.tool] ?? []);
+    const actions = policy.actions.filter((action) => availableActions.has(action));
+    if (actions.length === 0) continue;
+    allowedTools.add(policy.tool);
+    allowedActions.set(policy.tool, new Set(actions));
+    toolCatalog[policy.tool] = [...actions].sort();
+  }
+
+  return { allowedTools, allowedActions, toolCatalog };
+}
+
 function recordDecision(input: {
   runId: string;
   decisionKind: string;
@@ -176,15 +209,16 @@ function recordDecision(input: {
   outputSummary: string;
   metadata?: Record<string, unknown>;
 }) {
+  const blueprint = blueprintForRun(input.runId);
   return appendChainedDecisionReceipt(store, {
-    blueprint: runtimeBlueprint,
+    blueprint,
     runId: input.runId,
     decisionKind: input.decisionKind,
     selectedWorker: input.selectedWorker,
     confidence: input.confidence,
     inputRefs: input.inputRefs ?? [
       'run:' + input.runId,
-      'blueprint:' + runtimeBlueprint.id + '@' + runtimeBlueprint.revision,
+      'blueprint:' + blueprint.id + '@' + blueprint.revision,
     ],
     outputSummary: input.outputSummary,
     ...(input.metadata ? { metadata: input.metadata } : {}),
@@ -192,7 +226,12 @@ function recordDecision(input: {
 }
 
 function outcomeLearningSnapshot() {
-  const observations = store.listLearningObservations(runtimeBlueprint.id);
+  const observations = store
+    .listLearningObservations(runtimeBlueprint.id)
+    .filter(
+      (observation) =>
+        observation.blueprintRevision === runtimeBlueprint.revision,
+    );
   const report = runtimeLearningReport(observations);
   const proposals = store.listImprovementProposals().filter(
     (proposal) =>
@@ -214,6 +253,12 @@ function recordRunOutcome(snapshot: RunSnapshot): void {
   const prediction = existingReceipts
     .filter((receipt) => receipt.decisionKind === 'execution_prediction')
     .at(-1);
+  const learningBlueprint = prediction
+    ? store.getDecisionBlueprint(prediction.blueprintId, prediction.blueprintRevision)
+    : blueprintForRun(snapshot.runId);
+  if (!learningBlueprint) {
+    throw new Error('Run Blueprint is unavailable for outcome learning');
+  }
   const assessment = assessVerifiedRunOutcome(
     snapshot,
     store.listEvents(snapshot.runId),
@@ -249,19 +294,25 @@ function recordRunOutcome(snapshot: RunSnapshot): void {
 
   const observation = createRuntimeLearningObservation({
     snapshot,
-    blueprint: runtimeBlueprint,
+    blueprint: learningBlueprint,
     prediction,
     assessment,
   });
   store.appendLearningObservation(observation);
 
-  const observations = store.listLearningObservations(runtimeBlueprint.id);
-  const proposal = maybeProposeRuntimeImprovement({
-    blueprint: runtimeBlueprint,
-    observations,
-    existingProposals: store.listImprovementProposals(),
-    createdAt: snapshot.updatedAt,
-  });
+  const observations = store
+    .listLearningObservations(learningBlueprint.id)
+    .filter(
+      (item) => item.blueprintRevision === learningBlueprint.revision,
+    );
+  const proposal = learningBlueprint.status === 'active'
+    ? maybeProposeRuntimeImprovement({
+        blueprint: learningBlueprint,
+        observations,
+        existingProposals: store.listImprovementProposals(),
+        createdAt: snapshot.updatedAt,
+      })
+    : null;
   if (proposal) {
     store.upsertImprovementProposal(proposal);
     recordDecision({
@@ -367,6 +418,20 @@ function requireAuthoritySession(request: IncomingMessage): {
   return { token, principal };
 }
 
+function requireFounderAuthority(request: IncomingMessage): {
+  token: string;
+  principal: NonNullable<ReturnType<typeof authorityAuth.authenticateSession>>;
+} {
+  const session = requireAuthoritySession(request);
+  if (session.principal.role !== 'founder_director') {
+    throw new HttpRequestError(
+      403,
+      'Authenticated Founder/Director authority is required for Blueprint governance',
+    );
+  }
+  return session;
+}
+
 function authorityContextForCommand(
   request: IncomingMessage,
   command: string,
@@ -445,6 +510,75 @@ function json(response: ServerResponse, status: number, body: unknown): void {
   response.end(JSON.stringify(body));
 }
 
+function blueprintCandidateFromBody(
+  body: Record<string, unknown>,
+  current: DecisionBlueprint,
+): DecisionBlueprint {
+  const raw = body.candidate;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new HttpRequestError(400, 'candidate Blueprint content is required');
+  }
+  const candidate = raw as Record<string, unknown>;
+  if (
+    typeof candidate.objective !== 'string'
+    || !candidate.modelPolicy
+    || typeof candidate.modelPolicy !== 'object'
+    || Array.isArray(candidate.modelPolicy)
+    || !Array.isArray(candidate.agents)
+    || !Array.isArray(candidate.tools)
+    || !Array.isArray(candidate.guardrails)
+    || !Array.isArray(candidate.successMetrics)
+  ) {
+    throw new HttpRequestError(400, 'candidate Blueprint content is malformed');
+  }
+
+  try {
+    return buildRuntimeBlueprintCandidate({
+      store,
+      current,
+      content: {
+        objective: candidate.objective,
+        modelPolicy: candidate.modelPolicy as DecisionBlueprint['modelPolicy'],
+        agents: candidate.agents as DecisionBlueprint['agents'],
+        tools: candidate.tools as DecisionBlueprint['tools'],
+        guardrails: candidate.guardrails as DecisionBlueprint['guardrails'],
+        successMetrics: candidate.successMetrics as DecisionBlueprint['successMetrics'],
+      },
+      createdAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    throw new HttpRequestError(
+      400,
+      'Invalid candidate Blueprint: '
+      + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+}
+
+function appendGovernanceDecision(input: {
+  subject: string;
+  content: string;
+  principalId: string;
+  metadata?: Record<string, unknown>;
+}): void {
+  const at = new Date().toISOString();
+  const previous = continuitySnapshot().currentBySubject[input.subject];
+  store.appendChronologyRecord({
+    id: 'governance:' + randomUUID(),
+    sessionId: 'janus-governance',
+    at,
+    kind: 'decision',
+    subject: input.subject,
+    content: input.content,
+    status: 'current',
+    ...(previous ? { supersedesId: previous.id } : {}),
+    metadata: {
+      principalId: input.principalId,
+      ...(input.metadata ?? {}),
+    },
+  });
+}
+
 function demoSteps(command: string): JanusStep[] {
   return [
     {
@@ -476,6 +610,8 @@ function demoSteps(command: string): JanusStep[] {
 
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
   const continuity = continuitySnapshot();
+  const blueprint = blueprintForRun(runId);
+  const executionPolicy = blueprintExecutionPolicy(blueprint);
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
   let planningWorker = 'janus-core/deterministic-planner';
   let planningConfidence = 1;
@@ -484,16 +620,16 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
   if (!plan && modelGateway) {
     const modelResult = await planWithModel(command, {
       modelGateway,
-      toolCatalog: capabilities.availableCatalog(),
+      toolCatalog: executionPolicy.toolCatalog,
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
         decisionBlueprint: {
-          id: runtimeBlueprint.id,
-          revision: runtimeBlueprint.revision,
-          objective: runtimeBlueprint.objective,
-          modelPolicy: runtimeBlueprint.modelPolicy,
-          guardrails: runtimeBlueprint.guardrails,
+          id: blueprint.id,
+          revision: blueprint.revision,
+          objective: blueprint.objective,
+          modelPolicy: blueprint.modelPolicy,
+          guardrails: blueprint.guardrails,
         },
         continuity: {
           activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
@@ -518,8 +654,8 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
         },
       },
       maxSteps: 20,
-      allowedTools,
-      allowedActions,
+      allowedTools: executionPolicy.allowedTools,
+      allowedActions: executionPolicy.allowedActions,
     });
 
     if (modelResult.error) {
@@ -573,8 +709,8 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
 
   const validation = validatePlan(plan, {
     maxSteps: 20,
-    allowedTools,
-    allowedActions,
+    allowedTools: executionPolicy.allowedTools,
+    allowedActions: executionPolicy.allowedActions,
   });
 
   recordDecision({
@@ -763,6 +899,7 @@ function startRun(
 
   const runId = runner.snapshot().runId;
   decisionRunId = runId;
+  runBlueprints.set(runId, runtimeBlueprint);
   recordDecision({
     runId,
     decisionKind: 'blueprint_selection',
@@ -840,11 +977,13 @@ function finishRun(snapshot: RunSnapshot): void {
   if (snapshot.status === 'blocked' || snapshot.status === 'failed') {
     voiceSessions.runBlocked(snapshot.runId);
     runners.delete(snapshot.runId);
+    runBlueprints.delete(snapshot.runId);
     return;
   }
   if (snapshot.status === 'completed' || snapshot.status === 'cancelled') {
     voiceSessions.runCompleted(snapshot.runId);
     runners.delete(snapshot.runId);
+    runBlueprints.delete(snapshot.runId);
   }
 }
 
@@ -1132,11 +1271,156 @@ const server = createServer(async (request, response) => {
         id: runtimeBlueprint.id,
         revision: runtimeBlueprint.revision,
       },
+      blueprintHistory: store.listDecisionBlueprints(runtimeBlueprint.id),
       observations: learning.observations,
       calibration: learning.calibration,
       drift: learning.drift,
       improvementProposals: learning.proposals,
     });
+    return;
+  }
+
+  const proposalGovernance = url.pathname.match(
+    /^\/api\/learning\/proposals\/([^/]+)\/(approve|reject|apply)$/,
+  );
+  const proposalId = proposalGovernance?.[1]
+    ? decodeURIComponent(proposalGovernance[1])
+    : undefined;
+  const governanceAction = proposalGovernance?.[2] as
+    | 'approve'
+    | 'reject'
+    | 'apply'
+    | undefined;
+  if (request.method === 'POST' && proposalId && governanceAction) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+
+      if (governanceAction === 'reject') {
+        const proposal = rejectRuntimeImprovementProposal({
+          store,
+          proposalId,
+        });
+        appendGovernanceDecision({
+          subject: 'blueprint-governance:' + proposalId,
+          content: 'Improvement proposal rejected by Founder/Director.',
+          principalId: principal.id,
+          metadata: {
+            proposalId,
+            action: 'reject',
+            fromRevision: proposal.fromRevision,
+          },
+        });
+        json(response, 200, { ok: true, proposal });
+        return;
+      }
+
+      if (governanceAction === 'approve') {
+        const candidate = blueprintCandidateFromBody(body, runtimeBlueprint);
+        const result = approveRuntimeImprovementProposal({
+          store,
+          proposalId,
+          current: runtimeBlueprint,
+          candidate,
+          registeredTools: capabilityPolicyCatalog(),
+        });
+        appendGovernanceDecision({
+          subject: 'blueprint-governance:' + proposalId,
+          content: 'Improvement proposal approved with verified draft Blueprint revision.',
+          principalId: principal.id,
+          metadata: {
+            proposalId,
+            action: 'approve',
+            fromRevision: result.proposal.fromRevision,
+            candidateRevision: result.candidate.revision,
+            changedFields: result.verification.diff.changedFields,
+          },
+        });
+        json(response, 200, { ok: true, ...result });
+        return;
+      }
+
+      if (body.confirmAction !== 'apply_blueprint_revision') {
+        throw new HttpRequestError(
+          409,
+          'Explicit confirmAction=apply_blueprint_revision is required',
+        );
+      }
+      const result = applyApprovedRuntimeBlueprint({
+        store,
+        proposalId,
+        current: runtimeBlueprint,
+        registeredTools: capabilityPolicyCatalog(),
+      });
+      runtimeBlueprint = result.active;
+      appendGovernanceDecision({
+        subject: 'blueprint-governance:' + proposalId,
+        content: 'Verified Blueprint revision applied; previous revision is historical.',
+        principalId: principal.id,
+        metadata: {
+          proposalId,
+          action: 'apply',
+          previousRevision: result.previous.revision,
+          activeRevision: result.active.revision,
+          changedFields: result.verification.diff.changedFields,
+        },
+      });
+      json(response, 200, { ok: true, ...result });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/learning/blueprints/rollback') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (body.confirmAction !== 'rollback_blueprint_revision') {
+        throw new HttpRequestError(
+          409,
+          'Explicit confirmAction=rollback_blueprint_revision is required',
+        );
+      }
+      const targetRevision = Number(body.targetRevision);
+      if (!Number.isInteger(targetRevision) || targetRevision < 1) {
+        throw new HttpRequestError(400, 'targetRevision must be a positive integer');
+      }
+
+      const result = rollbackRuntimeBlueprint({
+        store,
+        current: runtimeBlueprint,
+        targetRevision,
+        registeredTools: capabilityPolicyCatalog(),
+        createdAt: new Date().toISOString(),
+      });
+      runtimeBlueprint = result.active;
+      appendGovernanceDecision({
+        subject: 'blueprint-rollback',
+        content:
+          'Historical Blueprint revision '
+          + result.sourceRevision
+          + ' restored as new active revision '
+          + result.active.revision
+          + '.',
+        principalId: principal.id,
+        metadata: {
+          action: 'rollback',
+          sourceRevision: result.sourceRevision,
+          previousRevision: result.previous.revision,
+          activeRevision: result.active.revision,
+        },
+      });
+      json(response, 200, { ok: true, ...result });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
     return;
   }
 
@@ -1242,9 +1526,15 @@ const server = createServer(async (request, response) => {
       return;
     }
     const receipts = store.listDecisionReceipts(decisionRunId);
+    const receiptBlueprint = receipts[0]
+      ? store.getDecisionBlueprint(
+          receipts[0].blueprintId,
+          receipts[0].blueprintRevision,
+        )
+      : null;
     json(response, 200, {
       ok: true,
-      blueprint: runtimeBlueprint,
+      blueprint: receiptBlueprint ?? blueprintForRun(decisionRunId),
       receipts,
       chain: verifyReceiptChain(receipts),
     });

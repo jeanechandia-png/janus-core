@@ -105,6 +105,18 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - drift negativo puede generar una Improvement Proposal, pero nunca la aplica: `requiresHumanApproval=true`;
   - propuestas abiertas por la misma revisión evitan duplicados;
   - `GET /api/learning` expone observaciones, calibración, drift y propuestas; `/health` publica el resumen operativo.
+- **Gobernanza humana de revisiones del Runtime Blueprint**:
+  - runtime resuelve exactamente una revisión `active`; cero o múltiples activas fallan cerrado;
+  - cada run queda fijado a la revisión con la que comenzó, incluso si otra revisión se activa mientras sigue ejecutándose;
+  - Model Planner y validación usan únicamente herramientas/acciones permitidas por la revisión fijada y disponibles en Capability Registry;
+  - calibración, drift y propuestas se separan por revisión para no mezclar políticas distintas;
+  - endpoints de approve/reject/apply/rollback exigen sesión autenticada Founder/Director;
+  - approve crea una revisión `draft` y ejecuta regression verification antes de persistirla;
+  - regression verification impide retirar guardrails obligatorios, desactivar revalidación de external writes, introducir tools/actions no registrados o eliminar roles/métricas runtime obligatorios;
+  - apply requiere confirmación explícita, convierte la revisión anterior en `historical` y la draft verificada en `active`;
+  - rollback nunca reactiva una revisión antigua en sitio: crea una revisión nueva basada en el histórico elegido, preservando secuencia append-only;
+  - proposal aprobado queda ligado a su `proposedRevision` exacta; replay es idempotente y no puede reaplicar una revisión ya superseded;
+  - decisiones de gobernanza dejan registro cronológico con principal autenticado y revisiones afectadas.
 - **Persistencia Intelligence Kernel restante**:
   - Work Graph snapshots con progreso de nodos;
   - durable jobs y particiones/checkpoints;
@@ -128,15 +140,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ## PENDIENTE
 
 ### P0
-1. Cerrar Improvement Proposal -> aprobación/rechazo humana -> nueva revisión de Blueprint -> regression verification -> apply/rollback, manteniendo revisiones históricas inmutables.
-2. Sustituir el prior neutral de `execution_prediction` por confianza calibrada derivada de evidencia suficiente, sin autoajuste silencioso.
-3. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
-4. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
-5. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
-6. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
-7. Implementar error branches, waits y approvals completos sobre runtime durable.
-8. Añadir simulation/dry-run/replay antes de external writes.
-9. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+1. Sustituir el prior neutral de `execution_prediction` por confianza calibrada derivada de evidencia suficiente, sin autoajuste silencioso.
+2. Integrar Model Router multi-model real y registrar en Decision Receipts routing, métricas observadas y confianza calibrada; el model planner actual usa un único adapter configurado.
+3. Crear reviewers productivos para las seis dimensiones, usando Model Router cuando convenga.
+4. Conectar Flow Automation Engine productivamente al TaskRunner/Tool Gateway/Model Router.
+5. Persistir workflow definitions, revisions, node state y execution checkpoints en SQLite.
+6. Implementar error branches, waits y approvals completos sobre runtime durable.
+7. Añadir simulation/dry-run/replay antes de external writes.
+8. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
@@ -170,11 +181,11 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Cerrar el control humano del loop de mejora:
+Cerrar la transición de prior neutral a inteligencia calibrada:
 
-**Improvement Proposal -> revisión/aprobación explícita -> nueva revisión de Blueprint -> regression verification -> apply o rollback -> revisión anterior HISTÓRICA.**
+**outcomes verificables por revisión -> volumen mínimo de evidencia -> confianza calibrada -> execution prediction -> Model Router multi-model -> routing por calidad/costo/latencia -> receipt -> outcome.**
 
-Después: integrar Model Router multi-model real para sustituir el prior neutral por routing/confianza basados en calidad, costo y latencia observados.
+La gobernanza de cambios queda humana y versionada: ninguna calibración puede modificar producción silenciosamente.
 
 ## Regla de continuidad
 
