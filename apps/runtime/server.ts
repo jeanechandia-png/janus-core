@@ -6,9 +6,24 @@ import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
+import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
+import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
+import {
+  buildProductOperationsSnapshot,
+  createMonetizationRequirementSnapshot,
+  createProductHealthSnapshot,
+  createProductLedgerEntry,
+  createProductOperationalRecord,
+  createSocialChannelSnapshot,
+  type MonetizationRequirementSnapshot,
+  type ProductHealthSnapshot,
+  type ProductLedgerEntry,
+  type ProductOperationalRecord,
+  type SocialChannelSnapshot,
+} from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
@@ -45,6 +60,7 @@ import {
   defaultLandingAssistantProfile,
   defaultLandingAssistantSurfaces,
   resolveAssistantSurfaceConfig,
+  upgradeLandingAssistantProfileFor24x7Support,
 } from '../../packages/core/src/assistant-control-plane.js';
 import {
   acknowledgeAssistantDelivery,
@@ -109,9 +125,15 @@ import {
 } from '../../packages/security/src/authority-auth.js';
 import {
   bearerTokenFromAuthorization,
+  biometricProofIdsFromBody,
   confirmedActionsFromBody,
   isSecureAuthorityTransport,
 } from '../../packages/security/src/http-auth.js';
+import {
+  FounderBiometricError,
+  FounderBiometricService,
+  InMemoryBiometricKeyStore,
+} from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
@@ -125,11 +147,16 @@ const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
+const founderBiometricKeyId =
+  process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
+const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
 
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
     github: 'GITHUB_TOKEN',
     'google-workspace': 'GOOGLE_ACCESS_TOKEN',
+    meta: 'META_ACCESS_TOKEN',
+    youtube: 'YOUTUBE_ACCESS_TOKEN',
     model: 'JANUS_MODEL_API_KEY',
   },
 });
@@ -144,12 +171,25 @@ const authorityCredentialStore: AuthorityCredentialStore = {
   revoke: (principalId, revokedAt) => store.revokeAuthorityCredential(principalId, revokedAt),
 };
 const authorityAuth = new LocalAuthorityAuthService(authorityCredentialStore);
+const founderBiometric = new FounderBiometricService(
+  new InMemoryBiometricKeyStore(),
+);
 const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
 if (configuredFounderPublicKey) {
   authorityAuth.ensureFounderCredential(
     configuredFounderPublicKey,
     process.env.JANUS_FOUNDER_DISPLAY_NAME?.trim() || undefined,
   );
+}
+const configuredFounderBiometricPublicKey =
+  environmentPem('JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM');
+if (configuredFounderBiometricPublicKey) {
+  founderBiometric.registerFaceKey({
+    keyId: founderBiometricKeyId,
+    publicKeyPem: configuredFounderBiometricPublicKey,
+    biometry: 'face',
+    binding: 'biometry-current-set',
+  });
 }
 const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
@@ -173,8 +213,20 @@ toolGateway.register(new GoogleWorkspaceAdapter({
   ) ?? '',
 }));
 
+if (metaGraphApiVersion) {
+  toolGateway.register(new MetaInsightsAdapter({
+    apiVersion: metaGraphApiVersion,
+    tokenProvider: () => credentialBroker.accessToken('meta'),
+  }));
+}
+toolGateway.register(new YouTubeInsightsAdapter({
+  tokenProvider: () => credentialBroker.accessToken('youtube'),
+}));
+
 const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
+const metaTokenConfigured = environmentCredentials.configured('meta');
+const youtubeConfigured = environmentCredentials.configured('youtube');
 capabilities.register({
   tool: 'github',
   actions: ['repo.get', 'contents.list', 'branch.get', 'file.read'],
@@ -194,15 +246,73 @@ capabilities.register({
   state: googleConfigured ? 'available' : 'needs_auth',
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
 });
+capabilities.register({
+  tool: 'meta-insights',
+  actions: ['facebook.page.insights', 'instagram.account.insights'],
+  state: !metaGraphApiVersion
+    ? 'unavailable'
+    : metaTokenConfigured
+      ? 'available'
+      : 'needs_auth',
+  ...(!metaGraphApiVersion
+    ? { reason: 'META_GRAPH_API_VERSION debe configurarse y revalidarse antes de usar Meta.' }
+    : !metaTokenConfigured
+      ? { reason: 'Meta necesita autorización antes de consultar insights.' }
+      : {}),
+});
+capabilities.register({
+  tool: 'youtube-insights',
+  actions: ['channel.statistics', 'analytics.query'],
+  state: youtubeConfigured ? 'available' : 'needs_auth',
+  ...(!youtubeConfigured
+    ? { reason: 'YouTube necesita autorización OAuth antes de consultar estadísticas.' }
+    : {}),
+});
 
 function ensureLandingAssistantControlPlane(): void {
   const seedProfile = defaultLandingAssistantProfile();
-  const existingProfile = store.getAssistantProfileRevision(seedProfile.profileId);
-  if (!existingProfile) store.upsertAssistantProfileRevision(seedProfile);
+  let currentProfile = store.getAssistantProfileRevision(seedProfile.profileId);
+  if (!currentProfile) {
+    store.upsertAssistantProfileRevision(seedProfile);
+    currentProfile = seedProfile;
+  }
+
+  const supportProfile = upgradeLandingAssistantProfileFor24x7Support(
+    currentProfile,
+    new Date().toISOString(),
+    'janus-core',
+  );
+  if (supportProfile.revision !== currentProfile.revision) {
+    assertAssistantProfileRevisionAppendOnly({
+      previous: currentProfile,
+      next: supportProfile,
+    });
+    store.upsertAssistantProfileRevision({ ...currentProfile, status: 'historical' });
+    store.upsertAssistantProfileRevision(supportProfile);
+  }
 
   for (const surface of defaultLandingAssistantSurfaces()) {
     if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
   }
+}
+
+function productOperationsSnapshot(productId: string) {
+  const product = store.getProductOperationalRecord(productId);
+  if (!product) throw new HttpRequestError(404, 'product operations record not found');
+  return buildProductOperationsSnapshot({
+    product,
+    ledgerEntries: store.listProductLedgerEntries(productId),
+    healthSnapshots: store.listProductHealthSnapshots(productId),
+    channelSnapshots: store.listSocialChannelSnapshots(productId),
+    monetizationRequirements: store.listMonetizationRequirementSnapshots(),
+    generatedAt: new Date().toISOString(),
+  });
+}
+
+function productOperationsPortfolioSnapshot() {
+  return store.listProductOperationalRecords().map((product) => (
+    productOperationsSnapshot(product.id)
+  ));
 }
 
 function assistantControlSnapshot() {
@@ -687,6 +797,7 @@ function authorityContextForCommand(
   const principal = authorityAuth.authenticateSession(token);
   if (!principal) throw new HttpRequestError(401, 'Authority session is invalid or expired');
 
+  const biometricProofIds = biometricProofIdsFromBody(body.biometricProofIds);
   return {
     principal,
     instruction: {
@@ -698,11 +809,26 @@ function authorityContextForCommand(
       requestedAt: new Date().toISOString(),
     },
     confirmedActions: confirmedActionsFromBody(body.confirmActions),
+    ...(biometricProofIds.length > 0 ? { biometricProofIds } : {}),
   };
 }
 
 function authErrorStatus(error: unknown): number {
   if (error instanceof HttpRequestError) return error.status;
+  if (error instanceof FounderBiometricError) {
+    switch (error.code) {
+      case 'invalid_key':
+      case 'invalid_action':
+        return 400;
+      case 'invalid_challenge':
+      case 'challenge_expired':
+      case 'invalid_signature':
+        return 401;
+      case 'key_unavailable':
+      case 'face_required':
+        return 409;
+    }
+  }
   if (!(error instanceof AuthorityAuthenticationError)) return 500;
 
   switch (error.code) {
@@ -725,7 +851,7 @@ function authErrorStatus(error: unknown): number {
 }
 
 function authErrorBody(error: unknown): { ok: false; error: string; code?: string } {
-  if (error instanceof AuthorityAuthenticationError) {
+  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError) {
     return { ok: false, error: error.message, code: error.code };
   }
   if (error instanceof HttpRequestError) {
@@ -1215,6 +1341,14 @@ function startRun(
     sink: durableSink,
     deliveryGate,
     authorityContext,
+    biometricVerifier: ({ proofId, principal, action, requestedAt }) => (
+      founderBiometric.consumeProof({
+        proofId,
+        principalId: principal.id,
+        action,
+        requestedAt,
+      })
+    ),
     approvalHandler: async (action) => {
       const decision = {
         approved: action.risk === 'none' || action.risk === 'low',
@@ -1853,6 +1987,12 @@ const server = createServer(async (request, response) => {
         secureTransport: 'loopback-or-explicit-trusted-https-proxy',
         ...authorityAuth.status(),
       },
+      biometric: {
+        protocol: 'platform-face-p256-action-proof',
+        rawBiometricData: 'never-received-or-stored',
+        privateKeyStorage: 'platform-secure-hardware-required',
+        ...founderBiometric.status(),
+      },
     });
     return;
   }
@@ -1883,6 +2023,38 @@ const server = createServer(async (request, response) => {
       }
       const session = authorityAuth.verifyChallenge({ challengeId, principalId, signature });
       json(response, 200, { ok: true, session });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/biometric/challenge') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const action = typeof body.action === 'string' ? body.action.trim() : '';
+      if (!action) throw new HttpRequestError(400, 'action is required');
+      const challenge = founderBiometric.issueChallenge(action);
+      json(response, 200, { ok: true, challenge });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/biometric/verify') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const challengeId = typeof body.challengeId === 'string' ? body.challengeId.trim() : '';
+      const keyId = typeof body.keyId === 'string' ? body.keyId.trim() : '';
+      const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+      if (!challengeId || !keyId || !signature) {
+        throw new HttpRequestError(400, 'challengeId, keyId and signature are required');
+      }
+      const proof = founderBiometric.verifyAssertion({ challengeId, keyId, signature });
+      json(response, 200, { ok: true, proof });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }
@@ -2759,6 +2931,134 @@ const server = createServer(async (request, response) => {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
         : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/operations') {
+    try {
+      requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        products: productOperationsPortfolioSnapshot(),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const productOperationsMatch = url.pathname.match(/^\/api\/operations\/products\/([^/]+)$/);
+  const productOperationsId = productOperationsMatch?.[1];
+  if (request.method === 'GET' && productOperationsId) {
+    try {
+      requireAuthoritySession(request);
+      json(response, 200, {
+        ok: true,
+        snapshot: productOperationsSnapshot(decodeURIComponent(productOperationsId)),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/products') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const product = createProductOperationalRecord(body as unknown as ProductOperationalRecord);
+      store.upsertProductOperationalRecord(product);
+      json(response, 201, { ok: true, product });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/ledger') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const entry = createProductLedgerEntry(body as unknown as ProductLedgerEntry);
+      if (!store.getProductOperationalRecord(entry.productId)) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.appendProductLedgerEntry(entry);
+      json(response, 201, { ok: true, entry });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/health') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createProductHealthSnapshot(body as unknown as ProductHealthSnapshot);
+      if (!store.getProductOperationalRecord(snapshot.productId)) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.appendProductHealthSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/operations/social') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createSocialChannelSnapshot(body as unknown as SocialChannelSnapshot);
+      if (snapshot.productId && !store.getProductOperationalRecord(snapshot.productId)) {
+        throw new HttpRequestError(404, 'product operations record not found');
+      }
+      store.upsertSocialChannelSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST'
+    && url.pathname === '/api/operations/monetization-requirements'
+  ) {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const snapshot = createMonetizationRequirementSnapshot(
+        body as unknown as MonetizationRequirementSnapshot,
+      );
+      store.upsertMonetizationRequirementSnapshot(snapshot);
+      json(response, 201, { ok: true, snapshot });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 400;
       json(response, status, authErrorBody(error));
     }
     return;

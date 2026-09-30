@@ -21,6 +21,18 @@ export interface AuthorityPublicCredential {
   revokedAt?: string;
 }
 
+export type AuthorityBiometricMethod = 'platform-face';
+
+export interface AuthorityBiometricAttestation {
+  principalId: string;
+  action: string;
+  method: AuthorityBiometricMethod;
+  verifiedAt: string;
+  expiresAt: string;
+  keyId: string;
+  proofHash: string;
+}
+
 export interface AuthorityInstruction {
   id: string;
   principalId: string;
@@ -28,11 +40,13 @@ export interface AuthorityInstruction {
   authenticated: boolean;
   instruction: string;
   requestedAt: string;
+  biometricAttestation?: AuthorityBiometricAttestation;
 }
 
 export interface AuthorityDecision {
   allowed: boolean;
   requiresConfirmation: boolean;
+  requiresBiometric: boolean;
   reason: string;
   auditHash: string;
 }
@@ -41,13 +55,38 @@ export interface AuthorityPolicy {
   founderPrincipalId: string;
   requireAuthentication: boolean;
   confirmationActions: string[];
+  founderOnlyActions?: string[];
+  biometricActions?: string[];
+  biometricFreshnessMs?: number;
 }
 
 export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
   founderPrincipalId: 'founder',
   requireAuthentication: true,
   confirmationActions: ['delete_all', 'rotate_root_keys', 'disable_audit', 'transfer_authority'],
+  founderOnlyActions: [
+    'founder.private.*',
+    'security.biometric.*',
+    'security.secrets.*',
+    'finance.credentials.*',
+    'finance.export_unredacted',
+  ],
+  biometricActions: [
+    'founder.private.*',
+    'security.biometric.*',
+    'security.secrets.*',
+    'finance.credentials.*',
+    'finance.export_unredacted',
+  ],
+  biometricFreshnessMs: 2 * 60_000,
 };
+
+export function actionRequiresFounderBiometric(
+  action: string,
+  policy: AuthorityPolicy = DEFAULT_AUTHORITY_POLICY,
+): boolean {
+  return matchesActionPattern(action, policy.biometricActions ?? []);
+}
 
 export function evaluateAuthority(
   principal: AuthorityPrincipal | undefined,
@@ -57,7 +96,11 @@ export function evaluateAuthority(
 ): AuthorityDecision {
   let allowed = true;
   let requiresConfirmation = false;
+  const requiresBiometric = actionRequiresFounderBiometric(action, policy);
   let reason = 'authorized';
+
+  const founderOnly = requiresBiometric
+    || matchesActionPattern(action, policy.founderOnlyActions ?? []);
 
   if (!principal || !principal.active || principal.id !== request.principalId) {
     allowed = false;
@@ -71,9 +114,26 @@ export function evaluateAuthority(
   } else if (principal.role !== 'founder_director' && principal.role !== 'administrator') {
     allowed = false;
     reason = 'role_cannot_issue_privileged_instruction';
-  } else if (policy.confirmationActions.includes(action)) {
-    if (
+  } else if (
+    founderOnly
+    && (
       principal.id !== policy.founderPrincipalId
+      || principal.role !== 'founder_director'
+    )
+  ) {
+    allowed = false;
+    reason = 'founder_required_for_action';
+  } else if (requiresBiometric) {
+    const biometric = validateBiometricAttestation(request, action, policy);
+    if (!biometric.ok) {
+      allowed = false;
+      reason = biometric.reason;
+    }
+  }
+
+  if (allowed && policy.confirmationActions.includes(action)) {
+    if (
+      principal?.id !== policy.founderPrincipalId
       || principal.role !== 'founder_director'
     ) {
       allowed = false;
@@ -87,8 +147,17 @@ export function evaluateAuthority(
   return {
     allowed,
     requiresConfirmation,
+    requiresBiometric,
     reason,
-    auditHash: hashDecision({ principal, request, action, allowed, requiresConfirmation, reason }),
+    auditHash: hashDecision({
+      principal,
+      request,
+      action,
+      allowed,
+      requiresConfirmation,
+      requiresBiometric,
+      reason,
+    }),
   };
 }
 
@@ -97,6 +166,63 @@ export function isPrivilegedHumanAuthority(principal: AuthorityPrincipal | undef
     principal?.active &&
       (principal.role === 'founder_director' || principal.role === 'administrator'),
   );
+}
+
+function validateBiometricAttestation(
+  request: AuthorityInstruction,
+  action: string,
+  policy: AuthorityPolicy,
+): { ok: true } | { ok: false; reason: string } {
+  const attestation = request.biometricAttestation;
+  if (!attestation) return { ok: false, reason: 'founder_biometric_required' };
+  if (
+    attestation.principalId !== request.principalId
+    || attestation.action !== action
+    || attestation.method !== 'platform-face'
+  ) {
+    return { ok: false, reason: 'founder_biometric_scope_mismatch' };
+  }
+  if (!/^[a-f0-9]{64}$/i.test(attestation.proofHash)) {
+    return { ok: false, reason: 'founder_biometric_attestation_invalid' };
+  }
+  if (!attestation.keyId.trim() || attestation.keyId.length > 160) {
+    return { ok: false, reason: 'founder_biometric_attestation_invalid' };
+  }
+
+  const requestedAt = Date.parse(request.requestedAt);
+  const verifiedAt = Date.parse(attestation.verifiedAt);
+  const expiresAt = Date.parse(attestation.expiresAt);
+  if (![requestedAt, verifiedAt, expiresAt].every(Number.isFinite)) {
+    return { ok: false, reason: 'founder_biometric_attestation_invalid' };
+  }
+
+  const freshnessMs = positiveFreshness(policy.biometricFreshnessMs);
+  if (
+    verifiedAt > requestedAt + 5_000
+    || requestedAt > expiresAt
+    || expiresAt <= verifiedAt
+    || expiresAt - verifiedAt > freshnessMs
+  ) {
+    return { ok: false, reason: 'founder_biometric_expired' };
+  }
+  return { ok: true };
+}
+
+function matchesActionPattern(action: string, patterns: readonly string[]): boolean {
+  const normalized = action.trim();
+  if (!normalized) return false;
+  return patterns.some((rawPattern) => {
+    const pattern = rawPattern.trim();
+    if (!pattern) return false;
+    if (!pattern.endsWith('*')) return normalized === pattern;
+    return normalized.startsWith(pattern.slice(0, -1));
+  });
+}
+
+function positiveFreshness(value: number | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : 2 * 60_000;
 }
 
 function hashDecision(value: unknown): string {

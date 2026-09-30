@@ -36,6 +36,13 @@ import type {
   AssistantSurface,
 } from './assistant-control-plane.js';
 import type { AssistantConfigDelivery } from './assistant-config-publisher.js';
+import type {
+  MonetizationRequirementSnapshot,
+  ProductHealthSnapshot,
+  ProductLedgerEntry,
+  ProductOperationalRecord,
+  SocialChannelSnapshot,
+} from './business-operations.js';
 
 export class SqliteStore {
   private readonly db: DatabaseSync;
@@ -1267,6 +1274,166 @@ export class SqliteStore {
     return Number(result.changes);
   }
 
+  upsertProductOperationalRecord(product: ProductOperationalRecord): void {
+    this.db.prepare(`
+      INSERT INTO product_operations (id, status, product_json)
+      VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        status = excluded.status,
+        product_json = excluded.product_json
+    `).run(product.id, product.status, JSON.stringify(product));
+  }
+
+  getProductOperationalRecord(id: string): ProductOperationalRecord | null {
+    const row = this.db.prepare(`
+      SELECT product_json FROM product_operations WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+    return row
+      ? JSON.parse(String(row.product_json)) as ProductOperationalRecord
+      : null;
+  }
+
+  listProductOperationalRecords(): ProductOperationalRecord[] {
+    const rows = this.db.prepare(`
+      SELECT product_json FROM product_operations ORDER BY id ASC
+    `).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.product_json)) as ProductOperationalRecord);
+  }
+
+  appendProductLedgerEntry(entry: ProductLedgerEntry): void {
+    this.db.prepare(`
+      INSERT INTO product_ledger_entries
+        (id, product_id, occurred_at, currency, kind, verified, entry_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.id,
+      entry.productId,
+      entry.occurredAt,
+      entry.currency,
+      entry.kind,
+      entry.verified ? 1 : 0,
+      JSON.stringify(entry),
+    );
+  }
+
+  listProductLedgerEntries(productId?: string): ProductLedgerEntry[] {
+    const rows = productId
+      ? this.db.prepare(`
+          SELECT entry_json FROM product_ledger_entries
+          WHERE product_id = ?
+          ORDER BY occurred_at ASC, id ASC
+        `).all(productId)
+      : this.db.prepare(`
+          SELECT entry_json FROM product_ledger_entries
+          ORDER BY occurred_at ASC, id ASC
+        `).all();
+    return (rows as Record<string, unknown>[])
+      .map((row) => JSON.parse(String(row.entry_json)) as ProductLedgerEntry);
+  }
+
+  appendProductHealthSnapshot(snapshot: ProductHealthSnapshot): void {
+    this.db.prepare(`
+      INSERT OR REPLACE INTO product_health_snapshots
+        (product_id, observed_at, source, snapshot_json)
+      VALUES (?, ?, ?, ?)
+    `).run(
+      snapshot.productId,
+      snapshot.observedAt,
+      snapshot.source,
+      JSON.stringify(snapshot),
+    );
+  }
+
+  listProductHealthSnapshots(productId?: string): ProductHealthSnapshot[] {
+    const rows = productId
+      ? this.db.prepare(`
+          SELECT snapshot_json FROM product_health_snapshots
+          WHERE product_id = ?
+          ORDER BY observed_at ASC, source ASC
+        `).all(productId)
+      : this.db.prepare(`
+          SELECT snapshot_json FROM product_health_snapshots
+          ORDER BY product_id ASC, observed_at ASC, source ASC
+        `).all();
+    return (rows as Record<string, unknown>[])
+      .map((row) => JSON.parse(String(row.snapshot_json)) as ProductHealthSnapshot);
+  }
+
+  upsertSocialChannelSnapshot(snapshot: SocialChannelSnapshot): void {
+    this.db.prepare(`
+      INSERT INTO social_channel_snapshots
+        (id, product_id, platform, channel_id, verified_at, snapshot_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        product_id = excluded.product_id,
+        platform = excluded.platform,
+        channel_id = excluded.channel_id,
+        verified_at = excluded.verified_at,
+        snapshot_json = excluded.snapshot_json
+    `).run(
+      snapshot.id,
+      snapshot.productId ?? null,
+      snapshot.platform,
+      snapshot.channelId,
+      snapshot.verifiedAt,
+      JSON.stringify(snapshot),
+    );
+  }
+
+  listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
+    const rows = productId
+      ? this.db.prepare(`
+          SELECT snapshot_json FROM social_channel_snapshots
+          WHERE product_id = ?
+          ORDER BY verified_at ASC, id ASC
+        `).all(productId)
+      : this.db.prepare(`
+          SELECT snapshot_json FROM social_channel_snapshots
+          ORDER BY verified_at ASC, id ASC
+        `).all();
+    return (rows as Record<string, unknown>[])
+      .map((row) => JSON.parse(String(row.snapshot_json)) as SocialChannelSnapshot);
+  }
+
+  upsertMonetizationRequirementSnapshot(
+    snapshot: MonetizationRequirementSnapshot,
+  ): void {
+    this.db.prepare(`
+      INSERT INTO monetization_requirement_snapshots
+        (id, platform, channel_id, verified_at, snapshot_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        platform = excluded.platform,
+        channel_id = excluded.channel_id,
+        verified_at = excluded.verified_at,
+        snapshot_json = excluded.snapshot_json
+    `).run(
+      snapshot.id,
+      snapshot.platform,
+      snapshot.channelId,
+      snapshot.verifiedAt,
+      JSON.stringify(snapshot),
+    );
+  }
+
+  listMonetizationRequirementSnapshots(
+    platform?: string,
+    channelId?: string,
+  ): MonetizationRequirementSnapshot[] {
+    const rows = platform && channelId
+      ? this.db.prepare(`
+          SELECT snapshot_json FROM monetization_requirement_snapshots
+          WHERE platform = ? AND channel_id = ?
+          ORDER BY verified_at ASC, id ASC
+        `).all(platform, channelId)
+      : this.db.prepare(`
+          SELECT snapshot_json FROM monetization_requirement_snapshots
+          ORDER BY platform ASC, channel_id ASC, verified_at ASC, id ASC
+        `).all();
+    return (rows as Record<string, unknown>[])
+      .map((row) => JSON.parse(String(row.snapshot_json)) as MonetizationRequirementSnapshot);
+  }
+
   close(): void {
     this.db.close();
   }
@@ -1517,6 +1684,62 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_assistant_config_deliveries_surface
       ON assistant_config_deliveries(surface_id, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS product_operations (
+        id TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        product_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_product_operations_status
+      ON product_operations(status, id);
+
+      CREATE TABLE IF NOT EXISTS product_ledger_entries (
+        id TEXT PRIMARY KEY,
+        product_id TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        currency TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        verified INTEGER NOT NULL,
+        entry_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_product_ledger_product_time
+      ON product_ledger_entries(product_id, occurred_at, id);
+
+      CREATE TABLE IF NOT EXISTS product_health_snapshots (
+        product_id TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        source TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        PRIMARY KEY(product_id, observed_at, source)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_product_health_time
+      ON product_health_snapshots(product_id, observed_at);
+
+      CREATE TABLE IF NOT EXISTS social_channel_snapshots (
+        id TEXT PRIMARY KEY,
+        product_id TEXT,
+        platform TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        verified_at TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_social_channel_product_time
+      ON social_channel_snapshots(product_id, platform, verified_at, id);
+
+      CREATE TABLE IF NOT EXISTS monetization_requirement_snapshots (
+        id TEXT PRIMARY KEY,
+        platform TEXT NOT NULL,
+        channel_id TEXT NOT NULL,
+        verified_at TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_monetization_requirement_channel
+      ON monetization_requirement_snapshots(platform, channel_id, verified_at, id);
 
       CREATE TABLE IF NOT EXISTS reusable_library_items (
         item_id TEXT NOT NULL,

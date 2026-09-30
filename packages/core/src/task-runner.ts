@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
+  actionRequiresFounderBiometric,
   evaluateAuthority,
+  type AuthorityBiometricAttestation,
   type AuthorityInstruction,
   type AuthorityPolicy,
   type AuthorityPrincipal,
@@ -39,6 +41,7 @@ export interface TaskAuthorityContext {
   principal?: AuthorityPrincipal;
   instruction: AuthorityInstruction;
   confirmedActions?: readonly string[];
+  biometricProofIds?: readonly string[];
 }
 
 export interface ActionExecutionPermit {
@@ -69,6 +72,12 @@ export interface TaskRunnerOptions {
   deliveryGate?: DeliveryGate;
   authorityContext?: TaskAuthorityContext;
   authorityPolicy?: AuthorityPolicy;
+  biometricVerifier?: (input: {
+    proofId: string;
+    principal: AuthorityPrincipal;
+    action: string;
+    requestedAt: string;
+  }) => AuthorityBiometricAttestation | undefined;
   now?: () => Date;
 }
 
@@ -197,7 +206,7 @@ export class TaskRunner {
 
     if (privileged) {
       const authority = this.options.authorityContext;
-      const instruction: AuthorityInstruction = authority?.instruction ?? {
+      let instruction: AuthorityInstruction = authority?.instruction ?? {
         id: `authority:${this.runId}`,
         principalId: 'anonymous',
         source: 'message',
@@ -206,6 +215,24 @@ export class TaskRunner {
         requestedAt: this.startedAt,
       };
       const operation = action.operation ?? action.id;
+
+      if (
+        authority?.principal
+        && actionRequiresFounderBiometric(operation, this.options.authorityPolicy)
+      ) {
+        for (const proofId of authority.biometricProofIds ?? []) {
+          const attestation = this.options.biometricVerifier?.({
+            proofId,
+            principal: authority.principal,
+            action: operation,
+            requestedAt: instruction.requestedAt,
+          });
+          if (!attestation) continue;
+          instruction = { ...instruction, biometricAttestation: attestation };
+          break;
+        }
+      }
+
       const authorityDecision = evaluateAuthority(
         authority?.principal,
         instruction,
@@ -223,6 +250,7 @@ export class TaskRunner {
         principalId: principalId ?? null,
         allowed: authorityDecision.allowed,
         requiresConfirmation: authorityDecision.requiresConfirmation,
+        requiresBiometric: authorityDecision.requiresBiometric,
         reason: authorityDecision.reason,
         auditHash: authorityDecision.auditHash,
       }, 'system');

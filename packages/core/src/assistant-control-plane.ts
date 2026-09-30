@@ -72,6 +72,7 @@ export interface ResolvedAssistantSurfaceConfig {
 }
 
 export const DEFAULT_LANDING_ASSISTANT_PROFILE_ID = 'infinity-landing-assistant';
+export const CUSTOMER_SUPPORT_24X7_CAPABILITY = 'customer-support-24x7';
 
 export function createAssistantProfileRevision(
   input: Omit<
@@ -299,6 +300,10 @@ export function defaultLandingAssistantProfile(
       'Use approved product/business knowledge for factual claims and acknowledge unsupported gaps.',
       'If one provider or capability is unavailable, use an allowed alternative or offer a safe fallback instead of treating provider failure as product failure.',
       'Preserve the product-specific presentation and capability boundary of the active surface.',
+      'Provide continuous customer support when the product runtime is online, using only approved product knowledge and current service state.',
+      'Route product-specific questions to the correct knowledge scope; never answer from another product private scope merely because Janus can access it internally.',
+      'When an answer is unsupported, capture the unresolved question and use the configured human handoff instead of inventing an answer.',
+      'Customer-facing assistants may report approved public product status but must never expose internal accounting, credentials, private analytics or founder-only information.',
     ],
     guardrails: [
       'no-secret-disclosure',
@@ -306,6 +311,8 @@ export function defaultLandingAssistantProfile(
       'no-provider-as-authority',
       'surface-capability-boundary',
       'human-handoff-when-required',
+      'product-scope-grounding',
+      'no-internal-financial-data-to-customers',
     ],
     capabilities: [
       'conversation',
@@ -313,10 +320,61 @@ export function defaultLandingAssistantProfile(
       'grounded-answers',
       'human-handoff',
       'provider-fallback',
+      CUSTOMER_SUPPORT_24X7_CAPABILITY,
+      'product-knowledge-routing',
+      'support-escalation',
+      'unresolved-question-capture',
     ],
     moduleRefs: [],
     createdAt,
     createdBy: 'janus-core',
+  });
+}
+
+export function upgradeLandingAssistantProfileFor24x7Support(
+  current: AssistantProfileRevision,
+  createdAt: string,
+  createdBy: string,
+): AssistantProfileRevision {
+  if (!verifyAssistantProfileRevision(current)) {
+    throw new Error('cannot upgrade assistant profile with invalid checksum');
+  }
+  if (current.status !== 'current') {
+    throw new Error('only current assistant profile can be upgraded');
+  }
+  if (current.capabilities.includes(CUSTOMER_SUPPORT_24X7_CAPABILITY)) {
+    return current;
+  }
+
+  return createAssistantProfileRevision({
+    profileId: current.profileId,
+    revision: current.revision + 1,
+    status: 'current',
+    name: current.name,
+    objective: current.objective,
+    sharedInstructions: [
+      ...current.sharedInstructions,
+      'Provide continuous customer support when the product runtime is online, using only approved product knowledge and current service state.',
+      'Route product-specific questions to the correct knowledge scope and never leak internal cross-product context.',
+      'Capture unresolved questions and use the configured human handoff rather than inventing an answer.',
+      'Never expose internal accounting, credentials, private analytics or founder-only information to customer-facing surfaces.',
+    ],
+    guardrails: [
+      ...current.guardrails,
+      'product-scope-grounding',
+      'no-internal-financial-data-to-customers',
+    ],
+    capabilities: [
+      ...current.capabilities,
+      CUSTOMER_SUPPORT_24X7_CAPABILITY,
+      'product-knowledge-routing',
+      'support-escalation',
+      'unresolved-question-capture',
+    ],
+    moduleRefs: current.moduleRefs,
+    createdAt,
+    createdBy,
+    supersedesRevision: current.revision,
   });
 }
 
