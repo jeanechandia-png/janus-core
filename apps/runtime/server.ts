@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
+import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
+import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
@@ -121,11 +123,14 @@ const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
+const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
 
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
     github: 'GITHUB_TOKEN',
     'google-workspace': 'GOOGLE_ACCESS_TOKEN',
+    meta: 'META_ACCESS_TOKEN',
+    youtube: 'YOUTUBE_ACCESS_TOKEN',
     model: 'JANUS_MODEL_API_KEY',
   },
 });
@@ -182,7 +187,19 @@ toolGateway.register(new GoogleWorkspaceAdapter({
   ) ?? '',
 }));
 
+if (metaGraphApiVersion) {
+  toolGateway.register(new MetaInsightsAdapter({
+    apiVersion: metaGraphApiVersion,
+    tokenProvider: () => credentialBroker.accessToken('meta'),
+  }));
+}
+toolGateway.register(new YouTubeInsightsAdapter({
+  tokenProvider: () => credentialBroker.accessToken('youtube'),
+}));
+
 const googleConfigured = environmentCredentials.configured('google-workspace');
+const metaTokenConfigured = environmentCredentials.configured('meta');
+const youtubeConfigured = environmentCredentials.configured('youtube');
 capabilities.register({
   tool: 'github',
   actions: ['repo.get', 'contents.list', 'file.read'],
@@ -193,6 +210,28 @@ capabilities.register({
   actions: ['drive.files.search', 'gmail.messages.search', 'calendar.events.list'],
   state: googleConfigured ? 'available' : 'needs_auth',
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
+});
+capabilities.register({
+  tool: 'meta-insights',
+  actions: ['facebook.page.insights', 'instagram.account.insights'],
+  state: !metaGraphApiVersion
+    ? 'unavailable'
+    : metaTokenConfigured
+      ? 'available'
+      : 'needs_auth',
+  ...(!metaGraphApiVersion
+    ? { reason: 'META_GRAPH_API_VERSION debe configurarse y revalidarse antes de usar Meta.' }
+    : !metaTokenConfigured
+      ? { reason: 'Meta necesita autorización antes de consultar insights.' }
+      : {}),
+});
+capabilities.register({
+  tool: 'youtube-insights',
+  actions: ['channel.statistics', 'analytics.query'],
+  state: youtubeConfigured ? 'available' : 'needs_auth',
+  ...(!youtubeConfigured
+    ? { reason: 'YouTube necesita autorización OAuth antes de consultar estadísticas.' }
+    : {}),
 });
 
 function ensureLandingAssistantControlPlane(): void {
