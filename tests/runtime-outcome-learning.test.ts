@@ -7,6 +7,7 @@ import type { LearningObservation } from '../packages/core/src/outcome-learning.
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
+  estimateExecutionConfidence,
   maybeProposeRuntimeImprovement,
   runtimeLearningReport,
 } from '../packages/core/src/runtime-outcome-learning.js';
@@ -152,4 +153,73 @@ test('detects negative drift and creates at most one human-approved improvement 
     createdAt: '2026-09-30T20:01:00.000Z',
   });
   assert.equal(duplicate, null);
+});
+
+
+test('keeps a neutral execution prior until the minimum verified evidence threshold', () => {
+  const observations: LearningObservation[] = Array.from({ length: 19 }, (_, index) => ({
+    id: 'neutral_' + index,
+    receiptHash: 'neutral_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: 1,
+    outcome: 'success',
+    at: new Date(Date.UTC(2026, 8, 30, 20, index)).toISOString(),
+  }));
+
+  const estimate = estimateExecutionConfidence(observations);
+  assert.equal(estimate.mode, 'neutral_prior');
+  assert.equal(estimate.confidence, 0.5);
+  assert.equal(estimate.sampleCount, 19);
+  assert.equal(estimate.minimumSamples, 20);
+});
+
+test('uses conservative bounded history calibration after enough verified outcomes', () => {
+  const successes: LearningObservation[] = Array.from({ length: 20 }, (_, index) => ({
+    id: 'success_' + index,
+    receiptHash: 'success_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: 1,
+    outcome: 'success',
+    at: new Date(Date.UTC(2026, 8, 30, 21, index)).toISOString(),
+  }));
+  const failures: LearningObservation[] = successes.map((item, index) => ({
+    ...item,
+    id: 'failure_' + index,
+    receiptHash: 'failure_hash_' + index,
+    outcomeScore: 0,
+    outcome: 'failure' as const,
+  }));
+
+  const high = estimateExecutionConfidence(successes);
+  assert.equal(high.mode, 'calibrated_history');
+  assert.equal(high.confidence, 0.9);
+  assert.equal(high.evidenceCount, 20);
+
+  const low = estimateExecutionConfidence(failures);
+  assert.equal(low.mode, 'calibrated_history');
+  assert.equal(low.confidence, 0.1);
+  assert.equal(low.evidenceCount, 20);
+});
+
+test('uses recent verified outcomes when drift makes the full history stale', () => {
+  const observations: LearningObservation[] = Array.from({ length: 20 }, (_, index) => ({
+    id: 'drift_' + index,
+    receiptHash: 'drift_hash_' + index,
+    blueprintId: blueprint.id,
+    blueprintRevision: blueprint.revision,
+    predictedConfidence: 0.5,
+    outcomeScore: index < 10 ? 1 : 0.2,
+    outcome: index < 10 ? 'success' : 'partial',
+    at: new Date(Date.UTC(2026, 8, 30, 22, index)).toISOString(),
+  }));
+
+  const estimate = estimateExecutionConfidence(observations);
+  assert.equal(estimate.mode, 'drift_adjusted_recent');
+  assert.equal(estimate.evidenceCount, 10);
+  assert.ok(estimate.confidence < 0.5);
+  assert.ok(estimate.drift.detected);
 });
