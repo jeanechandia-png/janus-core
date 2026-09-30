@@ -12,7 +12,13 @@ import { CapabilityRegistry } from '../../packages/core/src/capability-registry.
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
+import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
 import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
+import {
+  appendChainedDecisionReceipt,
+  createRuntimeDecisionBlueprint,
+  ensureDecisionBlueprint,
+} from '../../packages/core/src/runtime-decision-trace.js';
 import { EventHub } from '../../packages/core/src/event-hub.js';
 import type { EventSink, RunSnapshot } from '../../packages/core/src/events.js';
 import { SqliteStore } from '../../packages/core/src/sqlite-store.js';
@@ -111,6 +117,14 @@ capabilities.register({
   ...(!googleConfigured ? { reason: 'Google Workspace necesita autorización antes de ejecutar.' } : {}),
 });
 
+const runtimeBlueprint = ensureDecisionBlueprint(
+  store,
+  createRuntimeDecisionBlueprint({
+    createdAt: '2026-09-30T18:30:00.000Z',
+    toolCatalog: capabilityPolicyCatalog(),
+  }),
+);
+
 const allowedTools = capabilities.allAllowedTools();
 const allowedActions = capabilities.allAllowedActions();
 const modelGateway = createConfiguredModelGateway();
@@ -136,6 +150,39 @@ function continuitySnapshot() {
     store.listChronologyRecords(),
     new ErrorLedger(store.listErrorLessons()),
   );
+}
+
+function capabilityPolicyCatalog(): Record<string, string[]> {
+  const catalog: Record<string, string[]> = {};
+  for (const capability of capabilities.snapshot()) {
+    (catalog[capability.tool] ??= []).push(capability.action);
+  }
+  for (const actions of Object.values(catalog)) actions.sort();
+  return catalog;
+}
+
+function recordDecision(input: {
+  runId: string;
+  decisionKind: string;
+  selectedWorker: string;
+  confidence: number;
+  inputRefs?: string[];
+  outputSummary: string;
+  metadata?: Record<string, unknown>;
+}): void {
+  appendChainedDecisionReceipt(store, {
+    blueprint: runtimeBlueprint,
+    runId: input.runId,
+    decisionKind: input.decisionKind,
+    selectedWorker: input.selectedWorker,
+    confidence: input.confidence,
+    inputRefs: input.inputRefs ?? [
+      'run:' + input.runId,
+      'blueprint:' + runtimeBlueprint.id + '@' + runtimeBlueprint.revision,
+    ],
+    outputSummary: input.outputSummary,
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  });
 }
 
 function createConfiguredModelGateway(): ModelGateway | undefined {
@@ -330,9 +377,12 @@ function demoSteps(command: string): JanusStep[] {
   ];
 }
 
-async function prepareSteps(command: string): Promise<JanusStep[] | null> {
+async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
   const continuity = continuitySnapshot();
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
+  let planningWorker = 'janus-core/deterministic-planner';
+  let planningConfidence = 1;
+  let planningMetadata: Record<string, unknown> = { source: 'deterministic' };
 
   if (!plan && modelGateway) {
     const modelResult = await planWithModel(command, {
@@ -341,6 +391,13 @@ async function prepareSteps(command: string): Promise<JanusStep[] | null> {
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        decisionBlueprint: {
+          id: runtimeBlueprint.id,
+          revision: runtimeBlueprint.revision,
+          objective: runtimeBlueprint.objective,
+          modelPolicy: runtimeBlueprint.modelPolicy,
+          guardrails: runtimeBlueprint.guardrails,
+        },
         continuity: {
           activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
             subject: record.subject,
@@ -368,11 +425,54 @@ async function prepareSteps(command: string): Promise<JanusStep[] | null> {
       allowedActions,
     });
 
-    if (modelResult.error) throw new Error(modelResult.error);
+    if (modelResult.error) {
+      recordDecision({
+        runId,
+        decisionKind: 'planning_worker_selection',
+        selectedWorker: 'janus-core/model-planner',
+        confidence: 0.5,
+        outputSummary: 'Configured model planner failed before an executable plan was accepted.',
+        metadata: { ok: false, error: modelResult.error },
+      });
+      throw new Error(modelResult.error);
+    }
+
     plan = modelResult.plan;
+    planningWorker = 'model-planner:' + (modelResult.provider ?? 'configured-provider')
+      + '/' + (modelResult.model ?? 'configured-model');
+    planningConfidence = 0.5;
+    planningMetadata = {
+      source: 'model',
+      provider: modelResult.provider ?? null,
+      model: modelResult.model ?? null,
+      confidenceBasis: 'neutral prior until calibrated multi-model routing is integrated',
+    };
   }
 
-  if (!plan) return null;
+  if (!plan) {
+    recordDecision({
+      runId,
+      decisionKind: 'planning_fallback',
+      selectedWorker: 'janus-core/demo-fallback',
+      confidence: 0.25,
+      outputSummary: 'No executable tool plan matched; runtime will use the observable local fallback.',
+      metadata: { source: 'fallback' },
+    });
+    return null;
+  }
+
+  recordDecision({
+    runId,
+    decisionKind: 'planning_worker_selection',
+    selectedWorker: planningWorker,
+    confidence: planningConfidence,
+    outputSummary: 'Planner selected an executable candidate with ' + plan.steps.length + ' step(s).',
+    metadata: {
+      ...planningMetadata,
+      planSource: plan.source,
+      stepIds: plan.steps.map((step) => step.id),
+    },
+  });
 
   const validation = validatePlan(plan, {
     maxSteps: 20,
@@ -380,11 +480,66 @@ async function prepareSteps(command: string): Promise<JanusStep[] | null> {
     allowedActions,
   });
 
+  recordDecision({
+    runId,
+    decisionKind: 'plan_verification',
+    selectedWorker: 'janus-core/plan-validator',
+    confidence: 1,
+    outputSummary: validation.ok
+      ? 'Janus Core accepted the plan after allowlist and safety validation.'
+      : 'Janus Core rejected the plan before tool execution.',
+    metadata: {
+      ok: validation.ok,
+      errors: validation.errors,
+      stepCount: plan.steps.length,
+    },
+  });
+
   if (!validation.ok) {
     throw new Error(`Plan rejected by Janus Core: ${validation.errors.join('; ')}`);
   }
 
-  assertCapabilitiesReady(plan);
+  try {
+    assertCapabilitiesReady(plan);
+    recordDecision({
+      runId,
+      decisionKind: 'capability_verification',
+      selectedWorker: 'janus-core/capability-registry',
+      confidence: 1,
+      outputSummary: 'All planned capabilities are currently available.',
+      metadata: { ok: true },
+    });
+  } catch (error) {
+    recordDecision({
+      runId,
+      decisionKind: 'capability_verification',
+      selectedWorker: 'janus-core/capability-registry',
+      confidence: 1,
+      outputSummary: 'Execution was blocked because a required capability is not ready.',
+      metadata: {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
+
+  for (const step of plan.steps) {
+    recordDecision({
+      runId,
+      decisionKind: 'tool_selection',
+      selectedWorker: step.tool + '.' + step.action,
+      confidence: 1,
+      outputSummary: 'Validated tool action selected for plan step ' + step.id + '.',
+      metadata: {
+        stepId: step.id,
+        risk: step.risk,
+        reversible: step.reversible,
+        requiresApproval: step.requiresApproval,
+      },
+    });
+  }
+
   return compilePlan(plan, { toolGateway });
 }
 
@@ -408,6 +563,42 @@ function startRun(
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
     store.appendEvent(event);
+
+    if (event.type === 'authority.evaluated') {
+      recordDecision({
+        runId: event.runId,
+        decisionKind: 'authority_verification',
+        selectedWorker: 'janus-core/authority-control-plane',
+        confidence: 1,
+        inputRefs: ['event:' + event.id],
+        outputSummary: event.payload.allowed === true
+          ? 'Administrative authority allowed the privileged action.'
+          : 'Administrative authority denied or constrained the privileged action.',
+        metadata: {
+          allowed: event.payload.allowed ?? null,
+          requiresConfirmation: event.payload.requiresConfirmation ?? null,
+          operation: event.payload.operation ?? null,
+          authorityDecisionHash: event.payload.auditHash ?? null,
+        },
+      });
+    }
+
+    if (event.type === 'quality.passed' || event.type === 'quality.failed') {
+      recordDecision({
+        runId: event.runId,
+        decisionKind: 'delivery_verification',
+        selectedWorker: 'janus-core/delivery-gate:offline-reviewers-v1',
+        confidence: 1,
+        inputRefs: ['event:' + event.id],
+        outputSummary: event.type === 'quality.passed'
+          ? 'Delivery Gate approved the artifact for delivery.'
+          : 'Delivery Gate rejected the artifact before delivery.',
+        metadata: {
+          passed: event.type === 'quality.passed',
+          artifactId: event.payload.artifactId ?? null,
+        },
+      });
+    }
     if (event.type === 'artifact.updated') {
       const preview = typeof event.payload.preview === 'string' ? event.payload.preview.trim() : '';
       if (preview) {
@@ -426,19 +617,48 @@ function startRun(
     if (runner) store.upsertRun(runner.snapshot());
   };
 
+  let decisionRunId = '';
   runner = new TaskRunner(command, {
     sink: durableSink,
     deliveryGate,
     authorityContext,
-    approvalHandler: async (action) => ({
-      approved: action.risk === 'none' || action.risk === 'low',
-      reason: action.risk === 'high'
-        ? 'La acción de alto riesgo requiere aprobación explícita.'
-        : undefined,
-    }),
+    approvalHandler: async (action) => {
+      const decision = {
+        approved: action.risk === 'none' || action.risk === 'low',
+        reason: action.risk === 'high'
+          ? 'La acción de alto riesgo requiere aprobación explícita.'
+          : undefined,
+      };
+      if (decisionRunId) {
+        recordDecision({
+          runId: decisionRunId,
+          decisionKind: 'approval',
+          selectedWorker: 'janus-runtime/approval-policy',
+          confidence: 1,
+          outputSummary: decision.approved
+            ? 'Runtime approval policy approved the requested action.'
+            : 'Runtime approval policy blocked the requested action pending explicit approval.',
+          metadata: {
+            actionId: action.id,
+            risk: action.risk,
+            requiresApproval: action.requiresApproval,
+            approved: decision.approved,
+          },
+        });
+      }
+      return decision;
+    },
   });
 
   const runId = runner.snapshot().runId;
+  decisionRunId = runId;
+  recordDecision({
+    runId,
+    decisionKind: 'blueprint_selection',
+    selectedWorker: runtimeBlueprint.id + '@' + runtimeBlueprint.revision,
+    confidence: 1,
+    outputSummary: 'Active runtime Decision Blueprint selected for this execution.',
+  });
   const startedAt = new Date().toISOString();
   store.upsertConversationSession({
     id: sessionId,
@@ -482,7 +702,7 @@ function startRun(
 
       let steps: JanusStep[];
       try {
-        steps = (await prepareSteps(command)) ?? demoSteps(command);
+        steps = (await prepareSteps(command, runId)) ?? demoSteps(command);
       } catch (error) {
         await activeRunner.block('Janus Core rechazó el plan antes de ejecutar herramientas', {
           error: error instanceof Error ? error.message : String(error),
@@ -608,6 +828,15 @@ const server = createServer(async (request, response) => {
             },
       },
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
+      decisionTrace: {
+        blueprint: {
+          id: runtimeBlueprint.id,
+          revision: runtimeBlueprint.revision,
+          status: runtimeBlueprint.status,
+        },
+        receipts: 'sha256-chained-sqlite',
+        endpoint: '/api/runs/:runId/decisions',
+      },
       deliveryGate: {
         state: 'enforced',
         dimensions: ['coherence', 'structural', 'visual', 'architectural', 'orthographic', 'synthesis'],
@@ -860,6 +1089,25 @@ const server = createServer(async (request, response) => {
     } catch (error) {
       json(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
     }
+    return;
+  }
+
+  const getRunDecisions = url.pathname.match(/^\/api\/runs\/([^/]+)\/decisions$/);
+  const decisionRunId = getRunDecisions?.[1];
+  if (request.method === 'GET' && decisionRunId) {
+    const live = runners.get(decisionRunId)?.snapshot();
+    const persisted = store.getRun(decisionRunId);
+    if (!live && !persisted) {
+      json(response, 404, { ok: false, error: 'run not found' });
+      return;
+    }
+    const receipts = store.listDecisionReceipts(decisionRunId);
+    json(response, 200, {
+      ok: true,
+      blueprint: runtimeBlueprint,
+      receipts,
+      chain: verifyReceiptChain(receipts),
+    });
     return;
   }
 

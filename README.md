@@ -128,11 +128,14 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Delivery Gate enforced before artifact delivery with offline baseline reviewers for coherence, structure, visual presentation, architecture, orthography and synthesis.
 - Administrative Authority Control Plane enforced in TaskRunner and Tool Gateway: privileged mutations fail closed without authenticated authority, idempotency and required approval/confirmation.
 - Strong local authority authentication via ECDSA P-256 challenge-response; private keys remain outside Janus, public credentials/revocation metadata live in SQLite, and bearer sessions are memory-only.
+- Productive Decision Blueprint enforcement: every run selects an active immutable Blueprint describing agents, tool policy, guardrails and success metrics.
+- Tamper-evident runtime Decision Receipt chains persisted in SQLite for planning, plan/capability verification, tool selection, authority, approval and Delivery Gate decisions; `GET /api/runs/:runId/decisions` verifies the chain.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Add model inventory/configuration so Model Router can choose among actual local and remote adapters.
+- Connect verified TaskRunner/Delivery Gate outcomes to the Outcome Learning Loop, calibration and drift detection.
+- Add model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
 - Add external conversation import adapters and structured error-diagnosis promotion into Error Ledger.
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
