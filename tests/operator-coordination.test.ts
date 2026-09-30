@@ -109,6 +109,19 @@ test('Janus Core can coordinate all local scopes without inheriting founder writ
   assert.equal(janus.role, 'agent');
 });
 
+test('assignment does not bypass private-scope isolation for its assignee', () => {
+  assert.throws(
+    () => assertAssignmentAccess({
+      principal: julio,
+      assignment: { ...assignment, scopeIds: [privateScope.id] },
+      scopes: [privateScope, sharedScope],
+      grants: [grant],
+      permission: 'write_work',
+    }),
+    /access denied/,
+  );
+});
+
 test('unassigned operator without grants cannot inspect another assignment', () => {
   assert.throws(
     () => assertAssignmentAccess({
