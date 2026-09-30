@@ -132,7 +132,7 @@ export class GitHubAdapter implements ToolAdapter {
 
     if (request.action === 'file.publish') {
       if (!ref) return { ok: false, error: 'GitHub file.publish requires an explicit ref' };
-      const content = requiredString(request.input, 'content');
+      const content = requiredRawString(request.input, 'content');
       const message = requiredString(request.input, 'message');
       const expectedHeadSha = optionalString(request.input, 'expectedHeadSha');
       const token = await this.resolveToken();
@@ -362,6 +362,14 @@ function requiredString(input: Record<string, unknown>, key: string): string {
     throw new Error(`GitHub input '${key}' is required`);
   }
   return value.trim();
+}
+
+function requiredRawString(input: Record<string, unknown>, key: string): string {
+  const value = input[key];
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`GitHub input '${key}' is required`);
+  }
+  return value;
 }
 
 function optionalString(input: Record<string, unknown>, key: string): string | undefined {
