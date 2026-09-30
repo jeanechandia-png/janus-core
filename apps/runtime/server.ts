@@ -30,6 +30,7 @@ import {
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
+  estimateExecutionConfidence,
   maybeProposeRuntimeImprovement,
   runtimeLearningReport,
 } from '../../packages/core/src/runtime-outcome-learning.js';
@@ -233,6 +234,7 @@ function outcomeLearningSnapshot() {
         observation.blueprintRevision === runtimeBlueprint.revision,
     );
   const report = runtimeLearningReport(observations);
+  const executionConfidence = estimateExecutionConfidence(observations);
   const proposals = store.listImprovementProposals().filter(
     (proposal) =>
       proposal.blueprintId === runtimeBlueprint.id
@@ -242,6 +244,7 @@ function outcomeLearningSnapshot() {
     observations,
     calibration: report.calibration,
     drift: report.drift,
+    executionConfidence,
     proposals,
   };
 }
@@ -773,17 +776,34 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     });
   }
 
+  const predictionHistory = store
+    .listLearningObservations(blueprint.id)
+    .filter(
+      (observation) => observation.blueprintRevision === blueprint.revision,
+    );
+  const executionConfidence = estimateExecutionConfidence(predictionHistory);
   recordDecision({
     runId,
     decisionKind: 'execution_prediction',
-    selectedWorker: 'janus-core/runtime-outcome-prior-v1',
-    confidence: 0.5,
+    selectedWorker: 'janus-core/calibrated-execution-predictor-v1',
+    confidence: executionConfidence.confidence,
     outputSummary:
-      'Neutral execution-success prior recorded until enough verified outcomes exist for calibration.',
+      executionConfidence.mode === 'neutral_prior'
+        ? 'Neutral execution-success prior retained because verified history is insufficient.'
+        : 'Execution-success confidence estimated from verified runtime outcome history.',
     metadata: {
-      basis: 'neutral-prior-v1',
+      mode: executionConfidence.mode,
+      sampleCount: executionConfidence.sampleCount,
+      evidenceCount: executionConfidence.evidenceCount,
+      minimumSamples: executionConfidence.minimumSamples,
+      empiricalMean: executionConfidence.empiricalMean,
+      brierScore: executionConfidence.brierScore,
+      drift: executionConfidence.drift,
+      bounds: executionConfidence.bounds,
       planSource: plan.source,
       stepCount: plan.steps.length,
+      authorityImpact: 'none',
+      policyMutation: false,
     },
   });
 
@@ -1094,6 +1114,7 @@ const server = createServer(async (request, response) => {
           observations: learning.observations.length,
           calibration: learning.calibration,
           drift: learning.drift,
+          nextExecutionConfidence: learning.executionConfidence,
           openImprovementProposals: learning.proposals.filter(
             (proposal) => proposal.status === 'proposed' || proposal.status === 'approved',
           ).length,
@@ -1275,6 +1296,7 @@ const server = createServer(async (request, response) => {
       observations: learning.observations,
       calibration: learning.calibration,
       drift: learning.drift,
+      executionConfidence: learning.executionConfidence,
       improvementProposals: learning.proposals,
     });
     return;
