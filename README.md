@@ -134,11 +134,11 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - `GET /api/learning` exposes current observations, calibration, drift, Blueprint history and pending improvement proposals without silently applying changes.
 - Founder-only Blueprint governance: approve/reject proposals, verify a new draft revision against mandatory security/runtime invariants, explicitly apply it, or rollback by creating a new append-only revision from historical policy.
 - In-flight runs remain pinned to their starting Blueprint revision; learning/calibration is revision-scoped and historical run audits resolve the Blueprint actually used.
+- Evidence-based execution confidence: neutral 0.5 below 20 verified observations; thereafter a conservative bounded posterior is used, switching to recent evidence on drift. Confidence never changes authority, approvals or policy.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
-- Replace the neutral execution prior only after enough verified history exists for evidence-based calibration.
 - Add model inventory/configuration so Model Router can choose among actual local and remote adapters and record observed routing quality/cost/latency in Decision Receipts.
 - Route productive Quality Gate reviewers through the Model Router while preserving the offline baseline.
 - Build complete-document ingestion/parsers with coverage checkpoints before synthesis.
