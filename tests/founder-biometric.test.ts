@@ -5,6 +5,8 @@ import {
   evaluateAuthority,
   type AuthorityPrincipal,
 } from '../packages/core/src/authority.js';
+import { EventHub } from '../packages/core/src/event-hub.js';
+import { TaskRunner } from '../packages/core/src/task-runner.js';
 import {
   FounderBiometricError,
   FounderBiometricService,
@@ -162,4 +164,114 @@ test('challenge cannot be replayed and wrong signer is rejected', () => {
       && error.code === 'invalid_challenge'
     ),
   );
+});
+
+
+test('TaskRunner treats a biometric read scope as privileged and fails closed without proof', async () => {
+  const hub = new EventHub();
+  const runner = new TaskRunner('Read founder private secret', {
+    sink: hub.sink,
+    authorityContext: {
+      principal: founder,
+      instruction: {
+        id: 'runner-face-no-proof',
+        principalId: 'founder',
+        source: 'authenticated_human',
+        authenticated: true,
+        instruction: 'Read founder private secret',
+        requestedAt: '2026-10-01T00:00:00.000Z',
+      },
+    },
+    now: () => new Date('2026-10-01T00:00:00.000Z'),
+  });
+
+  const snapshot = await runner.execute([{
+    id: 'secret-read',
+    label: 'Read founder private secret',
+    run: async ({ assertCanExecute }) => {
+      await assertCanExecute({
+        id: 'secret-read',
+        label: 'Read founder private secret',
+        tool: 'vault',
+        operation: 'security.secrets.read',
+        risk: 'low',
+        reversible: true,
+        requiresApproval: false,
+      });
+    },
+  }]);
+
+  assert.equal(snapshot.status, 'blocked');
+  const authority = hub.replay(snapshot.runId)
+    .find((event) => event.type === 'authority.evaluated');
+  assert.equal(authority?.payload.requiresBiometric, true);
+  assert.equal(authority?.payload.reason, 'founder_biometric_required');
+});
+
+test('TaskRunner consumes one valid face proof for the matching sensitive action', async () => {
+  const keys = p256KeyPair();
+  let now = new Date('2026-10-01T00:00:00.000Z');
+  const biometrics = new FounderBiometricService(
+    new InMemoryBiometricKeyStore(),
+    { now: () => now },
+  );
+  biometrics.registerFaceKey({
+    keyId: 'iphone-face-key',
+    publicKeyPem: keys.publicKey,
+  });
+  const challenge = biometrics.issueChallenge('security.secrets.read');
+  const ticket = biometrics.verifyAssertion({
+    challengeId: challenge.id,
+    keyId: 'iphone-face-key',
+    signature: signature(challenge.signingPayload, keys.privateKey),
+  });
+  now = new Date('2026-10-01T00:00:05.000Z');
+
+  const hub = new EventHub();
+  const runner = new TaskRunner('Read founder private secret', {
+    sink: hub.sink,
+    authorityContext: {
+      principal: founder,
+      instruction: {
+        id: 'runner-face-proof',
+        principalId: 'founder',
+        source: 'authenticated_human',
+        authenticated: true,
+        instruction: 'Read founder private secret',
+        requestedAt: now.toISOString(),
+      },
+      biometricProofIds: [ticket.proofId],
+    },
+    biometricVerifier: ({ proofId, principal, action, requestedAt }) => (
+      biometrics.consumeProof({
+        proofId,
+        principalId: principal.id,
+        action,
+        requestedAt,
+      })
+    ),
+    now: () => now,
+  });
+
+  const snapshot = await runner.execute([{
+    id: 'secret-read',
+    label: 'Read founder private secret',
+    run: async ({ assertCanExecute }) => {
+      await assertCanExecute({
+        id: 'secret-read',
+        label: 'Read founder private secret',
+        tool: 'vault',
+        operation: 'security.secrets.read',
+        risk: 'low',
+        reversible: true,
+        requiresApproval: false,
+      });
+    },
+  }]);
+
+  assert.equal(snapshot.status, 'completed');
+  const authority = hub.replay(snapshot.runId)
+    .find((event) => event.type === 'authority.evaluated');
+  assert.equal(authority?.payload.allowed, true);
+  assert.equal(authority?.payload.requiresBiometric, true);
 });
