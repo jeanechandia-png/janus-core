@@ -200,7 +200,7 @@ export class TaskRunner {
   private async assertCanExecute(action: ObservableAction): Promise<ActionExecutionPermit> {
     await this.checkpoint();
 
-    const privileged = isPrivilegedAction(action);
+    const privileged = isPrivilegedAction(action, this.options.authorityPolicy);
     let authorityDecisionHash: string | undefined;
     let principalId: string | undefined;
 
@@ -422,9 +422,14 @@ export class TaskRunner {
 
 const PRIVILEGED_OPERATION = /(^|[._])(create|update|delete|send|publish|deploy|pay|purchase|rotate|disable|transfer|grant|revoke)([._]|$)/i;
 
-function isPrivilegedAction(action: ObservableAction): boolean {
+function isPrivilegedAction(
+  action: ObservableAction,
+  authorityPolicy?: AuthorityPolicy,
+): boolean {
+  const operation = action.operation ?? action.id;
   return (
-    action.risk === 'medium'
+    actionRequiresFounderBiometric(operation, authorityPolicy)
+    || action.risk === 'medium'
     || action.risk === 'high'
     || !action.reversible
     || action.requiresApproval
