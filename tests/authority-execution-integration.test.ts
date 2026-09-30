@@ -20,6 +20,15 @@ class WriteAdapter implements ToolAdapter {
   }
 }
 
+class ManualAdapter implements ToolAdapter {
+  readonly name = 'manual';
+  readonly capabilities = ['receive'];
+
+  async execute(request: ToolRequest) {
+    return { ok: true, output: { action: request.action } };
+  }
+}
+
 function founderAuthority() {
   return {
     principal: { id: 'founder', role: 'founder_director' as const, active: true },
@@ -178,6 +187,7 @@ test('automation write node inherits the same authority boundary', async () => {
 
   const gateway = new DefaultToolGateway();
   const adapter = new WriteAdapter();
+  gateway.register(new ManualAdapter());
   gateway.register(adapter);
   const hub = new EventHub();
   const runner = new TaskRunner(workflow.name, { sink: hub.sink });
