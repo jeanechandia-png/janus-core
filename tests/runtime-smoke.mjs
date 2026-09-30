@@ -34,6 +34,9 @@ try {
   assert.equal(health.durable, true);
   assert.equal(health.db, 'memory');
   assert.equal(health.timeZone, 'Europe/Amsterdam');
+  assert.equal(health.decisionTrace?.blueprint?.id, 'janus-runtime-execution');
+  assert.equal(health.decisionTrace?.blueprint?.revision, 1);
+  assert.equal(health.decisionTrace?.receipts, 'sha256-chained-sqlite');
 
   const capabilities = Array.isArray(health.capabilities) ? health.capabilities : [];
   const github = capabilities.find((item) => item?.tool === 'github' && item?.action === 'repo.get');
@@ -46,6 +49,20 @@ try {
   const localRunId = await startCommand(base, 'haz una tarea local sin herramienta');
   const localRun = await waitForRun(base, localRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
   assert.equal(localRun.status, 'completed');
+
+  const decisionResponse = await fetch(
+    `${base}/api/runs/${encodeURIComponent(localRunId)}/decisions`,
+  );
+  assert.equal(decisionResponse.status, 200);
+  const decisionBody = await decisionResponse.json();
+  assert.equal(decisionBody.ok, true);
+  assert.equal(decisionBody.blueprint?.id, 'janus-runtime-execution');
+  assert.equal(decisionBody.chain?.ok, true);
+  assert.ok(Array.isArray(decisionBody.receipts));
+  assert.ok(decisionBody.receipts.length >= 3);
+  assert.equal(decisionBody.receipts[0]?.decisionKind, 'blueprint_selection');
+  assert.ok(decisionBody.receipts.some((receipt) => receipt?.decisionKind === 'planning_fallback'));
+  assert.ok(decisionBody.receipts.some((receipt) => receipt?.decisionKind === 'delivery_verification'));
 
   const googleRunId = await startCommand(base, 'mira mi calendario');
   const googleRun = await waitForRun(base, googleRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
