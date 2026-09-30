@@ -6,6 +6,15 @@ import type { ConversationMessage, ConversationSession } from './conversation-ar
 import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
 import type { DecisionReceipt } from './decision-receipt.js';
 import type { LearningObservation, ImprovementProposal } from './outcome-learning.js';
+import type { DurableJob, JobStatus } from './job-engine.js';
+import type { CitationLedger } from './citation-ledger.js';
+import type { ImprovementIndex } from './improvement-index.js';
+import {
+  KERNEL_PERSISTENCE_SCHEMA_VERSION,
+  type CitationLedgerSnapshot,
+  type ImprovementIndexHistoryEntry,
+  type WorkGraphSnapshot,
+} from './kernel-persistence.js';
 import type { EventSink, JanusEvent, RunSnapshot } from './events.js';
 
 export class SqliteStore {
@@ -409,6 +418,206 @@ export class SqliteStore {
     );
   }
 
+  upsertWorkGraph(snapshot: WorkGraphSnapshot): void {
+    this.db.prepare(`
+      INSERT INTO work_graph_snapshots
+        (id, run_id, goal, updated_at, snapshot_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        run_id = excluded.run_id,
+        goal = excluded.goal,
+        updated_at = excluded.updated_at,
+        snapshot_json = excluded.snapshot_json
+    `).run(
+      snapshot.id,
+      snapshot.runId ?? null,
+      snapshot.goal,
+      snapshot.updatedAt,
+      JSON.stringify(snapshot),
+    );
+  }
+
+  getWorkGraph(id: string): WorkGraphSnapshot | null {
+    const row = this.db.prepare(`
+      SELECT snapshot_json
+      FROM work_graph_snapshots
+      WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+
+    if (!row) return null;
+    return JSON.parse(String(row.snapshot_json)) as WorkGraphSnapshot;
+  }
+
+  listWorkGraphs(runId?: string, limit = 1000): WorkGraphSnapshot[] {
+    const rows = runId
+      ? this.db.prepare(`
+          SELECT snapshot_json
+          FROM work_graph_snapshots
+          WHERE run_id = ?
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(runId, limit)
+      : this.db.prepare(`
+          SELECT snapshot_json
+          FROM work_graph_snapshots
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.snapshot_json)) as WorkGraphSnapshot,
+    );
+  }
+
+  upsertDurableJob(job: DurableJob): void {
+    this.db.prepare(`
+      INSERT INTO durable_jobs
+        (id, kind, status, created_at, updated_at, job_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        kind = excluded.kind,
+        status = excluded.status,
+        updated_at = excluded.updated_at,
+        job_json = excluded.job_json
+    `).run(
+      job.id,
+      job.kind,
+      job.status,
+      job.createdAt,
+      job.updatedAt,
+      JSON.stringify(job),
+    );
+  }
+
+  getDurableJob(id: string): DurableJob | null {
+    const row = this.db.prepare(`
+      SELECT job_json
+      FROM durable_jobs
+      WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+
+    if (!row) return null;
+    return JSON.parse(String(row.job_json)) as DurableJob;
+  }
+
+  listDurableJobs(status?: JobStatus, limit = 1000): DurableJob[] {
+    const rows = status
+      ? this.db.prepare(`
+          SELECT job_json
+          FROM durable_jobs
+          WHERE status = ?
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(status, limit)
+      : this.db.prepare(`
+          SELECT job_json
+          FROM durable_jobs
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.job_json)) as DurableJob,
+    );
+  }
+
+  upsertCitationLedger(snapshot: CitationLedgerSnapshot<CitationLedger>): void {
+    this.db.prepare(`
+      INSERT INTO citation_ledgers
+        (id, run_id, updated_at, snapshot_json)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        run_id = excluded.run_id,
+        updated_at = excluded.updated_at,
+        snapshot_json = excluded.snapshot_json
+    `).run(
+      snapshot.id,
+      snapshot.runId ?? null,
+      snapshot.updatedAt,
+      JSON.stringify(snapshot),
+    );
+  }
+
+  getCitationLedger(id: string): CitationLedgerSnapshot<CitationLedger> | null {
+    const row = this.db.prepare(`
+      SELECT snapshot_json
+      FROM citation_ledgers
+      WHERE id = ?
+    `).get(id) as Record<string, unknown> | undefined;
+
+    if (!row) return null;
+    return JSON.parse(String(row.snapshot_json)) as CitationLedgerSnapshot<CitationLedger>;
+  }
+
+  listCitationLedgers(
+    runId?: string,
+    limit = 1000,
+  ): Array<CitationLedgerSnapshot<CitationLedger>> {
+    const rows = runId
+      ? this.db.prepare(`
+          SELECT snapshot_json
+          FROM citation_ledgers
+          WHERE run_id = ?
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(runId, limit)
+      : this.db.prepare(`
+          SELECT snapshot_json
+          FROM citation_ledgers
+          ORDER BY updated_at ASC, id ASC
+          LIMIT ?
+        `).all(limit);
+
+    return (rows as Record<string, unknown>[]).map(
+      (row) => JSON.parse(String(row.snapshot_json)) as CitationLedgerSnapshot<CitationLedger>,
+    );
+  }
+
+  appendImprovementIndex(index: ImprovementIndex, scopeId = 'global'): void {
+    const entry: ImprovementIndexHistoryEntry<ImprovementIndex> = {
+      schemaVersion: KERNEL_PERSISTENCE_SCHEMA_VERSION,
+      scopeId,
+      generatedAt: index.generatedAt,
+      index,
+    };
+    this.db.prepare(`
+      INSERT OR IGNORE INTO improvement_index_history
+        (scope_id, generated_at, index_json)
+      VALUES (?, ?, ?)
+    `).run(scopeId, index.generatedAt, JSON.stringify(entry));
+  }
+
+  listImprovementIndexHistory(
+    scopeId = 'global',
+    limit = 500,
+  ): Array<ImprovementIndexHistoryEntry<ImprovementIndex>> {
+    const rows = this.db.prepare(`
+      SELECT index_json
+      FROM improvement_index_history
+      WHERE scope_id = ?
+      ORDER BY generated_at ASC
+      LIMIT ?
+    `).all(scopeId, limit) as Record<string, unknown>[];
+
+    return rows.map(
+      (row) => JSON.parse(String(row.index_json)) as ImprovementIndexHistoryEntry<ImprovementIndex>,
+    );
+  }
+
+  getLatestImprovementIndex(scopeId = 'global'): ImprovementIndex | null {
+    const row = this.db.prepare(`
+      SELECT index_json
+      FROM improvement_index_history
+      WHERE scope_id = ?
+      ORDER BY generated_at DESC
+      LIMIT 1
+    `).get(scopeId) as Record<string, unknown> | undefined;
+
+    if (!row) return null;
+    const entry = JSON.parse(String(row.index_json)) as ImprovementIndexHistoryEntry<ImprovementIndex>;
+    return entry.index;
+  }
+
   upsertRun(snapshot: RunSnapshot): void {
     this.db.prepare(`
       INSERT INTO runs
@@ -629,6 +838,49 @@ export class SqliteStore {
       CREATE INDEX IF NOT EXISTS idx_improvement_proposals_status
       ON improvement_proposals(status, created_at);
 
+
+      CREATE TABLE IF NOT EXISTS work_graph_snapshots (
+        id TEXT PRIMARY KEY,
+        run_id TEXT,
+        goal TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_graph_snapshots_run
+      ON work_graph_snapshots(run_id, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS durable_jobs (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        job_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_durable_jobs_status
+      ON durable_jobs(status, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS citation_ledgers (
+        id TEXT PRIMARY KEY,
+        run_id TEXT,
+        updated_at TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_citation_ledgers_run
+      ON citation_ledgers(run_id, updated_at, id);
+
+      CREATE TABLE IF NOT EXISTS improvement_index_history (
+        scope_id TEXT NOT NULL,
+        generated_at TEXT NOT NULL,
+        index_json TEXT NOT NULL,
+        PRIMARY KEY(scope_id, generated_at)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_improvement_index_history_scope_time
+      ON improvement_index_history(scope_id, generated_at);
     `);
   }
 }
