@@ -16,6 +16,7 @@ import type { AuthorityPrincipal } from '../../packages/core/src/authority.js';
 import {
   assertAssignmentAccess,
   buildCoordinationBrief,
+  canAccessCoordinationScope,
   createCoordinationHandoff,
   validateCoordinationAssignment,
   validateCoordinationGrant,
@@ -202,9 +203,39 @@ function coordinationBriefFor(principal: AuthorityPrincipal) {
   });
 }
 
-function projectContextFor(projectId: string) {
+function canAccessProject(
+  principal: AuthorityPrincipal,
+  project: NonNullable<ReturnType<SqliteStore['getProjectWorkspace']>>,
+  permission: 'read_context' | 'write_work' = 'read_context',
+): boolean {
+  if (principal.role === 'founder_director') return true;
+  if (project.createdBy === principal.id) return true;
+  const scopeId = project.coordinationScopeId;
+  if (!scopeId) return false;
+  const scope = store.listCoordinationScopes().find((item) => item.id === scopeId);
+  if (!scope) return false;
+  return canAccessCoordinationScope({
+    principal,
+    scope,
+    grants: store.listCoordinationGrants(),
+    permission,
+  });
+}
+
+function requireProjectAccess(
+  principal: AuthorityPrincipal,
+  project: NonNullable<ReturnType<SqliteStore['getProjectWorkspace']>>,
+  permission: 'read_context' | 'write_work' = 'read_context',
+): void {
+  if (!canAccessProject(principal, project, permission)) {
+    throw new HttpRequestError(403, 'project access denied');
+  }
+}
+
+function projectContextFor(projectId: string, principal: AuthorityPrincipal) {
   const project = store.getProjectWorkspace(projectId);
   if (!project) throw new HttpRequestError(404, 'project not found');
+  requireProjectAccess(principal, project, 'read_context');
   const continuity = continuitySnapshot(projectId);
   return {
     project,
@@ -2164,10 +2195,12 @@ const server = createServer(async (request, response) => {
 
   if (request.method === 'GET' && url.pathname === '/api/projects') {
     try {
-      if (authorityAuth.status().founderConfigured) requireAuthoritySession(request);
+      const { principal } = requireAuthoritySession(request);
       json(response, 200, {
         ok: true,
-        projects: store.listProjectWorkspaces(),
+        projects: store.listProjectWorkspaces().filter(
+          (project) => canAccessProject(principal, project, 'read_context'),
+        ),
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
@@ -2184,6 +2217,22 @@ const server = createServer(async (request, response) => {
       const body = await readJson(request);
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       if (!name) throw new HttpRequestError(400, 'name is required');
+      const coordinationScopeId = typeof body.coordinationScopeId === 'string'
+        && body.coordinationScopeId.trim()
+        ? body.coordinationScopeId.trim()
+        : undefined;
+      if (coordinationScopeId) {
+        const scope = store.listCoordinationScopes().find((item) => item.id === coordinationScopeId);
+        if (!scope) throw new HttpRequestError(404, 'coordination scope not found');
+        if (principal.role !== 'founder_director' && !canAccessCoordinationScope({
+          principal,
+          scope,
+          grants: store.listCoordinationGrants(),
+          permission: 'write_work',
+        })) {
+          throw new HttpRequestError(403, 'coordination scope write access denied');
+        }
+      }
       const now = new Date().toISOString();
       const project = validateProjectWorkspace({
         id: typeof body.id === 'string' && body.id.trim()
@@ -2194,6 +2243,7 @@ const server = createServer(async (request, response) => {
         createdAt: now,
         updatedAt: now,
         createdBy: principal.id,
+        ...(coordinationScopeId ? { coordinationScopeId } : {}),
         description: typeof body.description === 'string' ? body.description : undefined,
       });
       if (store.getProjectWorkspace(project.id)) {
@@ -2214,8 +2264,8 @@ const server = createServer(async (request, response) => {
   const projectContextId = projectContextMatch?.[1];
   if (request.method === 'GET' && projectContextId) {
     try {
-      if (authorityAuth.status().founderConfigured) requireAuthoritySession(request);
-      const context = projectContextFor(decodeURIComponent(projectContextId));
+      const { principal } = requireAuthoritySession(request);
+      const context = projectContextFor(decodeURIComponent(projectContextId), principal);
       json(response, 200, {
         ok: true,
         project: context.project,
@@ -2246,6 +2296,7 @@ const server = createServer(async (request, response) => {
       const projectId = decodeURIComponent(projectThreadsId);
       const project = store.getProjectWorkspace(projectId);
       if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
       const body = await readJson(request);
       const title = typeof body.title === 'string' && body.title.trim()
         ? body.title.trim()
@@ -2297,9 +2348,9 @@ const server = createServer(async (request, response) => {
     try {
       const { principal } = requireAuthoritySession(request);
       const projectId = decodeURIComponent(projectResourcesId);
-      if (!store.getProjectWorkspace(projectId)) {
-        throw new HttpRequestError(404, 'project not found');
-      }
+      const project = store.getProjectWorkspace(projectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
       const body = await readJson(request);
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       const sourceRef = typeof body.sourceRef === 'string' ? body.sourceRef.trim() : '';
@@ -2364,7 +2415,8 @@ const server = createServer(async (request, response) => {
         if (!projectId || !threadId) {
           throw new HttpRequestError(400, 'projectId and threadId must be provided together');
         }
-        if (!authorityContext?.principal && authorityAuth.status().founderConfigured) {
+        const principal = authorityContext?.principal;
+        if (!principal) {
           throw new HttpRequestError(401, 'authenticated principal is required for project commands');
         }
         const project = store.getProjectWorkspace(projectId);
@@ -2372,6 +2424,7 @@ const server = createServer(async (request, response) => {
         if (!project || !thread || thread.projectId !== project.id) {
           throw new HttpRequestError(404, 'project/thread not found');
         }
+        requireProjectAccess(principal, project, 'write_work');
         projectLink = { projectId, threadId };
       }
       const sessionId = projectLink
