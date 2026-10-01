@@ -7,6 +7,7 @@ import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-co
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
 import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
+import { StripeLedgerAdapter } from '../../packages/adapters/src/stripe-ledger-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
@@ -150,6 +151,9 @@ const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
+const stripeMode = process.env.JANUS_STRIPE_MODE === 'live' ? 'live' : 'test';
+const stripeLiveEnabled = process.env.JANUS_STRIPE_LIVE_ENABLED === 'true';
+const stripeCredentialService = stripeMode === 'live' ? 'stripe-live' : 'stripe-test';
 
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
@@ -157,6 +161,8 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     'google-workspace': 'GOOGLE_ACCESS_TOKEN',
     meta: 'META_ACCESS_TOKEN',
     youtube: 'YOUTUBE_ACCESS_TOKEN',
+    'stripe-test': 'STRIPE_SECRET_KEY_TEST',
+    'stripe-live': 'STRIPE_SECRET_KEY_LIVE',
     model: 'JANUS_MODEL_API_KEY',
   },
 });
@@ -222,11 +228,22 @@ if (metaGraphApiVersion) {
 toolGateway.register(new YouTubeInsightsAdapter({
   tokenProvider: () => credentialBroker.accessToken('youtube'),
 }));
+if (stripeMode === 'test' || stripeLiveEnabled) {
+  toolGateway.register(new StripeLedgerAdapter({
+    mode: stripeMode,
+    tokenProvider: () => credentialBroker.accessToken(stripeCredentialService),
+  }));
+}
 
 const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
 const metaTokenConfigured = environmentCredentials.configured('meta');
 const youtubeConfigured = environmentCredentials.configured('youtube');
+const stripeTestConfigured = environmentCredentials.configured('stripe-test');
+const stripeLiveConfigured = environmentCredentials.configured('stripe-live');
+const stripeConfigured = stripeMode === 'live'
+  ? stripeLiveEnabled && stripeLiveConfigured
+  : stripeTestConfigured;
 capabilities.register({
   tool: 'github',
   actions: ['repo.get', 'contents.list', 'branch.get', 'file.read'],
@@ -268,6 +285,20 @@ capabilities.register({
     ? { reason: 'YouTube necesita autorización OAuth antes de consultar estadísticas.' }
     : {}),
 });
+capabilities.register({
+  tool: 'stripe-ledger',
+  actions: ['balance.transactions.list'],
+  state: stripeMode === 'live' && !stripeLiveEnabled
+    ? 'unavailable'
+    : stripeConfigured
+      ? 'available'
+      : 'needs_auth',
+  ...(stripeMode === 'live' && !stripeLiveEnabled
+    ? { reason: 'Stripe LIVE is fail-closed until JANUS_STRIPE_LIVE_ENABLED=true.' }
+    : !stripeConfigured
+      ? { reason: `Stripe ${stripeMode} credentials are required before ledger synchronization.` }
+      : {}),
+});
 
 function ensureLandingAssistantControlPlane(): void {
   const seedProfile = defaultLandingAssistantProfile();
@@ -294,6 +325,28 @@ function ensureLandingAssistantControlPlane(): void {
   for (const surface of defaultLandingAssistantSurfaces()) {
     if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
   }
+}
+
+function ensureKnownOperationsProducts(): void {
+  if (store.getProductOperationalRecord('tribuna-virtual')) return;
+  store.upsertProductOperationalRecord(createProductOperationalRecord({
+    id: 'tribuna-virtual',
+    name: 'La Tribuna Virtual',
+    status: 'active',
+    sources: [
+      {
+        kind: 'repository',
+        ref: 'github:jeanechandia-png/la_tribuna_virtual',
+        purpose: 'canonical application source and payment attribution contract',
+      },
+      {
+        kind: 'accounting',
+        ref: `stripe:${stripeMode}`,
+        purpose: 'read-only Stripe balance evidence synchronized into the local Janus ledger',
+      },
+    ],
+    tags: ['la_tribuna_virtual', 'tribuna-virtual'],
+  }));
 }
 
 function productOperationsSnapshot(productId: string) {
@@ -329,6 +382,7 @@ function assistantControlSnapshot() {
 }
 
 ensureLandingAssistantControlPlane();
+ensureKnownOperationsProducts();
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
@@ -3013,6 +3067,147 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         snapshot: productOperationsSnapshot(decodeURIComponent(productOperationsId)),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const stripeOperationsSyncMatch = url.pathname.match(
+    /^\/api\/operations\/products\/([^/]+)\/sync\/stripe$/,
+  );
+  const stripeOperationsSyncId = stripeOperationsSyncMatch?.[1];
+  if (request.method === 'POST' && stripeOperationsSyncId) {
+    try {
+      const { principal } = requireFounderBiometricAuthority(request, 'finance.sync.stripe');
+      const productId = decodeURIComponent(stripeOperationsSyncId);
+      const product = store.getProductOperationalRecord(productId);
+      if (!product) throw new HttpRequestError(404, 'product operations record not found');
+
+      const readiness = capabilities.check('stripe-ledger', 'balance.transactions.list');
+      if (!readiness.ok) {
+        throw new HttpRequestError(
+          409,
+          readiness.reason ?? 'Stripe ledger synchronization is unavailable',
+        );
+      }
+
+      const body = await readJson(request);
+      const requestedPages = typeof body.maxPages === 'number' ? Math.trunc(body.maxPages) : 5;
+      const maxPages = Math.min(20, Math.max(1, requestedPages));
+      const existingIds = new Set(
+        store.listProductLedgerEntries(productId).map((entry) => entry.id),
+      );
+
+      let cursor = typeof body.startingAfter === 'string' && body.startingAfter.trim()
+        ? body.startingAfter.trim()
+        : undefined;
+      let hasMore = true;
+      let pages = 0;
+      let scannedTransactions = 0;
+      let matchedTransactions = 0;
+      let importedEntries = 0;
+      let duplicateEntries = 0;
+      let lastVerifiedAt: string | undefined;
+
+      while (hasMore && pages < maxPages) {
+        const result = await toolGateway.execute({
+          tool: 'stripe-ledger',
+          action: 'balance.transactions.list',
+          input: {
+            productId,
+            metadataAliases: product.tags ?? [],
+            limit: 100,
+            since: body.since,
+            until: body.until,
+            ...(cursor ? { startingAfter: cursor } : {}),
+          },
+        }, async () => {});
+
+        if (!result.ok) {
+          throw new HttpRequestError(409, result.error ?? 'Stripe ledger synchronization failed');
+        }
+
+        scannedTransactions += typeof result.output?.scannedTransactions === 'number'
+          ? result.output.scannedTransactions
+          : 0;
+        matchedTransactions += typeof result.output?.matchedTransactions === 'number'
+          ? result.output.matchedTransactions
+          : 0;
+        if (typeof result.output?.verifiedAt === 'string') {
+          lastVerifiedAt = result.output.verifiedAt;
+        }
+
+        const rawEntries = Array.isArray(result.output?.entries) ? result.output.entries : [];
+        for (const rawEntry of rawEntries) {
+          if (!rawEntry || typeof rawEntry !== 'object' || Array.isArray(rawEntry)) continue;
+          const entry = createProductLedgerEntry(rawEntry as unknown as ProductLedgerEntry);
+          if (entry.productId !== productId) {
+            throw new HttpRequestError(409, 'Stripe ledger entry product scope mismatch');
+          }
+          if (existingIds.has(entry.id)) {
+            duplicateEntries += 1;
+            continue;
+          }
+          store.appendProductLedgerEntry(entry);
+          existingIds.add(entry.id);
+          importedEntries += 1;
+        }
+
+        pages += 1;
+        hasMore = result.output?.hasMore === true;
+        cursor = typeof result.output?.nextCursor === 'string' && result.output.nextCursor
+          ? result.output.nextCursor
+          : undefined;
+        if (hasMore && !cursor) {
+          throw new HttpRequestError(409, 'Stripe pagination cursor is missing');
+        }
+      }
+
+      appendGovernanceDecision({
+        subject: 'finance-sync:' + productId,
+        content:
+          'Read-only Stripe ledger evidence synchronized into the local product ledger; '
+          + importedEntries
+          + ' new entries imported and '
+          + duplicateEntries
+          + ' duplicates skipped.',
+        principalId: principal.id,
+        metadata: {
+          provider: 'stripe',
+          mode: stripeMode,
+          productId,
+          pages,
+          scannedTransactions,
+          matchedTransactions,
+          importedEntries,
+          duplicateEntries,
+          hasMore,
+          nextCursor: cursor ?? null,
+          verifiedAt: lastVerifiedAt ?? null,
+        },
+      });
+
+      json(response, 200, {
+        ok: true,
+        sync: {
+          provider: 'stripe',
+          mode: stripeMode,
+          productId,
+          pages,
+          scannedTransactions,
+          matchedTransactions,
+          importedEntries,
+          duplicateEntries,
+          truncated: hasMore,
+          nextCursor: hasMore ? cursor ?? null : null,
+          verifiedAt: lastVerifiedAt ?? null,
+        },
+        snapshot: productOperationsSnapshot(productId),
       });
     } catch (error) {
       const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
