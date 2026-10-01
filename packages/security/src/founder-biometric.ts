@@ -184,10 +184,29 @@ export class FounderBiometricService {
       );
     }
 
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    const existing = this.store.get(keyId);
+    if (existing) {
+      const sameActiveRegistration = (
+        existing.active
+        && !existing.revokedAt
+        && existing.principalId === principalId
+        && existing.publicKeyPem === publicKeyPem
+        && existing.method === 'platform-face'
+        && existing.biometry === biometry
+        && existing.binding === binding
+      );
+      if (sameActiveRegistration) return existing;
+      throw new FounderBiometricError(
+        'invalid_key',
+        'Founder biometric key IDs are append-only; use a new keyId for rotation.',
+      );
+    }
+
     const registration: BiometricKeyRegistration = {
       keyId,
       principalId,
-      publicKeyPem: normalizeP256PublicKey(input.publicKeyPem),
+      publicKeyPem,
       method: 'platform-face',
       biometry,
       binding,
@@ -240,16 +259,12 @@ export class FounderBiometricService {
     const keyId = safeId(input.keyId, 'keyId');
     const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
     const existing = this.store.get(keyId);
-    if (existing?.active && !existing.revokedAt) {
-      if (existing.publicKeyPem === publicKeyPem) {
-        throw new FounderBiometricError(
-          'invalid_key',
-          'Founder face key is already registered and active.',
-        );
-      }
+    if (existing) {
       throw new FounderBiometricError(
         'invalid_key',
-        'Active Founder face key ID is already bound to a different public key.',
+        existing.active && !existing.revokedAt
+          ? 'Founder face key is already registered and active.'
+          : 'Founder biometric key IDs are append-only; use a new keyId for rotation.',
       );
     }
 
@@ -314,10 +329,12 @@ export class FounderBiometricService {
     }
 
     const existing = this.store.get(keyId);
-    if (existing?.active && !existing.revokedAt) {
+    if (existing) {
       throw new FounderBiometricError(
         'invalid_key',
-        'Founder face key is already registered and active.',
+        existing.active && !existing.revokedAt
+          ? 'Founder face key is already registered and active.'
+          : 'Founder biometric key IDs are append-only; use a new keyId for rotation.',
       );
     }
 
