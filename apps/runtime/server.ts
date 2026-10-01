@@ -162,6 +162,7 @@ const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
+const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 'true';
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
@@ -2162,6 +2163,7 @@ const server = createServer(async (request, response) => {
         privateKeyStorage: 'platform-secure-hardware-required',
         publicKeyStorage: 'sqlite-public-metadata-only',
         nativeSigner: 'ios-secure-enclave-bridge-required',
+        bootstrapEnrollmentAllowed: allowBiometricBootstrap,
         ...founderBiometric.status(),
       },
     });
@@ -2226,11 +2228,17 @@ const server = createServer(async (request, response) => {
       if (!keyId || !publicKeyPem.trim()) {
         throw new HttpRequestError(400, 'keyId and publicKeyPem are required');
       }
+      const status = founderBiometric.status();
+      if (status.activeFaceKeys === 0 && !allowBiometricBootstrap) {
+        throw new HttpRequestError(
+          409,
+          'Initial Founder Face ID enrollment is disabled; temporarily set JANUS_ALLOW_BIOMETRIC_BOOTSTRAP=true or provision a public key out of band',
+        );
+      }
       const challenge = founderBiometric.issueEnrollmentChallenge({
         keyId,
         publicKeyPem,
       });
-      const status = founderBiometric.status();
       json(response, 200, {
         ok: true,
         challenge,
@@ -2248,6 +2256,12 @@ const server = createServer(async (request, response) => {
   if (request.method === 'POST' && url.pathname === '/api/auth/biometric/enroll') {
     try {
       const activeBefore = founderBiometric.status().activeFaceKeys;
+      if (activeBefore === 0 && !allowBiometricBootstrap) {
+        throw new HttpRequestError(
+          409,
+          'Initial Founder Face ID enrollment is disabled',
+        );
+      }
       const session = activeBefore > 0
         ? requireFounderBiometricAuthority(request, 'security.biometric.enroll')
         : requireFounderAuthority(request);
