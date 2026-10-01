@@ -79,3 +79,32 @@ test('Founder policy records may preserve biometric-storage consent without biom
   assert.equal(serialized.includes('face image'), false);
   assert.equal(serialized.includes('template bytes'), false);
 });
+
+
+test('Founder reference chronology IDs change with content even when updatedAt is unchanged', () => {
+  const seed = {
+    id: 'facebook-example',
+    subject: 'founder-reference:social:facebook:example',
+    kind: 'reference' as const,
+    classification: 'current' as const,
+    label: 'Facebook example',
+    value: 'https://www.facebook.com/share/example-a/',
+    retention: 'preserve' as const,
+    tags: ['social', 'facebook'],
+  };
+  const at = '2026-10-01T00:00:00.000Z';
+  const first = founderReferenceChronologyRecord({
+    seed,
+    ownerPrincipalId: 'founder',
+    at,
+  });
+  const changed = founderReferenceChronologyRecord({
+    seed: { ...seed, value: 'https://www.facebook.com/share/example-b/' },
+    ownerPrincipalId: 'founder',
+    at,
+    previous: first,
+  });
+
+  assert.notEqual(changed.id, first.id);
+  assert.equal(changed.supersedesId, first.id);
+});

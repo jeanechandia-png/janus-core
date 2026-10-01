@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { ChronologyRecord, KnowledgeStatus } from './continuity.js';
 
 export type FounderReferenceKind = 'reference' | 'policy';
@@ -60,7 +61,7 @@ export function founderReferenceChronologyRecord(input: {
   const at = validIso(input.at, 'at');
 
   return {
-    id: `founder-reference:${seed.id}:${timestampId(at)}`,
+    id: `founder-reference:${seed.id}:${timestampId(at)}:${seedContentId(seed)}`,
     sessionId: 'founder-reference-library',
     at,
     kind: 'instruction',
@@ -180,6 +181,22 @@ function validIso(value: unknown, label: string): string {
 
 function timestampId(value: string): string {
   return value.replace(/[^0-9]/g, '').slice(0, 17);
+}
+
+function seedContentId(seed: FounderReferenceSeed): string {
+  return createHash('sha256')
+    .update(JSON.stringify({
+      id: seed.id,
+      subject: seed.subject,
+      kind: seed.kind,
+      classification: seed.classification,
+      label: seed.label,
+      value: seed.value,
+      retention: seed.retention,
+      tags: seed.tags ?? [],
+    }))
+    .digest('hex')
+    .slice(0, 12);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
