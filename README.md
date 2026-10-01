@@ -151,7 +151,8 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Verified Assistant Config Publisher: deterministic bundles, explicit branch revalidation, idempotent GitHub writes, commit read-back checksum verification and durable delivery states.
 - Repository publication and live application are separate: `published_verified` does not become `applied` without a matching product acknowledgement.
 - Founder biometric authority layer: sensitive founder-only scopes fail closed unless a fresh, action-scoped, one-time `platform-face` proof has been verified; administrators/operators cannot substitute for Founder identity.
-- Janus never receives or stores raw face images/templates; the runtime accepts only a public-key assertion whose private key is expected to remain behind platform biometric/Secure Enclave policy.
+- Preferred Face ID operation still uses only a public-key assertion whose private key remains behind platform biometric/Secure Enclave policy. Founder authorization for future local biometric storage is recorded, but no raw face image/template is currently stored by Janus.
+- Persistent Founder Reference Library: versioned personal/business reference URLs and Founder policy records load into local continuity as VIGENTE instructions, use preserve retention, and supersede prior revisions into HISTÓRICO instead of silently deleting them.
 - Authority delegation/revocation and root security actions are explicitly face-gated in addition to existing authenticated-session and confirmation controls.
 - Shared assistant profile is 24/7-support-ready: grounded product answers, product-scope routing, unresolved-question capture and human handoff are inherited by all tracked landing surfaces.
 - Local Business Operations Hub: product registry, append-only ledger entries, product health, social-channel snapshots and monetization-requirement evidence persist in SQLite and aggregate without mixing currencies.
@@ -162,6 +163,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 ### AHORA
 
 - Connect the iPhone/native security adapter that creates and uses the Founder P-256 private key under Face ID + current-biometry policy; Core enforcement and challenge/proof verification are implemented, but the physical Face ID signer is still a deployment dependency.
+- Resolve Facebook share links in the Founder Reference Library to canonical page/profile identifiers when authoritative resolution is available; preserve the original URLs as historical/source evidence.
 - Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
 - Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
 - Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
@@ -182,6 +184,7 @@ See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-l
 ### PENDIENTE
 
 - Native Face ID/Secure Enclave enrollment and key-rotation/recovery UX on the actual Founder device.
+- If platform Face ID is insufficient for a future Janus-specific matcher, implement the Founder-authorized encrypted local derived-template vault; do not treat biometric storage as live until encryption, revocation and recovery are verified.
 - Product-specific ingestion adapters for billing, runtime health, app usage and accounting sources after their authoritative endpoints/databases are identified.
 - Campaign orchestration above the read-only social analytics layer: publish/ads mutations must remain separately permissioned, idempotent and approval-gated.
 - Physical-host latency benchmark and hardware profile.

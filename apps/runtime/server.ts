@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream, existsSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,11 @@ import {
 } from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
+import {
+  founderReferenceChronologyRecord,
+  founderReferenceNeedsUpdate,
+  parseFounderReferenceLibrary,
+} from '../../packages/core/src/founder-reference-library.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
 import {
   evaluateAuthority,
@@ -141,6 +146,9 @@ import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.
 
 const port = Number(process.env.PORT ?? 8787);
 const root = fileURLToPath(new URL('../pwa/', import.meta.url));
+const founderReferenceLibraryPath = fileURLToPath(
+  new URL('../../config/founder-reference-library.json', import.meta.url),
+);
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
@@ -328,6 +336,7 @@ function assistantControlSnapshot() {
   };
 }
 
+ensureFounderReferenceLibrary();
 ensureLandingAssistantControlPlane();
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
@@ -362,6 +371,46 @@ function continuitySnapshot(projectId?: string) {
     projectId ? projectRecords(records, projectId) : records,
     new ErrorLedger(store.listErrorLessons()),
   );
+}
+
+function ensureFounderReferenceLibrary(): void {
+  if (!existsSync(founderReferenceLibraryPath)) return;
+  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
+  const library = parseFounderReferenceLibrary(raw);
+  const current = continuitySnapshot().currentBySubject;
+
+  for (const seed of library.records) {
+    const previous = current[seed.subject];
+    if (!founderReferenceNeedsUpdate(seed, previous)) continue;
+    const record = founderReferenceChronologyRecord({
+      seed,
+      ownerPrincipalId: library.ownerPrincipalId,
+      at: library.updatedAt,
+      ...(previous ? { previous } : {}),
+    });
+    store.appendChronologyRecord(record);
+    current[seed.subject] = record;
+  }
+}
+
+function founderReferenceSnapshot() {
+  const current = continuitySnapshot().currentBySubject;
+  return Object.values(current)
+    .filter((record) => (
+      record.subject.startsWith('founder-reference:')
+      || record.subject.startsWith('founder-policy:')
+    ))
+    .map((record) => ({
+      id: record.metadata?.referenceId ?? record.id,
+      subject: record.subject,
+      classification: record.status,
+      label: record.metadata?.label ?? record.subject,
+      kind: record.metadata?.referenceKind ?? 'reference',
+      value: record.metadata?.value ?? null,
+      retention: record.metadata?.retention ?? null,
+      tags: record.metadata?.tags ?? [],
+      updatedAt: record.at,
+    }));
 }
 
 function coordinationBriefFor(principal: AuthorityPrincipal) {
@@ -2982,6 +3031,24 @@ const server = createServer(async (request, response) => {
       json(response, 200, { ok: true, delivery: applied });
     } catch (error) {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/founder/reference-library') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.references.read');
+      json(response, 200, {
+        ok: true,
+        references: founderReferenceSnapshot(),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
         ? authErrorStatus(error)
         : 409;
       json(response, status, authErrorBody(error));
