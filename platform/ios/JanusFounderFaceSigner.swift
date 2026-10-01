@@ -83,7 +83,6 @@ public final class JanusFounderFaceSigner {
                 kSecAttrIsPermanent as String: true,
                 kSecAttrApplicationTag as String: applicationTagData(keyId),
                 kSecAttrAccessControl as String: accessControl,
-                kSecUseAuthenticationContext as String: context,
             ],
         ]
 
@@ -170,6 +169,15 @@ public final class JanusFounderFaceSigner {
         for privateKey: SecKey,
         keyId: String
     ) throws -> JanusFounderFaceKeyDescriptor {
+        guard let attributes = SecKeyCopyAttributes(privateKey) as? [String: Any],
+              (attributes[kSecAttrTokenID as String] as? String)
+                == (kSecAttrTokenIDSecureEnclave as String),
+              (attributes[kSecAttrKeySizeInBits as String] as? Int) == 256 else {
+            throw JanusFounderFaceSignerError.secureEnclaveUnavailable(
+                "Loaded key is not a 256-bit Secure Enclave key."
+            )
+        }
+
         guard let publicKey = SecKeyCopyPublicKey(privateKey) else {
             throw JanusFounderFaceSignerError.invalidPublicKey
         }
