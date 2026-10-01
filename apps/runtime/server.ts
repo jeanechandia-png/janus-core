@@ -32,6 +32,11 @@ import {
   parseFounderReferenceLibrary,
 } from '../../packages/core/src/founder-reference-library.js';
 import { buildFounderSocialSourceRegistry } from '../../packages/core/src/founder-social-sources.js';
+import {
+  founderSocialIdentityBindingChronologyRecord,
+  founderSocialIdentityBindingFromChronology,
+  validateFounderSocialIdentityBinding,
+} from '../../packages/core/src/founder-social-identity-binding.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
 import {
   evaluateAuthority,
@@ -421,8 +426,27 @@ function founderSocialSourceSnapshot() {
   const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
   const library = parseFounderReferenceLibrary(raw);
   const registry = buildFounderSocialSourceRegistry(library);
+  const current = continuitySnapshot().currentBySubject;
+  const bindings = Object.values(current).flatMap((record) => {
+    const binding = founderSocialIdentityBindingFromChronology(record);
+    return binding ? [binding] : [];
+  });
+  const bindingByReferenceId = new Map(
+    bindings.map((binding) => [binding.referenceId, binding] as const),
+  );
+  const sources = registry.sources.map((source) => {
+    const currentBinding = bindingByReferenceId.get(source.referenceId) ?? null;
+    return {
+      ...source,
+      currentBinding,
+      effectiveBindingState: currentBinding?.state ?? source.bindingState,
+    };
+  });
+
   return {
     ...registry,
+    sources,
+    bindings,
     metaRuntime: {
       mode: 'read_only' as const,
       graphApiVersion: metaGraphApiVersion ?? null,
@@ -434,8 +458,12 @@ function founderSocialSourceSnapshot() {
           ? 'credential_configured_unverified'
           : 'needs_auth',
       automaticExternalCalls: false,
-      graphEntityBindingRequired: registry.sources.some(
-        (source) => source.graphEntityId === null,
+      canonicalResolutionRequired: sources.some(
+        (source) => source.platform === 'facebook'
+          && !source.currentBinding?.canonicalTargetUrl,
+      ),
+      graphEntityBindingRequired: sources.some(
+        (source) => !source.currentBinding?.graphEntityId,
       ),
     },
   };
@@ -3097,6 +3125,69 @@ const server = createServer(async (request, response) => {
         || error instanceof FounderBiometricError
         ? authErrorStatus(error)
         : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  const founderSocialBindMatch = url.pathname.match(
+    /^\/api\/founder\/social-sources\/([^/]+)\/bind$/,
+  );
+  const founderSocialBindReferenceId = founderSocialBindMatch?.[1];
+  if (request.method === 'POST' && founderSocialBindReferenceId) {
+    try {
+      const { principal } = requireFounderBiometricAuthority(
+        request,
+        'founder.private.social_sources.bind',
+      );
+      const body = await readJson(request);
+      if (body.confirmAction !== 'bind_founder_social_identity') {
+        throw new HttpRequestError(
+          409,
+          'confirmAction="bind_founder_social_identity" is required',
+        );
+      }
+
+      const referenceId = decodeURIComponent(founderSocialBindReferenceId);
+      const snapshot = founderSocialSourceSnapshot();
+      const source = snapshot.sources.find((item) => item.referenceId === referenceId);
+      if (!source) throw new HttpRequestError(404, 'Founder social source not found');
+
+      const binding = validateFounderSocialIdentityBinding({
+        referenceId,
+        platform: source.platform,
+        sourceUrl: source.sourceUrl,
+        canonicalTargetUrl: typeof body.canonicalTargetUrl === 'string'
+          ? body.canonicalTargetUrl
+          : undefined,
+        graphEntityId: typeof body.graphEntityId === 'string'
+          ? body.graphEntityId
+          : undefined,
+        evidenceRefs: Array.isArray(body.evidenceRefs) ? body.evidenceRefs as string[] : [],
+        verifiedAt: new Date().toISOString(),
+        verifiedBy: principal.id,
+      });
+      const previous = continuitySnapshot().currentBySubject[
+        'founder-social-binding:' + referenceId
+      ];
+      const record = founderSocialIdentityBindingChronologyRecord({
+        binding,
+        ...(previous ? { previous } : {}),
+      });
+      store.appendChronologyRecord(record);
+
+      json(response, 201, {
+        ok: true,
+        binding,
+        supersedesId: record.supersedesId ?? null,
+        registry: founderSocialSourceSnapshot(),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 400;
       json(response, status, authErrorBody(error));
     }
     return;
