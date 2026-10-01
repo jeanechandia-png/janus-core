@@ -62,7 +62,7 @@ public final class JanusFounderFaceSigner {
             return try descriptor(for: existing, keyId: keyId)
         }
 
-        let context = try faceIDContext(reason: "Enroll Founder Face ID for Janus")
+        _ = try faceIDContext(reason: "Enroll Founder Face ID for Janus")
         var accessError: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
