@@ -31,6 +31,7 @@ import {
   founderReferenceNeedsUpdate,
   parseFounderReferenceLibrary,
 } from '../../packages/core/src/founder-reference-library.js';
+import { buildFounderSocialSourceRegistry } from '../../packages/core/src/founder-social-sources.js';
 import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
 import {
   evaluateAuthority,
@@ -411,6 +412,33 @@ function founderReferenceSnapshot() {
       tags: record.metadata?.tags ?? [],
       updatedAt: record.at,
     }));
+}
+
+function founderSocialSourceSnapshot() {
+  if (!existsSync(founderReferenceLibraryPath)) {
+    throw new HttpRequestError(503, 'Founder reference library is unavailable');
+  }
+  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
+  const library = parseFounderReferenceLibrary(raw);
+  const registry = buildFounderSocialSourceRegistry(library);
+  return {
+    ...registry,
+    metaRuntime: {
+      mode: 'read_only' as const,
+      graphApiVersion: metaGraphApiVersion ?? null,
+      credentialConfigured: metaTokenConfigured,
+      adapterRegistered: Boolean(metaGraphApiVersion),
+      connectionState: !metaGraphApiVersion
+        ? 'standby'
+        : metaTokenConfigured
+          ? 'credential_configured_unverified'
+          : 'needs_auth',
+      automaticExternalCalls: false,
+      graphEntityBindingRequired: registry.sources.some(
+        (source) => source.graphEntityId === null,
+      ),
+    },
+  };
 }
 
 function coordinationBriefFor(principal: AuthorityPrincipal) {
@@ -3044,6 +3072,24 @@ const server = createServer(async (request, response) => {
       json(response, 200, {
         ok: true,
         references: founderReferenceSnapshot(),
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/founder/social-sources') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.social_sources.read');
+      json(response, 200, {
+        ok: true,
+        registry: founderSocialSourceSnapshot(),
       });
     } catch (error) {
       const status = error instanceof HttpRequestError
