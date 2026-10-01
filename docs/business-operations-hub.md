@@ -34,6 +34,27 @@ Founder-controlled ingestion/configuration:
 
 These endpoints persist supplied verified evidence. They do not invent external values.
 
+## La Tribuna Virtual + Stripe ledger
+
+La Tribuna Virtual is now a seeded Operations Hub product with canonical id `tribuna-virtual`. Its Checkout flow carries both the existing app identity and the Janus product id into Stripe metadata so subsequent balance evidence can be attributed back to the product without hardcoding a revenue value.
+
+Janus exposes a read-only adapter capability:
+
+- `stripe-ledger.balance.transactions.list`
+
+The runtime endpoint `POST /api/operations/products/:id/sync/stripe` reads attributed Stripe balance transactions and converts verified provider evidence into deterministic local ledger ids. Re-running the same window skips existing ids, so synchronization is idempotent from Janus' perspective.
+
+Security and mode rules:
+
+- `JANUS_STRIPE_MODE` defaults to `test`;
+- TEST uses `STRIPE_SECRET_KEY_TEST`;
+- LIVE uses `STRIPE_SECRET_KEY_LIVE`;
+- LIVE additionally requires `JANUS_STRIPE_LIVE_ENABLED=true`;
+- the sync action is `finance.sync.stripe`, which is Founder-only and requires a fresh one-time face proof;
+- Stripe secrets stay in the credential boundary and are never persisted in SQLite or returned in adapter output.
+
+The ledger adapter records provider evidence only. It does not create charges, refunds, payouts, prices or other Stripe mutations.
+
 ## Social analytics adapters
 
 ### Meta
@@ -86,7 +107,8 @@ No monetization threshold is hardcoded into Core. Platform requirements change a
 
 Not yet connected automatically:
 
-- Tribuna Virtual runtime/DB/billing endpoint;
+- the actual Stripe credential/account session for Tribuna Virtual; adapter + product attribution are implemented, but current account values remain unavailable until authentication is configured and revalidated;
+- Tribuna Virtual non-payment runtime/DB telemetry;
 - Infinity School runtime/accounting source;
 - Infinity Connect runtime/accounting source;
 - actual Meta account authorization;
