@@ -156,13 +156,16 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Shared assistant profile is 24/7-support-ready: grounded product answers, product-scope routing, unresolved-question capture and human handoff are inherited by all tracked landing surfaces.
 - Local Business Operations Hub: product registry, append-only ledger entries, product health, social-channel snapshots and monetization-requirement evidence persist in SQLite and aggregate without mixing currencies.
 - Read-only Meta and YouTube analytics adapters are registered behind the Tool Gateway; tokens stay in the credential broker/environment boundary and Meta API version must be explicitly configured/revalidated.
+- La Tribuna Virtual is registered as a known Operations Hub product, with a read-only Stripe balance-transaction adapter that attributes income/refunds/fees by Janus product metadata and imports them idempotently into the local ledger.
+- Stripe financial synchronization is Founder-only and face-gated; TEST is the safe default, while LIVE additionally fails closed unless `JANUS_STRIPE_MODE=live`, `JANUS_STRIPE_LIVE_ENABLED=true` and a live secret is available through the credential boundary.
 - Monetization targets are stored as sourced snapshots rather than hardcoded platform rules, so eligibility changes can be revalidated instead of becoming stale logic.
 - CI gates: strict TypeScript, PWA syntax, Qwen sidecar syntax, tests and runtime smoke.
 
 ### AHORA
 
 - Connect the iPhone/native security adapter that creates and uses the Founder P-256 private key under Face ID + current-biometry policy; Core enforcement and challenge/proof verification are implemented, but the physical Face ID signer is still a deployment dependency.
-- Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
+- Configure and revalidate the actual Stripe credential for La Tribuna Virtual, then run the biometric-gated ledger synchronization; the adapter and attribution contract are implemented, but Janus will not claim current revenue until that credential is connected and queried.
+- Register the actual Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; Janus will not invent endpoints or credentials that are not configured.
 - Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
 - Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
 - Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
