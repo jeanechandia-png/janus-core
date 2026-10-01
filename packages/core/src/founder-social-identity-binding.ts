@@ -107,9 +107,9 @@ export function founderSocialIdentityBindingFromChronology(
   if (!platform) return undefined;
   try {
     return validateFounderSocialIdentityBinding({
-      referenceId: metadata.referenceId,
+      referenceId: typeof metadata.referenceId === 'string' ? metadata.referenceId : '',
       platform,
-      sourceUrl: metadata.sourceUrl,
+      sourceUrl: typeof metadata.sourceUrl === 'string' ? metadata.sourceUrl : '',
       canonicalTargetUrl:
         typeof metadata.canonicalTargetUrl === 'string'
           ? metadata.canonicalTargetUrl
@@ -121,8 +121,8 @@ export function founderSocialIdentityBindingFromChronology(
       evidenceRefs: Array.isArray(metadata.evidenceRefs)
         ? metadata.evidenceRefs.filter((value): value is string => typeof value === 'string')
         : [],
-      verifiedAt: metadata.verifiedAt,
-      verifiedBy: metadata.verifiedBy,
+      verifiedAt: typeof metadata.verifiedAt === 'string' ? metadata.verifiedAt : '',
+      verifiedBy: typeof metadata.verifiedBy === 'string' ? metadata.verifiedBy : '',
     });
   } catch {
     return undefined;
