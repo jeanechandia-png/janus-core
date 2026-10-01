@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "ownerPrincipalId": "founder",
+  "updatedAt": "2026-10-01T00:00:00.000Z",
+  "records": [
+    {
+      "id": "social-facebook-share-19TFEYdcNk",
+      "subject": "founder-reference:social:facebook:19TFEYdcNk",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook reference 1",
+      "value": "https://www.facebook.com/share/19TFEYdcNk/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+    },
+    {
+      "id": "social-instagram-la-tribuna-virtual",
+      "subject": "founder-reference:social:instagram:la-tribuna-virtual",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Instagram — La Tribuna Virtual",
+      "value": "https://www.instagram.com/la_tribuna_virtual?stkn=MWY2OWdiNzRyaWw1Zg%3D%3D&utm_source=qr",
+      "retention": "preserve",
+      "tags": ["social", "instagram", "la-tribuna-virtual", "founder-provided"]
+    },
+    {
+      "id": "social-instagram-jean-echandia",
+      "subject": "founder-reference:social:instagram:jean-echandia",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Instagram — Jean Echandia",
+      "value": "https://www.instagram.com/jean_echandia?stkn=dmI0cXdqbXd0enBn&utm_source=qr",
+      "retention": "preserve",
+      "tags": ["social", "instagram", "jean-echandia", "founder-provided"]
+    },
+    {
+      "id": "social-instagram-infinityseedgroup",
+      "subject": "founder-reference:social:instagram:infinityseedgroup",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Instagram — InfinitySeed Group",
+      "value": "https://www.instagram.com/infinityseedgroup?stkn=MWdqaWszaWo3bWNndw%3D%3D&utm_source=qr",
+      "retention": "preserve",
+      "tags": ["social", "instagram", "infinityseedgroup", "founder-provided"]
+    },
+    {
+      "id": "social-facebook-share-1BtgGrN8Qy",
+      "subject": "founder-reference:social:facebook:1BtgGrN8Qy",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook reference 2",
+      "value": "https://www.facebook.com/share/1BtgGrN8Qy/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+    },
+    {
+      "id": "social-facebook-share-1HeNnaewvU",
+      "subject": "founder-reference:social:facebook:1HeNnaewvU",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook reference 3",
+      "value": "https://www.facebook.com/share/1HeNnaewvU/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+    },
+    {
+      "id": "founder-biometric-storage-consent",
+      "subject": "founder-policy:biometric-storage-consent",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Founder biometric storage authorization",
+      "value": "Founder authorizes Janus to store biometric data locally if it becomes operationally necessary for effective authentication. Prefer platform-protected, non-exportable biometric keys when available. Do not store raw biometric media unless technically necessary; if a Janus-specific face template is required, prefer an encrypted derived template stored locally with revocation and rotation support.",
+      "retention": "preserve",
+      "tags": ["security", "biometric", "consent", "local-first", "founder-provided"]
+    }
+  ]
+}
