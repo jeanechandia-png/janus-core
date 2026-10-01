@@ -44,6 +44,18 @@ import type {
   SocialChannelSnapshot,
 } from './business-operations.js';
 
+export interface StoredBiometricPublicKey {
+  keyId: string;
+  principalId: string;
+  publicKeyPem: string;
+  method: 'platform-face';
+  biometry: 'face' | 'fingerprint' | 'other';
+  binding: 'biometry-current-set' | 'user-verification';
+  createdAt: string;
+  active: boolean;
+  revokedAt?: string;
+}
+
 export class SqliteStore {
   private readonly db: DatabaseSync;
 
@@ -513,6 +525,82 @@ export class SqliteStore {
       SET active = 0, revoked_at = ?
       WHERE principal_id = ? AND active = 1
     `).run(revokedAt, principalId);
+    return Number(result.changes) > 0;
+  }
+
+  upsertBiometricPublicKey(record: StoredBiometricPublicKey): void {
+    this.db.prepare(`
+      INSERT INTO biometric_public_keys
+        (
+          key_id, principal_id, method, biometry, binding, public_key_pem,
+          created_at, active, revoked_at
+        )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(key_id) DO UPDATE SET
+        principal_id = excluded.principal_id,
+        method = excluded.method,
+        biometry = excluded.biometry,
+        binding = excluded.binding,
+        public_key_pem = excluded.public_key_pem,
+        active = excluded.active,
+        revoked_at = excluded.revoked_at
+    `).run(
+      record.keyId,
+      record.principalId,
+      record.method,
+      record.biometry,
+      record.binding,
+      record.publicKeyPem,
+      record.createdAt,
+      record.active ? 1 : 0,
+      record.revokedAt ?? null,
+    );
+  }
+
+  getBiometricPublicKey(keyId: string): StoredBiometricPublicKey | null {
+    const row = this.db.prepare(`
+      SELECT
+        key_id, principal_id, method, biometry, binding, public_key_pem,
+        created_at, active, revoked_at
+      FROM biometric_public_keys
+      WHERE key_id = ?
+    `).get(keyId) as Record<string, unknown> | undefined;
+    return row ? biometricPublicKeyFromRow(row) : null;
+  }
+
+  listBiometricPublicKeys(
+    principalId?: string,
+    activeOnly = false,
+  ): StoredBiometricPublicKey[] {
+    const rows = principalId
+      ? this.db.prepare(`
+          SELECT
+            key_id, principal_id, method, biometry, binding, public_key_pem,
+            created_at, active, revoked_at
+          FROM biometric_public_keys
+          WHERE principal_id = ?
+          ORDER BY created_at ASC, key_id ASC
+        `).all(principalId)
+      : this.db.prepare(`
+          SELECT
+            key_id, principal_id, method, biometry, binding, public_key_pem,
+            created_at, active, revoked_at
+          FROM biometric_public_keys
+          ORDER BY created_at ASC, key_id ASC
+        `).all();
+
+    const records = (rows as Record<string, unknown>[]).map(biometricPublicKeyFromRow);
+    return activeOnly
+      ? records.filter((record) => record.active && !record.revokedAt)
+      : records;
+  }
+
+  revokeBiometricPublicKey(keyId: string, revokedAt: string): boolean {
+    const result = this.db.prepare(`
+      UPDATE biometric_public_keys
+      SET active = 0, revoked_at = ?
+      WHERE key_id = ? AND active = 1 AND revoked_at IS NULL
+    `).run(revokedAt, keyId);
     return Number(result.changes) > 0;
   }
 
@@ -1597,6 +1685,21 @@ export class SqliteStore {
       CREATE INDEX IF NOT EXISTS idx_authority_credentials_active
       ON authority_credentials(active, role, principal_id);
 
+      CREATE TABLE IF NOT EXISTS biometric_public_keys (
+        key_id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        method TEXT NOT NULL,
+        biometry TEXT NOT NULL,
+        binding TEXT NOT NULL,
+        public_key_pem TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        active INTEGER NOT NULL,
+        revoked_at TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_biometric_public_keys_principal_active
+      ON biometric_public_keys(principal_id, active, biometry, key_id);
+
       CREATE TABLE IF NOT EXISTS coordination_operators (
         principal_id TEXT PRIMARY KEY,
         status TEXT NOT NULL,
@@ -1844,6 +1947,22 @@ export class SqliteStore {
       ON improvement_index_history(scope_id, generated_at);
     `);
   }
+}
+
+function biometricPublicKeyFromRow(
+  row: Record<string, unknown>,
+): StoredBiometricPublicKey {
+  return {
+    keyId: String(row.key_id),
+    principalId: String(row.principal_id),
+    method: String(row.method) as StoredBiometricPublicKey['method'],
+    biometry: String(row.biometry) as StoredBiometricPublicKey['biometry'],
+    binding: String(row.binding) as StoredBiometricPublicKey['binding'],
+    publicKeyPem: String(row.public_key_pem),
+    createdAt: String(row.created_at),
+    active: Number(row.active) === 1 && row.revoked_at == null,
+    ...(row.revoked_at == null ? {} : { revokedAt: String(row.revoked_at) }),
+  };
 }
 
 function authorityCredentialFromRow(row: Record<string, unknown>): AuthorityPublicCredential {

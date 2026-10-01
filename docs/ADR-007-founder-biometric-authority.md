@@ -58,11 +58,20 @@ The expected preferred production device flow is:
 5. the device signs the challenge;
 6. Core verifies the signature and mints a one-time in-memory proof ticket.
 
-The current runtime implements steps 2, 3, 5 and 6 and fails closed when no configured face-bound public key/proof exists. The physical/native Face ID key-generation/signing bridge is a deployment dependency and must not be represented as already live.
+The Core now implements durable public-key storage, challenge issuance, proof verification and one-time proof consumption. Native iOS source under `platform/ios/` implements Secure Enclave P-256 key generation and Face ID-gated signing using `privateKeyUsage + biometryCurrentSet`. The source is not equivalent to a completed deployment: physical Face ID prompting is not considered live until the bridge is packaged, installed and verified on the actual Founder device.
 
-### 3. Re-enrollment invalidation
+### 3. Enrollment, re-enrollment and invalidation
 
-The production device key is expected to use the equivalent of a “current enrolled biometry” access-control policy so a biometric enrollment change invalidates the protected key. Recovery/re-enrollment must create a new key under an explicit Founder-controlled procedure; it must not silently fall back to an administrator.
+The native bridge uses the platform “current enrolled biometry” access-control policy so a Face ID enrollment change invalidates the protected key.
+
+Enrollment is intentionally two-layered:
+
+1. Core issues a short-lived enrollment challenge bound to the candidate key ID and SHA-256 fingerprint of its normalized P-256 public key.
+2. The candidate private key must sign that challenge before Core records the public key.
+
+This proves possession of the candidate private key but does not by itself provide remote hardware attestation. To reduce bootstrap risk, initial API enrollment is disabled by default and requires an operator-controlled temporary runtime switch: `JANUS_ALLOW_BIOMETRIC_BOOTSTRAP=true`. Once at least one Founder face key exists, enrolling another key additionally requires a fresh proof from an already-enrolled Founder face key scoped to `security.biometric.enroll`.
+
+Biometric key IDs are append-only. A revoked key ID cannot be silently reused. Server-side revocation requires `security.biometric.revoke`, explicit confirmation, and Janus refuses to revoke the last active Founder face key through the API. Local Secure Enclave deletion occurs separately only after server-side revocation succeeds.
 
 ### 4. Authority delegation is face-gated
 
@@ -100,7 +109,7 @@ Positive:
 
 Costs and limitations:
 
-- a native/platform biometric signer is still required for end-to-end Face ID on the real device;
+- native signer source is implemented, but packaging/installing it and proving the physical Face ID flow on the actual device is still required for end-to-end acceptance;
 - losing/re-enrolling the biometric set requires explicit key recovery/re-enrollment;
 - any future Janus-specific biometric template store requires encrypted-at-rest implementation, revocation/rotation and verification before it can be treated as live;
 - external product/account data remains unavailable until its authoritative source and least-privilege credential are configured;
@@ -111,6 +120,10 @@ Costs and limitations:
 Automated tests cover:
 
 - successful face-gated signature proof;
+- new-key enrollment proof-of-possession and replay rejection;
+- append-only biometric key rotation semantics;
+- durable SQLite storage of public biometric-key metadata only;
+- static native bridge contract checks for Secure Enclave, `biometryCurrentSet`, Face ID-only gating and ECDSA/SHA-256;
 - rejection of non-face biometric registration under the Founder policy;
 - replay rejection;
 - wrong-signer rejection;

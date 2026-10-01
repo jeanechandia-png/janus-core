@@ -41,6 +41,16 @@ export interface FounderBiometricChallenge {
   expiresAt: string;
 }
 
+export interface FounderBiometricEnrollmentChallenge {
+  id: string;
+  principalId: string;
+  keyId: string;
+  publicKeyFingerprint: string;
+  nonce: string;
+  signingPayload: string;
+  expiresAt: string;
+}
+
 export interface FounderBiometricProofTicket {
   proofId: string;
   principalId: string;
@@ -130,6 +140,7 @@ export class FounderBiometricService {
   private readonly requireFace: boolean;
   private readonly now: () => Date;
   private readonly challenges = new Map<string, FounderBiometricChallenge>();
+  private readonly enrollmentChallenges = new Map<string, FounderBiometricEnrollmentChallenge>();
   private readonly proofs = new Map<string, ProofRecord>();
 
   constructor(store: BiometricKeyStore, options: FounderBiometricServiceOptions = {}) {
@@ -173,10 +184,29 @@ export class FounderBiometricService {
       );
     }
 
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    const existing = this.store.get(keyId);
+    if (existing) {
+      const sameActiveRegistration = (
+        existing.active
+        && !existing.revokedAt
+        && existing.principalId === principalId
+        && existing.publicKeyPem === publicKeyPem
+        && existing.method === 'platform-face'
+        && existing.biometry === biometry
+        && existing.binding === binding
+      );
+      if (sameActiveRegistration) return existing;
+      throw new FounderBiometricError(
+        'invalid_key',
+        'Founder biometric key IDs are append-only; use a new keyId for rotation.',
+      );
+    }
+
     const registration: BiometricKeyRegistration = {
       keyId,
       principalId,
-      publicKeyPem: normalizeP256PublicKey(input.publicKeyPem),
+      publicKeyPem,
       method: 'platform-face',
       biometry,
       binding,
@@ -221,6 +251,116 @@ export class FounderBiometricService {
     return { ...challenge };
   }
 
+  issueEnrollmentChallenge(input: {
+    keyId: string;
+    publicKeyPem: string;
+  }): FounderBiometricEnrollmentChallenge {
+    this.prune();
+    const keyId = safeId(input.keyId, 'keyId');
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    const existing = this.store.get(keyId);
+    if (existing) {
+      throw new FounderBiometricError(
+        'invalid_key',
+        existing.active && !existing.revokedAt
+          ? 'Founder face key is already registered and active.'
+          : 'Founder biometric key IDs are append-only; use a new keyId for rotation.',
+      );
+    }
+
+    const id = `bio_enroll_${randomUUID()}`;
+    const nonce = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(this.now().getTime() + this.challengeTtlMs).toISOString();
+    const publicKeyFingerprint = publicKeyFingerprintFor(publicKeyPem);
+    const signingPayload = [
+      'janus-founder-biometric-enrollment-v1',
+      id,
+      this.founderPrincipalId,
+      keyId,
+      publicKeyFingerprint,
+      nonce,
+      expiresAt,
+    ].join('\n');
+    const challenge: FounderBiometricEnrollmentChallenge = {
+      id,
+      principalId: this.founderPrincipalId,
+      keyId,
+      publicKeyFingerprint,
+      nonce,
+      signingPayload,
+      expiresAt,
+    };
+    this.enrollmentChallenges.set(id, challenge);
+    return { ...challenge };
+  }
+
+  verifyEnrollmentAndRegisterFaceKey(input: {
+    challengeId: string;
+    keyId: string;
+    publicKeyPem: string;
+    signature: string;
+  }): BiometricKeyRegistration {
+    this.prune();
+    const challenge = this.enrollmentChallenges.get(input.challengeId);
+    this.enrollmentChallenges.delete(input.challengeId);
+    if (!challenge) {
+      throw new FounderBiometricError(
+        'invalid_challenge',
+        'Biometric enrollment challenge is invalid or already used.',
+      );
+    }
+    if (Date.parse(challenge.expiresAt) <= this.now().getTime()) {
+      throw new FounderBiometricError(
+        'challenge_expired',
+        'Biometric enrollment challenge expired.',
+      );
+    }
+
+    const keyId = safeId(input.keyId, 'keyId');
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    if (
+      challenge.keyId !== keyId
+      || challenge.publicKeyFingerprint !== publicKeyFingerprintFor(publicKeyPem)
+    ) {
+      throw new FounderBiometricError(
+        'invalid_challenge',
+        'Biometric enrollment payload no longer matches the issued challenge.',
+      );
+    }
+
+    const existing = this.store.get(keyId);
+    if (existing) {
+      throw new FounderBiometricError(
+        'invalid_key',
+        existing.active && !existing.revokedAt
+          ? 'Founder face key is already registered and active.'
+          : 'Founder biometric key IDs are append-only; use a new keyId for rotation.',
+      );
+    }
+
+    const signature = decodeSignature(input.signature);
+    const valid = verify(
+      'sha256',
+      Buffer.from(challenge.signingPayload, 'utf8'),
+      createPublicKey(publicKeyPem),
+      signature,
+    );
+    if (!valid) {
+      throw new FounderBiometricError(
+        'invalid_signature',
+        'New Founder face key proof-of-possession failed.',
+      );
+    }
+
+    return this.registerFaceKey({
+      keyId,
+      publicKeyPem,
+      createdAt: this.now().toISOString(),
+      binding: 'biometry-current-set',
+      biometry: 'face',
+    });
+  }
+
   verifyAssertion(input: {
     challengeId: string;
     keyId: string;
@@ -252,15 +392,7 @@ export class FounderBiometricService {
       throw new FounderBiometricError('key_unavailable', 'Active Founder face key is unavailable.');
     }
 
-    let signature: Buffer;
-    try {
-      signature = Buffer.from(input.signature, 'base64url');
-    } catch {
-      throw new FounderBiometricError('invalid_signature', 'Biometric signature is invalid.');
-    }
-    if (signature.length === 0 || signature.length > 512) {
-      throw new FounderBiometricError('invalid_signature', 'Biometric signature is invalid.');
-    }
+    const signature = decodeSignature(input.signature);
 
     const valid = verify(
       'sha256',
@@ -356,6 +488,7 @@ export class FounderBiometricService {
     configured: boolean;
     activeFaceKeys: number;
     outstandingChallenges: number;
+    outstandingEnrollmentChallenges: number;
     outstandingProofs: number;
   } {
     this.prune();
@@ -367,6 +500,7 @@ export class FounderBiometricService {
       configured: activeFaceKeys > 0,
       activeFaceKeys,
       outstandingChallenges: this.challenges.size,
+      outstandingEnrollmentChallenges: this.enrollmentChallenges.size,
       outstandingProofs: this.proofs.size,
     };
   }
@@ -375,6 +509,9 @@ export class FounderBiometricService {
     const now = this.now().getTime();
     for (const [id, challenge] of this.challenges) {
       if (Date.parse(challenge.expiresAt) <= now) this.challenges.delete(id);
+    }
+    for (const [id, challenge] of this.enrollmentChallenges) {
+      if (Date.parse(challenge.expiresAt) <= now) this.enrollmentChallenges.delete(id);
     }
     for (const [id, proof] of this.proofs) {
       if (Date.parse(proof.expiresAt) <= now) this.proofs.delete(id);
@@ -402,6 +539,23 @@ function normalizeP256PublicKey(value: string): string {
       'Expected an ECDSA P-256 SPKI public key.',
     );
   }
+}
+
+function publicKeyFingerprintFor(publicKeyPem: string): string {
+  return createHash('sha256').update(publicKeyPem, 'utf8').digest('hex');
+}
+
+function decodeSignature(value: string): Buffer {
+  let signature: Buffer;
+  try {
+    signature = Buffer.from(value, 'base64url');
+  } catch {
+    throw new FounderBiometricError('invalid_signature', 'Biometric signature is invalid.');
+  }
+  if (signature.length === 0 || signature.length > 512) {
+    throw new FounderBiometricError('invalid_signature', 'Biometric signature is invalid.');
+  }
+  return signature;
 }
 
 function safeId(value: string, label: string): string {

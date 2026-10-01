@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join } from 'node:path';
@@ -143,7 +143,8 @@ import {
 import {
   FounderBiometricError,
   FounderBiometricService,
-  InMemoryBiometricKeyStore,
+  type BiometricKeyRegistration,
+  type BiometricKeyStore,
 } from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
@@ -161,6 +162,7 @@ const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
+const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 'true';
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
@@ -185,9 +187,15 @@ const authorityCredentialStore: AuthorityCredentialStore = {
   revoke: (principalId, revokedAt) => store.revokeAuthorityCredential(principalId, revokedAt),
 };
 const authorityAuth = new LocalAuthorityAuthService(authorityCredentialStore);
-const founderBiometric = new FounderBiometricService(
-  new InMemoryBiometricKeyStore(),
-);
+const founderBiometricKeyStore: BiometricKeyStore = {
+  get: (keyId) => store.getBiometricPublicKey(keyId) as BiometricKeyRegistration | null,
+  list: (principalId, activeOnly) => (
+    store.listBiometricPublicKeys(principalId, activeOnly) as BiometricKeyRegistration[]
+  ),
+  upsert: (registration) => store.upsertBiometricPublicKey(registration),
+  revoke: (keyId, revokedAt) => store.revokeBiometricPublicKey(keyId, revokedAt),
+};
+const founderBiometric = new FounderBiometricService(founderBiometricKeyStore);
 const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
 if (configuredFounderPublicKey) {
   authorityAuth.ensureFounderCredential(
@@ -858,6 +866,22 @@ function requireSecureAuthorityTransport(request: IncomingMessage): void {
     426,
     'Authority authentication requires loopback or an explicitly trusted HTTPS proxy.',
   );
+}
+
+function biometricKeyView(key: BiometricKeyRegistration) {
+  return {
+    keyId: key.keyId,
+    principalId: key.principalId,
+    method: key.method,
+    biometry: key.biometry,
+    binding: key.binding,
+    createdAt: key.createdAt,
+    active: key.active,
+    revokedAt: key.revokedAt ?? null,
+    publicKeyFingerprint: createHash('sha256')
+      .update(key.publicKeyPem, 'utf8')
+      .digest('hex'),
+  };
 }
 
 function bearerToken(request: IncomingMessage): string | undefined {
@@ -2137,6 +2161,9 @@ const server = createServer(async (request, response) => {
         protocol: 'platform-face-p256-action-proof',
         rawBiometricData: 'never-received-or-stored',
         privateKeyStorage: 'platform-secure-hardware-required',
+        publicKeyStorage: 'sqlite-public-metadata-only',
+        nativeSigner: 'ios-secure-enclave-bridge-required',
+        bootstrapEnrollmentAllowed: allowBiometricBootstrap,
         ...founderBiometric.status(),
       },
     });
@@ -2183,6 +2210,178 @@ const server = createServer(async (request, response) => {
       if (!action) throw new HttpRequestError(400, 'action is required');
       const challenge = founderBiometric.issueChallenge(action);
       json(response, 200, { ok: true, challenge });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (
+    request.method === 'POST'
+    && url.pathname === '/api/auth/biometric/enrollment/challenge'
+  ) {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const keyId = typeof body.keyId === 'string' ? body.keyId.trim() : '';
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      if (!keyId || !publicKeyPem.trim()) {
+        throw new HttpRequestError(400, 'keyId and publicKeyPem are required');
+      }
+      const status = founderBiometric.status();
+      if (status.activeFaceKeys === 0 && !allowBiometricBootstrap) {
+        throw new HttpRequestError(
+          409,
+          'Initial Founder Face ID enrollment is disabled; temporarily set JANUS_ALLOW_BIOMETRIC_BOOTSTRAP=true or provision a public key out of band',
+        );
+      }
+      const challenge = founderBiometric.issueEnrollmentChallenge({
+        keyId,
+        publicKeyPem,
+      });
+      json(response, 200, {
+        ok: true,
+        challenge,
+        requiresExistingProof: status.activeFaceKeys > 0,
+        existingProofAction: status.activeFaceKeys > 0
+          ? 'security.biometric.enroll'
+          : null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/biometric/enroll') {
+    try {
+      const activeBefore = founderBiometric.status().activeFaceKeys;
+      if (activeBefore === 0 && !allowBiometricBootstrap) {
+        throw new HttpRequestError(
+          409,
+          'Initial Founder Face ID enrollment is disabled',
+        );
+      }
+      const session = activeBefore > 0
+        ? requireFounderBiometricAuthority(request, 'security.biometric.enroll')
+        : requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (body.confirmAction !== 'enroll_founder_face_key') {
+        throw new HttpRequestError(
+          409,
+          'confirmAction="enroll_founder_face_key" is required',
+        );
+      }
+      const challengeId = typeof body.challengeId === 'string'
+        ? body.challengeId.trim()
+        : '';
+      const keyId = typeof body.keyId === 'string' ? body.keyId.trim() : '';
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      const signature = typeof body.signature === 'string' ? body.signature.trim() : '';
+      if (!challengeId || !keyId || !publicKeyPem.trim() || !signature) {
+        throw new HttpRequestError(
+          400,
+          'challengeId, keyId, publicKeyPem and signature are required',
+        );
+      }
+
+      const registration = founderBiometric.verifyEnrollmentAndRegisterFaceKey({
+        challengeId,
+        keyId,
+        publicKeyPem,
+        signature,
+      });
+      appendGovernanceDecision({
+        subject: 'founder-biometric-key:' + registration.keyId,
+        content:
+          'Founder Face ID public key enrolled after action-bound proof of possession; '
+          + 'private key remains outside Janus in platform secure hardware.',
+        principalId: session.principal.id,
+        metadata: {
+          action: 'enroll',
+          key: biometricKeyView(registration),
+          bootstrap: activeBefore === 0,
+        },
+      });
+      json(response, 201, {
+        ok: true,
+        key: biometricKeyView(registration),
+        bootstrap: activeBefore === 0,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/auth/biometric/keys') {
+    try {
+      const activeKeys = founderBiometric.status().activeFaceKeys;
+      if (activeKeys > 0) {
+        requireFounderBiometricAuthority(request, 'founder.private.biometric_keys.read');
+      } else {
+        requireFounderAuthority(request);
+      }
+      json(response, 200, {
+        ok: true,
+        keys: founderBiometricKeyStore
+          .list('founder', false)
+          .map(biometricKeyView),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const biometricRevokeMatch = url.pathname.match(
+    /^\/api\/auth\/biometric\/keys\/([^/]+)\/revoke$/,
+  );
+  const biometricRevokeKeyId = biometricRevokeMatch?.[1];
+  if (request.method === 'POST' && biometricRevokeKeyId) {
+    try {
+      const { principal } = requireFounderBiometricAuthority(
+        request,
+        'security.biometric.revoke',
+      );
+      const body = await readJson(request);
+      if (body.confirmAction !== 'revoke_founder_face_key') {
+        throw new HttpRequestError(
+          409,
+          'confirmAction="revoke_founder_face_key" is required',
+        );
+      }
+      const keyId = decodeURIComponent(biometricRevokeKeyId);
+      const target = founderBiometricKeyStore.get(keyId);
+      if (!target || !target.active || target.revokedAt) {
+        throw new HttpRequestError(404, 'active Founder face key not found');
+      }
+      const activeKeys = founderBiometricKeyStore.list('founder', true);
+      if (activeKeys.length <= 1) {
+        throw new HttpRequestError(
+          409,
+          'Janus refuses to revoke the last active Founder face key through the API',
+        );
+      }
+      if (!founderBiometric.revokeKey(keyId)) {
+        throw new HttpRequestError(409, 'Founder face key revocation failed');
+      }
+      const revoked = founderBiometricKeyStore.get(keyId);
+      appendGovernanceDecision({
+        subject: 'founder-biometric-key:' + keyId,
+        content:
+          'Founder Face ID public key revoked after a fresh biometric proof; '
+          + 'at least one active replacement key remains.',
+        principalId: principal.id,
+        metadata: {
+          action: 'revoke',
+          key: revoked ? biometricKeyView(revoked) : { keyId },
+        },
+      });
+      json(response, 200, {
+        ok: true,
+        key: revoked ? biometricKeyView(revoked) : { keyId, active: false },
+      });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }

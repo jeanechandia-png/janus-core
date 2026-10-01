@@ -275,3 +275,87 @@ test('TaskRunner consumes one valid face proof for the matching sensitive action
   assert.equal(authority?.payload.allowed, true);
   assert.equal(authority?.payload.requiresBiometric, true);
 });
+
+
+test('new Founder face key enrollment requires proof of possession and is single-use', () => {
+  const keys = p256KeyPair();
+  const attacker = p256KeyPair();
+  const biometrics = new FounderBiometricService(new InMemoryBiometricKeyStore());
+
+  const challenge = biometrics.issueEnrollmentChallenge({
+    keyId: 'iphone-face-key-v1',
+    publicKeyPem: keys.publicKey,
+  });
+
+  assert.throws(
+    () => biometrics.verifyEnrollmentAndRegisterFaceKey({
+      challengeId: challenge.id,
+      keyId: 'iphone-face-key-v1',
+      publicKeyPem: keys.publicKey,
+      signature: signature(challenge.signingPayload, attacker.privateKey),
+    }),
+    (error: unknown) => (
+      error instanceof FounderBiometricError
+      && error.code === 'invalid_signature'
+    ),
+  );
+
+  assert.throws(
+    () => biometrics.verifyEnrollmentAndRegisterFaceKey({
+      challengeId: challenge.id,
+      keyId: 'iphone-face-key-v1',
+      publicKeyPem: keys.publicKey,
+      signature: signature(challenge.signingPayload, keys.privateKey),
+    }),
+    (error: unknown) => (
+      error instanceof FounderBiometricError
+      && error.code === 'invalid_challenge'
+    ),
+  );
+
+  const retry = biometrics.issueEnrollmentChallenge({
+    keyId: 'iphone-face-key-v1',
+    publicKeyPem: keys.publicKey,
+  });
+  const registration = biometrics.verifyEnrollmentAndRegisterFaceKey({
+    challengeId: retry.id,
+    keyId: 'iphone-face-key-v1',
+    publicKeyPem: keys.publicKey,
+    signature: signature(retry.signingPayload, keys.privateKey),
+  });
+
+  assert.equal(registration.keyId, 'iphone-face-key-v1');
+  assert.equal(registration.biometry, 'face');
+  assert.equal(registration.binding, 'biometry-current-set');
+  assert.equal(biometrics.status().activeFaceKeys, 1);
+});
+
+test('Founder biometric key IDs are append-only across revocation and rotation', () => {
+  const firstKeys = p256KeyPair();
+  const secondKeys = p256KeyPair();
+  const biometrics = new FounderBiometricService(new InMemoryBiometricKeyStore());
+
+  biometrics.registerFaceKey({
+    keyId: 'iphone-face-key-v1',
+    publicKeyPem: firstKeys.publicKey,
+  });
+  assert.equal(biometrics.revokeKey('iphone-face-key-v1'), true);
+
+  assert.throws(
+    () => biometrics.registerFaceKey({
+      keyId: 'iphone-face-key-v1',
+      publicKeyPem: secondKeys.publicKey,
+    }),
+    (error: unknown) => (
+      error instanceof FounderBiometricError
+      && error.code === 'invalid_key'
+    ),
+  );
+
+  const registration = biometrics.registerFaceKey({
+    keyId: 'iphone-face-key-v2',
+    publicKeyPem: secondKeys.publicKey,
+  });
+  assert.equal(registration.keyId, 'iphone-face-key-v2');
+  assert.equal(biometrics.status().activeFaceKeys, 1);
+});
