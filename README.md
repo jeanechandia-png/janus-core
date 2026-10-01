@@ -151,7 +151,8 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Verified Assistant Config Publisher: deterministic bundles, explicit branch revalidation, idempotent GitHub writes, commit read-back checksum verification and durable delivery states.
 - Repository publication and live application are separate: `published_verified` does not become `applied` without a matching product acknowledgement.
 - Founder biometric authority layer: sensitive founder-only scopes fail closed unless a fresh, action-scoped, one-time `platform-face` proof has been verified; administrators/operators cannot substitute for Founder identity.
-- Preferred Face ID operation still uses only a public-key assertion whose private key remains behind platform biometric/Secure Enclave policy. Founder authorization for future local biometric storage is recorded, but no raw face image/template is currently stored by Janus.
+- Preferred Face ID operation uses only a public-key assertion whose private key remains behind platform biometric/Secure Enclave policy. Founder biometric public-key metadata is now durable in SQLite; no private key, raw face image or face template is stored by Janus.
+- Native iOS bridge source now exists under `platform/ios/`: it generates a P-256 key in Secure Enclave with `privateKeyUsage + biometryCurrentSet`, requires Face ID specifically, exports only SPKI public material, and signs Janus challenge payloads with ECDSA/SHA-256. Initial enrollment is disabled unless `JANUS_ALLOW_BIOMETRIC_BOOTSTRAP=true`; rotations require an already-enrolled Face ID proof and the API refuses to revoke the last active key.
 - Persistent Founder Reference Library: versioned personal/business reference URLs and Founder policy records load into local continuity as VIGENTE instructions, use preserve retention, and supersede prior revisions into HISTÓRICO instead of silently deleting them.
 - Founder reference chronology IDs are content-addressed as well as timestamped, so a corrected URL/policy revision cannot collide even if `updatedAt` is accidentally reused.
 - Founder Social Source Registry derives the known Instagram handles and Facebook share tokens from the preserved library without changing the source URLs. `/api/founder/social-sources` is Face-gated and reports read-only readiness, unresolved canonical targets and missing Graph entity bindings without making external calls.
@@ -165,7 +166,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 
 ### AHORA
 
-- Connect the iPhone/native security adapter that creates and uses the Founder P-256 private key under Face ID + current-biometry policy; Core enforcement and challenge/proof verification are implemented, but the physical Face ID signer is still a deployment dependency.
+- Package and deploy the new `platform/ios` Founder Face ID bridge on the actual iPhone, complete first enrollment over trusted HTTPS, and verify the physical Face ID prompt + end-to-end action proof against the real Janus runtime. Source and Core enrollment/rotation APIs are implemented; device deployment remains pending.
 - Resolve Facebook share links in the Founder Reference Library to canonical page/profile identifiers when authoritative resolution is available, then record the evidence-gated binding; preserve the original URLs as historical/source evidence.
 - Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
 - Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
@@ -182,11 +183,11 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Add deeper model-assisted Quality Gate reviewers while preserving the offline baseline.
 - Materialize the local voice runtime on the actual Janus host when hardware is available.
 
-See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-library-projects.md`, `docs/assistant-control-plane.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
+See `docs/intelligence-kernel.md`, `docs/operator-coordination.md`, `docs/lego-library-projects.md`, `docs/assistant-control-plane.md`, `docs/ios-founder-faceid-bridge.md`, `docs/voice-local-runtime.md` and `.env.voice.example`.
 
 ### PENDIENTE
 
-- Native Face ID/Secure Enclave enrollment and key-rotation/recovery UX on the actual Founder device.
+- Native Face ID/Secure Enclave enrollment and rotation source is implemented; finish app packaging, recovery UX and physical-device acceptance testing on the actual Founder iPhone.
 - If platform Face ID is insufficient for a future Janus-specific matcher, implement the Founder-authorized encrypted local derived-template vault; do not treat biometric storage as live until encryption, revocation and recovery are verified.
 - Product-specific ingestion adapters for billing, runtime health, app usage and accounting sources after their authoritative endpoints/databases are identified.
 - Campaign orchestration above the read-only social analytics layer: publish/ads mutations must remain separately permissioned, idempotent and approval-gated.
