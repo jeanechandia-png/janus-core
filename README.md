@@ -155,6 +155,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Persistent Founder Reference Library: versioned personal/business reference URLs and Founder policy records load into local continuity as VIGENTE instructions, use preserve retention, and supersede prior revisions into HISTÓRICO instead of silently deleting them.
 - Founder reference chronology IDs are content-addressed as well as timestamped, so a corrected URL/policy revision cannot collide even if `updatedAt` is accidentally reused.
 - Founder Social Source Registry derives the known Instagram handles and Facebook share tokens from the preserved library without changing the source URLs. `/api/founder/social-sources` is Face-gated and reports read-only readiness, unresolved canonical targets and missing Graph entity bindings without making external calls.
+- Evidence-gated Founder social identity binding is available at `POST /api/founder/social-sources/:referenceId/bind`: it requires a fresh Founder biometric proof, explicit confirmation and evidence references; verified revisions are append-only and supersede prior bindings into history.
 - Authority delegation/revocation and root security actions are explicitly face-gated in addition to existing authenticated-session and confirmation controls.
 - Shared assistant profile is 24/7-support-ready: grounded product answers, product-scope routing, unresolved-question capture and human handoff are inherited by all tracked landing surfaces.
 - Local Business Operations Hub: product registry, append-only ledger entries, product health, social-channel snapshots and monetization-requirement evidence persist in SQLite and aggregate without mixing currencies.
@@ -165,7 +166,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 ### AHORA
 
 - Connect the iPhone/native security adapter that creates and uses the Founder P-256 private key under Face ID + current-biometry policy; Core enforcement and challenge/proof verification are implemented, but the physical Face ID signer is still a deployment dependency.
-- Resolve Facebook share links in the Founder Reference Library to canonical page/profile identifiers when authoritative resolution is available; preserve the original URLs as historical/source evidence.
+- Resolve Facebook share links in the Founder Reference Library to canonical page/profile identifiers when authoritative resolution is available, then record the evidence-gated binding; preserve the original URLs as historical/source evidence.
 - Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
 - Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
 - Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
