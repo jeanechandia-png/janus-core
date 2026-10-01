@@ -103,3 +103,40 @@ test('destructive root actions require face attestation and explicit confirmatio
   assert.equal(decision.requiresBiometric, true);
   assert.equal(decision.requiresConfirmation, true);
 });
+
+
+test('financial synchronization is founder-only and requires face attestation', () => {
+  const withoutFace = evaluateAuthority(founder, {
+    id: 'i-finance-sync-no-face',
+    principalId: 'founder',
+    source: 'authenticated_human',
+    authenticated: true,
+    instruction: 'Synchronize Stripe ledger evidence',
+    requestedAt: '2026-10-01T00:00:05.000Z',
+  }, 'finance.sync.stripe');
+
+  assert.equal(withoutFace.allowed, false);
+  assert.equal(withoutFace.requiresBiometric, true);
+  assert.equal(withoutFace.reason, 'founder_biometric_required');
+
+  const withFace = evaluateAuthority(founder, {
+    id: 'i-finance-sync-face',
+    principalId: 'founder',
+    source: 'authenticated_human',
+    authenticated: true,
+    instruction: 'Synchronize Stripe ledger evidence',
+    requestedAt: '2026-10-01T00:00:05.000Z',
+    biometricAttestation: {
+      principalId: 'founder',
+      action: 'finance.sync.stripe',
+      method: 'platform-face',
+      verifiedAt: '2026-10-01T00:00:00.000Z',
+      expiresAt: '2026-10-01T00:02:00.000Z',
+      keyId: 'face-key',
+      proofHash: 'b'.repeat(64),
+    },
+  }, 'finance.sync.stripe');
+
+  assert.equal(withFace.allowed, true);
+  assert.equal(withFace.requiresBiometric, true);
+});
