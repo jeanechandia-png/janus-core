@@ -18,6 +18,8 @@ test('iOS Founder signer pins Secure Enclave, current Face ID set and P-256 sign
   assert.match(signer, /kSecAttrAccessibleWhenUnlockedThisDeviceOnly/);
   assert.match(signer, /biometryType\s*==\s*\.faceID/);
   assert.match(signer, /ecdsaSignatureMessageX962SHA256/);
+  assert.match(signer, /SecKeyCopyAttributes/);
+  assert.match(signer, /Loaded key is not a 256-bit Secure Enclave key/);
   assert.doesNotMatch(signer, /\.deviceOwnerAuthentication\s*[,)]/);
   assert.doesNotMatch(signer, /SecKeyCopyExternalRepresentation\(\s*privateKey/);
 });
