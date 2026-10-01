@@ -10,6 +10,11 @@ const founderKeys = generateKeyPairSync('ec', {
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
+const founderBiometricKeys = generateKeyPairSync('ec', {
+  namedCurve: 'prime256v1',
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+});
 const child = spawn(
   process.execPath,
   ['--import', 'tsx', 'apps/runtime/server.ts'],
@@ -24,6 +29,8 @@ const child = spawn(
       JANUS_MODEL_BASE_URL: '',
       JANUS_MODEL_NAME: '',
       JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey,
+      JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: founderBiometricKeys.publicKey,
+      JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'smoke-face-key',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   },
@@ -383,11 +390,27 @@ try {
     publicKeyEncoding: { type: 'spki', format: 'pem' },
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
   });
+  const delegatedWithoutFace = await postJson(base, '/api/auth/operator/delegate', {
+    principalId: 'operator-smoke',
+    displayName: 'Operator Smoke',
+    publicKeyPem: operatorKeys.publicKey,
+  }, founderToken, 403);
+  assert.equal(delegatedWithoutFace.error, 'founder_biometric_required');
+
+  const delegationProof = await founderBiometricProof(
+    base,
+    founderToken,
+    'security.authority.delegate_operator',
+    'smoke-face-key',
+    founderBiometricKeys.privateKey,
+  );
   const delegated = await postJson(base, '/api/auth/operator/delegate', {
     principalId: 'operator-smoke',
     displayName: 'Operator Smoke',
     publicKeyPem: operatorKeys.publicKey,
-  }, founderToken, 201);
+  }, founderToken, 201, {
+    'x-janus-biometric-proof': delegationProof,
+  });
   assert.equal(delegated.operator?.principal?.role, 'operator');
 
   const scopeBody = await postJson(base, '/api/coordination/scopes', {
@@ -541,12 +564,56 @@ async function authenticate(baseUrl, principalId, privateKey) {
   return verifyBody.session.token;
 }
 
-async function postJson(baseUrl, path, body, token, expectedStatus) {
+async function founderBiometricProof(
+  baseUrl,
+  founderToken,
+  action,
+  keyId,
+  privateKey,
+) {
+  const challengeResponse = await fetch(`${baseUrl}/api/auth/biometric/challenge`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${founderToken}`,
+    },
+    body: JSON.stringify({ action }),
+  });
+  assert.equal(challengeResponse.status, 200);
+  const challengeBody = await challengeResponse.json();
+  const signingPayload = challengeBody.challenge?.signingPayload;
+  assert.equal(typeof signingPayload, 'string');
+
+  const signature = sign(
+    'sha256',
+    Buffer.from(signingPayload, 'utf8'),
+    privateKey,
+  ).toString('base64url');
+  const verifyResponse = await fetch(`${baseUrl}/api/auth/biometric/verify`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${founderToken}`,
+    },
+    body: JSON.stringify({
+      challengeId: challengeBody.challenge.id,
+      keyId,
+      signature,
+    }),
+  });
+  assert.equal(verifyResponse.status, 200);
+  const verifyBody = await verifyResponse.json();
+  assert.equal(typeof verifyBody.proof?.proofId, 'string');
+  return verifyBody.proof.proofId;
+}
+
+async function postJson(baseUrl, path, body, token, expectedStatus, extraHeaders = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   });

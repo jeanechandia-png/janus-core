@@ -22,6 +22,28 @@ export function isSecureAuthorityTransport(input: {
   return proto === 'https';
 }
 
+export function biometricProofIdsFromBody(value: unknown, maxItems = 10): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== 'string') continue;
+    const proofId = item.trim();
+    if (
+      !proofId
+      || proofId.length > 180
+      || !/^bio_proof_[A-Za-z0-9_-]+$/.test(proofId)
+      || seen.has(proofId)
+    ) continue;
+    seen.add(proofId);
+    result.push(proofId);
+    if (result.length >= maxItems) break;
+  }
+
+  return result;
+}
+
 export function confirmedActionsFromBody(value: unknown, maxItems = 20): string[] {
   if (!Array.isArray(value)) return [];
   const seen = new Set<string>();

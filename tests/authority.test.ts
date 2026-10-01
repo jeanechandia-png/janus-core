@@ -48,7 +48,7 @@ test('administrator cannot perform founder-only root actions', () => {
   }, 'rotate_root_keys');
 
   assert.equal(decision.allowed, false);
-  assert.equal(decision.reason, 'founder_required_for_root_action');
+  assert.equal(decision.reason, 'founder_required_for_action');
 });
 
 test('operator cannot issue privileged administrative instructions', () => {
@@ -69,15 +69,37 @@ test('operator cannot issue privileged administrative instructions', () => {
   assert.equal(decision.reason, 'role_cannot_issue_privileged_instruction');
 });
 
-test('destructive root actions require explicit confirmation even for founder', () => {
-  const decision = evaluateAuthority(founder, {
-    id: 'i3',
+test('destructive root actions require face attestation and explicit confirmation', () => {
+  const withoutFace = evaluateAuthority(founder, {
+    id: 'i3-no-face',
     principalId: 'founder',
     source: 'authenticated_human',
     authenticated: true,
     instruction: 'Rotate root keys',
     requestedAt: '2026-09-23T00:00:00.000Z',
   }, 'rotate_root_keys');
+  assert.equal(withoutFace.allowed, false);
+  assert.equal(withoutFace.requiresBiometric, true);
+  assert.equal(withoutFace.reason, 'founder_biometric_required');
+
+  const decision = evaluateAuthority(founder, {
+    id: 'i3',
+    principalId: 'founder',
+    source: 'authenticated_human',
+    authenticated: true,
+    instruction: 'Rotate root keys',
+    requestedAt: '2026-09-23T00:00:05.000Z',
+    biometricAttestation: {
+      principalId: 'founder',
+      action: 'rotate_root_keys',
+      method: 'platform-face',
+      verifiedAt: '2026-09-23T00:00:00.000Z',
+      expiresAt: '2026-09-23T00:02:00.000Z',
+      keyId: 'face-key',
+      proofHash: 'a'.repeat(64),
+    },
+  }, 'rotate_root_keys');
   assert.equal(decision.allowed, true);
+  assert.equal(decision.requiresBiometric, true);
   assert.equal(decision.requiresConfirmation, true);
 });
