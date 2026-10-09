@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 export const ASSISTANT_RELEASE_TARGET_SCHEMA_VERSION = 1 as const;
+export const ASSISTANT_RELEASE_TARGET_METADATA_REF = 'infinity/assistant-control-metadata';
 
 export interface AssistantReleaseTargetManifest {
   schemaVersion: typeof ASSISTANT_RELEASE_TARGET_SCHEMA_VERSION;

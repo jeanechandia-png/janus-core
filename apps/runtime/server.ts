@@ -84,6 +84,7 @@ import {
   serializeAssistantConfigBundle,
 } from '../../packages/core/src/assistant-config-publisher.js';
 import {
+  ASSISTANT_RELEASE_TARGET_METADATA_REF,
   defaultAssistantReleaseTargetPath,
   parseAssistantReleaseTargetManifest,
   resolveAssistantReleaseTarget,
@@ -3059,24 +3060,7 @@ const server = createServer(async (request, response) => {
       } = { mode: 'explicit' };
 
       if (!targetRef) {
-        const repoResult = await toolGateway.execute({
-          tool: 'github',
-          action: 'repo.get',
-          input: { owner, repo },
-        }, async () => {});
-        if (!repoResult.ok) {
-          throw new HttpRequestError(
-            409,
-            repoResult.error ?? 'assistant release metadata repository lookup failed',
-          );
-        }
-        const metadataRef = typeof repoResult.output?.defaultBranch === 'string'
-          ? repoResult.output.defaultBranch.trim()
-          : '';
-        if (!metadataRef) {
-          throw new HttpRequestError(409, 'assistant release metadata ref is unavailable');
-        }
-
+        const metadataRef = ASSISTANT_RELEASE_TARGET_METADATA_REF;
         const releaseManifestPath = defaultAssistantReleaseTargetPath(target.productKey);
         const manifestResult = await toolGateway.execute({
           tool: 'github',

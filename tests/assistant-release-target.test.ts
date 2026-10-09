@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  ASSISTANT_RELEASE_TARGET_METADATA_REF,
   createAssistantReleaseTargetManifest,
   defaultAssistantReleaseTargetPath,
   parseAssistantReleaseTargetManifest,
@@ -33,6 +34,10 @@ test('assistant release target manifest is deterministic and round-trips', () =>
   assert.equal(
     defaultAssistantReleaseTargetPath('infinity-chatbox'),
     '.infinity/assistant-control/infinity-chatbox.release.json',
+  );
+  assert.equal(
+    ASSISTANT_RELEASE_TARGET_METADATA_REF,
+    'infinity/assistant-control-metadata',
   );
 });
 
