@@ -84,6 +84,12 @@ import {
   serializeAssistantConfigBundle,
 } from '../../packages/core/src/assistant-config-publisher.js';
 import {
+  ASSISTANT_RELEASE_TARGET_METADATA_REF,
+  defaultAssistantReleaseTargetPath,
+  parseAssistantReleaseTargetManifest,
+  resolveAssistantReleaseTarget,
+} from '../../packages/core/src/assistant-release-target.js';
+import {
   CONTINUE_BY_ALTERNATIVES_POLICY,
   buildOperationalBlockerResolution,
   defaultProviderAlternatives,
@@ -3030,13 +3036,9 @@ const server = createServer(async (request, response) => {
       if (target.kind !== 'repository') {
         throw new HttpRequestError(409, 'only repository assistant publishing is wired productively');
       }
-      const targetRef = typeof body.targetRef === 'string' ? body.targetRef.trim() : '';
-      if (!targetRef) {
-        throw new HttpRequestError(
-          400,
-          'targetRef is required; Janus will not guess a production branch',
-        );
-      }
+      const requestedTargetRef = typeof body.targetRef === 'string'
+        ? body.targetRef.trim()
+        : '';
       const capability = capabilities.check('github', 'file.publish');
       if (!capability.ok) {
         throw new HttpRequestError(
@@ -3049,6 +3051,48 @@ const server = createServer(async (request, response) => {
       const content = serializeAssistantConfigBundle(bundle);
       const { owner, repo } = repositoryTarget(target.target);
       const targetPath = defaultAssistantBundlePath(target.productKey);
+      let targetRef = requestedTargetRef;
+      let targetResolution: {
+        mode: 'explicit' | 'release_manifest';
+        source?: string;
+        manifestChecksum?: string;
+        releaseHeadSha?: string;
+      } = { mode: 'explicit' };
+
+      if (!targetRef) {
+        const metadataRef = ASSISTANT_RELEASE_TARGET_METADATA_REF;
+        const releaseManifestPath = defaultAssistantReleaseTargetPath(target.productKey);
+        const manifestResult = await toolGateway.execute({
+          tool: 'github',
+          action: 'file.read',
+          input: {
+            owner,
+            repo,
+            path: releaseManifestPath,
+            ref: metadataRef,
+          },
+        }, async () => {});
+        if (!manifestResult.ok || typeof manifestResult.output?.content !== 'string') {
+          throw new HttpRequestError(
+            409,
+            manifestResult.error
+              ?? 'assistant release target manifest is unavailable; provide a verified targetRef or publish the product pointer',
+          );
+        }
+        const manifest = resolveAssistantReleaseTarget({
+          manifest: parseAssistantReleaseTargetManifest(manifestResult.output.content),
+          surfaceId,
+          product: surface.product,
+          repository: target.target,
+        });
+        targetRef = manifest.releaseRef;
+        targetResolution = {
+          mode: 'release_manifest',
+          source: target.target + '@' + metadataRef + ':' + releaseManifestPath,
+          manifestChecksum: manifest.checksum,
+          releaseHeadSha: manifest.releaseHeadSha,
+        };
+      }
 
       const branchResult = await toolGateway.execute({
         tool: 'github',
@@ -3063,6 +3107,18 @@ const server = createServer(async (request, response) => {
         : '';
       if (!expectedHeadSha) {
         throw new HttpRequestError(409, 'target branch head SHA is unavailable');
+      }
+      if (
+        targetResolution.releaseHeadSha
+        && targetResolution.releaseHeadSha !== expectedHeadSha
+      ) {
+        throw new HttpRequestError(
+          409,
+          'assistant release target manifest is stale: declared '
+          + targetResolution.releaseHeadSha
+          + ', observed '
+          + expectedHeadSha,
+        );
       }
 
       delivery = createAssistantConfigDelivery({
@@ -3196,6 +3252,10 @@ const server = createServer(async (request, response) => {
           target: target.target,
           targetRef,
           targetPath,
+          targetResolutionMode: targetResolution.mode,
+          targetResolutionSource: targetResolution.source ?? null,
+          releaseManifestChecksum: targetResolution.manifestChecksum ?? null,
+          validatedReleaseHeadSha: targetResolution.releaseHeadSha ?? expectedHeadSha,
           commitSha,
           status: delivery.status,
         },
@@ -3204,6 +3264,7 @@ const server = createServer(async (request, response) => {
         ok: true,
         delivery,
         bundle,
+        targetResolution,
         applied: false,
         note:
           'Published content is verified in the target repository; live runtime application requires a separate acknowledgement.',
