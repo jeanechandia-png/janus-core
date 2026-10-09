@@ -170,8 +170,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - cambio automático real de proveedor queda pendiente del Model Router multi-model; Janus no afirma haber cambiado de modelo si no existe adapter compatible registrado.
 - **Release Target Manifest resolver (foundation)**:
   - contrato checksum-protected para `surfaceId + product + repository + releaseRef + releaseHeadSha + evidenceRefs`;
-  - la rama default del repositorio se usa solo como canal estable de metadatos, nunca como release asumido;
-  - si `targetRef` no se suministra, el publisher resuelve `.infinity/assistant-control/<productKey>.release.json`;
+  - el resolver usa el ref dedicado `infinity/assistant-control-metadata`; la rama default del repositorio no participa en la resolución de release;
+  - si `targetRef` no se suministra, el publisher resuelve `.infinity/assistant-control/<productKey>.release.json` desde ese ref de control dedicado;
   - el HEAD real de la rama declarada debe coincidir exactamente con `releaseHeadSha` o la publicación falla cerrada;
   - resolución, fuente y checksum del manifiesto quedan trazables en la decisión de gobernanza;
   - Founder approval, idempotencia, expected-HEAD lease y read-back checksum permanecen obligatorios;
