@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-10-01
+Fecha: 2026-10-09
 
 ## AHORA
 
@@ -168,6 +168,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - los handoffs multioperador incluyen esos blocker resolutions para que Julio o cualquier operador reciba rutas de continuación, no solo el error;
   - Model Planner recibe la política de progreso como contexto;
   - cambio automático real de proveedor queda pendiente del Model Router multi-model; Janus no afirma haber cambiado de modelo si no existe adapter compatible registrado.
+- **Release Target Manifest resolver (foundation)**:
+  - contrato checksum-protected para `surfaceId + product + repository + releaseRef + releaseHeadSha + evidenceRefs`;
+  - la rama default del repositorio se usa solo como canal estable de metadatos, nunca como release asumido;
+  - si `targetRef` no se suministra, el publisher resuelve `.infinity/assistant-control/<productKey>.release.json`;
+  - el HEAD real de la rama declarada debe coincidir exactamente con `releaseHeadSha` o la publicación falla cerrada;
+  - resolución, fuente y checksum del manifiesto quedan trazables en la decisión de gobernanza;
+  - Founder approval, idempotencia, expected-HEAD lease y read-back checksum permanecen obligatorios;
+  - PR #27 valida esta foundation con TypeScript, tests y runtime smoke en verde.
 - **Assistant Config Publisher productivo**:
   - genera bundle saneado/determinista por superficie con revisión exacta, checksums, instrucciones, guardrails, capacidades, presentation y módulos reutilizables;
   - serialización idempotente: misma config -> mismo bundle/checksum/contenido;
@@ -203,7 +211,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ### P0
 1. Integrar consumidores del Assistant Config Bundle en Infinity Group, Infinity ChatBox e IBA y añadir acknowledgement/health verificable de `bundleChecksum`; solo entonces “actualizado en las tres” equivale a live aplicado.
-2. Resolver automáticamente el target/release VIGENTE de cada producto antes de publicar, manteniendo confirmación Founder para external write.
+2. Desplegar y gobernar los Release Target Manifests VIGENTES de InfinitySeed Group, Infinity ChatBox e IBA; el resolver Core ya está implementado y validado en PR #27, pero no se considera cerrado hasta que los tres punteros estén publicados y verificados.
 3. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
 4. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
 5. Integrar Model Router multi-model real para ejecutar provider/capability alternatives automáticamente y registrar routing, calidad/costo/latencia y confianza.
@@ -248,9 +256,9 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## PRÓXIMO
 
-Conectar los consumidores productivos del bundle:
+Cerrar consumidores + punteros de release productivos:
 
-**Janus profile -> resolved surface bundle -> verified repository publish -> product loader -> runtime health reports bundleChecksum -> Janus verifies acknowledgement -> applied.**
+**Janus profile -> resolved surface bundle -> verified release manifest -> verified repository publish -> product loader -> runtime health reports bundleChecksum -> Janus verifies acknowledgement -> applied.**
 
 No considerar una landing actualizada solo porque el bundle llegó al repositorio. El estado live exige evidencia del runtime consumidor. Después de cerrar los tres consumidores, continuar Asset Store + usage graph + Model Router multi-model.
 

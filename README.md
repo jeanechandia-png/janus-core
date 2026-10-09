@@ -149,6 +149,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Surfaces may temporarily pin a compatible profile revision and may disable shared capabilities, but cannot invent capabilities outside the parent profile.
 - Continue-by-Alternatives policy converts provider/capability dead ends into structured blocker resolutions with 2-4 alternatives, recommendation and next action; coordinated handoffs retain those alternatives.
 - Verified Assistant Config Publisher: deterministic bundles, explicit branch revalidation, idempotent GitHub writes, commit read-back checksum verification and durable delivery states.
+- Verified Release Target Manifest resolver: checksum-bound metadata pointer, exact release HEAD revalidation and fail-closed automatic target resolution without treating the repository default branch as production.
 - Repository publication and live application are separate: `published_verified` does not become `applied` without a matching product acknowledgement.
 - Founder biometric authority layer: sensitive founder-only scopes fail closed unless a fresh, action-scoped, one-time `platform-face` proof has been verified; administrators/operators cannot substitute for Founder identity.
 - Preferred Face ID operation uses only a public-key assertion whose private key remains behind platform biometric/Secure Enclave policy. Founder biometric public-key metadata is now durable in SQLite; no private key, raw face image or face template is stored by Janus.
