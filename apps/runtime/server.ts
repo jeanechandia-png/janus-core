@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { NetlifyDeployAdapter } from '../../packages/adapters/src/netlify-deploy-adapter.js';
+import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
+import {
+  evaluateConsumerAcknowledgement,
+  resolveConsumerStatusUrls,
+} from '../../packages/core/src/assistant-consumer-ack.js';
 import {
   assessPublishedRelease,
   publishedDeploymentObservationFromOutput,
@@ -239,6 +244,10 @@ const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
 toolGateway.register(new GitHubAdapter({
   tokenProvider: () => credentialBroker.accessToken('github'),
 }));
+const assistantConsumerStatusUrls = resolveConsumerStatusUrls(process.env.JANUS_ASSISTANT_STATUS_URLS);
+toolGateway.register(new AssistantConsumerStatusAdapter({
+  allowedUrls: Object.values(assistantConsumerStatusUrls),
+}));
 toolGateway.register(new NetlifyDeployAdapter({
   tokenProvider: () => credentialBroker.accessToken('netlify'),
 }));
@@ -265,6 +274,11 @@ toolGateway.register(new YouTubeInsightsAdapter({
 const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
 const netlifyConfigured = environmentCredentials.configured('netlify');
+capabilities.register({
+  tool: 'assistant-consumer',
+  actions: ['status.read'],
+  state: 'available',
+});
 capabilities.register({
   tool: 'netlify',
   actions: ['site.published_deploy'],
@@ -3360,6 +3374,87 @@ const server = createServer(async (request, response) => {
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const assistantDeliveryVerifyMatch = url.pathname.match(
+    /^\/api\/assistant-control\/deliveries\/([^/]+)\/verify-applied$/,
+  );
+  const assistantDeliveryVerifyId = assistantDeliveryVerifyMatch?.[1];
+  if (request.method === 'POST' && assistantDeliveryVerifyId) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const id = decodeURIComponent(assistantDeliveryVerifyId);
+      const delivery = store.getAssistantConfigDelivery(id);
+      if (!delivery) throw new HttpRequestError(404, 'assistant config delivery not found');
+      const statusUrl = assistantConsumerStatusUrls[delivery.surfaceId];
+      if (!statusUrl) {
+        throw new HttpRequestError(
+          409,
+          'no consumer status endpoint is registered for ' + delivery.surfaceId
+          + '; Janus will not mark it applied without observing the live consumer',
+        );
+      }
+      const probe = await toolGateway.execute({
+        tool: 'assistant-consumer',
+        action: 'status.read',
+        input: { url: statusUrl },
+      }, async () => {});
+      if (!probe.ok || !probe.output || typeof probe.output.body !== 'object') {
+        throw new HttpRequestError(409, probe.error ?? 'consumer status could not be read');
+      }
+      const observedAt = typeof probe.output.observedAt === 'string'
+        ? probe.output.observedAt
+        : new Date().toISOString();
+      const evaluation = evaluateConsumerAcknowledgement({
+        delivery,
+        statusBody: probe.output.body as Record<string, unknown>,
+        sourceUrl: statusUrl,
+        observedAt,
+      });
+      if (!evaluation.ok) {
+        json(response, 409, {
+          ok: false,
+          applied: false,
+          code: evaluation.code,
+          error: evaluation.reason,
+          observed: evaluation.observed ?? null,
+          source: statusUrl,
+          observedAt,
+        });
+        return;
+      }
+      const applied = acknowledgeAssistantDelivery({
+        delivery,
+        observedBundleChecksum: evaluation.observedBundleChecksum,
+        acknowledgementSource: evaluation.acknowledgementSource,
+        appliedAt: observedAt,
+      });
+      store.upsertAssistantConfigDelivery(applied);
+      appendGovernanceDecision({
+        subject: 'assistant-delivery:' + applied.surfaceId,
+        content:
+          'Assistant config application OBSERVED by Janus probe for delivery '
+          + applied.id
+          + ' (consumer reported loaded with matching surface, revision and checksum).',
+        principalId: principal.id,
+        metadata: {
+          deliveryId: applied.id,
+          surfaceId: applied.surfaceId,
+          profileRevision: applied.profileRevision,
+          observedBundleChecksum: applied.observedBundleChecksum,
+          acknowledgementSource: applied.acknowledgementSource,
+          evidence: 'janus-probe',
+          status: applied.status,
+        },
+      });
+      json(response, 200, { ok: true, applied: true, delivery: applied });
+    } catch (error) {
+      const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
     }
     return;
   }
