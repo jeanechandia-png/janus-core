@@ -13,6 +13,8 @@ import { PerplexityAdapter } from '../../packages/adapters/src/perplexity-adapte
 import { KlingAdapter } from '../../packages/adapters/src/kling-adapter.js';
 import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-adapter.js';
 import { GoogleWorkspaceWriteAdapter } from '../../packages/adapters/src/google-workspace-write-adapter.js';
+import { NetlifyReleaseAdapter } from '../../packages/adapters/src/netlify-release-adapter.js';
+import { SupabaseManagementAdapter } from '../../packages/adapters/src/supabase-management-adapter.js';
 import {
   interpretTranscript,
   transcriptionVocabularyPrompt,
@@ -222,6 +224,8 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     kling: 'KLING_API_KEY',
     n8n: 'N8N_API_KEY',
     'google-workspace-write': 'GOOGLE_WRITE_ACCESS_TOKEN',
+    'netlify-release': 'NETLIFY_RELEASE_TOKEN',
+    supabase: 'SUPABASE_ACCESS_TOKEN',
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -293,6 +297,14 @@ toolGateway.register(new VercelAdapter({
 toolGateway.register(new RunwayAdapter({
   tokenProvider: () => credentialBroker.accessToken('runway'),
   ...(process.env.RUNWAY_API_VERSION?.trim() ? { runwayVersion: process.env.RUNWAY_API_VERSION.trim() } : {}),
+}));
+const netlifyReleaseSites = (process.env.JANUS_NETLIFY_RELEASE_SITES ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+toolGateway.register(new NetlifyReleaseAdapter({
+  tokenProvider: () => credentialBroker.accessToken('netlify-release'),
+  allowedSiteIds: netlifyReleaseSites,
+}));
+toolGateway.register(new SupabaseManagementAdapter({
+  tokenProvider: () => credentialBroker.accessToken('supabase'),
 }));
 toolGateway.register(new PerplexityAdapter({
   tokenProvider: () => credentialBroker.accessToken('perplexity'),
@@ -378,6 +390,26 @@ capabilities.register({
   actions: ['image.create', 'video.create'],
   state: runwayConfigured ? 'available' : 'needs_auth',
   ...(!runwayConfigured ? { reason: 'Runway necesita su API secret; cada generación gasta créditos y pide confirmación.' } : {}),
+});
+capabilities.register({
+  tool: 'netlify',
+  actions: ['sites.list', 'deploys.list', 'deploy.get'],
+  state: netlifyConfigured ? 'available' : 'needs_auth',
+  ...(!netlifyConfigured ? { reason: 'Netlify necesita una llave de solo lectura (NETLIFY_AUTH_TOKEN) para listar sitios y despliegues.' } : {}),
+});
+const netlifyReleaseConfigured = environmentCredentials.configured('netlify-release') && netlifyReleaseSites.length > 0;
+capabilities.register({
+  tool: 'netlify-release',
+  actions: ['deploy.restore'],
+  state: netlifyReleaseConfigured ? 'available' : 'needs_auth',
+  ...(!netlifyReleaseConfigured ? { reason: 'Volver a un despliegue anterior necesita NETLIFY_RELEASE_TOKEN y los sitios autorizados en JANUS_NETLIFY_RELEASE_SITES; siempre con aprobación.' } : {}),
+});
+const supabaseConfigured = environmentCredentials.configured('supabase');
+capabilities.register({
+  tool: 'supabase',
+  actions: ['projects.list', 'project.health', 'advisors.security', 'advisors.performance', 'migrations.list'],
+  state: supabaseConfigured ? 'available' : 'needs_auth',
+  ...(!supabaseConfigured ? { reason: 'Supabase necesita un token de acceso (SUPABASE_ACCESS_TOKEN); Janus solo consulta salud, asesores y migraciones, nunca datos de clientes.' } : {}),
 });
 const perplexityConfigured = environmentCredentials.configured('perplexity');
 const klingConfigured = environmentCredentials.configured('kling');

@@ -30,6 +30,9 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**. Los secretos v
 | Kling AI | idem | `video.create` (texto → vídeo) | **gasta créditos → aprobación explícita** |
 | n8n | `N8N_BASE_URL` (https) + `N8N_API_KEY` | `workflows.list`, `executions.list`, `execution.get` | lectura (la API de n8n no existe en la prueba gratuita) |
 | n8n | `JANUS_N8N_WEBHOOKS` = `{"nombre":"https://…"}` | `workflow.trigger` (solo webhooks autorizados por nombre) | **acción externa → aprobación explícita** |
+| Netlify (ya existente, ampliado) | `NETLIFY_AUTH_TOKEN` | `site.published_deploy`, `sites.list`, `deploys.list`, `deploy.get` | solo lectura |
+| Netlify (release, nuevo) | `NETLIFY_RELEASE_TOKEN` + `JANUS_NETLIFY_RELEASE_SITES` (ids permitidos) | `deploy.restore` (volver a un despliegue anterior) | **cambia producción → aprobación explícita**; solo sitios autorizados |
+| Supabase | `SUPABASE_ACCESS_TOKEN` | `projects.list`, `project.health`, `advisors.security`, `advisors.performance`, `migrations.list` | solo lectura; **nunca SQL ni datos de clientes** |
 | Google Workspace (ya existente) | `GOOGLE_ACCESS_TOKEN` (solo lectura) | `drive.files.search`, `gmail.messages.search`, `calendar.events.list` | lectura |
 | Google Workspace (escritura, nuevo) | `GOOGLE_WRITE_ACCESS_TOKEN` (scopes `gmail.compose`, `calendar.events`) | `gmail.draft.create` (**solo borrador, nunca envía**), `calendar.event.create` (sin avisar a invitados salvo `notifyGuests`) | **escritura → aprobación explícita** |
 
@@ -40,6 +43,8 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**. Los secretos v
 - Perplexity: según su documentación, el soporte de Sonar Chat Completions terminó el 2026-09-27; por eso la investigación usa la Agent API (`/v1/agent`).
 - Kling AI: su documentación exige autenticación por API Key (Bearer); el método antiguo Access Key/Secret Key (JWT) no se implementa. La forma `GET /tasks?task_ids=` sale de la tabla de parámetros, no de un ejemplo: **por confirmar** con una llamada real.
 - Gmail: los correos se crean como **borrador**; Janus no envía correos. Cabeceras protegidas contra inyección (saltos de línea).
+- Netlify: verificado contra la especificación oficial `@netlify/open-api` 2.60.0. La lectura y la «vuelta atrás» usan llaves distintas: la de lectura nunca puede cambiar producción.
+- Supabase: Management API (`https://api.supabase.com/v1`, 120 peticiones/min). Un token personal da acceso amplio a la cuenta, por eso el adaptador solo tiene peticiones GET de salud, asesores y migraciones: los datos de los clientes (tenants) nunca pasan por Janus.
 - n8n: Janus nunca dispara URLs arbitrarias; solo los webhooks que el Founder nombra en `JANUS_N8N_WEBHOOKS`.
 
 ### Pendiente
