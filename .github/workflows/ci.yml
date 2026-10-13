@@ -26,6 +26,7 @@ jobs:
       - name: PWA syntax
         run: |
           node --check apps/pwa/app.js
+          node --check apps/pwa/app-install.js
           node --check apps/pwa/pcm-capture-worklet.js
           node --check apps/pwa/pcm-tts-player.js
           node --check apps/pwa/sw.js

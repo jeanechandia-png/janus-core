@@ -284,7 +284,7 @@ capabilities.register({
   actions: ['site.published_deploy'],
   state: netlifyConfigured ? 'available' : 'needs_auth',
   ...(!netlifyConfigured
-    ? { reason: 'A read-only Netlify token is required to verify which deploy is live.' }
+    ? { reason: 'Netlify necesita una llave de solo lectura para comprobar qué versión está publicada.' }
     : {}),
 });
 const metaTokenConfigured = environmentCredentials.configured('meta');
@@ -299,7 +299,7 @@ capabilities.register({
   actions: ['file.publish'],
   state: githubConfigured ? 'available' : 'needs_auth',
   ...(!githubConfigured
-    ? { reason: 'GitHub write authentication is required before assistant config publishing.' }
+    ? { reason: 'GitHub necesita autorización de escritura antes de publicar la configuración del asistente.' }
     : {}),
 });
 capabilities.register({
@@ -2045,6 +2045,9 @@ function contentType(path: string): string {
     case '.json': return 'application/json; charset=utf-8';
     case '.webmanifest': return 'application/manifest+json; charset=utf-8';
     case '.svg': return 'image/svg+xml';
+    case '.png': return 'image/png';
+    case '.webp': return 'image/webp';
+    case '.ico': return 'image/x-icon';
     default: return 'application/octet-stream';
   }
 }

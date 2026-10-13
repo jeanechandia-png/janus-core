@@ -1,3 +1,4 @@
+import { mountAppInstall } from './app-install.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 
 const activity = document.querySelector('#activity');
@@ -701,6 +702,8 @@ voiceButton.addEventListener('click', () => {
 });
 
 void checkHealth();
+
+mountAppInstall({ appName: 'JANUS', lang: document.documentElement.lang || 'es' });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

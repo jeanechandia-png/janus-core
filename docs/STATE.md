@@ -232,6 +232,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 2d. ~~Brecha de verificación~~ → resuelta por 2c-bis para ChatBox.
 2c. El consumidor ChatBox existe en la rama de release (`app/api/v1/assistant-control/status/route.ts`, `applied = status === "loaded"`), pero el bundle `.infinity/assistant-control/infinity-chatbox.*` aún no está publicado en esa rama (404).
 2d-hist. [HISTÓRICO] Brecha detectada: el ack aceptaba un checksum tecleado; resuelta en 2c-bis.
+2e. **HECHO (2026-10-13) — Acceso tipo app de Janus (norma de activos reutilizables)**:
+   - Pieza reutilizable `apps/pwa/app-install.js`, generalizada desde `infinityseed-group-website@31306eb3`: sin dependencia de producto (`mountAppInstall({ appName, iconSrc, lang })`), 4 idiomas del ecosistema (ES/EN/NL/TR), aviso nativo en Chromium, guía de 2 pasos en iPhone/iPad, oculta si ya está instalada, Escape y foco accesibles.
+   - Janus: botón "Instalar app" en la cabecera, metadatos iOS/Android, manifiesto con `id/scope/lang`, caché offline `janus-shell-v5` incluye la pieza, servidor sirve `.png/.webp/.ico`. Nombre visible "JANUS" sin cambios.
+   - Verificado en navegador (iPhone 15 Pro Max emulado y escritorio): botón visible, guía correcta, cierra con Escape, la interfaz vuelve a ser utilizable, oculto en modo instalado, sin errores de página.
+   - ERROR → LECCIÓN: la primera adaptación dejó una capa invisible bloqueando la pantalla tras cerrar, porque el sitio de origen dependía de una regla global `[hidden]{display:none!important}` que no viajó con la pieza. REGLA: una pieza reutilizable debe llevar consigo todas sus dependencias de estilo/comportamiento. Prueba de regresión añadida.
+   - Textos de capacidades GitHub/Netlify traducidos al español (el smoke acepta ambas formas).
+   - **BLOQUEADO — icono oficial de Janus**: el manifiesto no declara iconos porque no existe en el repositorio un archivo maestro del logo de Janus. Por la norma de marca no se recorta ni se regenera desde las imágenes de diseño. Necesario: PNG maestro 512×512 (y 180×180 para iPhone), preferiblemente con fondo opaco. Sin él, iPhone usa una captura como icono y Android puede no mostrar el aviso nativo (la guía sigue funcionando).
+   - Pendiente de reutilización: registrar la pieza en la Reusable LEGO Library y ofrecerla a ChatBox/IBA cuando corresponda.
 3. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
 4. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
 5. Integrar Model Router multi-model real para ejecutar provider/capability alternatives automáticamente y registrar routing, calidad/costo/latencia y confianza.

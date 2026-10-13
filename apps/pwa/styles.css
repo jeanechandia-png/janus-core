@@ -244,3 +244,39 @@ button:disabled { opacity: .45; cursor: default; }
   .capability-legend { max-width: 112px; }
   h1 { font-size: 27px; }
 }
+
+/* ---------- Acceso tipo app (pieza reutilizable app-install.js) ---------- */
+/* Self-contained: the piece must not depend on a host-page [hidden] reset. */
+.app-install-sheet[hidden], [data-app-install][hidden] { display: none !important; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+button.app-install-btn { padding: 8px 12px; font-size: 13px; border-radius: 999px; white-space: nowrap; }
+button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
+.app-install-sheet {
+  position: fixed; inset: 0; z-index: 1200; display: grid; place-items: end center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+  background: rgba(3, 5, 10, .6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity .22s ease;
+}
+.app-install-sheet.on { opacity: 1; }
+@media (min-width: 700px) { .app-install-sheet { place-items: center; } }
+.app-install-card {
+  width: min(420px, 100%); padding: 24px 20px 20px; border-radius: 24px; text-align: center;
+  background: #0d1220; border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 50px -12px rgba(80, 105, 255, .45);
+  transform: translateY(20px); transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+}
+.app-install-sheet.on .app-install-card { transform: none; }
+.app-install-card img { width: 64px; height: 64px; border-radius: 16px; margin: 0 auto 12px; display: block; }
+.app-install-card h3 { margin: 0 0 16px; font-size: 20px; color: #f5f7fb; }
+.app-install-card ol { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 12px; text-align: left; }
+.app-install-card li { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; line-height: 1.45; color: #c9d1e3; }
+.app-install-step {
+  flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 800; font-size: 13px; color: #fff; background: linear-gradient(180deg, #5069ff, #344acb);
+}
+.app-install-share {
+  display: inline-block; width: 14px; height: 17px; vertical-align: -3px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 18' fill='none' stroke='%238fa2ff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 1v10M3.5 4.5 7 1l3.5 3.5M3 7.5H1.5v9h11v-9H11'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.app-install-card button { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .app-install-sheet, .app-install-card { transition: none; } }

@@ -5,5 +5,14 @@
   "display": "standalone",
   "background_color": "#070a10",
   "theme_color": "#070a10",
-  "description": "JANUS local-first personal AI operating system"
+  "description": "JANUS local-first personal AI operating system",
+  "id": "/",
+  "scope": "/",
+  "lang": "es",
+  "dir": "ltr",
+  "orientation": "any",
+  "categories": [
+    "productivity",
+    "utilities"
+  ]
 }

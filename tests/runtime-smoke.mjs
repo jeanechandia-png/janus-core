@@ -266,7 +266,7 @@ try {
   );
   assert.match(
     unauthenticatedPublishCapability.error ?? '',
-    /GitHub write authentication|required/i,
+    /GitHub write authentication|required|autorización de escritura/i,
   );
   const deliveryState = await getJson(
     base,

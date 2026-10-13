@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#070a10" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="JANUS" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>JANUS</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/styles.css" />
@@ -17,7 +19,10 @@
         <div class="eyebrow">JANUS CORE</div>
         <h1>Trabajo en vivo</h1>
       </div>
-      <div id="connection" class="connection offline"><span></span> desconectado</div>
+      <div class="topbar-actions">
+        <button type="button" class="secondary app-install-btn" data-app-install hidden><span aria-hidden="true">⤓</span> Instalar app</button>
+        <div id="connection" class="connection offline"><span></span> desconectado</div>
+      </div>
     </header>
 
     <section class="presence" aria-live="polite">
