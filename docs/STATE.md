@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-10-09
+Fecha: 2026-10-13
 
 ## AHORA
 
@@ -175,7 +175,9 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - el HEAD real de la rama declarada debe coincidir exactamente con `releaseHeadSha` o la publicación falla cerrada;
   - resolución, fuente y checksum del manifiesto quedan trazables en la decisión de gobernanza;
   - Founder approval, idempotencia, expected-HEAD lease y read-back checksum permanecen obligatorios;
-  - PR #27 valida esta foundation con TypeScript, tests y runtime smoke en verde.
+  - PR #27 valida esta foundation con TypeScript, tests y runtime smoke en verde (re-verificado 2026-10-13: 182/182 + smoke con entorno sin credenciales).
+  - **Custodia del HEAD de release (2026-10-13)**: el commit verificado del propio publisher ya no invalida el manifiesto; se acepta solo una cadena ininterrumpida de entregas Janus `published_verified/applied` desde `releaseHeadSha` en el mismo repo+ref; commits ajenos, bifurcaciones y ciclos fallan cerrado. 188/188 tests.
+  - Smoke runtime hermético: fija `GITHUB_TOKEN=''` y ya no depende de las credenciales del shell.
 - **Assistant Config Publisher productivo**:
   - genera bundle saneado/determinista por superficie con revisión exacta, checksums, instrucciones, guardrails, capacidades, presentation y módulos reutilizables;
   - serialización idempotente: misma config -> mismo bundle/checksum/contenido;

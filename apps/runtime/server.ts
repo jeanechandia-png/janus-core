@@ -88,6 +88,8 @@ import {
   defaultAssistantReleaseTargetPath,
   parseAssistantReleaseTargetManifest,
   resolveAssistantReleaseTarget,
+  verifyReleaseHeadCustody,
+  type AssistantReleaseTargetManifest,
 } from '../../packages/core/src/assistant-release-target.js';
 import {
   CONTINUE_BY_ALTERNATIVES_POLICY,
@@ -3057,7 +3059,10 @@ const server = createServer(async (request, response) => {
         source?: string;
         manifestChecksum?: string;
         releaseHeadSha?: string;
+        custody?: 'manifest_head' | 'janus_delivery_lineage';
+        custodyChain?: string[];
       } = { mode: 'explicit' };
+      let resolvedManifest: AssistantReleaseTargetManifest | null = null;
 
       if (!targetRef) {
         const metadataRef = ASSISTANT_RELEASE_TARGET_METADATA_REF;
@@ -3086,6 +3091,7 @@ const server = createServer(async (request, response) => {
           repository: target.target,
         });
         targetRef = manifest.releaseRef;
+        resolvedManifest = manifest;
         targetResolution = {
           mode: 'release_manifest',
           source: target.target + '@' + metadataRef + ':' + releaseManifestPath,
@@ -3108,17 +3114,19 @@ const server = createServer(async (request, response) => {
       if (!expectedHeadSha) {
         throw new HttpRequestError(409, 'target branch head SHA is unavailable');
       }
-      if (
-        targetResolution.releaseHeadSha
-        && targetResolution.releaseHeadSha !== expectedHeadSha
-      ) {
-        throw new HttpRequestError(
-          409,
-          'assistant release target manifest is stale: declared '
-          + targetResolution.releaseHeadSha
-          + ', observed '
-          + expectedHeadSha,
-        );
+      if (resolvedManifest) {
+        // The publisher's own verified commits advance the release branch; accept
+        // them only as an unbroken chain of Janus deliveries from the manifest HEAD.
+        const custody = verifyReleaseHeadCustody({
+          manifest: resolvedManifest,
+          observedHeadSha: expectedHeadSha,
+          deliveries: store.listAssistantConfigDeliveries(),
+        });
+        if (!custody.ok) {
+          throw new HttpRequestError(409, custody.reason);
+        }
+        targetResolution.custody = custody.mode;
+        targetResolution.custodyChain = custody.chain;
       }
 
       delivery = createAssistantConfigDelivery({
@@ -3256,6 +3264,9 @@ const server = createServer(async (request, response) => {
           targetResolutionSource: targetResolution.source ?? null,
           releaseManifestChecksum: targetResolution.manifestChecksum ?? null,
           validatedReleaseHeadSha: targetResolution.releaseHeadSha ?? expectedHeadSha,
+          observedReleaseHeadSha: expectedHeadSha,
+          releaseCustody: targetResolution.custody ?? null,
+          releaseCustodyChain: targetResolution.custodyChain ?? [],
           commitSha,
           status: delivery.status,
         },

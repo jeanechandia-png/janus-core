@@ -107,3 +107,81 @@ test('assistant release target manifest fails closed on tampering and unsafe ref
     /releaseHeadSha is invalid/,
   );
 });
+
+// --- Release HEAD custody (regression: publisher's own commit must not stale the manifest) ---
+import { verifyReleaseHeadCustody } from '../packages/core/src/assistant-release-target.js';
+
+const SHA_A = '0123456789abcdef0123456789abcdef01234567';
+const SHA_B = 'b'.repeat(40);
+const SHA_C = 'c'.repeat(40);
+const SHA_X = 'f'.repeat(40);
+
+function delivery(id: string, from: string, to: string, extra: Record<string, string> = {}) {
+  return {
+    id,
+    target: 'owner/product',
+    targetRef: 'release/rc25',
+    status: 'published_verified',
+    expectedHeadSha: from,
+    publishedCommitSha: to,
+    ...extra,
+  };
+}
+
+test('custody accepts the exact manifest HEAD without a chain', () => {
+  const result = verifyReleaseHeadCustody({ manifest: manifest(), observedHeadSha: SHA_A, deliveries: [] });
+  assert.deepEqual(result, { ok: true, mode: 'manifest_head', chain: [] });
+});
+
+test('custody accepts HEAD advanced only by verified Janus deliveries', () => {
+  const result = verifyReleaseHeadCustody({
+    manifest: manifest(),
+    observedHeadSha: SHA_C,
+    deliveries: [delivery('d2', SHA_B, SHA_C, { status: 'applied' }), delivery('d1', SHA_A, SHA_B)],
+  });
+  assert.deepEqual(result, { ok: true, mode: 'janus_delivery_lineage', chain: ['d1', 'd2'] });
+});
+
+test('custody fails closed on a foreign commit (human/CI push)', () => {
+  const result = verifyReleaseHeadCustody({
+    manifest: manifest(),
+    observedHeadSha: SHA_X,
+    deliveries: [delivery('d1', SHA_A, SHA_B)],
+  });
+  assert.equal(result.ok, false);
+  assert.match((result as { reason: string }).reason, /stale/);
+});
+
+test('custody ignores unverified, failed, other-repo and other-ref deliveries', () => {
+  for (const bad of [
+    delivery('d', SHA_A, SHA_B, { status: 'published' }),
+    delivery('d', SHA_A, SHA_B, { status: 'failed' }),
+    delivery('d', SHA_A, SHA_B, { target: 'owner/other' }),
+    delivery('d', SHA_A, SHA_B, { targetRef: 'main' }),
+  ]) {
+    const result = verifyReleaseHeadCustody({ manifest: manifest(), observedHeadSha: SHA_B, deliveries: [bad] });
+    assert.equal(result.ok, false);
+  }
+});
+
+test('custody rejects forks and cycles instead of guessing', () => {
+  const fork = verifyReleaseHeadCustody({
+    manifest: manifest(),
+    observedHeadSha: SHA_B,
+    deliveries: [delivery('d1', SHA_A, SHA_B), delivery('d2', SHA_A, SHA_C)],
+  });
+  assert.equal(fork.ok, false);
+  assert.match((fork as { reason: string }).reason, /ambiguous/);
+
+  const cycle = verifyReleaseHeadCustody({
+    manifest: manifest(),
+    observedHeadSha: SHA_X,
+    deliveries: [delivery('d1', SHA_A, SHA_B), delivery('d2', SHA_B, SHA_A)],
+  });
+  assert.equal(cycle.ok, false);
+  assert.match((cycle as { reason: string }).reason, /cycle/);
+});
+
+test('custody rejects a malformed observed HEAD', () => {
+  assert.throws(() => verifyReleaseHeadCustody({ manifest: manifest(), observedHeadSha: 'HEAD', deliveries: [] }));
+});

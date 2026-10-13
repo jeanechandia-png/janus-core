@@ -1,6 +1,6 @@
 # Assistant Release Target Manifest
 
-Status: CODED foundation — runtime publisher integration and product pointer rollout remain PENDING.
+Status: CODED + TESTED + INTEGRATED in the runtime publisher (unit tests; no live GitHub E2E yet). Product pointer rollout on the three repositories remains PENDING.
 
 ## Purpose
 
@@ -36,6 +36,17 @@ The publisher reads the manifest from `infinity/assistant-control-metadata` befo
 
 The existing Founder approval, idempotency, expected-HEAD lease and post-write bundle read-back remain mandatory.
 
+## Release HEAD custody (2026-10-13)
+
+The publisher writes the bundle onto the release branch itself, so its own verified commit moves the branch HEAD away from `releaseHeadSha`. A strict equality check made the manifest permanently stale after the first successful publish.
+
+`verifyReleaseHeadCustody` therefore accepts the observed HEAD only when:
+
+1. it equals `releaseHeadSha` (`manifest_head`); or
+2. it is reachable from `releaseHeadSha` exclusively through Janus' own local SQLite deliveries on the same repository and ref, each with status `published_verified` or `applied`, each `expectedHeadSha -> publishedCommitSha` (`janus_delivery_lineage`).
+
+Any foreign commit (human, CI or another tool) breaks the chain and fails closed: the manifest must be refreshed and re-validated. Forks (two verified deliveries from the same parent) and cycles are rejected rather than guessed. The custody mode and delivery chain are recorded in the governance decision metadata.
+
 ## Security boundary
 
 - Repository default branches are not used for release resolution.
@@ -52,6 +63,12 @@ Do not mark automatic release resolution complete until all three surfaces have 
 - InfinitySeed Group;
 - Infinity ChatBox;
 - Infinity Business Assistant (IBA).
+
+## Error-learning note — 2026-10-13
+
+ERROR: the PR #27 stale-HEAD guard compared the live HEAD to `releaseHeadSha` by strict equality. CAUSE: the guard ignored that the publisher's own write advances the same branch. IMPACT: automatic resolution would work once per manifest update and then block every later publish with a misleading "stale" error. LESSON: a fail-closed guard must model the system's own legitimate writes. PREVENTIVE RULE: any HEAD-pinning control must define custody for self-authored commits explicitly and test the second publish, not only the first. CHANGE: custody chain + regression tests in `tests/assistant-release-target.test.ts`.
+
+ERROR: `tests/runtime-smoke.mjs` inherited `GITHUB_TOKEN` from the shell, so any environment with a token made the smoke fail (`publisher` reported `github-revalidated-idempotent`). PREVENTIVE RULE: smoke tests must set every credential variable explicitly. CHANGE: the smoke now sets `GITHUB_TOKEN=''`.
 
 ## Error-learning note — 2026-10-09
 

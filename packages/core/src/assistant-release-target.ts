@@ -124,6 +124,96 @@ export function resolveAssistantReleaseTarget(input: {
   return input.manifest;
 }
 
+/**
+ * Minimal view of a Janus-owned delivery record used to prove custody of a
+ * release branch HEAD. Only Janus' own local SQLite deliveries may be passed
+ * here; external documents or repository content must never supply links.
+ */
+export interface ReleaseCustodyDelivery {
+  id: string;
+  target: string;
+  targetRef?: string;
+  status: string;
+  expectedHeadSha?: string;
+  publishedCommitSha?: string;
+}
+
+export type ReleaseHeadCustody =
+  | { ok: true; mode: 'manifest_head'; chain: [] }
+  | { ok: true; mode: 'janus_delivery_lineage'; chain: string[] }
+  | { ok: false; reason: string };
+
+const CUSTODY_STATUSES = new Set(['published_verified', 'applied']);
+const MAX_CUSTODY_DEPTH = 256;
+
+/**
+ * Decide whether the observed release-branch HEAD is still governed by the
+ * manifest. The HEAD is accepted when it equals `releaseHeadSha`, or when it
+ * is reachable from it exclusively through read-back-verified Janus
+ * deliveries on the same repository and ref (each delivery's expected HEAD is
+ * the previous link and its published commit is the next one).
+ *
+ * Any foreign commit breaks the chain and fails closed, so a human or CI push
+ * to the release branch still requires a refreshed, re-validated manifest.
+ * Without this rule the publisher's own verified commit would make the
+ * manifest permanently stale after the first publish.
+ */
+export function verifyReleaseHeadCustody(input: {
+  manifest: AssistantReleaseTargetManifest;
+  observedHeadSha: string;
+  deliveries: readonly ReleaseCustodyDelivery[];
+}): ReleaseHeadCustody {
+  const observed = normalizeCommitSha(input.observedHeadSha);
+  const start = input.manifest.releaseHeadSha;
+  if (observed === start) return { ok: true, mode: 'manifest_head', chain: [] };
+
+  const next = new Map<string, ReleaseCustodyDelivery>();
+  for (const delivery of input.deliveries) {
+    if (delivery.target !== input.manifest.repository) continue;
+    if (delivery.targetRef !== input.manifest.releaseRef) continue;
+    if (!CUSTODY_STATUSES.has(delivery.status)) continue;
+    if (!delivery.expectedHeadSha || !delivery.publishedCommitSha) continue;
+    const from = delivery.expectedHeadSha.toLowerCase();
+    const to = delivery.publishedCommitSha.toLowerCase();
+    if (from === to) continue;
+    const existing = next.get(from);
+    if (existing && existing.publishedCommitSha?.toLowerCase() !== to) {
+      return {
+        ok: false,
+        reason: 'release custody is ambiguous: two verified deliveries fork from ' + from,
+      };
+    }
+    next.set(from, delivery);
+  }
+
+  const chain: string[] = [];
+  const seen = new Set<string>([start]);
+  let current = start;
+  while (chain.length < MAX_CUSTODY_DEPTH) {
+    const link = next.get(current);
+    if (!link) break;
+    const to = link.publishedCommitSha!.toLowerCase();
+    if (seen.has(to)) {
+      return { ok: false, reason: 'release custody chain contains a cycle' };
+    }
+    seen.add(to);
+    chain.push(link.id);
+    current = to;
+    if (current === observed) {
+      return { ok: true, mode: 'janus_delivery_lineage', chain };
+    }
+  }
+  return {
+    ok: false,
+    reason:
+      'assistant release target manifest is stale: declared '
+      + start
+      + ', observed '
+      + observed
+      + ' is not reachable through verified Janus deliveries',
+  };
+}
+
 export function defaultAssistantReleaseTargetPath(productKey?: string): string {
   const normalized = (productKey ?? 'assistant')
     .trim()
