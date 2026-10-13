@@ -12,6 +12,8 @@ export interface ChatCompletionsModelAdapterOptions {
   tokenProvider?: () => Promise<string | undefined>;
   fetchImpl?: typeof fetch;
   supportsJsonMode?: boolean;
+  /** Path appended to baseUrl. Default '/v1/chat/completions' (OpenAI). Gemini's OpenAI-compatible API uses '/chat/completions' on its own base. */
+  chatPath?: string;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -24,6 +26,7 @@ export class ChatCompletionsModelAdapter implements ModelGateway {
   private readonly tokenProvider?: () => Promise<string | undefined>;
   private readonly fetchImpl: typeof fetch;
   private readonly supportsJsonMode: boolean;
+  private readonly chatPath: string;
 
   constructor(options: ChatCompletionsModelAdapterOptions) {
     const baseUrl = options.baseUrl.trim();
@@ -38,6 +41,8 @@ export class ChatCompletionsModelAdapter implements ModelGateway {
     this.tokenProvider = options.tokenProvider;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.supportsJsonMode = options.supportsJsonMode ?? false;
+    const chatPath = (options.chatPath ?? '/v1/chat/completions').trim();
+    this.chatPath = chatPath.startsWith('/') ? chatPath : '/' + chatPath;
   }
 
   async complete(request: ModelRequest): Promise<ModelResponse> {
@@ -57,7 +62,7 @@ export class ChatCompletionsModelAdapter implements ModelGateway {
       body.response_format = { type: 'json_object' };
     }
 
-    const response = await this.fetchImpl(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.fetchImpl(`${this.baseUrl}${this.chatPath}`, {
       method: 'POST',
       headers,
       body: JSON.stringify(body),

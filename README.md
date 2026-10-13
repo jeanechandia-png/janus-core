@@ -228,3 +228,4 @@ docs/                     Architecture, deployment and continuity decisions
 tests/                    Unit, integration and end-to-end gates
 ```
 - Adaptive effort (ECO/NORMAL/PROFUNDO/MÁXIMO/AUTO): deterministic risk/complexity/cost policy; AUTO never selects MÁXIMO, risky commands never run below NORMAL, critical risk requires confirmation; decision returned by `/api/command` and recorded as an `effort_selection` receipt.
+- External integrations (see `docs/integrations.md`): ChatGPT/OpenAI, Claude (native Messages API) and Gemini as replaceable model adapters behind a fallback Model Router; Asana (read + approved task creation), Vercel (read-only deployments) and Runway (credits, task status, approved paid generations). External writes and paid generations are always forced to explicit approval.

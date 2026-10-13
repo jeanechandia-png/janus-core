@@ -6,13 +6,20 @@ import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { NetlifyDeployAdapter } from '../../packages/adapters/src/netlify-deploy-adapter.js';
+import { AsanaAdapter } from '../../packages/adapters/src/asana-adapter.js';
+import { VercelAdapter } from '../../packages/adapters/src/vercel-adapter.js';
+import { RunwayAdapter } from '../../packages/adapters/src/runway-adapter.js';
 import {
   interpretTranscript,
   transcriptionVocabularyPrompt,
   type TranscriptInterpretation,
 } from '../../packages/core/src/transcript-interpretation.js';
 import { decideEffort, effortPlanningGuidance, type EffortDecision } from '../../packages/core/src/effort-policy.js';
+import { enforceSensitiveActionPolicy } from '../../packages/orchestrator/src/sensitive-action-policy.js';
 import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model-gateway.js';
+import { FallbackModelRouter } from '../../packages/gateways/src/model-router.js';
+import { AnthropicMessagesModelAdapter } from '../../packages/adapters/src/anthropic-messages-model-adapter.js';
+import { describeModelProviders, resolveModelProviders } from '../../packages/core/src/model-provider-config.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
@@ -201,6 +208,12 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     meta: 'META_ACCESS_TOKEN',
     youtube: 'YOUTUBE_ACCESS_TOKEN',
     model: 'JANUS_MODEL_API_KEY',
+    openai: 'JANUS_OPENAI_API_KEY',
+    anthropic: 'JANUS_ANTHROPIC_API_KEY',
+    gemini: 'JANUS_GEMINI_API_KEY',
+    asana: 'ASANA_ACCESS_TOKEN',
+    vercel: 'VERCEL_TOKEN',
+    runway: 'RUNWAYML_API_SECRET',
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -262,6 +275,17 @@ toolGateway.register(new AssistantConsumerStatusAdapter({
 toolGateway.register(new NetlifyDeployAdapter({
   tokenProvider: () => credentialBroker.accessToken('netlify'),
 }));
+toolGateway.register(new AsanaAdapter({
+  tokenProvider: () => credentialBroker.accessToken('asana'),
+}));
+toolGateway.register(new VercelAdapter({
+  tokenProvider: () => credentialBroker.accessToken('vercel'),
+  ...(process.env.VERCEL_TEAM_ID?.trim() ? { defaultTeamId: process.env.VERCEL_TEAM_ID.trim() } : {}),
+}));
+toolGateway.register(new RunwayAdapter({
+  tokenProvider: () => credentialBroker.accessToken('runway'),
+  ...(process.env.RUNWAY_API_VERSION?.trim() ? { runwayVersion: process.env.RUNWAY_API_VERSION.trim() } : {}),
+}));
 toolGateway.register(new GoogleWorkspaceAdapter({
   tokenProvider: async () => (
     await credentialBroker.accessToken('google-workspace', [
@@ -297,6 +321,39 @@ capabilities.register({
   ...(!netlifyConfigured
     ? { reason: 'Netlify necesita una llave de solo lectura para comprobar qué versión está publicada.' }
     : {}),
+});
+const asanaConfigured = environmentCredentials.configured('asana');
+const vercelConfigured = environmentCredentials.configured('vercel');
+const runwayConfigured = environmentCredentials.configured('runway');
+capabilities.register({
+  tool: 'asana',
+  actions: ['workspaces.list', 'projects.list', 'tasks.list'],
+  state: asanaConfigured ? 'available' : 'needs_auth',
+  ...(!asanaConfigured ? { reason: 'Asana necesita un token personal (ASANA_ACCESS_TOKEN) para leer proyectos y tareas.' } : {}),
+});
+capabilities.register({
+  tool: 'asana',
+  actions: ['task.create'],
+  state: asanaConfigured ? 'available' : 'needs_auth',
+  ...(!asanaConfigured ? { reason: 'Asana necesita un token personal antes de crear tareas (siempre con confirmación).' } : {}),
+});
+capabilities.register({
+  tool: 'vercel',
+  actions: ['deployments.list', 'deployment.get'],
+  state: vercelConfigured ? 'available' : 'needs_auth',
+  ...(!vercelConfigured ? { reason: 'Vercel necesita un token de solo lectura (VERCEL_TOKEN) para consultar despliegues.' } : {}),
+});
+capabilities.register({
+  tool: 'runway',
+  actions: ['organization.read', 'task.get'],
+  state: runwayConfigured ? 'available' : 'needs_auth',
+  ...(!runwayConfigured ? { reason: 'Runway necesita su API secret (RUNWAYML_API_SECRET) para consultar créditos y tareas.' } : {}),
+});
+capabilities.register({
+  tool: 'runway',
+  actions: ['image.create', 'video.create'],
+  state: runwayConfigured ? 'available' : 'needs_auth',
+  ...(!runwayConfigured ? { reason: 'Runway necesita su API secret; cada generación gasta créditos y pide confirmación.' } : {}),
 });
 const metaTokenConfigured = environmentCredentials.configured('meta');
 const youtubeConfigured = environmentCredentials.configured('youtube');
@@ -856,17 +913,29 @@ function recordRunOutcome(snapshot: RunSnapshot): void {
 }
 
 function createConfiguredModelGateway(): ModelGateway | undefined {
-  const baseUrl = process.env.JANUS_MODEL_BASE_URL?.trim();
-  const model = process.env.JANUS_MODEL_NAME?.trim();
-  if (!baseUrl || !model) return undefined;
-
-  return new ChatCompletionsModelAdapter({
-    baseUrl,
-    model,
-    providerName: process.env.JANUS_MODEL_PROVIDER?.trim() || undefined,
-    tokenProvider: () => credentialBroker.accessToken('model'),
-    supportsJsonMode: process.env.JANUS_MODEL_JSON_MODE === 'true',
+  // Provider-independent: every configured provider is a replaceable adapter;
+  // Janus Core routes between them (local/custom first unless JANUS_MODEL_ORDER says otherwise).
+  const providers = resolveModelProviders(process.env).map((config) => {
+    const service = config.id === 'custom' ? 'model' : config.id;
+    const gateway: ModelGateway = config.protocol === 'anthropic-messages'
+      ? new AnthropicMessagesModelAdapter({
+          model: config.model,
+          baseUrl: config.baseUrl,
+          tokenProvider: () => credentialBroker.accessToken(service),
+        })
+      : new ChatCompletionsModelAdapter({
+          baseUrl: config.baseUrl,
+          model: config.model,
+          providerName: config.id === 'custom' ? (process.env.JANUS_MODEL_PROVIDER?.trim() || undefined) : config.id,
+          tokenProvider: () => credentialBroker.accessToken(service),
+          supportsJsonMode: config.jsonMode,
+          ...(config.chatPath ? { chatPath: config.chatPath } : {}),
+        });
+    return { id: config.id, gateway };
   });
+  if (providers.length === 0) return undefined;
+  if (providers.length === 1) return providers[0]!.gateway;
+  return new FallbackModelRouter(providers);
 }
 
 function createConfiguredVoiceGateway(): VoiceGateway | undefined {
@@ -1538,7 +1607,18 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     },
   });
 
-  return compilePlan(plan, { toolGateway });
+  const guarded = enforceSensitiveActionPolicy(plan);
+  if (guarded.enforced.length > 0) {
+    recordDecision({
+      runId,
+      decisionKind: 'sensitive_action_policy',
+      selectedWorker: 'janus-core/sensitive-action-policy-v1',
+      confidence: 1,
+      outputSummary: 'External writes / paid generations forced to explicit approval regardless of the planner.',
+      metadata: { enforced: guarded.enforced },
+    });
+  }
+  return compilePlan(guarded.plan, { toolGateway });
 }
 
 function assertCapabilitiesReady(plan: JanusPlan): void {
@@ -2319,6 +2399,8 @@ const server = createServer(async (request, response) => {
         githubConfigured,
         googleConfigured,
         modelConfigured: Boolean(modelGateway),
+        modelProviders: describeModelProviders(process.env),
+        modelRoute: resolveModelProviders(process.env).map((provider) => provider.id),
         provider: 'replaceable-broker',
       },
     });
