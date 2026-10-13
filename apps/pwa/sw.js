@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v5';
+const CACHE = 'janus-shell-v6';
 const SHELL = [
   '/',
   '/index.html',
@@ -8,6 +8,9 @@ const SHELL = [
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',
+  '/icons/janus-icon-180.png',
+  '/icons/janus-icon-192.png',
+  '/icons/janus-icon-512.png',
 ];
 
 self.addEventListener('install', (event) => {

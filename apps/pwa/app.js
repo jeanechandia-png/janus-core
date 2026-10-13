@@ -748,7 +748,7 @@ voiceButton.addEventListener('click', () => {
 
 void checkHealth();
 
-mountAppInstall({ appName: 'JANUS', lang: document.documentElement.lang || 'es' });
+mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});

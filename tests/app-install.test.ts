@@ -51,3 +51,22 @@ test('regression: closed install sheet must not keep an invisible full-screen ov
   const css = readFileSync('apps/pwa/styles.css', 'utf8');
   assert.match(css, /\.app-install-sheet\[hidden\][^{]*\{\s*display:\s*none\s*!important/);
 });
+
+test('Janus app icon: opaque PNGs at the declared sizes are wired in manifest, iOS head and offline shell', () => {
+  const manifest = JSON.parse(readFileSync('apps/pwa/manifest.webmanifest', 'utf8'));
+  const html = readFileSync('apps/pwa/index.html', 'utf8');
+  const sw = readFileSync('apps/pwa/sw.js', 'utf8');
+  for (const [size, file] of [[192, 'janus-icon-192.png'], [512, 'janus-icon-512.png']] as const) {
+    assert.ok(manifest.icons.some((icon: { src: string; sizes: string }) => icon.src === `/icons/${file}` && icon.sizes === `${size}x${size}`), file);
+  }
+  assert.match(html, /rel="apple-touch-icon"[^>]*href="\/icons\/janus-icon-180\.png"/);
+  for (const file of ['janus-icon-180.png', 'janus-icon-192.png', 'janus-icon-512.png']) {
+    const png = readFileSync(`apps/pwa/icons/${file}`);
+    assert.equal(png.subarray(1, 4).toString(), 'PNG');
+    const size = Number(file.match(/(\d+)\.png/)![1]);
+    assert.equal(png.readUInt32BE(16), size);
+    assert.equal(png.readUInt32BE(20), size);
+    assert.notEqual(png[25], 6, `${file} must not carry an alpha channel (iOS would paint it black/transparent)`);
+    assert.ok(sw.includes(`/icons/${file}`), `${file} cached in offline shell`);
+  }
+});
