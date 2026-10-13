@@ -11,6 +11,10 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'runway.image.create': 'Genera una imagen en Runway (gasta créditos).',
   'runway.video.create': 'Genera un vídeo en Runway (gasta créditos).',
   'github.file.publish': 'Publica un archivo en GitHub (escritura externa).',
+  'kling.video.create': 'Genera un vídeo en Kling AI (gasta créditos).',
+  'n8n.workflow.trigger': 'Dispara un flujo de n8n (acción externa).',
+  'google-workspace-write.gmail.draft.create': 'Crea un borrador en Gmail (escritura en tu correo; no se envía).',
+  'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',
 });
 
 export interface SensitiveActionReport {

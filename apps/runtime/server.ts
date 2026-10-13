@@ -9,6 +9,10 @@ import { NetlifyDeployAdapter } from '../../packages/adapters/src/netlify-deploy
 import { AsanaAdapter } from '../../packages/adapters/src/asana-adapter.js';
 import { VercelAdapter } from '../../packages/adapters/src/vercel-adapter.js';
 import { RunwayAdapter } from '../../packages/adapters/src/runway-adapter.js';
+import { PerplexityAdapter } from '../../packages/adapters/src/perplexity-adapter.js';
+import { KlingAdapter } from '../../packages/adapters/src/kling-adapter.js';
+import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-adapter.js';
+import { GoogleWorkspaceWriteAdapter } from '../../packages/adapters/src/google-workspace-write-adapter.js';
 import {
   interpretTranscript,
   transcriptionVocabularyPrompt,
@@ -214,6 +218,10 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     asana: 'ASANA_ACCESS_TOKEN',
     vercel: 'VERCEL_TOKEN',
     runway: 'RUNWAYML_API_SECRET',
+    perplexity: 'PERPLEXITY_API_KEY',
+    kling: 'KLING_API_KEY',
+    n8n: 'N8N_API_KEY',
+    'google-workspace-write': 'GOOGLE_WRITE_ACCESS_TOKEN',
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -286,6 +294,22 @@ toolGateway.register(new RunwayAdapter({
   tokenProvider: () => credentialBroker.accessToken('runway'),
   ...(process.env.RUNWAY_API_VERSION?.trim() ? { runwayVersion: process.env.RUNWAY_API_VERSION.trim() } : {}),
 }));
+toolGateway.register(new PerplexityAdapter({
+  tokenProvider: () => credentialBroker.accessToken('perplexity'),
+}));
+toolGateway.register(new KlingAdapter({
+  tokenProvider: () => credentialBroker.accessToken('kling'),
+  ...(process.env.KLING_DEFAULT_MODEL?.trim() ? { defaultModel: process.env.KLING_DEFAULT_MODEL.trim() } : {}),
+}));
+const n8nWebhooks = parseN8nWebhooks(process.env.JANUS_N8N_WEBHOOKS);
+toolGateway.register(new N8nAdapter({
+  ...(process.env.N8N_BASE_URL?.trim() ? { baseUrl: process.env.N8N_BASE_URL.trim() } : {}),
+  tokenProvider: () => credentialBroker.accessToken('n8n'),
+  webhooks: n8nWebhooks,
+}));
+toolGateway.register(new GoogleWorkspaceWriteAdapter({
+  tokenProvider: () => credentialBroker.accessToken('google-workspace-write', ['gmail.compose', 'calendar.events']),
+}));
 toolGateway.register(new GoogleWorkspaceAdapter({
   tokenProvider: async () => (
     await credentialBroker.accessToken('google-workspace', [
@@ -354,6 +378,40 @@ capabilities.register({
   actions: ['image.create', 'video.create'],
   state: runwayConfigured ? 'available' : 'needs_auth',
   ...(!runwayConfigured ? { reason: 'Runway necesita su API secret; cada generación gasta créditos y pide confirmación.' } : {}),
+});
+const perplexityConfigured = environmentCredentials.configured('perplexity');
+const klingConfigured = environmentCredentials.configured('kling');
+const n8nApiConfigured = environmentCredentials.configured('n8n') && Boolean(process.env.N8N_BASE_URL?.trim());
+const googleWriteConfigured = environmentCredentials.configured('google-workspace-write');
+capabilities.register({
+  tool: 'perplexity',
+  actions: ['research.ask'],
+  state: perplexityConfigured ? 'available' : 'needs_auth',
+  ...(!perplexityConfigured ? { reason: 'Perplexity necesita su API key (PERPLEXITY_API_KEY) para investigar con fuentes.' } : {}),
+});
+capabilities.register({
+  tool: 'kling',
+  actions: ['task.get', 'video.create'],
+  state: klingConfigured ? 'available' : 'needs_auth',
+  ...(!klingConfigured ? { reason: 'Kling AI necesita su API key (KLING_API_KEY); cada vídeo gasta créditos y pide confirmación.' } : {}),
+});
+capabilities.register({
+  tool: 'n8n',
+  actions: ['workflows.list', 'executions.list', 'execution.get'],
+  state: n8nApiConfigured ? 'available' : 'needs_auth',
+  ...(!n8nApiConfigured ? { reason: 'n8n necesita N8N_BASE_URL (https) y N8N_API_KEY (no disponible en la prueba gratuita de n8n).' } : {}),
+});
+capabilities.register({
+  tool: 'n8n',
+  actions: ['workflow.trigger'],
+  state: Object.keys(n8nWebhooks).length > 0 ? 'available' : 'needs_auth',
+  ...(Object.keys(n8nWebhooks).length === 0 ? { reason: 'Para disparar flujos, el Founder debe autorizar sus webhooks por nombre en JANUS_N8N_WEBHOOKS.' } : {}),
+});
+capabilities.register({
+  tool: 'google-workspace-write',
+  actions: ['gmail.draft.create', 'calendar.event.create'],
+  state: googleWriteConfigured ? 'available' : 'needs_auth',
+  ...(!googleWriteConfigured ? { reason: 'Escribir en Google (borradores de Gmail, eventos de Calendar) necesita un token aparte con permisos gmail.compose y calendar.events.' } : {}),
 });
 const metaTokenConfigured = environmentCredentials.configured('meta');
 const youtubeConfigured = environmentCredentials.configured('youtube');

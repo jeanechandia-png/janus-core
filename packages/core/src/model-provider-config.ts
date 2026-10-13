@@ -14,8 +14,9 @@
  * - OpenAI: https://api.openai.com + /v1/chat/completions (Bearer)
  * - Anthropic: https://api.anthropic.com/v1/messages (x-api-key, anthropic-version)
  * - Gemini (OpenAI-compatible): https://generativelanguage.googleapis.com/v1beta/openai + /chat/completions (Bearer)
+ * - Perplexity (OpenAI-compatible orchestrator): https://api.perplexity.ai/router/v1 + /chat/completions (Bearer)
  */
-export type ModelProviderId = 'custom' | 'openai' | 'anthropic' | 'gemini';
+export type ModelProviderId = 'custom' | 'openai' | 'anthropic' | 'gemini' | 'perplexity';
 
 export interface ModelProviderConfig {
   id: ModelProviderId;
@@ -42,6 +43,7 @@ interface ProviderPreset {
 const PRESETS: readonly ProviderPreset[] = [
   { id: 'openai', label: 'ChatGPT (OpenAI)', protocol: 'chat-completions', baseUrl: 'https://api.openai.com', chatPath: '/v1/chat/completions', keyEnv: 'JANUS_OPENAI_API_KEY', modelEnv: 'JANUS_OPENAI_MODEL', jsonMode: true },
   { id: 'anthropic', label: 'Claude (Anthropic)', protocol: 'anthropic-messages', baseUrl: 'https://api.anthropic.com', keyEnv: 'JANUS_ANTHROPIC_API_KEY', modelEnv: 'JANUS_ANTHROPIC_MODEL', jsonMode: false },
+  { id: 'perplexity', label: 'Perplexity', protocol: 'chat-completions', baseUrl: 'https://api.perplexity.ai/router/v1', chatPath: '/chat/completions', keyEnv: 'PERPLEXITY_API_KEY', modelEnv: 'JANUS_PERPLEXITY_MODEL', jsonMode: false },
   { id: 'gemini', label: 'Gemini (Google)', protocol: 'chat-completions', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', chatPath: '/chat/completions', keyEnv: 'JANUS_GEMINI_API_KEY', modelEnv: 'JANUS_GEMINI_MODEL', jsonMode: true },
 ];
 
@@ -50,9 +52,10 @@ export const MODEL_PROVIDER_CREDENTIAL_ENV: Readonly<Record<ModelProviderId, str
   openai: 'JANUS_OPENAI_API_KEY',
   anthropic: 'JANUS_ANTHROPIC_API_KEY',
   gemini: 'JANUS_GEMINI_API_KEY',
+  perplexity: 'PERPLEXITY_API_KEY',
 });
 
-const DEFAULT_ORDER: readonly ModelProviderId[] = ['custom', 'openai', 'anthropic', 'gemini'];
+const DEFAULT_ORDER: readonly ModelProviderId[] = ['custom', 'openai', 'anthropic', 'gemini', 'perplexity'];
 
 type Env = Record<string, string | undefined>;
 
