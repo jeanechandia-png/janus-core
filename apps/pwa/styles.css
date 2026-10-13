@@ -325,3 +325,12 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 @media (prefers-reduced-motion: reduce) {
   .glow-emblem, .glow-emblem-sheen, .glow-emblem-halo { transition: opacity .2s linear, box-shadow .2s linear; }
 }
+
+/* ---- Adaptive effort selector ---- */
+.effort-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 12px; }
+.effort-row select {
+  min-height: 44px; padding: 0 12px; border-radius: 12px; font: inherit; color: inherit;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14); max-width: 100%;
+}
+.effort-hint { font-size: 13px; opacity: .8; }
+.effort-hint[data-level="profundo"], .effort-hint[data-level="maximo"] { color: #ffd27a; opacity: 1; }

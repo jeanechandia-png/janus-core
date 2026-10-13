@@ -304,6 +304,28 @@ function activateRun(runId) {
   connectEvents(runId);
 }
 
+const effortSelect = document.querySelector('#effortSelect');
+const effortHint = document.querySelector('#effortHint');
+const EFFORT_LABELS = { eco: 'ECO', normal: 'NORMAL', profundo: 'PROFUNDO', maximo: 'MÁXIMO' };
+const RISK_LABELS = { low: 'bajo', high: 'alto', critical: 'crítico' };
+try {
+  const saved = localStorage.getItem('janus.effort');
+  if (saved && [...effortSelect.options].some((option) => option.value === saved)) effortSelect.value = saved;
+} catch { /* storage unavailable: AUTO */ }
+effortSelect.addEventListener('change', () => {
+  try { localStorage.setItem('janus.effort', effortSelect.value); } catch { /* ignore */ }
+  effortHint.textContent = '';
+});
+
+function showEffort(effort) {
+  if (!effort) { effortHint.textContent = ''; return; }
+  const parts = [`${EFFORT_LABELS[effort.level] ?? effort.level}${effort.source === 'auto' ? ' (auto)' : ''}`, `riesgo ${RISK_LABELS[effort.risk] ?? effort.risk}`];
+  if (effort.raisedByRisk) parts.push('subido por riesgo');
+  if (effort.requiresConfirmation) parts.push('pedirá confirmación');
+  effortHint.textContent = parts.join(' · ');
+  effortHint.dataset.level = effort.level;
+}
+
 async function submit(text) {
   const clean = text.trim();
   if (!clean) return;
@@ -317,11 +339,12 @@ async function submit(text) {
     const response = await fetch('/api/command', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ text: clean, inputMode: 'text' }),
+      body: JSON.stringify({ text: clean, inputMode: 'text', effort: effortSelect.value }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? 'No se pudo iniciar');
     activateRun(data.runId);
+    showEffort(data.effort);
     showInterpretation(data.interpretation);
     command.value = '';
   } catch (error) {

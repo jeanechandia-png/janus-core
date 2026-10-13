@@ -11,6 +11,7 @@ import {
   transcriptionVocabularyPrompt,
   type TranscriptInterpretation,
 } from '../../packages/core/src/transcript-interpretation.js';
+import { decideEffort, type EffortDecision } from '../../packages/core/src/effort-policy.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
@@ -244,6 +245,7 @@ const runAssignments = new Map<string, { assignmentId: string; principalId: stri
 const runProjects = new Map<string, { projectId: string; threadId: string }>();
 const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
 const runInterpretations = new Map<string, TranscriptInterpretation>();
+const runEfforts = new Map<string, EffortDecision>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -1510,6 +1512,7 @@ function startRun(
   authorityContext?: TaskAuthorityContext,
   coordinationLink?: { assignmentId: string; principalId: string },
   projectLink?: { projectId: string; threadId: string },
+  requestedEffort?: string,
 ): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
@@ -1640,6 +1643,32 @@ function startRun(
       .map((message) => message.content),
   });
   runInterpretations.set(runId, interpretation);
+  // Adaptive effort: how much work/verification this command deserves (risk, complexity, cost).
+  const effort = decideEffort({
+    text: interpretation.interpretedText,
+    requested: requestedEffort,
+    sensitiveCommand: interpretation.sensitiveCommand,
+  });
+  runEfforts.set(runId, effort);
+  recordDecision({
+    runId,
+    decisionKind: 'effort_selection',
+    selectedWorker: 'janus-core/' + effort.policyVersion,
+    confidence: 1,
+    outputSummary: 'Effort ' + effort.level.toUpperCase() + ' (' + effort.source + '); risk ' + effort.risk
+      + ', complexity ' + effort.complexity + (effort.raisedByRisk ? '; raised by risk floor' : '') + '.',
+    metadata: {
+      requested: effort.requested,
+      level: effort.level,
+      source: effort.source,
+      risk: effort.risk,
+      complexity: effort.complexity,
+      raisedByRisk: effort.raisedByRisk,
+      requiresConfirmation: effort.requiresConfirmation,
+      budget: effort.budget,
+      reasons: effort.reasons,
+    },
+  });
   if (interpretation.corrections.length > 0) {
     recordDecision({
       runId,
@@ -1676,6 +1705,7 @@ function startRun(
           needsConfirmation: interpretation.needsConfirmation,
         },
       } : {}),
+      effort: { level: effort.level, source: effort.source, risk: effort.risk },
       ...(authorityContext?.principal?.id
         ? { principalId: authorityContext.principal.id }
         : {}),
@@ -4399,11 +4429,13 @@ const server = createServer(async (request, response) => {
         authorityContext,
         coordinationLink,
         projectLink,
+        typeof body.effort === 'string' ? body.effort : undefined,
       );
       const commandInterpretation = runInterpretations.get(runId);
       json(response, 202, {
         ok: true,
         ...(commandInterpretation?.corrections.length ? { interpretation: commandInterpretation } : {}),
+        effort: runEfforts.get(runId) ?? null,
         runId,
         authenticatedPrincipal: authorityContext?.principal?.id ?? null,
         assignmentId: coordinationLink?.assignmentId ?? null,

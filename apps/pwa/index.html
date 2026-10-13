@@ -72,6 +72,17 @@
 
     <section class="command-card">
       <textarea id="command" rows="2" placeholder="Dile a Janus qué quieres conseguir…"></textarea>
+      <div class="effort-row">
+        <label for="effortSelect" class="eyebrow">ESFUERZO</label>
+        <select id="effortSelect" aria-describedby="effortHint">
+          <option value="auto">AUTO — Janus decide</option>
+          <option value="eco">ECO — rápido y económico</option>
+          <option value="normal">NORMAL — equilibrado</option>
+          <option value="profundo">PROFUNDO — investiga y verifica más</option>
+          <option value="maximo">MÁXIMO — máximo rigor y coste</option>
+        </select>
+        <span id="effortHint" class="effort-hint" role="status" aria-live="polite"></span>
+      </div>
       <div class="command-actions">
         <button id="sendButton" class="primary">Ejecutar</button>
         <button id="pauseButton" class="secondary" disabled>Pausar</button>

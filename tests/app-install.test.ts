@@ -92,3 +92,14 @@ test('living emblem: pose maps pointer to tilt/light, clamps, and is wired offli
   assert.ok(readFileSync('apps/pwa/sw.js', 'utf8').includes("'/glow-emblem.js'"));
   assert.ok(readFileSync('apps/pwa/app.js', 'utf8').includes("mountGlowEmblem(document.querySelector('#janusEmblem'))"));
 });
+
+test('effort selector: five levels offered (AUTO default), sent with each command and shown back', () => {
+  const html = readFileSync('apps/pwa/index.html', 'utf8');
+  const app = readFileSync('apps/pwa/app.js', 'utf8');
+  const values = [...html.matchAll(/<option value="([a-z]+)">/g)].map((match) => match[1]);
+  for (const level of ['auto', 'eco', 'normal', 'profundo', 'maximo']) assert.ok(values.includes(level), level);
+  assert.equal(values[0], 'auto');
+  assert.match(app, /effort: effortSelect\.value/);
+  assert.match(app, /showEffort\(data\.effort\)/);
+  assert.match(app, /try \{ localStorage\.setItem\('janus\.effort'/);
+});

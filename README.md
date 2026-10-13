@@ -227,3 +227,4 @@ config/                   Tracked examples only; private local config is ignored
 docs/                     Architecture, deployment and continuity decisions
 tests/                    Unit, integration and end-to-end gates
 ```
+- Adaptive effort (ECO/NORMAL/PROFUNDO/MÁXIMO/AUTO): deterministic risk/complexity/cost policy; AUTO never selects MÁXIMO, risky commands never run below NORMAL, critical risk requires confirmation; decision returned by `/api/command` and recorded as an `effort_selection` receipt.

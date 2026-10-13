@@ -337,6 +337,25 @@ try {
   });
   assert.equal(projectRunResponse.status, 202);
   const projectRunBody = await projectRunResponse.json();
+  // Adaptive effort: Founder ECO on a risky topic is raised to NORMAL and reported; AUTO is the default.
+  const effortResponse = await fetch(`${base}/api/command`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'Explícame en términos simples qué es un contrato de arrendamiento.', inputMode: 'text', effort: 'eco' }),
+  });
+  assert.equal(effortResponse.status, 202);
+  const effortBody = await effortResponse.json();
+  assert.equal(effortBody.effort.requested, 'eco');
+  assert.equal(effortBody.effort.level, 'normal');
+  assert.equal(effortBody.effort.raisedByRisk, true);
+  assert.equal(effortBody.effort.source, 'founder');
+  const autoEffortBody = await (await fetch(`${base}/api/command`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'Hola Janus', inputMode: 'text' }),
+  })).json();
+  assert.equal(autoEffortBody.effort.requested, 'auto');
+  assert.equal(autoEffortBody.effort.level, 'eco');
   assert.equal(projectRunBody.projectId, 'project-smoke');
   assert.equal(projectRunBody.threadId, 'thread-smoke-1');
   const projectRun = await waitForRun(
