@@ -17,6 +17,8 @@ export interface WhisperCppSttAdapterOptions {
   preRollMs?: number;
   partialIntervalMs?: number;
   requestTimeoutMs?: number;
+  /** Initial prompt that biases recognition toward known names (whisper.cpp `prompt`). */
+  vocabularyPrompt?: string;
 }
 
 const PCM_MIME = 'audio/pcm;rate=16000;channels=1;format=s16le';
@@ -35,6 +37,7 @@ export class WhisperCppSttAdapter implements SpeechToTextGateway {
   private readonly preRollMs: number;
   private readonly partialIntervalMs: number;
   private readonly requestTimeoutMs: number;
+  private readonly vocabularyPrompt?: string;
 
   constructor(options: WhisperCppSttAdapterOptions) {
     this.baseUrl = normalizeBaseUrl(options.baseUrl, options.allowRemote === true);
@@ -48,6 +51,7 @@ export class WhisperCppSttAdapter implements SpeechToTextGateway {
     this.preRollMs = options.preRollMs ?? 240;
     this.partialIntervalMs = options.partialIntervalMs ?? 1_200;
     this.requestTimeoutMs = options.requestTimeoutMs ?? 30_000;
+    this.vocabularyPrompt = options.vocabularyPrompt?.trim().slice(0, 400) || undefined;
   }
 
   async *transcribeStream(
@@ -158,6 +162,7 @@ export class WhisperCppSttAdapter implements SpeechToTextGateway {
     form.set('temperature', '0.0');
     form.set('temperature_inc', '0.2');
     form.set('no_speech_thold', '0.6');
+    if (this.vocabularyPrompt) form.set('prompt', this.vocabularyPrompt);
     if (this.language === 'auto') {
       form.set('detect_language', 'true');
     } else {

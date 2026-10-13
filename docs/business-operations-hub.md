@@ -2,7 +2,7 @@
 
 ## Purpose
 
-JANUS CORE needs one local-first operational view across Infinity Group products without turning any external vendor into the source of truth.
+JANUS CORE needs one local-first operational view across InfinitySeed Group products without turning any external vendor into the source of truth.
 
 The Operations Hub is a generic product layer. Tribuna Virtual, Infinity School, Infinity Connect, ChatBox, IBA and future products can be registered as VIGENTE records when their real data sources are known. Product names/endpoints are not baked into Core logic.
 

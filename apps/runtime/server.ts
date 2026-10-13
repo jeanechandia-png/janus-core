@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
 import { NetlifyDeployAdapter } from '../../packages/adapters/src/netlify-deploy-adapter.js';
+import {
+  interpretTranscript,
+  transcriptionVocabularyPrompt,
+  type TranscriptInterpretation,
+} from '../../packages/core/src/transcript-interpretation.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
@@ -78,6 +83,7 @@ import {
   assertAssistantProfileRevisionAppendOnly,
   createAssistantProfileRevision,
   createAssistantSurface,
+  upgradeInfinitySeedGroupSurface,
   defaultLandingAssistantProfile,
   defaultLandingAssistantSurfaces,
   resolveAssistantSurfaceConfig,
@@ -237,6 +243,7 @@ const runBlueprints = new Map<string, DecisionBlueprint>();
 const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
 const runProjects = new Map<string, { projectId: string; threadId: string }>();
 const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
+const runInterpretations = new Map<string, TranscriptInterpretation>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -356,6 +363,11 @@ function ensureLandingAssistantControlPlane(): void {
   for (const surface of defaultLandingAssistantSurfaces()) {
     if (!store.getAssistantSurface(surface.id)) store.upsertAssistantSurface(surface);
   }
+  const groupSurface = store.getAssistantSurface('landing.infinity-group');
+  const upgradedGroupSurface = groupSurface
+    ? upgradeInfinitySeedGroupSurface(groupSurface, new Date().toISOString())
+    : null;
+  if (upgradedGroupSurface) store.upsertAssistantSurface(upgradedGroupSurface);
 }
 
 function productOperationsSnapshot(productId: string) {
@@ -860,6 +872,7 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     baseUrl: sttBaseUrl,
     language: process.env.JANUS_STT_LANGUAGE?.trim() || 'auto',
     allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
+    vocabularyPrompt: transcriptionVocabularyPrompt(),
   });
   const tts = new Qwen3TtsHttpAdapter({
     baseUrl: ttsBaseUrl,
@@ -1205,6 +1218,15 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        ...(runInterpretations.get(runId)?.corrections.length ? {
+          transcriptInterpretation: {
+            note: 'The request may contain speech-to-text or dictation errors. Original text is authoritative for what was said; apply only corrections marked applied, and ask before acting on unconfirmed ones.',
+            originalText: runInterpretations.get(runId)!.originalText,
+            interpretedText: runInterpretations.get(runId)!.interpretedText,
+            corrections: runInterpretations.get(runId)!.corrections,
+            confirmationPrompt: runInterpretations.get(runId)!.confirmationPrompt,
+          },
+        } : {}),
         progressPolicy: {
           id: CONTINUE_BY_ALTERNATIVES_POLICY.id,
           rule: CONTINUE_BY_ALTERNATIVES_POLICY.rule,
@@ -1610,6 +1632,33 @@ function startRun(
       } : {}),
     },
   });
+  // Transcription/dictation tolerance: keep what was said, resolve what was meant.
+  const interpretation = interpretTranscript({
+    text: command,
+    context: store.listConversationMessages(sessionId)
+      .slice(-8)
+      .map((message) => message.content),
+  });
+  runInterpretations.set(runId, interpretation);
+  if (interpretation.corrections.length > 0) {
+    recordDecision({
+      runId,
+      decisionKind: 'transcript_interpretation',
+      selectedWorker: 'janus-core/' + interpretation.policyVersion,
+      confidence: Math.min(...interpretation.corrections.map((correction) => correction.confidence)),
+      outputSummary: interpretation.needsConfirmation
+        ? 'Possible transcription error detected; confirmation requested before using the corrected meaning.'
+        : 'Known transcription error resolved from context; original text preserved.',
+      metadata: {
+        inputMode,
+        originalText: interpretation.originalText,
+        interpretedText: interpretation.interpretedText,
+        sensitiveCommand: interpretation.sensitiveCommand,
+        corrections: interpretation.corrections,
+        confirmationPrompt: interpretation.confirmationPrompt,
+      },
+    });
+  }
   const userMessage = {
     id: `msg:user:${runId}`,
     sessionId,
@@ -1620,6 +1669,13 @@ function startRun(
     metadata: {
       runId,
       inputMode,
+      ...(interpretation.corrections.length > 0 ? {
+        interpretation: {
+          interpretedText: interpretation.interpretedText,
+          corrections: interpretation.corrections,
+          needsConfirmation: interpretation.needsConfirmation,
+        },
+      } : {}),
       ...(authorityContext?.principal?.id
         ? { principalId: authorityContext.principal.id }
         : {}),
@@ -1690,7 +1746,9 @@ function startRun(
 
       let steps: JanusStep[];
       try {
-        steps = (await prepareSteps(command, runId)) ?? demoSteps(command);
+        // Only high-confidence, non-sensitive corrections are applied; the rest wait for the human.
+        const planningText = interpretation.interpretedText;
+        steps = (await prepareSteps(planningText, runId)) ?? demoSteps(planningText);
       } catch (error) {
         const resolution = runBlockerResolutions.get(runId);
         await activeRunner.block('Janus Core no puede completar esta ruta todavía', {
@@ -4342,8 +4400,10 @@ const server = createServer(async (request, response) => {
         coordinationLink,
         projectLink,
       );
+      const commandInterpretation = runInterpretations.get(runId);
       json(response, 202, {
         ok: true,
+        ...(commandInterpretation?.corrections.length ? { interpretation: commandInterpretation } : {}),
         runId,
         authenticatedPrincipal: authorityContext?.principal?.id ?? null,
         assignmentId: coordinationLink?.assignmentId ?? null,

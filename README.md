@@ -144,7 +144,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Projects can bind to coordination scopes; authenticated collaborators still need explicit project/scope access and cannot enumerate Founder-private projects.
 - A fresh project thread bootstraps from prior project instructions/decisions/resume state automatically; project-linked runs persist a new checkpoint at completion.
 - Project planning receives only that project's continuity plus its resources/latest checkpoint instead of relying on one overloaded chat window.
-- Central Assistant Control Plane: one versioned shared profile controls Infinity Group, Infinity ChatBox and IBA landing-assistant behavior, guardrails, capabilities and reusable module references.
+- Central Assistant Control Plane: one versioned shared profile controls InfinitySeed Group, Infinity ChatBox and IBA landing-assistant behavior, guardrails, capabilities and reusable module references.
 - All three landing surfaces track the current shared profile revision by default; one profile update changes their resolved config without editing each surface.
 - Surfaces may temporarily pin a compatible profile revision and may disable shared capabilities, but cannot invent capabilities outside the parent profile.
 - Continue-by-Alternatives policy converts provider/capability dead ends into structured blocker resolutions with 2-4 alternatives, recommendation and next action; coordinated handoffs retain those alternatives.
@@ -171,7 +171,7 @@ The UI renders observable work only; it never exposes private model chain-of-tho
 - Resolve Facebook share links in the Founder Reference Library to canonical page/profile identifiers when authoritative resolution is available, then record the evidence-gated binding; preserve the original URLs as historical/source evidence.
 - Register the actual Tribuna Virtual, Infinity School, Infinity Connect and other VIGENTE product telemetry/accounting sources in the Operations Hub; the local data model/API exists but Janus will not invent endpoints or credentials that are not configured.
 - Authorize the Meta/Instagram/Facebook and YouTube accounts with least-privilege read scopes, then ingest verified channel/monetization snapshots on a schedule.
-- Make Infinity Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
+- Make InfinitySeed Group, Infinity ChatBox and IBA consume the published assistant bundle and report the applied `bundleChecksum`; repository publish is already implemented and verified.
 - Add local content-addressed storage for reusable binary assets/files, plus deduplication before creating a new library item.
 - Add a usage graph from products/projects to exact reusable item revisions so updates can be impact-checked and upgraded safely.
 - Add real model inventory/configuration so Model Router can execute provider alternatives automatically and record observed routing quality/cost/latency in Decision Receipts.

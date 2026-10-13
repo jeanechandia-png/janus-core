@@ -280,3 +280,15 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 }
 .app-install-card button { width: 100%; }
 @media (prefers-reduced-motion: reduce) { .app-install-sheet, .app-install-card { transition: none; } }
+
+/* ---------- Interpretación de transcripción (aviso persistente) ---------- */
+.interpretation-notice[hidden] { display: none !important; }
+.interpretation-notice {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin: 0 0 16px; padding: 14px 16px; border-radius: 18px;
+  background: #0f1526; border: 1px solid rgba(80, 105, 255, .35);
+}
+.interpretation-notice.needs-confirmation { border-color: rgba(245, 190, 80, .55); background: #17140c; }
+.interpretation-notice p { margin: 6px 0 0; color: #dbe2f1; font-size: 15px; line-height: 1.45; }
+.interpretation-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex: 0 0 auto; }
+.interpretation-actions button[hidden] { display: none !important; }

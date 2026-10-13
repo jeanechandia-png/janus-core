@@ -378,6 +378,59 @@ export function upgradeLandingAssistantProfileFor24x7Support(
   });
 }
 
+/** Canonical company name. "Infinity Group" was a transcription error (Founder, 2026-10-13). */
+export const INFINITYSEED_GROUP_CANONICAL_NAME = 'InfinitySeed Group';
+
+/**
+ * The corporate website is static HTML on Hostinger and reads nothing from a
+ * repository; its chat is served by the ChatBox runtime
+ * (`POST infinitychatbox.nl/api/v1/infinityseed/advisor`). This second target
+ * delivers the website surface where its assistant actually runs. The original
+ * website target is kept (additive, index 0); publishers choose targetIndex 1.
+ */
+export const INFINITY_GROUP_CHATBOX_RUNTIME_TARGET: AssistantSurfaceDeliveryTarget = Object.freeze({
+  kind: 'repository',
+  target: 'jeanechandia-png/infinity-chatbox-platform',
+  productKey: 'infinity-group',
+  notes: 'Website advisor runs on the ChatBox runtime; publish here (targetIndex 1). Consumer for this surface still pending in ChatBox.',
+});
+
+/**
+ * Additive, idempotent upgrade for installations seeded before 2026-10-13:
+ * corrects the brand transcription error and appends the ChatBox runtime
+ * target. Never removes targets or capabilities; never touches surfaces a
+ * human created or edited (createdBy !== 'janus-core').
+ */
+export function upgradeInfinitySeedGroupSurface(
+  surface: AssistantSurface,
+  updatedAt: string,
+): AssistantSurface | null {
+  if (surface.id !== 'landing.infinity-group' || surface.createdBy !== 'janus-core') return null;
+  const wrongBrand = surface.presentation.brandName === 'Infinity Group';
+  const hasRuntimeTarget = surface.deliveryTargets.some((target) => (
+    target.target === INFINITY_GROUP_CHATBOX_RUNTIME_TARGET.target
+    && target.productKey === INFINITY_GROUP_CHATBOX_RUNTIME_TARGET.productKey
+  ));
+  if (!wrongBrand && hasRuntimeTarget) return null;
+  return createAssistantSurface({
+    ...surface,
+    name: surface.name === 'Infinity Group main landing assistant'
+      ? 'InfinitySeed Group main landing assistant'
+      : surface.name,
+    presentation: {
+      ...surface.presentation,
+      ...(wrongBrand ? { brandName: INFINITYSEED_GROUP_CANONICAL_NAME } : {}),
+      ...(surface.presentation.disclosure === 'AI assistant for Infinity Group.'
+        ? { disclosure: 'AI assistant for InfinitySeed Group.' }
+        : {}),
+    },
+    deliveryTargets: hasRuntimeTarget
+      ? surface.deliveryTargets
+      : [...surface.deliveryTargets, INFINITY_GROUP_CHATBOX_RUNTIME_TARGET],
+    updatedAt,
+  });
+}
+
 export function defaultLandingAssistantSurfaces(
   createdAt = '2026-10-01T00:00:00.000Z',
 ): AssistantSurface[] {
@@ -395,18 +448,18 @@ export function defaultLandingAssistantSurfaces(
     createAssistantSurface({
       ...common,
       id: 'landing.infinity-group',
-      name: 'Infinity Group main landing assistant',
+      name: 'InfinitySeed Group main landing assistant',
       product: 'infinity-group',
       presentation: {
-        brandName: 'Infinity Group',
-        disclosure: 'AI assistant for Infinity Group.',
+        brandName: INFINITYSEED_GROUP_CANONICAL_NAME,
+        disclosure: 'AI assistant for InfinitySeed Group.',
       },
       deliveryTargets: [{
         kind: 'repository',
         target: 'jeanechandia-png/infinityseed-group-website',
         productKey: 'infinity-group',
         notes: 'Resolve the current validated deployment target before publishing.',
-      }],
+      }, INFINITY_GROUP_CHATBOX_RUNTIME_TARGET],
     }),
     createAssistantSurface({
       ...common,

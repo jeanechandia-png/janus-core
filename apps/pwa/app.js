@@ -52,6 +52,50 @@ function setConnection(online) {
   connection.lastChild.textContent = online ? ' conectado' : ' desconectado';
 }
 
+const interpretationNotice = document.querySelector('#interpretationNotice');
+const interpretationText = document.querySelector('#interpretationText');
+const interpretationAccept = document.querySelector('#interpretationAccept');
+let pendingSuggestedText = '';
+document.querySelector('#interpretationClose')?.addEventListener('click', () => {
+  interpretationNotice.hidden = true;
+  pendingSuggestedText = '';
+});
+interpretationAccept?.addEventListener('click', () => {
+  if (!pendingSuggestedText) return;
+  // Human confirmation: resend the corrected wording as a new, fully governed command.
+  const corrected = pendingSuggestedText;
+  pendingSuggestedText = '';
+  interpretationNotice.hidden = true;
+  void submit(corrected);
+});
+
+/**
+ * Shows what Janus understood when the dictation/transcription looked wrong.
+ * It has its own persistent region so run progress never overwrites a question.
+ */
+function showInterpretation(interpretation) {
+  if (!interpretationNotice || !interpretationText) return;
+  if (!interpretation || !Array.isArray(interpretation.corrections) || interpretation.corrections.length === 0) {
+    interpretationNotice.hidden = true;
+    return;
+  }
+  const applied = interpretation.corrections
+    .filter((correction) => correction.applied)
+    .map((correction) => `«${correction.original}» → «${correction.canonical}»`);
+  const parts = [];
+  if (applied.length > 0) parts.push(`Interpreté ${applied.join(', ')}.`);
+  if (interpretation.needsConfirmation && interpretation.confirmationPrompt) parts.push(interpretation.confirmationPrompt);
+  if (parts.length === 0) return;
+  interpretationText.textContent = parts.join(' ');
+  pendingSuggestedText = interpretation.needsConfirmation && typeof interpretation.suggestedText === 'string'
+    && interpretation.suggestedText !== interpretation.originalText
+    ? interpretation.suggestedText
+    : '';
+  if (interpretationAccept) interpretationAccept.hidden = !pendingSuggestedText;
+  interpretationNotice.classList.toggle('needs-confirmation', Boolean(interpretation.needsConfirmation));
+  interpretationNotice.hidden = false;
+}
+
 function setPresence(state, text) {
   presenceState.textContent = state;
   if (text) transcript.textContent = text;
@@ -277,6 +321,7 @@ async function submit(text) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? 'No se pudo iniciar');
     activateRun(data.runId);
+    showInterpretation(data.interpretation);
     command.value = '';
   } catch (error) {
     setPresence('Error', error?.message ?? String(error));

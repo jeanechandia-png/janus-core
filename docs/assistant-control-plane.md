@@ -8,7 +8,7 @@ A shared improvement should be authored once and inherited everywhere that follo
 
 Current seeded surfaces:
 
-- `landing.infinity-group` — Infinity Group main landing assistant.
+- `landing.infinity-group` — InfinitySeed Group main landing assistant (targets: website repo [0], ChatBox runtime [1] where the website chat actually runs).
 - `landing.infinity-chatbox` — Infinity ChatBox landing assistant.
 - `landing.iba` — Infinity Business Assistant (IBA) landing assistant.
 
@@ -19,7 +19,7 @@ All three follow profile `infinity-landing-assistant` with `tracking=current` by
 ```text
 Infinity shared landing assistant profile
             │
-            ├── Infinity Group landing
+            ├── InfinitySeed Group landing
             ├── Infinity ChatBox landing
             └── IBA landing
 ```
@@ -106,7 +106,7 @@ Janus now has a productive repository publisher for resolved assistant bundles. 
 Current verified product topology:
 
 - Infinity ChatBox and IBA share the canonical `infinity-chatbox-platform` code lineage.
-- The Infinity Group corporate website is a separate repository.
+- The InfinitySeed Group corporate website is a separate repository (static on Hostinger); its chat runs on the ChatBox runtime.
 - ChatBox currently has platform assistant policy in its own runtime.
 - IBA currently has landing/demo assistant behavior in the shared product repository.
 

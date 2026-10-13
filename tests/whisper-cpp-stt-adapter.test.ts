@@ -136,3 +136,15 @@ function chunk(sequence: number, amplitude: number, durationMs: number): SpeechI
 function ascii(bytes: Uint8Array, offset: number, length: number): string {
   return String.fromCharCode(...bytes.slice(offset, offset + length));
 }
+
+test('whisper.cpp adapter primes recognition with the ecosystem vocabulary prompt (only when configured)', async () => {
+  const prompts: Array<FormDataEntryValue | null> = [];
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    prompts.push((init?.body as FormData).get('prompt'));
+    return new Response(JSON.stringify({ text: 'hola Janus' }), { status: 200 });
+  };
+  const base = { baseUrl: 'http://127.0.0.1:8080', fetchImpl, partialIntervalMs: 0, preRollMs: 40, silenceMs: 120, minSpeechMs: 100 };
+  for await (const _ of new WhisperCppSttAdapter({ ...base, vocabularyPrompt: 'Vocabulario: Janus, InfinitySeed Group.' }).transcribeStream(testUtterance())) { /* drain */ }
+  for await (const _ of new WhisperCppSttAdapter(base).transcribeStream(testUtterance())) { /* drain */ }
+  assert.deepEqual(prompts, ['Vocabulario: Janus, InfinitySeed Group.', null]);
+});
