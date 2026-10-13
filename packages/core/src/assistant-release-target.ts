@@ -12,7 +12,20 @@ export interface AssistantReleaseTargetManifest {
   releaseHeadSha: string;
   updatedAt: string;
   evidenceRefs: string[];
+  /**
+   * Optional binding to the hosting site whose PUBLISHED deploy is the live
+   * truth. When present, the publisher compares the release branch against the
+   * published production commit instead of the (possibly newer, unpublished)
+   * branch HEAD. Omitted fields do not enter the checksum, so manifests created
+   * before this field existed remain valid unchanged.
+   */
+  deployment?: AssistantReleaseDeploymentBinding;
   checksum: string;
+}
+
+export interface AssistantReleaseDeploymentBinding {
+  provider: 'netlify';
+  siteId: string;
 }
 
 export function createAssistantReleaseTargetManifest(
@@ -37,6 +50,7 @@ export function createAssistantReleaseTargetManifest(
     throw new Error('assistant release target requires at least one evidence reference');
   }
 
+  const deployment = normalizeDeployment(input.deployment);
   const unsigned = {
     schemaVersion: ASSISTANT_RELEASE_TARGET_SCHEMA_VERSION,
     surfaceId,
@@ -46,6 +60,7 @@ export function createAssistantReleaseTargetManifest(
     releaseHeadSha,
     updatedAt,
     evidenceRefs,
+    ...(deployment ? { deployment } : {}),
   };
   return {
     ...unsigned,
@@ -66,6 +81,7 @@ export function verifyAssistantReleaseTargetManifest(
       releaseHeadSha: manifest.releaseHeadSha,
       updatedAt: manifest.updatedAt,
       evidenceRefs: manifest.evidenceRefs,
+      deployment: manifest.deployment,
     }).checksum === manifest.checksum;
   } catch {
     return false;
@@ -97,6 +113,7 @@ export function parseAssistantReleaseTargetManifest(
     releaseHeadSha: manifest.releaseHeadSha,
     updatedAt: manifest.updatedAt,
     evidenceRefs: manifest.evidenceRefs,
+    deployment: manifest.deployment,
   });
 }
 
@@ -222,6 +239,20 @@ export function defaultAssistantReleaseTargetPath(productKey?: string): string {
     .replace(/^-+|-+$/g, '');
   if (!normalized) throw new Error('assistant release target product key is invalid');
   return '.infinity/assistant-control/' + normalized + '.release.json';
+}
+
+function normalizeDeployment(
+  value: AssistantReleaseDeploymentBinding | undefined,
+): AssistantReleaseDeploymentBinding | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== 'object' || value.provider !== 'netlify') {
+    throw new Error('assistant release target deployment provider is unsupported');
+  }
+  const siteId = typeof value.siteId === 'string' ? value.siteId.trim() : '';
+  if (!/^[A-Za-z0-9._-]{1,100}$/.test(siteId)) {
+    throw new Error('assistant release target deployment siteId is invalid');
+  }
+  return { provider: 'netlify', siteId };
 }
 
 function normalizeRepository(value: string): string {

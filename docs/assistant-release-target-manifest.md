@@ -64,6 +64,27 @@ Do not mark automatic release resolution complete until all three surfaces have 
 - Infinity ChatBox;
 - Infinity Business Assistant (IBA).
 
+## Production deployment anchor (2026-10-13, Founder rule)
+
+**Chronology is not publication.** The newest commit on a release branch may be a candidate awaiting the Founder's authorization; only the hosting provider's *published* deploy says what visitors see.
+
+A manifest may optionally declare:
+
+```json
+"deployment": { "provider": "netlify", "siteId": "<netlify site id>" }
+```
+
+The field is covered by the checksum when present and omitted from it when absent, so pre-existing manifests (e.g. ChatBox `de219f8e`) remain valid byte-for-byte.
+
+When bound, the publisher:
+
+1. reads the site's `published_deploy` through the read-only `netlify` adapter (`site.published_deploy`, token `NETLIFY_AUTH_TOKEN`);
+2. requires `state=ready`, matching site and branch, and a structured `commit_ref` — **titles and chronology are never parsed as evidence** (`commit_unverifiable` otherwise);
+3. allows the write only if the branch HEAD **is** the published commit, or the only commits above it are Janus' own verified deliveries;
+4. otherwise fails closed with `unpublished_commits_above_production`, so Janus never stacks its bundle on unapproved work.
+
+Known limitation (observed 2026-10-13): ChatBox deploys are created with the Netlify CLI and carry `commit_ref: null`. Until deploys record their commit (Git-linked builds, or a deploy step that sets it), a bound manifest will correctly report `commit_unverifiable` instead of guessing.
+
 ## Error-learning note — 2026-10-13
 
 ERROR: the PR #27 stale-HEAD guard compared the live HEAD to `releaseHeadSha` by strict equality. CAUSE: the guard ignored that the publisher's own write advances the same branch. IMPACT: automatic resolution would work once per manifest update and then block every later publish with a misleading "stale" error. LESSON: a fail-closed guard must model the system's own legitimate writes. PREVENTIVE RULE: any HEAD-pinning control must define custody for self-authored commits explicitly and test the second publish, not only the first. CHANGE: custody chain + regression tests in `tests/assistant-release-target.test.ts`.

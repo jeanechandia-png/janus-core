@@ -28,6 +28,7 @@ const child = spawn(
       GOOGLE_ACCESS_TOKEN: '',
       // Hermetic: never inherit a GitHub credential from the developer/CI shell.
       GITHUB_TOKEN: '',
+      NETLIFY_AUTH_TOKEN: '',
       JANUS_MODEL_BASE_URL: '',
       JANUS_MODEL_NAME: '',
       JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey,

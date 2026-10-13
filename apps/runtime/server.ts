@@ -5,6 +5,11 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
+import { NetlifyDeployAdapter } from '../../packages/adapters/src/netlify-deploy-adapter.js';
+import {
+  assessPublishedRelease,
+  publishedDeploymentObservationFromOutput,
+} from '../../packages/core/src/published-release.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
 import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
@@ -178,6 +183,7 @@ const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefi
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
     github: 'GITHUB_TOKEN',
+    netlify: 'NETLIFY_AUTH_TOKEN',
     'google-workspace': 'GOOGLE_ACCESS_TOKEN',
     meta: 'META_ACCESS_TOKEN',
     youtube: 'YOUTUBE_ACCESS_TOKEN',
@@ -233,6 +239,9 @@ const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
 toolGateway.register(new GitHubAdapter({
   tokenProvider: () => credentialBroker.accessToken('github'),
 }));
+toolGateway.register(new NetlifyDeployAdapter({
+  tokenProvider: () => credentialBroker.accessToken('netlify'),
+}));
 toolGateway.register(new GoogleWorkspaceAdapter({
   tokenProvider: async () => (
     await credentialBroker.accessToken('google-workspace', [
@@ -255,6 +264,15 @@ toolGateway.register(new YouTubeInsightsAdapter({
 
 const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
+const netlifyConfigured = environmentCredentials.configured('netlify');
+capabilities.register({
+  tool: 'netlify',
+  actions: ['site.published_deploy'],
+  state: netlifyConfigured ? 'available' : 'needs_auth',
+  ...(!netlifyConfigured
+    ? { reason: 'A read-only Netlify token is required to verify which deploy is live.' }
+    : {}),
+});
 const metaTokenConfigured = environmentCredentials.configured('meta');
 const youtubeConfigured = environmentCredentials.configured('youtube');
 capabilities.register({
@@ -3059,7 +3077,9 @@ const server = createServer(async (request, response) => {
         source?: string;
         manifestChecksum?: string;
         releaseHeadSha?: string;
-        custody?: 'manifest_head' | 'janus_delivery_lineage';
+        custody?: 'manifest_head' | 'janus_delivery_lineage' | 'production_deploy';
+        publishedDeployId?: string;
+        publishedCommitSha?: string;
         custodyChain?: string[];
       } = { mode: 'explicit' };
       let resolvedManifest: AssistantReleaseTargetManifest | null = null;
@@ -3114,7 +3134,39 @@ const server = createServer(async (request, response) => {
       if (!expectedHeadSha) {
         throw new HttpRequestError(409, 'target branch head SHA is unavailable');
       }
-      if (resolvedManifest) {
+      if (resolvedManifest?.deployment) {
+        // Chronology is not publication: anchor to the LIVE production deploy, never
+        // to the newest branch commit, which may be a candidate awaiting approval.
+        const deployCapability = capabilities.check('netlify', 'site.published_deploy');
+        if (!deployCapability.ok) {
+          throw new HttpRequestError(
+            409,
+            'release manifest binds a production deployment but Janus cannot read it: '
+            + (deployCapability.reason ?? 'netlify capability unavailable'),
+          );
+        }
+        const deployResult = await toolGateway.execute({
+          tool: 'netlify',
+          action: 'site.published_deploy',
+          input: { siteId: resolvedManifest.deployment.siteId },
+        }, async () => {});
+        if (!deployResult.ok) {
+          throw new HttpRequestError(409, deployResult.error ?? 'published deploy could not be read');
+        }
+        const assessment = assessPublishedRelease({
+          manifest: resolvedManifest,
+          observation: publishedDeploymentObservationFromOutput(deployResult.output),
+          observedHeadSha: expectedHeadSha,
+          deliveries: store.listAssistantConfigDeliveries(),
+        });
+        if (!assessment.ok) {
+          throw new HttpRequestError(409, assessment.reason);
+        }
+        targetResolution.custody = 'production_deploy';
+        targetResolution.custodyChain = assessment.custodyChain;
+        targetResolution.publishedDeployId = assessment.deployId;
+        targetResolution.publishedCommitSha = assessment.publishedCommitSha;
+      } else if (resolvedManifest) {
         // The publisher's own verified commits advance the release branch; accept
         // them only as an unbroken chain of Janus deliveries from the manifest HEAD.
         const custody = verifyReleaseHeadCustody({
@@ -3267,6 +3319,8 @@ const server = createServer(async (request, response) => {
           observedReleaseHeadSha: expectedHeadSha,
           releaseCustody: targetResolution.custody ?? null,
           releaseCustodyChain: targetResolution.custodyChain ?? [],
+          publishedDeployId: targetResolution.publishedDeployId ?? null,
+          publishedCommitSha: targetResolution.publishedCommitSha ?? null,
           commitSha,
           status: delivery.status,
         },
