@@ -214,6 +214,10 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 ### P0
 1. Integrar consumidores del Assistant Config Bundle en Infinity Group, Infinity ChatBox e IBA y añadir acknowledgement/health verificable de `bundleChecksum`; solo entonces “actualizado en las tres” equivale a live aplicado.
 2. Desplegar y gobernar los Release Target Manifests VIGENTES de InfinitySeed Group, Infinity ChatBox e IBA; el resolver Core ya está implementado y validado en PR #27, pero no se considera cerrado hasta que los tres punteros estén publicados y verificados.
+2a. **Hallazgo 2026-10-13 — manifiesto ChatBox OBSOLETO (verificado)**: `infinity-chatbox-platform@infinity/assistant-control-metadata` (commit `de219f8e`) contiene `infinity-chatbox.release.json` con checksum y binding válidos, pero declara `release/rc25-canonical-landing-20260925@0cb2745a`; el HEAD vivo es `7485f058` (≥7 commits `release(netlify)` posteriores, 2026-10-10..13, ajenos a Janus). Janus falla cerrado correctamente. Refrescar el manifiesto es un external write en un repo privado de producto: requiere confirmación Founder y validación de que ese HEAD es la release vigente.
+2b. Manifiestos de InfinitySeed Group (`infinityseed-group-website`) e IBA: NO verificados en esta sesión.
+2c. El consumidor ChatBox existe en la rama de release (`app/api/v1/assistant-control/status/route.ts`, `applied = status === "loaded"`), pero el bundle `.infinity/assistant-control/infinity-chatbox.*` aún no está publicado en esa rama (404).
+2d. **Brecha de verificación**: `POST /api/assistant-control/deliveries/:id/ack` acepta un `observedBundleChecksum` tecleado por el Founder; Janus no consulta él mismo el endpoint de estado del consumidor. Siguiente cambio: probe de health del consumidor (URL declarada en el manifiesto/target, solo GET, allowlist) que obtenga el checksum observado antes de marcar `applied`.
 3. Añadir local content-addressed Asset Store para binarios/archivos de la LEGO Library y deduplicación por hash/similitud antes de crear una pieza nueva.
 4. Añadir usage graph Producto/Proyecto -> reusable item@revision para impact analysis y upgrades seguros.
 5. Integrar Model Router multi-model real para ejecutar provider/capability alternatives automáticamente y registrar routing, calidad/costo/latencia y confianza.
@@ -257,6 +261,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - Recuperar automáticamente chats históricos de proveedores externos requiere sus adapters/exportaciones disponibles; mientras tanto Janus conserva de forma nativa las sesiones de su propio runtime.
 
 ## PRÓXIMO
+
+Handoff 2026-10-13 (Claude, sesión Cowork): PR #28 apilada sobre #27 (custodia del HEAD + smoke hermético), CI GitHub `success`. Siguiente acción ejecutable: (1) Founder confirma la release ChatBox vigente y se refresca su manifiesto; (2) implementar el probe automático de acknowledgement (2d); (3) verificar/crear manifiestos de Group e IBA.
 
 Cerrar consumidores + punteros de release productivos:
 
