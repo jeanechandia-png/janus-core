@@ -11,7 +11,8 @@ import {
   transcriptionVocabularyPrompt,
   type TranscriptInterpretation,
 } from '../../packages/core/src/transcript-interpretation.js';
-import { decideEffort, type EffortDecision } from '../../packages/core/src/effort-policy.js';
+import { decideEffort, effortPlanningGuidance, type EffortDecision } from '../../packages/core/src/effort-policy.js';
+import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model-gateway.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
@@ -246,6 +247,7 @@ const runProjects = new Map<string, { projectId: string; threadId: string }>();
 const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
 const runInterpretations = new Map<string, TranscriptInterpretation>();
 const runEfforts = new Map<string, EffortDecision>();
+const runModelBudgets = new Map<string, BudgetedModelGateway>();
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -1213,13 +1215,19 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
   let planningConfidence = 1;
   let planningMetadata: Record<string, unknown> = { source: 'deterministic' };
 
+  const runEffort = runEfforts.get(runId);
   if (!plan && modelGateway) {
+    // Effort budget: the provider adapter stays replaceable; Janus Core caps calls per run.
+    const runModelGateway = new BudgetedModelGateway(modelGateway, runEffort?.budget.maxModelCalls ?? 3);
+    runModelBudgets.set(runId, runModelGateway);
+    const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
     const modelResult = await planWithModel(command, {
-      modelGateway,
+      modelGateway: runModelGateway,
       toolCatalog: executionPolicy.toolCatalog,
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
             note: 'The request may contain speech-to-text or dictation errors. Original text is authoritative for what was said; apply only corrections marked applied, and ask before acting on unconfirmed ones.',
@@ -1279,10 +1287,47 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
             : null,
         },
       },
-      maxSteps: 20,
+      maxSteps: maxPlanSteps,
       allowedTools: executionPolicy.allowedTools,
       allowedActions: executionPolicy.allowedActions,
     });
+
+    const effortLimited = runEffort && runEffort.level !== 'maximo'
+      && /exceeds \d+ steps|budget exhausted/i.test(modelResult.error ?? '');
+    if (modelResult.error && effortLimited) {
+      const higher = runEffort.level === 'eco' ? 'NORMAL' : runEffort.level === 'normal' ? 'PROFUNDO' : 'MÁXIMO';
+      const resolution = buildOperationalBlockerResolution({
+        problem: 'The task needs more work than the selected effort level allows.',
+        risk: 'Truncating the plan silently could deliver an incomplete or unverified result.',
+        cause: modelResult.error ?? 'effort budget reached',
+        kind: 'capability',
+        alternatives: [
+          {
+            id: 'raise-effort', title: 'Subir el esfuerzo a ' + higher,
+            description: 'Repetir la misma orden con más pasos, verificación y presupuesto de modelo.',
+            preservesGoal: true, availableNow: true, risk: 'low',
+            nextAction: 'Elige ' + higher + ' (o AUTO) en el selector de esfuerzo y vuelve a enviar la orden.',
+          },
+          {
+            id: 'split-task', title: 'Dividir la tarea',
+            description: 'Enviar la orden en partes más pequeñas que quepan en el nivel actual.',
+            preservesGoal: true, availableNow: true, risk: 'low',
+            nextAction: 'Envía primero la parte más urgente.',
+          },
+        ],
+        parkedIssue: 'Re-run with a higher effort level or a smaller task.',
+      });
+      runBlockerResolutions.set(runId, resolution);
+      recordDecision({
+        runId,
+        decisionKind: 'blocker_resolution',
+        selectedWorker: 'janus-core/continue-by-alternatives-v1',
+        confidence: 1,
+        outputSummary: 'Effort budget reached; offered to raise effort or split the task instead of truncating.',
+        metadata: { resolution, effort: runEffort.level, modelBudget: runModelGateway.usage() },
+      });
+      throw new Error(modelResult.error);
+    }
 
     if (modelResult.error) {
       const resolution = buildOperationalBlockerResolution({
@@ -1328,6 +1373,8 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       provider: modelResult.provider ?? null,
       model: modelResult.model ?? null,
       confidenceBasis: 'neutral prior until calibrated multi-model routing is integrated',
+      effort: runEffort?.level ?? null,
+      modelBudget: runModelGateway.usage(),
     };
   }
 
@@ -3391,7 +3438,7 @@ const server = createServer(async (request, response) => {
           error: 'published assistant config checksum does not match desired bundle',
         });
         store.upsertAssistantConfigDelivery(delivery);
-        throw new HttpRequestError(409, delivery.error);
+        throw new HttpRequestError(409, delivery.error ?? 'published assistant config checksum does not match desired bundle');
       }
 
       delivery = markAssistantDeliveryPublished({

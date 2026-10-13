@@ -27,6 +27,7 @@ export const EFFORT_REQUESTS: readonly EffortRequest[] = ['auto', ...EFFORT_LEVE
 
 export interface EffortBudget {
   maxModelCalls: number;
+  maxPlanSteps: number;
   verificationPasses: number;
   parallelAgents: number;
   reviewers: number;
@@ -56,10 +57,10 @@ export interface EffortDecision {
 }
 
 const BUDGETS: Readonly<Record<EffortLevel, EffortBudget>> = Object.freeze({
-  eco: { maxModelCalls: 1, verificationPasses: 0, parallelAgents: 0, reviewers: 0, freshResearch: false },
-  normal: { maxModelCalls: 3, verificationPasses: 1, parallelAgents: 1, reviewers: 1, freshResearch: false },
-  profundo: { maxModelCalls: 8, verificationPasses: 2, parallelAgents: 3, reviewers: 3, freshResearch: true },
-  maximo: { maxModelCalls: 20, verificationPasses: 3, parallelAgents: 6, reviewers: 6, freshResearch: true },
+  eco: { maxModelCalls: 1, maxPlanSteps: 8, verificationPasses: 0, parallelAgents: 0, reviewers: 0, freshResearch: false },
+  normal: { maxModelCalls: 3, maxPlanSteps: 20, verificationPasses: 1, parallelAgents: 1, reviewers: 1, freshResearch: false },
+  profundo: { maxModelCalls: 8, maxPlanSteps: 20, verificationPasses: 2, parallelAgents: 3, reviewers: 3, freshResearch: true },
+  maximo: { maxModelCalls: 20, maxPlanSteps: 30, verificationPasses: 3, parallelAgents: 6, reviewers: 6, freshResearch: true },
 });
 
 const CRITICAL_TERMS = [
@@ -179,5 +180,24 @@ export function decideEffort(input: EffortInput): EffortDecision {
     requiresConfirmation,
     budget,
     reasons,
+  };
+}
+
+/** Instructions the planner receives so the plan matches the chosen effort. */
+export function effortPlanningGuidance(decision: EffortDecision): Record<string, unknown> {
+  const { budget } = decision;
+  return {
+    level: decision.level,
+    source: decision.source,
+    risk: decision.risk,
+    maxPlanSteps: budget.maxPlanSteps,
+    verificationPasses: budget.verificationPasses,
+    freshResearch: budget.freshResearch,
+    requiresConfirmation: decision.requiresConfirmation,
+    rule: decision.level === 'eco'
+      ? 'Plan the shortest safe path; skip optional research; never skip mandatory safety or approval steps.'
+      : decision.level === 'normal'
+        ? 'Plan a complete path with one verification step before delivery.'
+        : 'Plan with explicit research of current primary sources when relevant, and independent verification before delivery.',
   };
 }
