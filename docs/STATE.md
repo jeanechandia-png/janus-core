@@ -12,6 +12,25 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Capability Modules / IBA integration**:
+  - Identity & Presence definido como capacidad nativa de Janus y módulo reutilizable desacoplado;
+  - IBA corregido como nombre del producto (con B);
+  - casos iniciales: Admin Dashboard, Sensitive Vault, re-autenticación y auditoría;
+  - packaging comercial provisional: IBA Core / Secure Access / Secure Vault / Enterprise Security;
+  - precio marcado POR CONFIRMAR mediante estudio de mercado + willingness-to-pay;
+  - regla general para evaluar futuras capacidades Janus como módulos/SDK reutilizables.
+
+- **Janus Identity & Presence (ADR-008)**:
+  - verificación facial como factor biométrico local, no como autoridad por sí sola;
+  - liveness/anti-spoof obligatorio para assurance fuerte;
+  - dispositivo confiable + face match + liveness = sesión strong;
+  - acciones root requieren además PIN/recovery factor independiente;
+  - sesiones administrativas cortas y auditables;
+  - plantillas biométricas únicamente por referencia a Secure Enclave/Keychain/TPM/secure store;
+  - prohibido guardar templates biométricos en SQLite, código, workflows, logs o prompts;
+  - arquitectura 1:1 para verificar al administrador enrolado, no identificación masiva de terceros;
+  - adapters biométricos reemplazables y ejecución local-first.
+
 - **Administrative Authority Control Plane (ADR-005)**:
   - Founder/Director autenticado como máxima autoridad humana de Janus;
   - identidad mediante principal interno estable, sin usar datos biográficos como secreto;
@@ -215,6 +234,10 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 11. Implementar error branches, waits y approvals completos sobre runtime durable.
 12. Añadir simulation/dry-run/replay antes de external writes.
 13. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+14. Conectar Presence Session (PR #5, ya integrada) al Authority Control Plane para elevar sesiones autenticadas a strong/root.
+15. Implementar Face Adapter local productivo: enrollment, embedding protegido, 1:1 match y liveness.
+16. Implementar trusted-device binding y PIN/recovery factor en secure storage.
+17. Añadir UI mobile-first de enrollment, unlock, re-auth y recuperación.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
