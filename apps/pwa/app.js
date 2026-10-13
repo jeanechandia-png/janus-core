@@ -1,4 +1,5 @@
 import { mountAppInstall } from './app-install.js';
+import { mountGlowEmblem } from './glow-emblem.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 
 const activity = document.querySelector('#activity');
@@ -748,6 +749,7 @@ voiceButton.addEventListener('click', () => {
 
 void checkHealth();
 
+mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
 
 if ('serviceWorker' in navigator) {

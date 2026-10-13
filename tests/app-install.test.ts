@@ -70,3 +70,25 @@ test('Janus app icon: opaque PNGs at the declared sizes are wired in manifest, i
     assert.ok(sw.includes(`/icons/${file}`), `${file} cached in offline shell`);
   }
 });
+
+test('living emblem: pose maps pointer to tilt/light, clamps, and is wired offline', async () => {
+  // @ts-expect-error -- plain browser ES module without type declarations
+  const { emblemPose } = await import('../apps/pwa/glow-emblem.js');
+  const rect = { left: 100, top: 100, width: 80, height: 80 };
+  assert.deepEqual(emblemPose(rect, { x: 140, y: 140 }), { x: 0.5, y: 0.5, rotateY: 0, rotateX: 0 });
+  const corner = emblemPose(rect, { x: 180, y: 100 }, 14);
+  assert.equal(corner.rotateY, 14);
+  assert.equal(corner.rotateX, 14);
+  const outside = emblemPose(rect, { x: 9999, y: -9999 }, 14);
+  assert.equal(outside.x, 1);
+  assert.equal(outside.y, 0);
+  assert.ok(Math.abs(outside.rotateY) <= 14 && Math.abs(outside.rotateX) <= 14);
+  assert.equal(emblemPose({ left: 0, top: 0, width: 0, height: 0 }, { x: 5, y: 5 }).x, 1);
+  const html = readFileSync('apps/pwa/index.html', 'utf8');
+  const css = readFileSync('apps/pwa/styles.css', 'utf8');
+  assert.match(html, /id="janusEmblem"[^>]*role="img"/);
+  assert.match(css, /\.glow-emblem\.is-lit/);
+  assert.match(css, /prefers-reduced-motion/);
+  assert.ok(readFileSync('apps/pwa/sw.js', 'utf8').includes("'/glow-emblem.js'"));
+  assert.ok(readFileSync('apps/pwa/app.js', 'utf8').includes("mountGlowEmblem(document.querySelector('#janusEmblem'))"));
+});

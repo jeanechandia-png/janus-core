@@ -292,3 +292,36 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 .interpretation-notice p { margin: 6px 0 0; color: #dbe2f1; font-size: 15px; line-height: 1.45; }
 .interpretation-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; flex: 0 0 auto; }
 .interpretation-actions button[hidden] { display: none !important; }
+
+/* ---- Living emblem (reusable piece: glow-emblem.js) ---- */
+.topbar-title { display: flex; align-items: center; gap: 14px; }
+.glow-emblem {
+  --glow-x: 50%; --glow-y: 50%; --tilt-x: 0deg; --tilt-y: 0deg;
+  position: relative; flex: none; width: 72px; height: 72px; border-radius: 22%;
+  perspective: 520px; outline: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 10px 28px rgba(0,0,0,.55), 0 0 0 1px rgba(255,214,128,.14);
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  transition: transform .18s ease-out, box-shadow .35s ease;
+}
+.glow-emblem img { display: block; width: 100%; height: 100%; border-radius: 22%; user-select: none; -webkit-user-drag: none; }
+/* Moving specular reflection across the metal, following the finger/cursor. */
+.glow-emblem-sheen {
+  position: absolute; inset: 0; border-radius: 22%; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+  background: radial-gradient(circle at var(--glow-x) var(--glow-y), rgba(255,244,214,.75), rgba(255,200,110,.25) 28%, transparent 55%);
+  transition: opacity .3s ease;
+}
+/* Cinematic halo bloom behind the emblem. */
+.glow-emblem-halo {
+  position: absolute; inset: -22%; border-radius: 50%; pointer-events: none; opacity: 0; z-index: -1;
+  background: radial-gradient(circle, rgba(255,205,110,.55) 0%, rgba(255,170,60,.28) 40%, rgba(110,150,255,.14) 62%, transparent 72%);
+  filter: blur(10px); transform: translateZ(-1px) scale(.85);
+  transition: opacity .35s ease, transform .45s cubic-bezier(.2,.8,.2,1);
+}
+.glow-emblem.is-lit { box-shadow: 0 14px 34px rgba(0,0,0,.6), 0 0 0 1px rgba(255,224,150,.55), 0 0 26px rgba(255,190,90,.55); }
+.glow-emblem.is-lit .glow-emblem-sheen { opacity: 1; }
+.glow-emblem.is-lit .glow-emblem-halo { opacity: 1; transform: translateZ(-1px) scale(1.12); }
+.glow-emblem:focus-visible { box-shadow: 0 0 0 2px #8fa2ff, 0 0 22px rgba(255,190,90,.5); }
+@media (prefers-reduced-motion: reduce) {
+  .glow-emblem, .glow-emblem-sheen, .glow-emblem-halo { transition: opacity .2s linear, box-shadow .2s linear; }
+}
