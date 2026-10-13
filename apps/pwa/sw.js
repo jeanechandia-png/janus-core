@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v8';
+const CACHE = 'janus-shell-v9';
 const SHELL = [
   '/',
   '/index.html',
@@ -6,6 +6,7 @@ const SHELL = [
   '/app.js',
   '/app-install.js',
   '/glow-emblem.js',
+  '/founder-session.js',
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',

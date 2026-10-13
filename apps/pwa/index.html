@@ -57,6 +57,28 @@
       </div>
     </aside>
 
+    <section class="approvals" aria-labelledby="approvalsTitle">
+      <div class="capability-head">
+        <div>
+          <div class="eyebrow">APROBACIONES</div>
+          <h2 id="approvalsTitle">Tu visto bueno</h2>
+        </div>
+        <span id="approvalsBadge" class="approvals-badge" hidden>0</span>
+      </div>
+      <p id="approvalsStatus" class="approvals-status" role="status" aria-live="polite">Las acciones que escriben fuera, gastan créditos o cambian producción esperan aquí tu decisión.</p>
+      <div class="approvals-actions">
+        <button type="button" id="founderLinkButton" class="secondary" hidden>Vincular este dispositivo</button>
+        <button type="button" id="founderSignInButton" class="primary" hidden>Entrar como Founder</button>
+        <button type="button" id="founderSignOutButton" class="ghost" hidden>Salir</button>
+      </div>
+      <div id="founderKeyBox" class="founder-key" hidden>
+        <p>Llave pública de este dispositivo (la privada nunca sale de aquí). Configúrala en el equipo de Janus como <code>JANUS_FOUNDER_PUBLIC_KEY_PEM</code> y reinicia Janus.</p>
+        <textarea id="founderKeyText" rows="5" readonly aria-label="Llave pública del dispositivo"></textarea>
+        <button type="button" id="founderKeyCopy" class="secondary">Copiar llave pública</button>
+      </div>
+      <ul id="approvalsList" class="approvals-list" aria-live="polite"></ul>
+    </section>
+
     <section class="capabilities" aria-labelledby="capabilityTitle">
       <div class="capability-head">
         <div>

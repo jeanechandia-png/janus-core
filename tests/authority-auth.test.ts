@@ -197,3 +197,22 @@ test('founder can delegate a least-privilege operator and revocation invalidates
   assert.equal(auth.authenticateSession(operatorSession.token), undefined);
   assert.equal(auth.status().activeOperators, 0);
 });
+
+test('browser WebCrypto (IEEE P1363) signatures are accepted; DER keeps working; wrong keys still fail', async () => {
+  const store = new MemoryCredentialStore();
+  const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const spki = Buffer.from(await crypto.subtle.exportKey('spki', pair.publicKey)).toString('base64');
+  const pem = `-----BEGIN PUBLIC KEY-----\n${spki.match(/.{1,64}/g)!.join('\n')}\n-----END PUBLIC KEY-----\n`;
+  const auth = new LocalAuthorityAuthService(store);
+  auth.ensureFounderCredential(pem);
+  const challenge = auth.issueChallenge('founder');
+  const raw = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, new TextEncoder().encode(challenge.signingPayload)));
+  assert.equal(raw.length, 64);
+  const session = auth.verifyChallenge({ challengeId: challenge.id, principalId: 'founder', signature: Buffer.from(raw).toString('base64url') });
+  assert.equal(session.principal.id, 'founder');
+
+  const other = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const second = auth.issueChallenge('founder');
+  const forged = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, other.privateKey, new TextEncoder().encode(second.signingPayload)));
+  assert.throws(() => auth.verifyChallenge({ challengeId: second.id, principalId: 'founder', signature: Buffer.from(forged).toString('base64url') }), AuthorityAuthenticationError);
+});

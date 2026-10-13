@@ -48,6 +48,6 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**. Los secretos v
 - n8n: Janus nunca dispara URLs arbitrarias; solo los webhooks que el Founder nombra en `JANUS_N8N_WEBHOOKS`.
 
 ### Pendiente
-- Flujo de aprobación interactivo en la PWA (hoy, sin aprobación, las acciones sensibles quedan **bloqueadas** de forma segura).
+- ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.
 - Revisión del Blueprint para habilitar las nuevas herramientas en la instalación del Founder.
 - Pruebas con cuentas reales (todo verificado con servicios simulados; no verificado contra las APIs reales).

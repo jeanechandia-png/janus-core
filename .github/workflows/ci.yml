@@ -28,6 +28,7 @@ jobs:
           node --check apps/pwa/app.js
           node --check apps/pwa/app-install.js
           node --check apps/pwa/glow-emblem.js
+          node --check apps/pwa/founder-session.js
           node --check apps/pwa/pcm-capture-worklet.js
           node --check apps/pwa/pcm-tts-player.js
           node --check apps/pwa/sw.js

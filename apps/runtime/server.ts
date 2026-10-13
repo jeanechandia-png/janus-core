@@ -21,7 +21,8 @@ import {
   type TranscriptInterpretation,
 } from '../../packages/core/src/transcript-interpretation.js';
 import { decideEffort, effortPlanningGuidance, type EffortDecision } from '../../packages/core/src/effort-policy.js';
-import { enforceSensitiveActionPolicy } from '../../packages/orchestrator/src/sensitive-action-policy.js';
+import { enforceSensitiveActionPolicy, SENSITIVE_TOOL_ACTIONS } from '../../packages/orchestrator/src/sensitive-action-policy.js';
+import { ApprovalDecisionError, ApprovalQueue } from '../../packages/core/src/approval-queue.js';
 import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model-gateway.js';
 import { FallbackModelRouter } from '../../packages/gateways/src/model-router.js';
 import { AnthropicMessagesModelAdapter } from '../../packages/adapters/src/anthropic-messages-model-adapter.js';
@@ -273,6 +274,22 @@ const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
 const runInterpretations = new Map<string, TranscriptInterpretation>();
 const runEfforts = new Map<string, EffortDecision>();
 const runModelBudgets = new Map<string, BudgetedModelGateway>();
+const approvalTimeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(30_000, Number(process.env.JANUS_APPROVAL_TIMEOUT_MS) || 15 * 60 * 1000));
+const approvalQueue = new ApprovalQueue({
+  timeoutMs: approvalTimeoutMs,
+  onTransition: (record) => {
+    recordDecision({
+      runId: record.runId,
+      decisionKind: 'founder_approval',
+      selectedWorker: 'janus-core/founder-approval-queue-v1',
+      confidence: 1,
+      outputSummary: record.status === 'pending'
+        ? 'Sensitive action is waiting for an explicit Founder decision.'
+        : 'Founder approval request ' + record.status + '.',
+      metadata: { ...record },
+    });
+  },
+});
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
 const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
@@ -1802,6 +1819,23 @@ function startRun(
       })
     ),
     approvalHandler: async (action) => {
+      if (action.risk !== 'none' && action.risk !== 'low' && decisionRunId) {
+        // Sensitive/medium/high-risk action: wait for an explicit, authenticated Founder decision.
+        const operation = action.tool && action.operation ? `${action.tool}.${action.operation}` : undefined;
+        const { outcome } = approvalQueue.request({
+          runId: decisionRunId,
+          actionId: action.id,
+          label: action.label,
+          ...(action.tool ? { tool: action.tool } : {}),
+          ...(action.operation ? { operation: action.operation } : {}),
+          risk: action.risk,
+          reversible: action.reversible,
+          ...(action.target ? { target: action.target } : {}),
+          ...(operation && SENSITIVE_TOOL_ACTIONS[operation] ? { reason: SENSITIVE_TOOL_ACTIONS[operation] } : {}),
+        });
+        const result = await outcome;
+        return { approved: result.approved, ...(result.reason ? { reason: result.reason } : {}) };
+      }
       const decision = {
         approved: action.risk === 'none' || action.risk === 'low',
         reason: action.risk === 'high'
@@ -2312,7 +2346,10 @@ async function controlActiveRun(
   if (!runner) throw new Error('run is not active in this runtime');
   if (action === 'pause') await runner.pause();
   if (action === 'resume') await runner.resume();
-  if (action === 'cancel') await runner.cancel();
+  if (action === 'cancel') {
+    approvalQueue.cancelRun(runId);
+    await runner.cancel();
+  }
   store.upsertRun(runner.snapshot());
 }
 
@@ -2494,6 +2531,38 @@ const server = createServer(async (request, response) => {
         provider: 'replaceable-broker',
       },
     });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/approvals') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, pending: approvalQueue.pending(), recent: approvalQueue.recent(10), timeoutMs: approvalTimeoutMs });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const approvalDecisionMatch = url.pathname.match(/^\/api\/approvals\/(approval_[0-9a-f-]{36})\/decision$/);
+  if (request.method === 'POST' && approvalDecisionMatch) {
+    try {
+      const session = requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (typeof body.approved !== 'boolean') throw new HttpRequestError(400, 'approved (boolean) is required');
+      const record = approvalQueue.decide(approvalDecisionMatch[1]!, {
+        approved: body.approved,
+        decidedBy: session.principal.id,
+        ...(typeof body.note === 'string' ? { note: body.note } : {}),
+      });
+      json(response, 200, { ok: true, approval: record });
+    } catch (error) {
+      if (error instanceof ApprovalDecisionError) {
+        json(response, error.code === 'not_found' ? 404 : 409, { ok: false, error: error.message });
+      } else {
+        json(response, authErrorStatus(error), authErrorBody(error));
+      }
+    }
     return;
   }
 

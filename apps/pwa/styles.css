@@ -334,3 +334,17 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 }
 .effort-hint { font-size: 13px; opacity: .8; }
 .effort-hint[data-level="profundo"], .effort-hint[data-level="maximo"] { color: #ffd27a; opacity: 1; }
+
+/* ---- Founder approvals ---- */
+.approvals { margin-top: 16px; }
+.approvals-status { margin: 6px 0 10px; opacity: .85; }
+.approvals-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.approvals-badge { min-width: 28px; height: 28px; padding: 0 8px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; color: #1a1200; background: #ffcf6e; box-shadow: 0 0 16px rgba(255,190,90,.6); }
+.approvals-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; }
+.approval-item { padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(255,207,110,.35); background: rgba(255,207,110,.06); }
+.approval-meta { font-size: 13px; opacity: .8; margin: 4px 0 10px; overflow-wrap: anywhere; }
+.approval-buttons { display: flex; gap: 8px; }
+.approval-buttons button { min-height: 44px; flex: 1; }
+.founder-key { margin-top: 10px; }
+.founder-key textarea { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, monospace; color: inherit; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 8px; }
+.approvals [hidden] { display: none !important; }

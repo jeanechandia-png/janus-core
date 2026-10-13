@@ -1,5 +1,6 @@
 import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
+import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 
 const activity = document.querySelector('#activity');
@@ -307,7 +308,7 @@ function activateRun(runId) {
 const effortSelect = document.querySelector('#effortSelect');
 const effortHint = document.querySelector('#effortHint');
 const EFFORT_LABELS = { eco: 'ECO', normal: 'NORMAL', profundo: 'PROFUNDO', maximo: 'MÁXIMO' };
-const RISK_LABELS = { low: 'bajo', high: 'alto', critical: 'crítico' };
+const RISK_LABELS = { none: 'ninguno', low: 'bajo', medium: 'medio', high: 'alto', critical: 'crítico' };
 try {
   const saved = localStorage.getItem('janus.effort');
   if (saved && [...effortSelect.options].some((option) => option.value === saved)) effortSelect.value = saved;
@@ -338,7 +339,7 @@ async function submit(text) {
   try {
     const response = await fetch('/api/command', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ text: clean, inputMode: 'text', effort: effortSelect.value }),
     });
     const data = await response.json();
@@ -771,6 +772,136 @@ voiceButton.addEventListener('click', () => {
 });
 
 void checkHealth();
+
+// ---- Founder approvals (sensitive actions wait here for an explicit decision) ----
+const approvalsList = document.querySelector('#approvalsList');
+const approvalsStatus = document.querySelector('#approvalsStatus');
+const approvalsBadge = document.querySelector('#approvalsBadge');
+const founderLinkButton = document.querySelector('#founderLinkButton');
+const founderSignInButton = document.querySelector('#founderSignInButton');
+const founderSignOutButton = document.querySelector('#founderSignOutButton');
+const founderKeyBox = document.querySelector('#founderKeyBox');
+const founderKeyText = document.querySelector('#founderKeyText');
+const founderKeyCopy = document.querySelector('#founderKeyCopy');
+let deviceKey = null;
+let approvalsTimer = 0;
+
+function setApprovalsStatus(text) { approvalsStatus.textContent = text; }
+
+async function refreshFounderControls() {
+  deviceKey = await loadDeviceKey();
+  const signedIn = Boolean(sessionToken());
+  founderLinkButton.hidden = Boolean(deviceKey);
+  founderSignInButton.hidden = !deviceKey || signedIn;
+  founderSignOutButton.hidden = !signedIn;
+  if (signedIn) pollApprovals();
+  else { approvalsList.replaceChildren(); approvalsBadge.hidden = true; }
+}
+
+function renderApprovals(pending) {
+  approvalsBadge.hidden = pending.length === 0;
+  approvalsBadge.textContent = String(pending.length);
+  if (pending.length === 0) {
+    approvalsList.replaceChildren();
+    setApprovalsStatus('No hay acciones esperando tu decisión.');
+    return;
+  }
+  setApprovalsStatus(pending.length === 1 ? '1 acción espera tu decisión.' : `${pending.length} acciones esperan tu decisión.`);
+  approvalsList.replaceChildren(...pending.map((item) => {
+    const li = document.createElement('li');
+    li.className = 'approval-item';
+    const title = document.createElement('strong');
+    title.textContent = item.label;
+    const meta = document.createElement('div');
+    meta.className = 'approval-meta';
+    const minutes = Math.max(0, Math.round((Date.parse(item.expiresAt) - Date.now()) / 60000));
+    meta.textContent = [item.tool && item.operation ? `${item.tool}.${item.operation}` : null, item.reason, `riesgo ${RISK_LABELS[item.risk] ?? item.risk ?? '—'}`, item.reversible === false ? 'irreversible' : null, `caduca en ${minutes} min`].filter(Boolean).join(' · ');
+    const actions = document.createElement('div');
+    actions.className = 'approval-buttons';
+    for (const [label, approved, kind] of [['Aprobar', true, 'primary'], ['Rechazar', false, 'secondary']]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = kind;
+      button.textContent = label;
+      button.addEventListener('click', () => decideApproval(item.id, approved, actions));
+      actions.append(button);
+    }
+    li.append(title, meta, actions);
+    return li;
+  }));
+}
+
+async function pollApprovals() {
+  clearTimeout(approvalsTimer);
+  if (!sessionToken()) return;
+  try {
+    const response = await fetch('/api/approvals', { headers: authHeaders(), cache: 'no-store' });
+    if (response.status === 401 || response.status === 403) {
+      await signOut();
+      setApprovalsStatus('Tu sesión de Founder caducó. Vuelve a entrar.');
+      await refreshFounderControls();
+      return;
+    }
+    const data = await response.json();
+    if (response.ok) renderApprovals(data.pending ?? []);
+  } catch {
+    setApprovalsStatus('No se pudo consultar las aprobaciones; reintento en unos segundos.');
+  }
+  if (document.visibilityState === 'visible') approvalsTimer = setTimeout(pollApprovals, 4000);
+}
+
+async function decideApproval(id, approved, container) {
+  for (const button of container.querySelectorAll('button')) button.disabled = true;
+  try {
+    const response = await fetch(`/api/approvals/${encodeURIComponent(id)}/decision`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ approved }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+    setApprovalsStatus(approved ? 'Aprobado. Janus continúa con la acción.' : 'Rechazado. Janus no ejecutará la acción.');
+  } catch (error) {
+    setApprovalsStatus(`No se pudo registrar la decisión: ${error?.message ?? error}`);
+  }
+  pollApprovals();
+}
+
+founderLinkButton.addEventListener('click', async () => {
+  try {
+    deviceKey = await createDeviceKey();
+    founderKeyText.value = await devicePublicKeyPem(deviceKey);
+    founderKeyBox.hidden = false;
+    setApprovalsStatus('Llave creada en este dispositivo. Regístrala en Janus y luego entra como Founder.');
+  } catch (error) {
+    setApprovalsStatus(error?.message ?? String(error));
+  }
+  refreshFounderControls();
+});
+founderKeyCopy.addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(founderKeyText.value); setApprovalsStatus('Llave pública copiada.'); }
+  catch { founderKeyText.select(); setApprovalsStatus('Selecciona y copia la llave manualmente.'); }
+});
+founderSignInButton.addEventListener('click', async () => {
+  founderSignInButton.disabled = true;
+  try {
+    await signIn(deviceKey);
+    setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
+  } catch (error) {
+    setApprovalsStatus(error?.message ?? String(error));
+    if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
+  } finally {
+    founderSignInButton.disabled = false;
+    refreshFounderControls();
+  }
+});
+founderSignOutButton.addEventListener('click', async () => {
+  await signOut();
+  setApprovalsStatus('Sesión cerrada.');
+  refreshFounderControls();
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pollApprovals(); });
+refreshFounderControls();
 
 mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });

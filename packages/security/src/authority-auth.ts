@@ -202,12 +202,22 @@ export class LocalAuthorityAuthService {
       throw new AuthorityAuthenticationError('invalid_signature', 'Signature is invalid');
     }
 
-    const valid = verify(
-      'sha256',
-      Buffer.from(challenge.signingPayload, 'utf8'),
-      createPublicKey(credential.publicKeyPem),
-      signature,
-    );
+    const publicKey = createPublicKey(credential.publicKeyPem);
+    const payload = Buffer.from(challenge.signingPayload, 'utf8');
+    let valid = false;
+    try {
+      valid = verify('sha256', payload, publicKey, signature);
+    } catch {
+      valid = false;
+    }
+    // Browsers (WebCrypto ECDSA) sign in IEEE P1363 (r||s) form; DER stays the default.
+    if (!valid && signature.length === 64) {
+      try {
+        valid = verify('sha256', payload, { key: publicKey, dsaEncoding: 'ieee-p1363' }, signature);
+      } catch {
+        valid = false;
+      }
+    }
     if (!valid) {
       throw new AuthorityAuthenticationError('invalid_signature', 'Signature verification failed');
     }
