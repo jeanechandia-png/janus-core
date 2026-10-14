@@ -360,6 +360,8 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
    --------------------------------------------------------------------------- */
 @font-face { font-family: "Cinzel"; src: url("/fonts/cinzel-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
 @font-face { font-family: "Cinzel"; src: url("/fonts/cinzel-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Cinzel"; src: url("/fonts/cinzel-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Cinzel"; src: url("/fonts/cinzel-latin-900-normal.woff2") format("woff2"); font-weight: 900; font-display: block; }
 
 :root {
   --jd-black: #060607;
@@ -583,4 +585,104 @@ button.jd-row:active { transform: scale(.99); }
 }
 @media (prefers-reduced-motion: reduce) {
   .jd *, .jd { transition: none !important; }
+}
+
+
+/* ===== Oro Janus 3D (hiperrealista, vectorial = nítido en 4K) ===== */
+.jg-wordmark-wrap {
+  position: relative; display: block; width: clamp(240px, 70vw, 380px); margin: 0 auto;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transform: perspective(900px) rotateX(calc(var(--ty, 0) * -10deg)) rotateY(calc(var(--tx, 0) * 12deg));
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), filter .35s ease;
+  filter: drop-shadow(0 2px 0 rgba(255, 236, 190, .25)) drop-shadow(0 14px 18px rgba(0, 0, 0, .75)) drop-shadow(0 0 22px rgba(212, 175, 105, .28));
+  animation: jgBreath 4.2s ease-in-out infinite;
+}
+.jg-wordmark { display: block; width: 100%; height: auto; overflow: visible; }
+.jg-wordmark-wrap[data-lit="true"] {
+  animation: none;
+  filter: brightness(1.16) saturate(1.12) drop-shadow(0 2px 0 rgba(255, 240, 200, .45)) drop-shadow(0 16px 20px rgba(0, 0, 0, .75)) drop-shadow(0 0 26px rgba(241, 215, 155, .75)) drop-shadow(0 0 60px rgba(212, 175, 105, .5));
+}
+.jg-wordmark-wrap:active { transform: perspective(900px) translateY(2px) scale(.985); }
+.jg-sweep { animation: jgSweep 5.6s cubic-bezier(.3,.6,.2,1) infinite; }
+.jg-wordmark-wrap[data-lit="true"] .jg-sweep { animation-duration: 1.4s; }
+@keyframes jgSweep { 0%, 55% { transform: translateX(0); } 100% { transform: translateX(1400px); } }
+@keyframes jgBreath { 0%, 100% { filter: drop-shadow(0 2px 0 rgba(255,236,190,.25)) drop-shadow(0 14px 18px rgba(0,0,0,.75)) drop-shadow(0 0 22px rgba(212,175,105,.28)); } 50% { filter: drop-shadow(0 2px 0 rgba(255,236,190,.35)) drop-shadow(0 14px 18px rgba(0,0,0,.75)) drop-shadow(0 0 34px rgba(212,175,105,.45)); } }
+.jd-brand .jd-brand-sub { margin-top: -6px; }
+@media (min-width: 1024px) { .jg-wordmark-wrap { margin: 0; width: 330px; } }
+
+/* Medallón: master aprobado + barrido especular + luz que sigue al dedo + inclinación 3D */
+.jd-medal { cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transform: perspective(800px) rotateX(calc(var(--ty, 0) * -14deg)) rotateY(calc(var(--tx, 0) * 14deg)); transition: transform .35s cubic-bezier(.2,.8,.2,1), filter .35s ease; }
+.jd-medal img { image-rendering: auto; }
+.jd-medal-sheen, .jd-medal-glint { position: absolute; inset: 0; z-index: 2; border-radius: 50%; pointer-events: none; overflow: hidden; }
+.jd-medal-sheen::before {
+  content: ""; position: absolute; inset: -40% -60%;
+  background: linear-gradient(112deg, transparent 38%, rgba(255, 246, 220, .0) 44%, rgba(255, 250, 235, .55) 50%, rgba(255, 220, 150, .12) 56%, transparent 62%);
+  transform: translateX(-60%); animation: jgMedalSweep 6.2s cubic-bezier(.3,.6,.2,1) infinite; mix-blend-mode: screen;
+}
+.jd-medal-glint { opacity: 0; transition: opacity .3s ease; background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgba(255, 244, 210, .55), rgba(255, 220, 150, .12) 26%, transparent 46%); mix-blend-mode: screen; }
+.jd-medal[data-lit="true"] { filter: drop-shadow(0 0 22px rgba(241, 215, 155, .7)) drop-shadow(0 0 60px rgba(212, 175, 105, .45)); }
+.jd-medal[data-lit="true"] .jd-medal-glint { opacity: 1; }
+.jd-medal[data-lit="true"] .jd-medal-halo { opacity: 1; transform: scale(1.06); }
+.jd-medal-halo { transition: opacity .35s ease, transform .35s ease; opacity: .85; }
+.jd-medal:active { transform: perspective(800px) translateY(2px) scale(.97); }
+@keyframes jgMedalSweep { 0%, 58% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+
+/* Paneles: brillo dorado local donde toca el dedo */
+.jd-panel { overflow: hidden; isolation: isolate; transition: border-color .28s ease, box-shadow .28s ease, transform .28s cubic-bezier(.2,.8,.2,1); }
+.jd-panel::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .3s ease;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 0%), rgba(241, 215, 155, .13), transparent 55%);
+}
+.jd-panel[data-lit="true"] { border-color: var(--jd-line-strong); box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 44px rgba(0,0,0,.5), 0 0 0 1px rgba(241,215,155,.12), 0 0 34px rgba(212,175,105,.14); }
+.jd-panel[data-lit="true"]::after { opacity: 1; }
+
+/* Botones de oro 3D (misma anatomía que los CTA de ChatBox) */
+.jd-cta, button.jd-row, .jd-voice-ring, .view-tab[aria-selected="true"] { position: relative; isolation: isolate; overflow: hidden; }
+.jd-cta {
+  background: radial-gradient(ellipse at 50% -20%, rgba(255,255,255,.75), rgba(255,240,200,.25) 22%, transparent 42%), linear-gradient(180deg, #fbe7ad 0%, #e2b85e 38%, #b4832f 70%, #7a4f15 100%);
+  box-shadow: inset 0 3px 2px rgba(255,255,255,.7), inset 0 -6px 10px rgba(80,45,5,.65), inset 0 -1px 0 rgba(0,0,0,.6), 0 2px 0 #6e4812, 0 5px 0 #3b2506, 0 9px 16px rgba(0,0,0,.6), 0 0 22px rgba(212,175,105,.4);
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), filter .18s ease, box-shadow .18s ease;
+  animation: jgButtonBreath 3.4s ease-in-out infinite;
+  text-shadow: 0 1px 0 rgba(255,255,255,.45);
+}
+.jd-cta::before, button.jd-row::before, .jd-voice-ring::before {
+  content: ""; position: absolute; inset: -80% -35%; z-index: -1; pointer-events: none;
+  background: linear-gradient(112deg, transparent 34%, rgba(255,255,255,.06) 42%, rgba(255,250,232,.8) 49%, rgba(255,214,140,.18) 56%, transparent 65%);
+  transform: translateX(-62%) rotate(3deg); animation: jgSpecular 3.8s cubic-bezier(.22,.7,.2,1) infinite;
+}
+.jd-cta:is(:hover, :focus-visible, [data-lit="true"]) {
+  transform: translateY(-3px) scale(1.02); filter: brightness(1.16) saturate(1.14);
+  box-shadow: inset 0 3px 2px rgba(255,255,255,.85), inset 0 -6px 10px rgba(80,45,5,.6), 0 2px 0 #7d5216, 0 6px 0 #3b2506, 0 12px 22px rgba(0,0,0,.6), 0 0 18px rgba(255,226,160,.95), 0 0 44px rgba(212,175,105,.75), 0 0 74px rgba(212,175,105,.4);
+}
+.jd-cta:active { transform: translateY(4px) scale(.98); filter: brightness(1.25); box-shadow: inset 0 5px 10px rgba(80,45,5,.6), inset 0 1px 2px rgba(255,255,255,.75), 0 1px 0 #3b2506, 0 3px 8px rgba(0,0,0,.5), 0 0 26px rgba(255,226,160,1), 0 0 54px rgba(212,175,105,.9); }
+
+button.jd-row { box-shadow: inset 0 1px 0 rgba(255,240,200,.18), 0 2px 0 rgba(60,38,8,.9), 0 6px 14px rgba(0,0,0,.45); transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, filter .18s ease; }
+button.jd-row::before { opacity: .35; }
+button.jd-row:is(:hover, :focus-visible, [data-lit="true"]) { transform: translateY(-2px); filter: brightness(1.12); box-shadow: inset 0 1px 0 rgba(255,240,200,.3), 0 3px 0 rgba(60,38,8,.9), 0 10px 18px rgba(0,0,0,.5), 0 0 22px rgba(212,175,105,.45); }
+button.jd-row:active { transform: translateY(2px) scale(.99); box-shadow: inset 0 3px 8px rgba(40,25,5,.6), 0 0 26px rgba(241,215,155,.75); }
+.jd-badge-approval { box-shadow: inset 0 2px 1px rgba(255,255,255,.7), inset 0 -3px 5px rgba(90,55,10,.6), 0 2px 0 #6e4812, 0 0 12px rgba(212,175,105,.45); }
+
+.jd-voice-ring {
+  background: radial-gradient(ellipse at 50% -10%, rgba(255,255,255,.55), transparent 40%), radial-gradient(circle at 50% 40%, #f6dc9a, #c8963f 55%, #6e4512 100%);
+  color: #1d1305;
+  box-shadow: inset 0 3px 2px rgba(255,255,255,.7), inset 0 -6px 10px rgba(80,45,5,.65), 0 3px 0 #5a3a0d, 0 7px 0 #2a1a05, 0 12px 20px rgba(0,0,0,.6), 0 0 28px rgba(212,175,105,.5);
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .18s ease, filter .18s ease;
+  animation: jgButtonBreath 3.4s ease-in-out infinite;
+}
+.jd-voice:is(:hover, :focus-visible, [data-lit="true"]) .jd-voice-ring { transform: translateY(-3px) scale(1.04); filter: brightness(1.15); box-shadow: inset 0 3px 2px rgba(255,255,255,.85), inset 0 -6px 10px rgba(80,45,5,.6), 0 3px 0 #5a3a0d, 0 8px 0 #2a1a05, 0 14px 24px rgba(0,0,0,.6), 0 0 22px rgba(255,226,160,1), 0 0 56px rgba(212,175,105,.8); }
+.jd-voice:active .jd-voice-ring { transform: translateY(5px) scale(.97); box-shadow: inset 0 5px 10px rgba(80,45,5,.65), 0 1px 0 #2a1a05, 0 0 30px rgba(255,226,160,1), 0 0 64px rgba(212,175,105,.9); }
+.jd-voice[data-lit="true"] > span:last-child { color: var(--jd-gold-hi); }
+
+.view-tab[aria-selected="true"] {
+  color: #1d1305; background: radial-gradient(ellipse at 50% -30%, rgba(255,255,255,.6), transparent 45%), linear-gradient(180deg, #f6e0a2 0%, #d6aa55 55%, #9c6d26 100%);
+  box-shadow: inset 0 2px 1px rgba(255,255,255,.65), inset 0 -3px 6px rgba(80,45,5,.55), 0 2px 0 #5a3a0d, 0 0 14px rgba(212,175,105,.35);
+  text-shadow: 0 1px 0 rgba(255,255,255,.4);
+}
+
+@keyframes jgSpecular { 0%, 58% { transform: translateX(-68%) rotate(3deg); opacity: .16; } 72% { opacity: .78; } 88%, 100% { transform: translateX(68%) rotate(3deg); opacity: .12; } }
+@keyframes jgButtonBreath { 0%, 100% { filter: brightness(1) saturate(1); } 50% { filter: brightness(1.08) saturate(1.07); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .jg-wordmark-wrap, .jg-sweep, .jd-medal-sheen::before, .jd-cta, .jd-cta::before, button.jd-row::before, .jd-voice-ring, .jd-voice-ring::before { animation: none !important; }
+  .jg-wordmark-wrap, .jd-medal { transform: none !important; }
 }

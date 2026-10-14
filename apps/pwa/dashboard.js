@@ -3,6 +3,7 @@
 // mayúsculas romanas, medallón de dos caras con eje de luz.
 // Nunca muestra cifras que el servidor no haya observado.
 import { authHeaders, sessionToken } from './founder-session.js';
+import { bindLight, createMedal, createWordmark } from './janus-gold.js';
 
 const STATE_TEXT = {
   live: 'Comprobado',
@@ -57,6 +58,7 @@ function panel(className, title, subtitle) {
   head.append(h);
   if (subtitle) head.append(el('p', 'jd-panel-sub', subtitle));
   section.append(head);
+  bindLight(section);
   return section;
 }
 
@@ -81,15 +83,7 @@ function eventTime(event, timeZone) {
 
 function renderHero(snapshot) {
   const hero = el('section', 'jd-hero');
-  const medal = el('figure', 'jd-medal');
-  const img = el('img');
-  img.src = '/icons/janus-icon-512.png';
-  img.alt = '';
-  img.width = 512;
-  img.height = 512;
-  img.decoding = 'async';
-  medal.append(img, el('span', 'jd-medal-axis'), el('span', 'jd-medal-halo'));
-  medal.setAttribute('aria-hidden', 'true');
+  const medal = createMedal();
   const words = el('div', 'jd-greet');
   words.append(el('h2', null, greeting(snapshot.timeZone)));
   words.append(el('p', null, `${longDate(snapshot.date)}. Aquí está lo importante hoy.`));
@@ -109,7 +103,7 @@ function renderToday(snapshot) {
     const isApproval = /visto bueno/.test(item.text);
     const kind = isApproval ? 'approval' : /cita/.test(item.text) ? 'calendar' : /llave/.test(item.text) ? 'key' : 'alert';
     const row = el(isApproval ? 'button' : 'div', `jd-row jd-row-${item.level}`);
-    if (isApproval) { row.type = 'button'; row.addEventListener('click', () => onOpenWork()); }
+    if (isApproval) { row.type = 'button'; row.addEventListener('click', () => onOpenWork()); bindLight(row); }
     const badge = el('span', `jd-row-badge jd-badge-${kind}`);
     badge.append(icon(kind));
     const text = el('span', 'jd-row-text', item.text);
@@ -240,7 +234,7 @@ function renderSystem(snapshot) {
 function render(snapshot) {
   const frame = el('div', 'jd');
   const brand = el('header', 'jd-brand');
-  brand.append(el('span', 'jd-word', 'Janus'), el('span', 'jd-brand-sub', 'Centro de mando'));
+  brand.append(createWordmark('JANUS'), el('span', 'jd-brand-sub', 'Centro de mando'));
   frame.append(brand, renderHero(snapshot));
 
   const grid = el('div', 'jd-grid');
@@ -253,6 +247,7 @@ function render(snapshot) {
   ring.append(icon('mic'));
   voice.append(ring, el('span', null, 'Habla con Janus'));
   voice.addEventListener('click', () => onOpenWork());
+  bindLight(voice);
   frame.append(voice);
 
   const foot = el('footer', 'jd-foot');
@@ -271,19 +266,15 @@ function render(snapshot) {
 function renderMessage(text, action) {
   const frame = el('div', 'jd jd-locked');
   const brand = el('header', 'jd-brand');
-  brand.append(el('span', 'jd-word', 'Janus'), el('span', 'jd-brand-sub', 'Centro de mando'));
-  const medal = el('figure', 'jd-medal jd-medal-solo');
-  const img = el('img');
-  img.src = '/icons/janus-icon-512.png';
-  img.alt = '';
-  medal.append(img, el('span', 'jd-medal-axis'), el('span', 'jd-medal-halo'));
-  medal.setAttribute('aria-hidden', 'true');
+  brand.append(createWordmark('JANUS'), el('span', 'jd-brand-sub', 'Centro de mando'));
+  const medal = createMedal({ solo: true });
   const box = el('div', 'jd-locked-box');
   box.append(el('p', null, text));
   if (action) {
     const button = el('button', 'jd-cta', action.label);
     button.type = 'button';
     button.addEventListener('click', action.run);
+    bindLight(button);
     box.append(button);
   }
   frame.append(brand, medal, box);
