@@ -19,6 +19,24 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - política de actualización continua exige conocimiento vigente y prioriza fuentes primarias antes de decisiones sensibles a cambios tecnológicos;
   - verificación obligatoria por dominio y principios local-first/provider-independent quedan codificados como contrato ejecutable.
 
+- **Capability Modules / IBA integration**:
+  - Identity & Presence definido como capacidad nativa de Janus y módulo reutilizable desacoplado;
+  - IBA corregido como nombre del producto (con B);
+  - casos iniciales: Admin Dashboard, Sensitive Vault, re-autenticación y auditoría;
+  - packaging comercial provisional: IBA Core / Secure Access / Secure Vault / Enterprise Security;
+  - precio marcado POR CONFIRMAR mediante estudio de mercado + willingness-to-pay;
+  - regla general para evaluar futuras capacidades Janus como módulos/SDK reutilizables.
+
+- **Janus Identity & Presence (ADR-008)**:
+  - verificación facial como factor biométrico local, no como autoridad por sí sola;
+  - liveness/anti-spoof obligatorio para assurance fuerte;
+  - dispositivo confiable + face match + liveness = sesión strong;
+  - acciones root requieren además PIN/recovery factor independiente;
+  - sesiones administrativas cortas y auditables;
+  - plantillas biométricas únicamente por referencia a Secure Enclave/Keychain/TPM/secure store;
+  - prohibido guardar templates biométricos en SQLite, código, workflows, logs o prompts;
+  - arquitectura 1:1 para verificar al administrador enrolado, no identificación masiva de terceros;
+  - adapters biométricos reemplazables y ejecución local-first.
 
 - **Administrative Authority Control Plane (ADR-005)**:
   - Founder/Director autenticado como máxima autoridad humana de Janus;
@@ -279,6 +297,10 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 12. Añadir simulation/dry-run/replay antes de external writes.
 13. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
 14. Conectar `expertisePolicy` (PR #6, ya integrada) al planner/runtime para insertar investigación fresca cuando el conocimiento técnico esté vencido y bloquear entrega si faltan verificaciones obligatorias.
+15. Conectar Presence Session (PR #5, ya integrada) al Authority Control Plane para elevar sesiones autenticadas a strong/root.
+16. Implementar Face Adapter local productivo: enrollment, embedding protegido, 1:1 match y liveness.
+17. Implementar trusted-device binding y PIN/recovery factor en secure storage.
+18. Añadir UI mobile-first de enrollment, unlock, re-auth y recuperación.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.
