@@ -25,7 +25,7 @@
         </div>
         <div>
           <div class="eyebrow">JANUS CORE</div>
-          <h1>Trabajo en vivo</h1>
+          <h1 id="viewTitle">Tu día</h1>
         </div>
       </div>
       <div class="topbar-actions">
@@ -34,6 +34,14 @@
       </div>
     </header>
 
+    <nav class="views" aria-label="Vistas de Janus">
+      <button type="button" class="view-tab" id="tabDash" aria-controls="dashView" aria-selected="true">Panel</button>
+      <button type="button" class="view-tab" id="tabWork" aria-controls="workView" aria-selected="false">Trabajo en vivo</button>
+    </nav>
+
+    <main id="dashView" class="dash" aria-live="polite"></main>
+
+    <div id="workView" hidden>
     <section class="presence" aria-live="polite">
       <button id="voiceButton" class="orb" aria-label="Hablar con Janus">
         <span class="orb-core"></span>
@@ -130,6 +138,7 @@
         <div class="empty-state">Todavía no hay una ejecución activa.</div>
       </div>
     </section>
+    </div>
   </div>
 
   <template id="eventTemplate">

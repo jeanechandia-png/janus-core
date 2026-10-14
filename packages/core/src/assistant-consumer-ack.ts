@@ -8,6 +8,8 @@ import type { AssistantConfigDelivery } from './assistant-config-publisher.js';
  */
 export const DEFAULT_ASSISTANT_CONSUMER_STATUS_URLS: Readonly<Record<string, string>> = Object.freeze({
   'landing.infinity-chatbox': 'https://infinitychatbox.nl/api/v1/assistant-control/status',
+  // Published to production 2026-10-14 (ChatBox deploy 6acf25de…, PR #80). Live read still to be verified from Janus.
+  'landing.infinity-group': 'https://infinitychatbox.nl/api/v1/assistant-control/infinity-group/status',
 });
 
 export function resolveConsumerStatusUrls(envValue: string | undefined): Record<string, string> {

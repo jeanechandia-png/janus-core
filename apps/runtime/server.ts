@@ -44,6 +44,18 @@ import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
+  agendaBlock,
+  buildDashboardSnapshot,
+  buildProductCards,
+  normalizeCalendarEvents,
+  pendingSales,
+  type AgendaBlock,
+  type AgendaScope,
+  type DashboardSnapshot,
+  type IntegrationRow,
+  type ProbeResult,
+} from '../../packages/core/src/dashboard.js';
+import {
   buildProductOperationsSnapshot,
   createMonetizationRequirementSnapshot,
   createProductHealthSnapshot,
@@ -2407,6 +2419,181 @@ function serveStatic(pathname: string, response: ServerResponse): void {
   createReadStream(path).pipe(response);
 }
 
+
+// ---------------------------------------------------------------------------
+// Dashboard del Founder (solo lectura). Nunca devuelve secretos ni inventa
+// cifras: cada tarjeta lleva un estado honesto (live/declared/unconfigured/...).
+// ---------------------------------------------------------------------------
+const DASHBOARD_TTL_MS = 60_000;
+let dashboardCache: { at: number; snapshot: DashboardSnapshot } | null = null;
+
+const DASHBOARD_SURFACE_PRODUCT: Record<string, string> = {
+  'landing.infinity-chatbox': 'chatbox',
+  'landing.infinity-group': 'infinityseed-group',
+};
+const DASHBOARD_NETLIFY_SITES: Record<string, string> = (() => {
+  const defaults: Record<string, string> = { chatbox: '334784f0-2fee-47a6-bd70-150fc28238fc' };
+  const raw = process.env.JANUS_DASHBOARD_NETLIFY_SITES?.trim();
+  if (!raw) return defaults;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      for (const [product, site] of Object.entries(parsed as Record<string, unknown>)) {
+        if (typeof site === 'string' && /^[0-9a-f-]{36}$/i.test(site)) defaults[product] = site;
+      }
+    }
+  } catch { /* variable mal formada: se ignora y se usan los valores por defecto */ }
+  return defaults;
+})();
+const DASHBOARD_INTEGRATIONS: ReadonlyArray<readonly [string, string]> = [
+  ['openai', 'ChatGPT / OpenAI'], ['anthropic', 'Claude'], ['gemini', 'Gemini'],
+  ['perplexity', 'Perplexity'], ['asana', 'Asana'], ['vercel', 'Vercel'],
+  ['netlify', 'Netlify (lectura)'], ['netlify-release', 'Netlify (publicar)'],
+  ['supabase', 'Supabase'], ['runway', 'Runway'], ['kling', 'Kling AI'], ['n8n', 'n8n'],
+  ['google-workspace', 'Google Workspace (lectura)'], ['google-workspace-write', 'Google Workspace (escritura)'],
+  ['github', 'GitHub'], ['meta', 'Meta'], ['youtube', 'YouTube'],
+];
+
+function dashboardFailure(error: string | undefined): string {
+  const text = error ?? '';
+  if (/fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|abort/i.test(text)) return 'no responde desde este equipo';
+  const status = text.match(/\b(4\d\d|5\d\d)\b/);
+  if (status) return `respondió con error ${status[1]}`;
+  return 'respuesta no válida';
+}
+
+function dashboardTimeZone(): string {
+  return timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
+}
+
+async function dashboardAgenda(scope: AgendaScope, now: Date, tz: string): Promise<AgendaBlock> {
+  const variable = scope === 'work' ? 'JANUS_CALENDARS_WORK' : 'JANUS_CALENDARS_PERSONAL';
+  const calendars = (process.env[variable] ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (calendars.length === 0) {
+    return agendaBlock(scope, { kind: 'unconfigured', reason: `Define ${variable} con los IDs de calendario de este ámbito.` });
+  }
+  if (!googleConfigured) {
+    return agendaBlock(scope, { kind: 'unconfigured', reason: 'Falta GOOGLE_ACCESS_TOKEN (solo lectura de calendario).' });
+  }
+  const timeMin = new Date(now.getTime() - 24 * 3_600_000).toISOString();
+  const timeMax = new Date(now.getTime() + 60 * 3_600_000).toISOString();
+  const events = [];
+  for (const calendarId of calendars) {
+    const result = await toolGateway.execute({
+      tool: 'google-workspace',
+      action: 'calendar.events.list',
+      input: { calendarId, timeMin, timeMax, timeZone: tz, maxResults: 50 },
+    }, async () => {});
+    if (!result.ok) {
+      return agendaBlock(scope, { kind: 'error', reason: result.error ?? 'No se pudo leer el calendario.' });
+    }
+    const raw = Array.isArray(result.output?.events) ? (result.output!.events as unknown[]) : [];
+    events.push(...normalizeCalendarEvents(raw, scope, scope === 'work' ? 'Empresa' : 'Personal'));
+  }
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  return agendaBlock(scope, { kind: 'events', events, today, timeZone: tz });
+}
+
+async function dashboardProbes(): Promise<Record<string, ProbeResult[]>> {
+  const probes: Record<string, ProbeResult[]> = {
+    janus: [{ label: 'Servidor Janus', state: 'live', detail: 'activo en este equipo', observedAt: new Date().toISOString() }],
+  };
+  const add = (product: string, probe: ProbeResult) => { (probes[product] ??= []).push(probe); };
+  const jobs: Array<Promise<void>> = [];
+
+  for (const [surfaceId, statusUrl] of Object.entries(assistantConsumerStatusUrls)) {
+    const product = DASHBOARD_SURFACE_PRODUCT[surfaceId];
+    if (!product) continue;
+    jobs.push((async () => {
+      const result = await toolGateway.execute(
+        { tool: 'assistant-consumer', action: 'status.read', input: { url: statusUrl } },
+        async () => {},
+      );
+      const body = result.output?.body as Record<string, unknown> | undefined;
+      if (result.ok && body) {
+        add(product, {
+          label: `Asistente ${surfaceId}`,
+          state: 'live',
+          detail: typeof body.status === 'string' ? `paquete: ${body.status}` : 'estado leído',
+          observedAt: typeof result.output?.observedAt === 'string' ? result.output.observedAt : new Date().toISOString(),
+        });
+      } else {
+        add(product, { label: `Asistente ${surfaceId}`, state: 'error', detail: dashboardFailure(result.error) });
+      }
+    })());
+  }
+
+  for (const [product, siteId] of Object.entries(DASHBOARD_NETLIFY_SITES)) {
+    if (!netlifyConfigured) {
+      add(product, { label: 'Despliegue en Netlify', state: 'unconfigured', detail: 'falta NETLIFY_AUTH_TOKEN (lectura)' });
+      continue;
+    }
+    jobs.push((async () => {
+      const result = await toolGateway.execute(
+        { tool: 'netlify', action: 'site.published_deploy', input: { siteId } },
+        async () => {},
+      );
+      if (result.ok && result.output) {
+        add(product, {
+          label: 'Despliegue en Netlify',
+          state: 'live',
+          detail: `${String(result.output.state ?? 'desconocido')} · ${String(result.output.deployId ?? '').slice(0, 8)}`,
+          observedAt: typeof result.output.observedAt === 'string' ? result.output.observedAt : new Date().toISOString(),
+        });
+      } else {
+        add(product, { label: 'Despliegue en Netlify', state: 'error', detail: dashboardFailure(result.error) });
+      }
+    })());
+  }
+
+  await Promise.all(jobs);
+  return probes;
+}
+
+async function buildDashboard(forceRefresh: boolean): Promise<DashboardSnapshot> {
+  const nowMs = Date.now();
+  if (!forceRefresh && dashboardCache && nowMs - dashboardCache.at < DASHBOARD_TTL_MS) {
+    return dashboardCache.snapshot;
+  }
+  const now = new Date(nowMs);
+  const tz = dashboardTimeZone();
+  const [work, personal, probes] = await Promise.all([
+    dashboardAgenda('work', now, tz),
+    dashboardAgenda('personal', now, tz),
+    dashboardProbes(),
+  ]);
+  const integrations: IntegrationRow[] = DASHBOARD_INTEGRATIONS.map(([id, name]) => ({
+    id,
+    name,
+    state: environmentCredentials.configured(id) ? 'key_present' : 'no_key',
+    validatedLive: false,
+  }));
+  const learning = outcomeLearningSnapshot();
+  const caps = capabilities.snapshot();
+  const snapshot = buildDashboardSnapshot({
+    now,
+    timeZone: tz,
+    agenda: { work, personal },
+    products: buildProductCards(probes),
+    sales: pendingSales(),
+    janus: {
+      approvalsPending: approvalQueue.pending().length,
+      confidence: {
+        mode: learning.executionPrediction.basis,
+        value: learning.executionPrediction.confidence,
+        samples: learning.executionPrediction.sampleCount,
+      },
+      capabilities: {
+        available: caps.filter((entry) => entry.state === 'available').length,
+        total: caps.length,
+      },
+    },
+    integrations,
+  });
+  dashboardCache = { at: nowMs, snapshot };
+  return snapshot;
+}
+
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
@@ -2532,6 +2719,18 @@ const server = createServer(async (request, response) => {
         provider: 'replaceable-broker',
       },
     });
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/dashboard') {
+    try {
+      requireFounderAuthority(request);
+      const snapshot = await buildDashboard(url.searchParams.get('refresh') === '1');
+      response.setHeader('cache-control', 'no-store');
+      json(response, 200, { ok: true, dashboard: snapshot });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
     return;
   }
 
