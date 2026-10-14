@@ -794,9 +794,63 @@ async function refreshFounderControls() {
   founderLinkButton.hidden = Boolean(deviceKey);
   founderSignInButton.hidden = !deviceKey || signedIn;
   founderSignOutButton.hidden = !signedIn;
-  if (signedIn) pollApprovals();
-  else { approvalsList.replaceChildren(); approvalsBadge.hidden = true; }
+  if (signedIn) { pollApprovals(); refreshToolSync(); }
+  else { approvalsList.replaceChildren(); approvalsBadge.hidden = true; toolSyncBox.hidden = true; }
 }
+
+const toolSyncBox = document.querySelector('#toolSyncBox');
+const toolSyncList = document.querySelector('#toolSyncList');
+const toolSyncButton = document.querySelector('#toolSyncButton');
+const toolSyncTitle = document.querySelector('#toolSyncTitle');
+let toolSyncState = null;
+let toolSyncArmed = false;
+
+async function refreshToolSync() {
+  if (!sessionToken()) { toolSyncBox.hidden = true; return; }
+  try {
+    const response = await fetch('/api/learning/blueprints/tool-sync', { cache: 'no-store' });
+    const data = await response.json();
+    toolSyncState = response.ok ? data : null;
+  } catch { toolSyncState = null; }
+  const additions = toolSyncState?.additions ?? [];
+  toolSyncBox.hidden = additions.length === 0;
+  if (additions.length === 0) return;
+  const count = additions.reduce((total, item) => total + item.actions.length, 0);
+  toolSyncTitle.textContent = `${count} acciones nuevas por permitir (revisión ${toolSyncState.activeRevision} → ${toolSyncState.activeRevision + 1})`;
+  toolSyncList.replaceChildren(...additions.map((item) => {
+    const li = document.createElement('li');
+    li.textContent = `${item.tool}: ${item.actions.join(', ')}`;
+    return li;
+  }));
+  if (!toolSyncArmed) toolSyncButton.textContent = 'Permitir herramientas nuevas';
+}
+
+toolSyncButton.addEventListener('click', async () => {
+  if (!toolSyncState) return;
+  if (!toolSyncArmed) {
+    toolSyncArmed = true;
+    toolSyncButton.textContent = 'Confirmar: crear la nueva revisión';
+    setApprovalsStatus('Revisa la lista y pulsa de nuevo para confirmar.');
+    return;
+  }
+  toolSyncArmed = false;
+  toolSyncButton.disabled = true;
+  try {
+    const response = await fetch('/api/learning/blueprints/tool-sync', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ confirmAction: 'apply_tool_catalog_revision', expectedRevision: toolSyncState.activeRevision }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);
+    setApprovalsStatus(`Listo: revisión ${data.activeRevision} activa. Janus ya puede planificar con las herramientas nuevas.`);
+  } catch (error) {
+    setApprovalsStatus(`No se pudo crear la revisión: ${error?.message ?? error}`);
+  } finally {
+    toolSyncButton.disabled = false;
+    refreshToolSync();
+  }
+});
 
 function renderApprovals(pending) {
   approvalsBadge.hidden = pending.length === 0;

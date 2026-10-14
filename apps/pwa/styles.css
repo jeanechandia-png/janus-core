@@ -348,3 +348,7 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 .founder-key { margin-top: 10px; }
 .founder-key textarea { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, monospace; color: inherit; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.14); border-radius: 10px; padding: 8px; }
 .approvals [hidden] { display: none !important; }
+.tool-sync { margin-top: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(143,162,255,.35); background: rgba(143,162,255,.06); }
+.tool-sync-list { margin: 8px 0; padding-left: 18px; font-size: 13px; overflow-wrap: anywhere; }
+.tool-sync-note { font-size: 13px; opacity: .8; margin: 6px 0 10px; }
+.tool-sync button { min-height: 44px; width: 100%; }

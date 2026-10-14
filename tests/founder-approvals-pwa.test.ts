@@ -27,3 +27,13 @@ test('approvals panel: device key is non-extractable, decisions need auth, UI ne
   for (const id of ['approvalsList', 'founderLinkButton', 'founderSignInButton', 'founderSignOutButton', 'founderKeyCopy']) assert.match(html, new RegExp(`id="${id}"`));
   assert.ok(sw.includes("'/founder-session.js'"));
 });
+
+test('tool sync panel: two explicit taps, Founder-authenticated POST with expected revision, no HTML injection', () => {
+  const app = readFileSync('apps/pwa/app.js', 'utf8');
+  const html = readFileSync('apps/pwa/index.html', 'utf8');
+  assert.match(html, /id="toolSyncButton"/);
+  assert.match(app, /confirmAction: 'apply_tool_catalog_revision', expectedRevision: toolSyncState\.activeRevision/);
+  assert.match(app, /if \(!toolSyncArmed\) \{\n    toolSyncArmed = true;/);
+  const block = app.slice(app.indexOf('async function refreshToolSync'), app.indexOf('function renderApprovals'));
+  assert.equal(block.includes('innerHTML'), false);
+});

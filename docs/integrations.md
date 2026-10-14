@@ -49,5 +49,5 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**. Los secretos v
 
 ### Pendiente
 - ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.
-- Revisión del Blueprint para habilitar las nuevas herramientas en la instalación del Founder.
+- ~~Revisión del Blueprint para habilitar las nuevas herramientas~~ → hecho desde la app: ver `docs/founder-approvals.md` (el Founder debe confirmarla en su instalación).
 - Pruebas con cuentas reales (todo verificado con servicios simulados; no verificado contra las APIs reales).

@@ -17,3 +17,9 @@ Las acciones sensibles (escrituras externas, generaciones de pago, cambios de pr
 - Registro: configurar la llave pública mostrada como `JANUS_FOUNDER_PUBLIC_KEY_PEM` en el equipo de Janus y reiniciar. (Si ya hay otra llave de Founder registrada, Janus la protege y no la sustituye en silencio.)
 - «Entrar como Founder» usa el reto/firma existente (`/api/auth/challenge` → `/api/auth/verify`). Janus acepta ahora también la firma en formato IEEE P1363 que generan los navegadores (además de DER).
 - El token de sesión vive en `sessionStorage` (se borra al cerrar la app). Solo funciona por HTTPS de confianza o en el propio equipo (política existente de transporte seguro).
+
+## Permitir herramientas nuevas (revisión del Blueprint)
+- `GET /api/learning/blueprints/tool-sync` muestra qué herramientas/acciones registradas aún no permite el Blueprint activo (y avisa si el Blueprint referencia alguna que ya no existe).
+- `POST /api/learning/blueprints/tool-sync` (solo Founder) con `{"confirmAction":"apply_tool_catalog_revision","expectedRevision":N}` crea la revisión N+1 por el camino de gobernanza existente (propuesta → borrador verificado → aplicar). Solo **añade**; mantiene guardrails, aprobaciones y autoridad; la revisión anterior queda en el historial y se puede volver a ella con el rollback existente.
+- En la PWA: recuadro «acciones nuevas por permitir» con la lista y dos toques (Permitir → Confirmar).
+

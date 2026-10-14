@@ -23,6 +23,7 @@ import {
 import { decideEffort, effortPlanningGuidance, type EffortDecision } from '../../packages/core/src/effort-policy.js';
 import { enforceSensitiveActionPolicy, SENSITIVE_TOOL_ACTIONS } from '../../packages/orchestrator/src/sensitive-action-policy.js';
 import { ApprovalDecisionError, ApprovalQueue } from '../../packages/core/src/approval-queue.js';
+import { applyToolCatalogSync, diffToolCatalog } from '../../packages/core/src/blueprint-tool-sync.js';
 import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model-gateway.js';
 import { FallbackModelRouter } from '../../packages/gateways/src/model-router.js';
 import { AnthropicMessagesModelAdapter } from '../../packages/adapters/src/anthropic-messages-model-adapter.js';
@@ -3096,6 +3097,51 @@ const server = createServer(async (request, response) => {
         },
       });
       json(response, 200, { ok: true, ...result });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/learning/blueprints/tool-sync') {
+    json(response, 200, { ok: true, blueprintId: runtimeBlueprint.id, ...diffToolCatalog(runtimeBlueprint, capabilityPolicyCatalog()) });
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/learning/blueprints/tool-sync') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      if (body.confirmAction !== 'apply_tool_catalog_revision') {
+        throw new HttpRequestError(409, 'Explicit confirmAction=apply_tool_catalog_revision is required');
+      }
+      const expectedRevision = Number(body.expectedRevision);
+      if (!Number.isInteger(expectedRevision) || expectedRevision < 1) {
+        throw new HttpRequestError(400, 'expectedRevision must be a positive integer');
+      }
+      const result = applyToolCatalogSync({
+        store,
+        current: runtimeBlueprint,
+        registeredTools: capabilityPolicyCatalog(),
+        expectedRevision,
+      });
+      runtimeBlueprint = result.active;
+      appendGovernanceDecision({
+        subject: 'blueprint-governance:' + result.proposal.id,
+        content: 'Tool catalog sync applied by Founder/Director: new integrations allowed; guardrails and approvals unchanged.',
+        principalId: principal.id,
+        metadata: {
+          proposalId: result.proposal.id,
+          action: 'tool_catalog_sync',
+          previousRevision: result.previous.revision,
+          activeRevision: result.active.revision,
+          additions: result.diff.additions,
+        },
+      });
+      json(response, 200, { ok: true, previousRevision: result.previous.revision, activeRevision: result.active.revision, additions: result.diff.additions });
     } catch (error) {
       const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
         ? authErrorStatus(error)
