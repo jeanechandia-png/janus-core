@@ -8,7 +8,9 @@
     "voice:start": "node scripts/start-local-voice.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "demo": "node --import tsx examples/observable-run.ts"
+    "demo": "node --import tsx examples/observable-run.ts",
+    "start:local": "node scripts/start-local.mjs",
+    "integrations:check": "node scripts/check-integrations.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

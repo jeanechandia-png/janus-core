@@ -1,6 +1,8 @@
 # Integraciones externas de Janus (2026-10-14)
 
-Janus Core manda; cada servicio es un **adaptador reemplazable**. Los secretos van solo en variables de entorno (nunca en SQLite, código, recibos ni logs). Endpoints verificados el 2026-10-14 contra la documentación oficial de cada proveedor.
+Janus Core manda; cada servicio es un **adaptador reemplazable**.
+
+**Puesta en marcha en el equipo de Janus:** `cp .env.example .env.local` → rellenar solo lo que quieras activar → `npm run integrations:check` (dice qué falta, nunca muestra valores) → `npm run start:local`. `.env.local` está ignorado por git. Los secretos van solo en variables de entorno (nunca en SQLite, código, recibos ni logs). Endpoints verificados el 2026-10-14 contra la documentación oficial de cada proveedor.
 
 ## Modelos de IA (Model Gateway + Model Router)
 
