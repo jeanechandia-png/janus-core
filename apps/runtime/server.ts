@@ -2403,6 +2403,8 @@ function contentType(path: string): string {
     case '.png': return 'image/png';
     case '.webp': return 'image/webp';
     case '.ico': return 'image/x-icon';
+    case '.woff2': return 'font/woff2';
+    case '.txt': return 'text/plain; charset=utf-8';
     default: return 'application/octet-stream';
   }
 }

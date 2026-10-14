@@ -974,7 +974,8 @@ function showView(view) {
   workView.hidden = dash;
   tabDash.setAttribute('aria-selected', String(dash));
   tabWork.setAttribute('aria-selected', String(!dash));
-  viewTitle.textContent = dash ? 'Tu día' : 'Trabajo en vivo';
+  viewTitle.textContent = dash ? 'Inicio' : 'Trabajo en vivo';
+  document.body.classList.toggle('view-dash', dash);
   try { localStorage.setItem('janus.view', view); } catch { /* sin almacenamiento: no pasa nada */ }
   if (dash) loadDashboard(false); else stopDashboard();
 }
