@@ -12,6 +12,14 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Coding & Agentic Engineering Expertise (2026-09-23)**:
+  - `coding` y `agentic_workflow` son tipos de trabajo nativos del Work Graph;
+  - Agent Swarm asigna Builder especializado a coding y Workflow Architect a agentic workflows;
+  - capacidades explícitas: arquitectura, debugging, testing, security/performance y, para workflows, multi-agent, tool use, MCP, memory/RAG, HITL, observability, recovery y evaluation;
+  - política de actualización continua exige conocimiento vigente y prioriza fuentes primarias antes de decisiones sensibles a cambios tecnológicos;
+  - verificación obligatoria por dominio y principios local-first/provider-independent quedan codificados como contrato ejecutable.
+
+
 - **Administrative Authority Control Plane (ADR-005)**:
   - Founder/Director autenticado como máxima autoridad humana de Janus;
   - identidad mediante principal interno estable, sin usar datos biográficos como secreto;
@@ -270,6 +278,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 11. Implementar error branches, waits y approvals completos sobre runtime durable.
 12. Añadir simulation/dry-run/replay antes de external writes.
 13. Importadores/adapters para chats históricos externos sin convertirlos en autoridad.
+14. Conectar `expertisePolicy` (PR #6, ya integrada) al planner/runtime para insertar investigación fresca cuando el conocimiento técnico esté vencido y bloquear entrega si faltan verificaciones obligatorias.
 
 ### P1
 - Vision Adapter multimodal: cámara, imagen, vídeo y documentos.

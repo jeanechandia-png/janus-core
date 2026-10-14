@@ -5,6 +5,7 @@ export type AgentRole =
   | 'analyst'
   | 'operator'
   | 'builder'
+  | 'workflow_architect'
   | 'verifier'
   | 'synthesizer';
 
@@ -95,6 +96,10 @@ function roleForNode(kind: WorkNodeKind): AgentRole {
       return 'researcher';
     case 'analysis':
       return 'analyst';
+    case 'coding':
+      return 'builder';
+    case 'agentic_workflow':
+      return 'workflow_architect';
     case 'tool':
       return 'operator';
     case 'verification':
@@ -113,7 +118,9 @@ function capabilitiesForRole(role: AgentRole): string[] {
     case 'operator':
       return ['tool_use', 'workflow_execution', 'idempotency'];
     case 'builder':
-      return ['coding', 'testing', 'artifact_generation'];
+      return ['coding', 'architecture', 'debugging', 'testing', 'security_review', 'performance', 'artifact_generation'];
+    case 'workflow_architect':
+      return ['agentic_workflows', 'multi_agent_orchestration', 'tool_use', 'mcp', 'memory', 'rag', 'human_in_the_loop', 'observability', 'recovery', 'evaluation'];
     case 'verifier':
       return ['verification', 'quality_gates', 'provenance'];
     case 'synthesizer':
