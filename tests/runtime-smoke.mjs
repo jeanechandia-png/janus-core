@@ -59,6 +59,9 @@ try {
   assert.equal(health.outcomeLearning?.nextExecutionPrediction?.basis, 'neutral-prior');
   assert.equal(health.outcomeLearning?.nextExecutionPrediction?.confidence, 0.5);
   assert.equal(health.outcomeLearning?.nextExecutionPrediction?.minimumSamples, 12);
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.mode, 'neutral_prior');
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.confidence, 0.5);
+  assert.equal(health.outcomeLearning?.nextExecutionConfidence?.minimumSamples, 20);
   assert.equal(health.outcomeLearning?.endpoint, '/api/learning');
   assert.equal(health.coordination?.operators, 0);
   assert.equal(health.coordination?.assignments, 0);
@@ -117,6 +120,8 @@ try {
   assert.equal(learningBody.ok, true);
   assert.equal(learningBody.calibration?.count, 0);
   assert.deepEqual(learningBody.observations, []);
+  assert.equal(learningBody.executionConfidence?.mode, 'neutral_prior');
+  assert.equal(learningBody.executionConfidence?.confidence, 0.5);
   assert.equal(learningBody.nextExecutionPrediction?.basis, 'neutral-prior');
   assert.equal(learningBody.nextExecutionPrediction?.confidence, 0.5);
   assert.equal(learningBody.blueprint?.revision, 1);
