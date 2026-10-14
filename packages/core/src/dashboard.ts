@@ -14,7 +14,7 @@ export type DataState =
   | 'pending' // aún no aplica (p. ej. empresa sin registrar)
   | 'error'; // se intentó leer y falló
 
-export type AgendaScope = 'work' | 'personal';
+export type AgendaScope = 'work' | 'personal' | 'kendra';
 
 export interface AgendaEvent {
   id: string;
@@ -91,6 +91,7 @@ export interface DashboardSnapshot {
     capabilities: { available: number; total: number };
   };
   integrations: IntegrationRow[];
+  social: SocialBlock;
   attention: AttentionItem[];
 }
 
@@ -321,6 +322,13 @@ export function deriveAttention(input: {
       });
     }
   }
+  const kendra = input.agenda.kendra;
+  if (kendra && kendra.state === 'live' && kendra.today.length > 0) {
+    items.push({
+      level: 'medium',
+      text: `Kendra tiene hoy ${kendra.today.length === 1 ? `«${kendra.today[0]!.title}»` : `${kendra.today.length} cosas en agenda`}.`,
+    });
+  }
   if (input.integrationsWithoutKey > 0) {
     items.push({
       level: 'low',
@@ -339,6 +347,7 @@ export function buildDashboardSnapshot(input: {
   sales: SalesCard;
   janus: DashboardSnapshot['janus'];
   integrations: IntegrationRow[];
+  social?: SocialBlock;
 }): DashboardSnapshot {
   const withoutKey = input.integrations.filter((row) => row.state === 'no_key').length;
   return {
@@ -350,6 +359,7 @@ export function buildDashboardSnapshot(input: {
     sales: input.sales,
     janus: input.janus,
     integrations: input.integrations,
+    social: input.social ?? socialUnconfigured(),
     attention: deriveAttention({
       approvalsPending: input.janus.approvalsPending,
       products: input.products,
@@ -357,5 +367,218 @@ export function buildDashboardSnapshot(input: {
       integrationsWithoutKey: withoutKey,
       integrationsTotal: input.integrations.length,
     }),
+  };
+}
+
+
+// ---------------------------------------------------------------------------
+// Redes (Instagram vía Meta Graph API, solo lectura). Seguidores, meta de
+// monetización definida por el Founder y rendimiento de reels por producto.
+// ---------------------------------------------------------------------------
+
+export interface SocialAccountConfig {
+  id: string;
+  igUserId: string;
+  label: string;
+  productId: string;
+  /** Meta de seguidores definida por el Founder; NO es un umbral oficial de Meta. */
+  followerGoal: number | null;
+}
+
+export interface FollowerPoint {
+  date: string;
+  followers: number;
+}
+
+export interface ReelRow {
+  id: string;
+  title: string;
+  permalink: string | null;
+  publishedAt: string | null;
+  productId: string;
+  attribution: 'cuenta' | 'hashtag';
+  views: number | null;
+  reach: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  saved: number | null;
+}
+
+export interface SocialAccountCard {
+  id: string;
+  label: string;
+  username: string | null;
+  productId: string;
+  state: DataState;
+  reason?: string;
+  followers: number | null;
+  goal: number | null;
+  progress: number | null;
+  delta7d: number | null;
+  history: FollowerPoint[];
+  reels: ReelRow[];
+}
+
+export interface SocialBlock {
+  state: DataState;
+  reason?: string;
+  accounts: SocialAccountCard[];
+}
+
+export function socialUnconfigured(reason?: string): SocialBlock {
+  return {
+    state: 'unconfigured',
+    reason: reason
+      ?? 'Define JANUS_SOCIAL_ACCOUNTS (cuentas de Instagram profesional) y las llaves de Meta para seguir seguidores y reels.',
+    accounts: [],
+  };
+}
+
+export function parseSocialAccounts(raw: string | undefined): SocialAccountConfig[] {
+  if (!raw?.trim()) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('JANUS_SOCIAL_ACCOUNTS must be a JSON array');
+  }
+  if (!Array.isArray(parsed)) throw new Error('JANUS_SOCIAL_ACCOUNTS must be a JSON array');
+  const accounts: SocialAccountConfig[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue;
+    const record = item as Record<string, unknown>;
+    const id = typeof record.id === 'string' ? record.id.trim() : '';
+    const igUserId = typeof record.igUserId === 'string' ? record.igUserId.trim() : '';
+    if (!/^[a-z0-9._-]{1,60}$/i.test(id) || !/^\d{5,30}$/.test(igUserId)) continue;
+    const goal = typeof record.followerGoal === 'number' && Number.isInteger(record.followerGoal) && record.followerGoal > 0
+      ? record.followerGoal
+      : null;
+    accounts.push({
+      id,
+      igUserId,
+      label: typeof record.label === 'string' && record.label.trim() ? record.label.trim().slice(0, 60) : id,
+      productId: typeof record.productId === 'string' && record.productId.trim() ? record.productId.trim() : 'infinityseed-group',
+      followerGoal: goal,
+    });
+  }
+  return accounts;
+}
+
+/** Hashtag → producto. Un reel de la cuenta del grupo con #chatbox cuenta para ChatBox. */
+export const HASHTAG_PRODUCTS: Readonly<Record<string, string>> = {
+  chatbox: 'chatbox',
+  infinitychatbox: 'chatbox',
+  iba: 'iba',
+  infinitybusinessassistant: 'iba',
+  janus: 'janus',
+  tribuna: 'tribuna',
+  latribunavirtual: 'tribuna',
+  infinityseed: 'infinityseed-group',
+  infinityseedgroup: 'infinityseed-group',
+};
+
+export function attributeReel(caption: string, accountProduct: string): { productId: string; attribution: 'cuenta' | 'hashtag' } {
+  const tags = caption.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').match(/#[a-z0-9_]+/g) ?? [];
+  for (const tag of tags) {
+    const product = HASHTAG_PRODUCTS[tag.slice(1).replace(/_/g, '')];
+    if (product && product !== accountProduct) return { productId: product, attribution: 'hashtag' };
+  }
+  return { productId: accountProduct, attribution: 'cuenta' };
+}
+
+function reelTitle(caption: string): string {
+  const firstLine = caption.split('\n').map((line) => line.trim()).find(Boolean) ?? '';
+  const clean = firstLine.replace(/#[\p{L}0-9_]+/gu, '').replace(/\s+/g, ' ').trim();
+  if (!clean) return 'Reel sin texto';
+  return clean.length > 60 ? `${clean.slice(0, 57)}…` : clean;
+}
+
+function metricValue(metrics: Record<string, unknown>, name: string): number | null {
+  const value = metrics[name];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function normalizeReels(raw: readonly unknown[], accountProduct: string): ReelRow[] {
+  const rows: ReelRow[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const reel = item as Record<string, unknown>;
+    if (typeof reel.id !== 'string') continue;
+    const caption = typeof reel.caption === 'string' ? reel.caption : '';
+    const metrics = reel.metrics && typeof reel.metrics === 'object' ? reel.metrics as Record<string, unknown> : {};
+    const { productId, attribution } = attributeReel(caption, accountProduct);
+    rows.push({
+      id: reel.id,
+      title: reelTitle(caption),
+      permalink: typeof reel.permalink === 'string' && reel.permalink.startsWith('https://') ? reel.permalink : null,
+      publishedAt: typeof reel.publishedAt === 'string' ? reel.publishedAt : null,
+      productId,
+      attribution,
+      views: metricValue(metrics, 'views'),
+      reach: metricValue(metrics, 'reach'),
+      likes: metricValue(metrics, 'likes'),
+      comments: metricValue(metrics, 'comments'),
+      shares: metricValue(metrics, 'shares'),
+      saved: metricValue(metrics, 'saved'),
+    });
+  }
+  return rows.sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
+}
+
+/** Una foto por día (la última del día gana), ordenada y acotada a `days`. */
+export function followerHistory(points: readonly FollowerPoint[], days = 90): FollowerPoint[] {
+  const byDate = new Map<string, number>();
+  for (const point of points) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(point.date) && Number.isFinite(point.followers)) byDate.set(point.date, point.followers);
+  }
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-days)
+    .map(([date, followers]) => ({ date, followers }));
+}
+
+export function followerDelta(history: readonly FollowerPoint[], days: number): number | null {
+  if (history.length < 2) return null;
+  const last = history[history.length - 1]!;
+  const cutoff = addDays(last.date, -days);
+  const base = [...history].reverse().find((point) => point.date <= cutoff) ?? history[0]!;
+  if (base.date === last.date) return null;
+  return last.followers - base.followers;
+}
+
+export function buildSocialAccountCard(input: {
+  config: SocialAccountConfig;
+  state: DataState;
+  reason?: string;
+  username?: string | null;
+  followers?: number | null;
+  history?: readonly FollowerPoint[];
+  reels?: readonly ReelRow[];
+}): SocialAccountCard {
+  const history = followerHistory(input.history ?? []);
+  const followers = input.followers ?? history.at(-1)?.followers ?? null;
+  const goal = input.config.followerGoal;
+  return {
+    id: input.config.id,
+    label: input.config.label,
+    username: input.username ?? null,
+    productId: input.config.productId,
+    state: input.state,
+    ...(input.reason ? { reason: input.reason } : {}),
+    followers,
+    goal,
+    progress: goal && followers != null ? Math.min(1, followers / goal) : null,
+    delta7d: followerDelta(history, 7),
+    history,
+    reels: [...(input.reels ?? [])],
+  };
+}
+
+export function socialBlock(accounts: SocialAccountCard[], reason?: string): SocialBlock {
+  if (accounts.length === 0) return socialUnconfigured(reason);
+  return {
+    state: summarizeProductState(null, accounts.map((account) => ({ label: account.id, state: account.state }))),
+    accounts,
   };
 }

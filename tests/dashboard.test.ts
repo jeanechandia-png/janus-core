@@ -92,6 +92,7 @@ test('la instantánea prioriza lo que necesita atención y no expone secretos', 
     agenda: {
       work: agendaBlock('work', { kind: 'events', events, today: '2026-10-14', timeZone: TZ }),
       personal: agendaBlock('personal', { kind: 'unconfigured', reason: 'Define JANUS_CALENDARS_PERSONAL' }),
+      kendra: agendaBlock('kendra', { kind: 'events', events: normalizeCalendarEvents([{ id: 'k1', summary: 'Médico', start: { dateTime: '2026-10-14T16:00:00+02:00' } }], 'kendra', 'Kendra'), today: '2026-10-14', timeZone: TZ }),
     },
     products: buildProductCards({ chatbox: [{ label: 'Netlify', state: 'error', detail: 'HTTP 500' }] }),
     sales: pendingSales(),
@@ -106,6 +107,8 @@ test('la instantánea prioriza lo que necesita atención y no expone secretos', 
   assert.ok(snapshot.attention.some((item) => item.text.includes('2 acciones esperan')));
   assert.ok(snapshot.attention.some((item) => item.text.includes('Infinity ChatBox') && item.text.includes('HTTP 500')));
   assert.ok(snapshot.attention.some((item) => item.text.includes('1 cita de la empresa')));
+  assert.ok(snapshot.attention.some((item) => item.text === 'Kendra tiene hoy «Médico».'));
+  assert.equal(snapshot.social.state, 'unconfigured');
   assert.equal(snapshot.attention.at(-1)!.level, 'low');
   assert.doesNotMatch(JSON.stringify(snapshot), /token|secret|apiKey/i);
 });
@@ -113,4 +116,53 @@ test('la instantánea prioriza lo que necesita atención y no expone secretos', 
 test('addDays cruza fin de mes correctamente', () => {
   assert.equal(addDays('2026-10-31', 1), '2026-11-01');
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
+});
+
+test('redes: valida la configuración de cuentas y descarta entradas inválidas', async () => {
+  const { parseSocialAccounts } = await import('../packages/core/src/dashboard.js');
+  const accounts = parseSocialAccounts(JSON.stringify([
+    { id: 'infinityseedgroup', igUserId: '17841400000000001', label: 'Infinity Seed Group', productId: 'infinityseed-group', followerGoal: 10000 },
+    { id: 'malo', igUserId: 'no-numérico' },
+    { id: 'sin-meta', igUserId: '17841400000000002', followerGoal: -5 },
+  ]));
+  assert.deepEqual(accounts.map((account) => account.id), ['infinityseedgroup', 'sin-meta']);
+  assert.equal(accounts[0]!.followerGoal, 10000);
+  assert.equal(accounts[1]!.followerGoal, null);
+  assert.throws(() => parseSocialAccounts('{no es json'), /JSON array/);
+  assert.deepEqual(parseSocialAccounts(undefined), []);
+});
+
+test('redes: un reel con #ChatBox en la cuenta del grupo cuenta para ChatBox', async () => {
+  const { attributeReel, normalizeReels } = await import('../packages/core/src/dashboard.js');
+  assert.deepEqual(attributeReel('Nuevo asistente #ChatBox #ia', 'infinityseed-group'), { productId: 'chatbox', attribution: 'hashtag' });
+  assert.deepEqual(attributeReel('Marketing 360 con dron', 'infinityseed-group'), { productId: 'infinityseed-group', attribution: 'cuenta' });
+  const rows = normalizeReels([
+    { id: 'r1', caption: 'Primer reel\n#infinity_chatbox', publishedAt: '2026-10-10T10:00:00Z', permalink: 'https://www.instagram.com/reel/abc/', metrics: { views: 1200, likes: 80, comments: 4 } },
+    { id: 'r2', caption: '', publishedAt: '2026-10-12T10:00:00Z', permalink: 'javascript:alert(1)', metrics: { views: null } },
+  ], 'infinityseed-group');
+  assert.deepEqual(rows.map((row) => row.id), ['r2', 'r1']);
+  assert.equal(rows[0]!.title, 'Reel sin texto');
+  assert.equal(rows[0]!.permalink, null);
+  assert.equal(rows[1]!.productId, 'chatbox');
+  assert.equal(rows[1]!.views, 1200);
+  assert.equal(rows[0]!.views, null);
+});
+
+test('redes: historial diario, variación semanal y avance hacia la meta del Founder', async () => {
+  const { buildSocialAccountCard, followerHistory } = await import('../packages/core/src/dashboard.js');
+  const history = followerHistory([
+    { date: '2026-10-01', followers: 900 }, { date: '2026-10-07', followers: 950 },
+    { date: '2026-10-07', followers: 960 }, { date: '2026-10-14', followers: 1000 }, { date: 'basura', followers: 1 },
+  ]);
+  assert.deepEqual(history.map((point) => point.followers), [900, 960, 1000]);
+  const card = buildSocialAccountCard({
+    config: { id: 'isg', igUserId: '17841400000000001', label: 'Infinity Seed', productId: 'infinityseed-group', followerGoal: 10000 },
+    state: 'live', followers: 1000, history,
+  });
+  assert.equal(card.delta7d, 40);
+  assert.equal(card.progress, 0.1);
+  const noGoal = buildSocialAccountCard({ config: { id: 'x', igUserId: '17841400000000003', label: 'X', productId: 'chatbox', followerGoal: null }, state: 'unconfigured', reason: 'Falta META_ACCESS_TOKEN' });
+  assert.equal(noGoal.progress, null);
+  assert.equal(noGoal.followers, null);
+  assert.equal(noGoal.delta7d, null);
 });

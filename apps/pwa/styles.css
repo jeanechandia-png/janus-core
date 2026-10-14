@@ -686,3 +686,75 @@ button.jd-row:active { transform: translateY(2px) scale(.99); box-shadow: inset 
   .jg-wordmark-wrap, .jg-sweep, .jd-medal-sheen::before, .jd-cta, .jd-cta::before, button.jd-row::before, .jd-voice-ring, .jd-voice-ring::before { animation: none !important; }
   .jg-wordmark-wrap, .jd-medal { transform: none !important; }
 }
+
+
+/* ===== Kendra (dentro de Personal, sin mezclar) ===== */
+.jd-face-kendra { margin-top: 16px; padding: 12px 0 0 12px; border-left: 2px solid rgba(213, 81, 129, .55); }
+.jd-face-kendra .jd-face-head h4 { font-style: italic; }
+
+/* ===== Redes y reels: gráficas profesionales ===== */
+.jd-social { grid-column: 1 / -1; }
+.jd-accounts { display: grid; gap: 14px; }
+.jd-account { padding: 14px 14px 10px; border-radius: 14px; background: rgba(255, 255, 255, .02); border: 1px solid rgba(255, 255, 255, .05); min-width: 0; }
+.jd-account-head { display: flex; align-items: center; gap: 10px; }
+.jd-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.jd-account-names { display: grid; min-width: 0; }
+.jd-account-name { font-weight: 600; font-size: 15px; }
+.jd-account-user { color: var(--jd-ink-3); font-size: 12.5px; }
+.jd-hero-figure { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; margin: 10px 0 8px; }
+.jd-hero-value { font-size: clamp(34px, 9vw, 48px); font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--jd-ink); }
+.jd-hero-meta { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 10px; color: var(--jd-ink-3); font-size: 13px; }
+.jd-delta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.jd-delta.up { color: var(--jd-ok); }
+.jd-delta.down { color: var(--jd-bad); }
+.jd-meter { display: grid; gap: 6px; margin: 4px 0 10px; }
+.jd-meter-track { height: 8px; border-radius: 999px; background: rgba(212, 175, 105, .14); overflow: hidden; }
+.jd-meter-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, #b4832f, #f1d79b); box-shadow: 0 0 10px rgba(212, 175, 105, .45); }
+.jd-meter-text { color: var(--jd-ink-2); font-size: 12.5px; }
+.jd-chart { position: relative; margin-top: 4px; }
+.jd-chart svg { display: block; overflow: visible; touch-action: pan-y; }
+.jd-grid { stroke: rgba(255, 255, 255, .07); stroke-width: 1; }
+.jd-tick { fill: var(--jd-ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.jd-endlabel { fill: var(--jd-ink); font-size: 12px; font-weight: 600; }
+.jd-cross { stroke: rgba(241, 215, 155, .5); stroke-width: 1; }
+.jd-tip {
+  position: absolute; top: -6px; transform: translateX(-50%); pointer-events: none; white-space: nowrap;
+  padding: 6px 10px; border-radius: 10px; font-size: 12.5px; color: var(--jd-ink-2);
+  background: rgba(16, 17, 21, .96); border: 1px solid var(--jd-line-strong); box-shadow: 0 8px 22px rgba(0, 0, 0, .55);
+}
+.jd-tip strong { color: var(--jd-ink); font-weight: 600; }
+.jd-chart-empty { margin: 6px 0 4px; color: var(--jd-ink-3); font-size: 13px; line-height: 1.45; }
+
+.jd-reels { margin-top: 18px; }
+.jd-reels-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 10px; }
+.jd-reels-head h4 { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--jd-ink); }
+.jd-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--jd-ink-2); font-size: 12.5px; }
+.jd-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.jd-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.jd-bar-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; padding: 8px 8px; margin: 0 -8px; border-radius: 10px; color: inherit; text-decoration: none; }
+.jd-bar-row:is(:hover, :focus-visible) { background: rgba(255, 255, 255, .035); }
+.jd-bar-label { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; }
+.jd-bar-title { font-size: 14px; color: var(--jd-ink); overflow-wrap: anywhere; }
+.jd-bar-sub { font-size: 12px; color: var(--jd-ink-3); }
+.jd-bar-track { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.jd-bar { display: block; height: 12px; border-radius: 0 4px 4px 0; min-width: 2px; }
+.jd-bar-value { font-size: 12.5px; font-weight: 600; color: var(--jd-ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jd-bar-detail { font-size: 12px; color: var(--jd-ink-3); }
+.jd-table { margin-top: 12px; }
+.jd-table summary { cursor: pointer; color: var(--jd-gold); font-size: 13px; }
+.jd-table table { width: 100%; margin-top: 10px; border-collapse: collapse; font-size: 12.5px; display: block; overflow-x: auto; }
+.jd-table th, .jd-table td { text-align: right; padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, .06); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.jd-table th:first-child, .jd-table td:first-child, .jd-table th:nth-child(2), .jd-table td:nth-child(2) { text-align: left; }
+.jd-table th { color: var(--jd-ink-3); font-weight: 500; }
+.jd-social-empty p { margin: 0 0 8px; color: var(--jd-ink-2); font-size: 14px; line-height: 1.5; }
+
+@media (min-width: 700px) {
+  .jd-grid { grid-template-areas: "today agenda" "group group" "social social" "sales system"; }
+  .jd-social { grid-area: social; }
+  .jd-accounts { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .jd-bar-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) 230px; align-items: center; gap: 14px; }
+  .jd-bar-detail { text-align: right; }
+}
+@media (min-width: 1024px) {
+  .jd-grid { grid-template-areas: "today agenda agenda" "sales group system" "social social social"; }
+}

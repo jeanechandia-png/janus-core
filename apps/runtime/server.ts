@@ -48,7 +48,13 @@ import {
   buildDashboardSnapshot,
   buildProductCards,
   normalizeCalendarEvents,
+  normalizeReels,
+  parseSocialAccounts,
   pendingSales,
+  buildSocialAccountCard,
+  socialBlock,
+  type SocialAccountCard,
+  type SocialBlock,
   type AgendaBlock,
   type AgendaScope,
   type DashboardSnapshot,
@@ -2453,7 +2459,7 @@ const DASHBOARD_INTEGRATIONS: ReadonlyArray<readonly [string, string]> = [
   ['netlify', 'Netlify (lectura)'], ['netlify-release', 'Netlify (publicar)'],
   ['supabase', 'Supabase'], ['runway', 'Runway'], ['kling', 'Kling AI'], ['n8n', 'n8n'],
   ['google-workspace', 'Google Workspace (lectura)'], ['google-workspace-write', 'Google Workspace (escritura)'],
-  ['github', 'GitHub'], ['meta', 'Meta'], ['youtube', 'YouTube'],
+  ['github', 'GitHub'], ['meta', 'Meta (Instagram)'], ['youtube', 'YouTube'],
 ];
 
 function dashboardFailure(error: string | undefined): string {
@@ -2469,7 +2475,9 @@ function dashboardTimeZone(): string {
 }
 
 async function dashboardAgenda(scope: AgendaScope, now: Date, tz: string): Promise<AgendaBlock> {
-  const variable = scope === 'work' ? 'JANUS_CALENDARS_WORK' : 'JANUS_CALENDARS_PERSONAL';
+  const variable = scope === 'work'
+    ? 'JANUS_CALENDARS_WORK'
+    : scope === 'kendra' ? 'JANUS_CALENDARS_KENDRA' : 'JANUS_CALENDARS_PERSONAL';
   const calendars = (process.env[variable] ?? '').split(',').map((item) => item.trim()).filter(Boolean);
   if (calendars.length === 0) {
     return agendaBlock(scope, { kind: 'unconfigured', reason: `Define ${variable} con los IDs de calendario de este ámbito.` });
@@ -2490,7 +2498,7 @@ async function dashboardAgenda(scope: AgendaScope, now: Date, tz: string): Promi
       return agendaBlock(scope, { kind: 'error', reason: result.error ?? 'No se pudo leer el calendario.' });
     }
     const raw = Array.isArray(result.output?.events) ? (result.output!.events as unknown[]) : [];
-    events.push(...normalizeCalendarEvents(raw, scope, scope === 'work' ? 'Empresa' : 'Personal'));
+    events.push(...normalizeCalendarEvents(raw, scope, scope === 'work' ? 'Empresa' : scope === 'kendra' ? 'Kendra' : 'Personal'));
   }
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
   return agendaBlock(scope, { kind: 'events', events, today, timeZone: tz });
@@ -2552,6 +2560,74 @@ async function dashboardProbes(): Promise<Record<string, ProbeResult[]>> {
   return probes;
 }
 
+
+const SOCIAL_TTL_MS = 10 * 60_000; // Meta limita las llamadas: como mucho una lectura cada 10 min.
+let socialCache: { at: number; block: SocialBlock } | null = null;
+
+async function dashboardSocial(now: Date, tz: string, forceRefresh: boolean): Promise<SocialBlock> {
+  if (!forceRefresh && socialCache && now.getTime() - socialCache.at < SOCIAL_TTL_MS) return socialCache.block;
+  let accounts;
+  try {
+    accounts = parseSocialAccounts(process.env.JANUS_SOCIAL_ACCOUNTS);
+  } catch (error) {
+    return socialBlock([], error instanceof Error ? error.message : String(error));
+  }
+  if (accounts.length === 0) return socialBlock([]);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  const cards: SocialAccountCard[] = [];
+  for (const config of accounts) {
+    const historyFor = () => store.listSocialChannelSnapshots(config.productId)
+      .filter((snap) => snap.platform === 'instagram' && snap.channelId === config.igUserId && snap.id.startsWith('ig-daily:'))
+      .map((snap) => ({ date: snap.id.slice(-10), followers: Number(snap.metrics.followers) }));
+    if (!metaGraphApiVersion || !metaTokenConfigured) {
+      cards.push(buildSocialAccountCard({
+        config,
+        state: 'unconfigured',
+        reason: !metaGraphApiVersion ? 'Falta META_GRAPH_API_VERSION.' : 'Falta META_ACCESS_TOKEN (solo lectura).',
+        history: historyFor(),
+      }));
+      continue;
+    }
+    const profile = await toolGateway.execute({ tool: 'meta-insights', action: 'instagram.account.profile', input: { entityId: config.igUserId } }, async () => {});
+    if (!profile.ok || !profile.output) {
+      cards.push(buildSocialAccountCard({ config, state: 'error', reason: dashboardFailure(profile.error), history: historyFor() }));
+      continue;
+    }
+    const followers = typeof profile.output.followersCount === 'number' ? profile.output.followersCount : null;
+    if (followers != null) {
+      store.upsertSocialChannelSnapshot(createSocialChannelSnapshot({
+        id: `ig-daily:${config.igUserId}:${today}`,
+        platform: 'instagram',
+        channelId: config.igUserId,
+        productId: config.productId,
+        verifiedAt: now.toISOString(),
+        source: `meta-graph-api:${metaGraphApiVersion}`,
+        metrics: {
+          followers,
+          mediaCount: typeof profile.output.mediaCount === 'number' ? profile.output.mediaCount : null,
+        },
+        monetizationState: 'unknown',
+      }));
+    }
+    const reelsResult = await toolGateway.execute({ tool: 'meta-insights', action: 'instagram.reels.recent', input: { entityId: config.igUserId, limit: 10 } }, async () => {});
+    const reels = reelsResult.ok && Array.isArray(reelsResult.output?.reels)
+      ? normalizeReels(reelsResult.output!.reels as unknown[], config.productId)
+      : [];
+    cards.push(buildSocialAccountCard({
+      config,
+      state: reelsResult.ok ? 'live' : 'error',
+      ...(reelsResult.ok ? {} : { reason: `Reels: ${dashboardFailure(reelsResult.error)}` }),
+      username: typeof profile.output.username === 'string' ? profile.output.username : null,
+      followers,
+      history: historyFor(),
+      reels,
+    }));
+  }
+  const block = socialBlock(cards);
+  socialCache = { at: now.getTime(), block };
+  return block;
+}
+
 async function buildDashboard(forceRefresh: boolean): Promise<DashboardSnapshot> {
   const nowMs = Date.now();
   if (!forceRefresh && dashboardCache && nowMs - dashboardCache.at < DASHBOARD_TTL_MS) {
@@ -2559,10 +2635,12 @@ async function buildDashboard(forceRefresh: boolean): Promise<DashboardSnapshot>
   }
   const now = new Date(nowMs);
   const tz = dashboardTimeZone();
-  const [work, personal, probes] = await Promise.all([
+  const [work, personal, kendra, probes, social] = await Promise.all([
     dashboardAgenda('work', now, tz),
     dashboardAgenda('personal', now, tz),
+    dashboardAgenda('kendra', now, tz),
     dashboardProbes(),
+    dashboardSocial(now, tz, forceRefresh),
   ]);
   const integrations: IntegrationRow[] = DASHBOARD_INTEGRATIONS.map(([id, name]) => ({
     id,
@@ -2575,7 +2653,8 @@ async function buildDashboard(forceRefresh: boolean): Promise<DashboardSnapshot>
   const snapshot = buildDashboardSnapshot({
     now,
     timeZone: tz,
-    agenda: { work, personal },
+    agenda: { work, personal, kendra },
+    social,
     products: buildProductCards(probes),
     sales: pendingSales(),
     janus: {

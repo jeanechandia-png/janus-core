@@ -16,6 +16,7 @@ const STATE_TEXT = {
 const SCOPE = {
   work: { title: 'Empresa', empty: 'Sin citas de la empresa hoy.' },
   personal: { title: 'Personal', empty: 'Sin citas personales hoy.' },
+  kendra: { title: 'Kendra', empty: 'Kendra no tiene nada en agenda hoy.' },
 };
 
 // Iconos de línea propios (trazo dorado), sin dependencias externas.
@@ -29,8 +30,23 @@ const ICON = {
   refresh: '<path d="M19.5 12a7.5 7.5 0 11-2.2-5.3"/><path d="M19.5 4v4.5H15"/>',
 };
 
+// Paleta categórica validada (dataviz validator, modo oscuro sobre #101115):
+// el color sigue al producto, nunca al orden.
+const PRODUCT_COLOR = {
+  chatbox: '#3987e5',
+  'infinityseed-group': '#d95926',
+  janus: '#199e70',
+  tribuna: '#c98500',
+  iba: '#d55181',
+  api: '#9085e9',
+};
+const compact = new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 1 });
+const whole = new Intl.NumberFormat('es-ES');
+
 let root;
 let timer;
+let lastSnapshot = null;
+let resizeObserver;
 let onOpenWork = () => {};
 
 function el(tag, className, text) {
@@ -101,7 +117,7 @@ function renderToday(snapshot) {
   const list = el('ul', 'jd-rows');
   for (const item of snapshot.attention) {
     const isApproval = /visto bueno/.test(item.text);
-    const kind = isApproval ? 'approval' : /cita/.test(item.text) ? 'calendar' : /llave/.test(item.text) ? 'key' : 'alert';
+    const kind = isApproval ? 'approval' : /cita|Kendra|agenda/.test(item.text) ? 'calendar' : /llave/.test(item.text) ? 'key' : 'alert';
     const row = el(isApproval ? 'button' : 'div', `jd-row jd-row-${item.level}`);
     if (isApproval) { row.type = 'button'; row.addEventListener('click', () => onOpenWork()); bindLight(row); }
     const badge = el('span', `jd-row-badge jd-badge-${kind}`);
@@ -153,7 +169,9 @@ function renderAgenda(snapshot) {
   const faces = el('div', 'jd-faces');
   const axis = el('span', 'jd-axis');
   axis.setAttribute('aria-hidden', 'true');
-  faces.append(renderFace(snapshot.agenda.work, snapshot.timeZone), axis, renderFace(snapshot.agenda.personal, snapshot.timeZone));
+  const personal = renderFace(snapshot.agenda.personal, snapshot.timeZone);
+  if (snapshot.agenda.kendra) personal.append(renderFace(snapshot.agenda.kendra, snapshot.timeZone));
+  faces.append(renderFace(snapshot.agenda.work, snapshot.timeZone), axis, personal);
   section.append(faces);
   return section;
 }
@@ -201,6 +219,233 @@ function renderSales(snapshot) {
   return section;
 }
 
+
+// ---------------------------------------------------------------------------
+// Redes y reels: gráficas profesionales (marcas finas, rejilla tenue, una sola
+// escala, etiquetas selectivas, tooltip al tocar, tabla accesible).
+// ---------------------------------------------------------------------------
+function svg(tag, attrs = {}) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, String(value));
+  return node;
+}
+
+function niceTicks(min, max, count = 3) {
+  if (min === max) { min -= 1; max += 1; }
+  const span = max - min;
+  const step0 = span / count;
+  const mag = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((m) => span / m <= count) ?? 10 * mag;
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(Math.round(v * 1000) / 1000);
+  return ticks;
+}
+
+function shortDate(iso) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+function followerChart(account, width) {
+  const box = el('div', 'jd-chart');
+  const history = account.history;
+  if (history.length < 2) {
+    box.append(el('p', 'jd-chart-empty', history.length === 1
+      ? 'La gráfica aparece desde el segundo día de mediciones. Janus guarda una foto diaria.'
+      : 'Sin mediciones todavía.'));
+    return box;
+  }
+  const color = PRODUCT_COLOR[account.productId] ?? '#d4af69';
+  const H = 168, padL = 44, padR = 56, padT = 12, padB = 26;
+  const W = Math.max(260, width);
+  const values = history.map((p) => p.followers);
+  const ticks = niceTicks(Math.min(...values), Math.max(...values));
+  const yMin = ticks[0], yMax = ticks[ticks.length - 1];
+  const x = (i) => padL + (i / (history.length - 1)) * (W - padL - padR);
+  const y = (v) => padT + (1 - (v - yMin) / (yMax - yMin || 1)) * (H - padT - padB);
+  const chart = svg('svg', { viewBox: `0 0 ${W} ${H}`, width: '100%', height: H, role: 'img', 'aria-label': `Seguidores de ${account.label}: de ${whole.format(values[0])} a ${whole.format(values.at(-1))}` });
+  for (const t of ticks) {
+    chart.append(svg('line', { x1: padL, x2: W - padR + 8, y1: y(t), y2: y(t), class: 'jd-grid' }));
+    const label = svg('text', { x: padL - 8, y: y(t) + 4, 'text-anchor': 'end', class: 'jd-tick' });
+    label.textContent = compact.format(t);
+    chart.append(label);
+  }
+  for (const [i, anchor] of [[0, 'start'], [history.length - 1, 'end']]) {
+    const label = svg('text', { x: x(i), y: H - 6, 'text-anchor': anchor, class: 'jd-tick' });
+    label.textContent = shortDate(history[i].date);
+    chart.append(label);
+  }
+  const d = history.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.followers).toFixed(1)}`).join('');
+  chart.append(svg('path', { d: `${d}L${x(history.length - 1)},${H - padB}L${padL},${H - padB}Z`, fill: color, 'fill-opacity': .1 }));
+  chart.append(svg('path', { d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  const last = history.length - 1;
+  chart.append(svg('circle', { cx: x(last), cy: y(values[last]), r: 4, fill: color, stroke: 'var(--jd-panel)', 'stroke-width': 2 }));
+  const end = svg('text', { x: x(last) + 8, y: y(values[last]) + 4, class: 'jd-endlabel' });
+  end.textContent = compact.format(values[last]);
+  chart.append(end);
+
+  // Cruz de lectura + tooltip
+  const cross = svg('line', { y1: padT, y2: H - padB, class: 'jd-cross', visibility: 'hidden' });
+  const dot = svg('circle', { r: 5, fill: color, stroke: 'var(--jd-panel)', 'stroke-width': 2, visibility: 'hidden' });
+  chart.append(cross, dot);
+  const tip = el('div', 'jd-tip');
+  tip.hidden = true;
+  const hit = svg('rect', { x: padL, y: padT, width: W - padL - padR, height: H - padT - padB, fill: 'transparent' });
+  const show = (event) => {
+    const rect = chart.getBoundingClientRect();
+    const px = ((event.clientX - rect.left) / rect.width) * W;
+    const i = Math.max(0, Math.min(last, Math.round(((px - padL) / (W - padL - padR)) * last)));
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('visibility', 'visible');
+    dot.setAttribute('cx', x(i)); dot.setAttribute('cy', y(values[i])); dot.setAttribute('visibility', 'visible');
+    tip.hidden = false;
+    tip.replaceChildren(el('strong', null, whole.format(values[i])), el('span', null, ` seguidores · ${shortDate(history[i].date)}`));
+    tip.style.left = `${(x(i) / W) * 100}%`;
+  };
+  const hide = () => { cross.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); tip.hidden = true; };
+  hit.addEventListener('pointermove', show);
+  hit.addEventListener('pointerdown', show);
+  hit.addEventListener('pointerleave', hide);
+  chart.append(hit);
+  box.append(chart, tip);
+  return box;
+}
+
+function renderAccount(account, width) {
+  const card = el('article', `jd-account jd-s-${account.state}`);
+  const head = el('header', 'jd-account-head');
+  const swatch = el('span', 'jd-swatch');
+  swatch.style.background = PRODUCT_COLOR[account.productId] ?? '#d4af69';
+  const names = el('div', 'jd-account-names');
+  names.append(el('span', 'jd-account-name', account.label), el('span', 'jd-account-user', account.username ? `@${account.username}` : 'Instagram'));
+  head.append(swatch, names);
+  card.append(head);
+
+  const figure = el('div', 'jd-hero-figure');
+  figure.append(el('span', 'jd-hero-value', account.followers == null ? '—' : whole.format(account.followers)));
+  const meta = el('span', 'jd-hero-meta');
+  meta.append('seguidores');
+  if (account.delta7d != null) {
+    const delta = el('span', `jd-delta ${account.delta7d >= 0 ? 'up' : 'down'}`, `${account.delta7d >= 0 ? '▲ +' : '▼ '}${whole.format(account.delta7d)} en 7 días`);
+    meta.append(delta);
+  }
+  figure.append(meta);
+  card.append(figure);
+
+  if (account.goal) {
+    const meter = el('div', 'jd-meter');
+    const bar = el('div', 'jd-meter-track');
+    const fill = el('span', 'jd-meter-fill');
+    fill.style.width = `${Math.max(1.5, (account.progress ?? 0) * 100)}%`;
+    bar.append(fill);
+    bar.setAttribute('role', 'meter');
+    bar.setAttribute('aria-valuemin', '0');
+    bar.setAttribute('aria-valuemax', String(account.goal));
+    bar.setAttribute('aria-valuenow', String(account.followers ?? 0));
+    bar.setAttribute('aria-label', 'Avance hacia la meta de seguidores');
+    meter.append(bar, el('span', 'jd-meter-text', `${Math.round((account.progress ?? 0) * 100)} % de tu meta de ${whole.format(account.goal)} · faltan ${whole.format(Math.max(0, account.goal - (account.followers ?? 0)))}`));
+    card.append(meter);
+  } else {
+    card.append(el('p', 'jd-note', 'Define tu meta de seguidores para esta cuenta (followerGoal).'));
+  }
+  if (account.state !== 'live' && account.reason) card.append(el('p', `jd-note jd-note-${account.state}`, account.reason));
+  card.append(followerChart(account, width));
+  return card;
+}
+
+function renderReels(reels, productName) {
+  const wrap = el('div', 'jd-reels');
+  const head = el('div', 'jd-reels-head');
+  head.append(el('h4', null, 'Últimos 8 reels, ordenados por reproducciones'));
+  const used = [...new Set(reels.map((reel) => reel.productId))];
+  const legend = el('ul', 'jd-legend');
+  for (const id of used) {
+    const li = el('li');
+    const sw = el('span', 'jd-swatch');
+    sw.style.background = PRODUCT_COLOR[id] ?? '#d4af69';
+    li.append(sw, productName(id));
+    legend.append(li);
+  }
+  head.append(legend);
+  wrap.append(head);
+  if (reels.length === 0) {
+    wrap.append(el('p', 'jd-chart-empty', 'Sin reels leídos todavía.'));
+    return wrap;
+  }
+  const max = Math.max(1, ...reels.map((reel) => reel.views ?? reel.likes ?? 0));
+  const list = el('ol', 'jd-bars');
+  for (const reel of reels) {
+    const value = reel.views ?? null;
+    const li = el('li');
+    const row = el(reel.permalink ? 'a' : 'div', 'jd-bar-row');
+    if (reel.permalink) { row.href = reel.permalink; row.target = '_blank'; row.rel = 'noopener noreferrer'; }
+    const label = el('span', 'jd-bar-label');
+    label.append(el('span', 'jd-bar-title', reel.title), el('span', 'jd-bar-sub', `${productName(reel.productId)}${reel.attribution === 'hashtag' ? ' (por hashtag)' : ''}${reel.publishedAt ? ` · ${shortDate(reel.publishedAt.slice(0, 10))}` : ''}`));
+    const track = el('span', 'jd-bar-track');
+    const bar = el('span', 'jd-bar');
+    bar.style.width = `${value == null ? 0 : Math.max(1, (value / max) * 100)}%`;
+    bar.style.background = PRODUCT_COLOR[reel.productId] ?? '#d4af69';
+    const tipText = [
+      value == null ? 'Reproducciones no disponibles' : `${whole.format(value)} reproducciones`,
+      reel.likes != null ? `${whole.format(reel.likes)} me gusta` : null,
+      reel.comments != null ? `${whole.format(reel.comments)} comentarios` : null,
+      reel.shares != null ? `${whole.format(reel.shares)} compartidos` : null,
+      reel.saved != null ? `${whole.format(reel.saved)} guardados` : null,
+    ].filter(Boolean).join(' · ');
+    row.title = tipText;
+    row.setAttribute('aria-label', `${reel.title}. ${tipText}`);
+    track.append(bar, el('span', 'jd-bar-value', value == null ? '—' : compact.format(value)));
+    const detail = el('span', 'jd-bar-detail', [reel.likes != null ? `${compact.format(reel.likes)} me gusta` : null, reel.comments != null ? `${compact.format(reel.comments)} coment.` : null, reel.shares != null ? `${compact.format(reel.shares)} compart.` : null].filter(Boolean).join(' · '));
+    row.append(label, track, detail);
+    li.append(row);
+    list.append(li);
+  }
+  wrap.append(list);
+
+  const table = el('details', 'jd-table');
+  table.append(el('summary', null, 'Ver tabla con todas las cifras'));
+  const t = el('table');
+  const thead = el('thead');
+  const hr = el('tr');
+  for (const h of ['Reel', 'Producto', 'Reproducciones', 'Alcance', 'Me gusta', 'Comentarios', 'Compartidos', 'Guardados']) hr.append(el('th', null, h));
+  thead.append(hr);
+  const tbody = el('tbody');
+  const n = (v) => (v == null ? '—' : whole.format(v));
+  for (const reel of reels) {
+    const tr = el('tr');
+    for (const cell of [reel.title, productName(reel.productId), n(reel.views), n(reel.reach), n(reel.likes), n(reel.comments), n(reel.shares), n(reel.saved)]) tr.append(el('td', null, cell));
+    tbody.append(tr);
+  }
+  t.append(thead, tbody);
+  table.append(t);
+  wrap.append(table);
+  return wrap;
+}
+
+function renderSocial(snapshot) {
+  const social = snapshot.social;
+  const section = panel('jd-social', 'Redes y reels', 'Instagram · seguidores, metas y rendimiento');
+  if (!social || social.state === 'unconfigured' && social.accounts.length === 0) {
+    const empty = el('div', 'jd-social-empty');
+    empty.append(el('p', null, social?.reason ?? 'Sin cuentas configuradas.'));
+    empty.append(el('p', 'jd-note', 'Cuentas registradas: @infinityseedgroup, @la_tribuna_virtual y @jean_echandia. Falta su ID de Instagram profesional y la llave de Meta (solo lectura).'));
+    section.append(empty);
+    return section;
+  }
+  const productName = (id) => snapshot.products.find((p) => p.id === id)?.name ?? id;
+  const grid = el('div', 'jd-accounts');
+  const width = Math.min(560, (root?.clientWidth ?? 400) - 72);
+  for (const account of social.accounts) grid.append(renderAccount(account, social.accounts.length > 1 && window.innerWidth >= 1024 ? width / 1.6 : width));
+  section.append(grid);
+  const reels = social.accounts.flatMap((account) => account.reels)
+    .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''))
+    .slice(0, 8)
+    .sort((a, b) => (b.views ?? -1) - (a.views ?? -1));
+  section.append(renderReels(reels, productName));
+  return section;
+}
+
 function renderSystem(snapshot) {
   const section = panel('jd-system', 'Estado de Janus', 'Este equipo, ahora');
   const stats = el('dl', 'jd-stats');
@@ -232,13 +477,14 @@ function renderSystem(snapshot) {
 }
 
 function render(snapshot) {
+  lastSnapshot = snapshot;
   const frame = el('div', 'jd');
   const brand = el('header', 'jd-brand');
   brand.append(createWordmark('JANUS'), el('span', 'jd-brand-sub', 'Centro de mando'));
   frame.append(brand, renderHero(snapshot));
 
   const grid = el('div', 'jd-grid');
-  grid.append(renderToday(snapshot), renderAgenda(snapshot), renderGroup(snapshot), renderSales(snapshot), renderSystem(snapshot));
+  grid.append(renderToday(snapshot), renderAgenda(snapshot), renderGroup(snapshot), renderSocial(snapshot), renderSales(snapshot), renderSystem(snapshot));
   frame.append(grid);
 
   const voice = el('button', 'jd-voice');
@@ -309,6 +555,13 @@ export async function loadDashboard(force = false) {
 export function mountDashboard(element, options = {}) {
   root = element;
   onOpenWork = options.onOpenWork ?? onOpenWork;
+  let lastWidth = 0;
+  resizeObserver = new ResizeObserver(() => {
+    const width = Math.round(root.clientWidth / 40);
+    if (lastSnapshot && width !== lastWidth && !root.hidden) render(lastSnapshot);
+    lastWidth = width;
+  });
+  resizeObserver.observe(root);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && !root.hidden) loadDashboard(false);
   });
