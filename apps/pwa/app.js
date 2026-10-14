@@ -1,5 +1,6 @@
 import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
+import { loadDashboard, mountDashboard, stopDashboard } from './dashboard.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 
@@ -941,6 +942,7 @@ founderSignInButton.addEventListener('click', async () => {
   try {
     await signIn(deviceKey);
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
+    loadDashboard(true);
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
@@ -952,10 +954,38 @@ founderSignInButton.addEventListener('click', async () => {
 founderSignOutButton.addEventListener('click', async () => {
   await signOut();
   setApprovalsStatus('Sesión cerrada.');
+  loadDashboard(false);
   refreshFounderControls();
 });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pollApprovals(); });
 refreshFounderControls();
+
+
+// --- Vistas: Panel (por defecto) y Trabajo en vivo ---------------------------
+const dashView = document.querySelector('#dashView');
+const workView = document.querySelector('#workView');
+const tabDash = document.querySelector('#tabDash');
+const tabWork = document.querySelector('#tabWork');
+const viewTitle = document.querySelector('#viewTitle');
+
+function showView(view) {
+  const dash = view === 'dash';
+  dashView.hidden = !dash;
+  workView.hidden = dash;
+  tabDash.setAttribute('aria-selected', String(dash));
+  tabWork.setAttribute('aria-selected', String(!dash));
+  viewTitle.textContent = dash ? 'Inicio' : 'Trabajo en vivo';
+  document.body.classList.toggle('view-dash', dash);
+  try { localStorage.setItem('janus.view', view); } catch { /* sin almacenamiento: no pasa nada */ }
+  if (dash) loadDashboard(false); else stopDashboard();
+}
+
+mountDashboard(dashView, { onOpenWork: () => showView('work') });
+tabDash.addEventListener('click', () => showView('dash'));
+tabWork.addEventListener('click', () => showView('work'));
+let initialView = 'dash';
+try { initialView = localStorage.getItem('janus.view') === 'work' ? 'work' : 'dash'; } catch { /* vista por defecto */ }
+showView(initialView);
 
 mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });

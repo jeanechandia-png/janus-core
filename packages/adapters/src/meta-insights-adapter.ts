@@ -20,6 +20,9 @@ export class MetaInsightsAdapter implements ToolAdapter {
   readonly capabilities = [
     'facebook.page.insights',
     'instagram.account.insights',
+    // Añadidos 2026-10-14 (solo lectura) para el panel del Founder.
+    'instagram.account.profile',
+    'instagram.reels.recent',
   ];
 
   private readonly apiVersion: string;
@@ -56,6 +59,10 @@ export class MetaInsightsAdapter implements ToolAdapter {
     }
 
     const entityId = requiredString(request.input.entityId, 'entityId', 300);
+    if (request.action === 'instagram.account.profile') return this.accountProfile(entityId, token);
+    if (request.action === 'instagram.reels.recent') {
+      return this.recentReels(entityId, token, boundedLimit(request.input.limit), onProgress);
+    }
     const metrics = metricList(request.input.metrics);
     if (metrics.length === 0) {
       return { ok: false, error: 'At least one Meta insight metric is required.' };
@@ -122,6 +129,109 @@ export class MetaInsightsAdapter implements ToolAdapter {
       externalReference: 'meta-graph-api',
     };
   }
+
+  /** GET /{ig-user-id}?fields=username,name,followers_count,media_count (IG User reference). */
+  private async accountProfile(entityId: string, token: string): Promise<ToolResult> {
+    const url = new URL(`${this.graphBase}/${this.apiVersion}/${encodeURIComponent(entityId)}`);
+    url.searchParams.set('fields', 'username,name,followers_count,media_count');
+    const result = await this.getJson(url, token);
+    if (!result.ok) return result;
+    const body = result.body;
+    return {
+      ok: true,
+      output: {
+        platform: 'instagram',
+        entityId,
+        apiVersion: this.apiVersion,
+        username: typeof body.username === 'string' ? body.username : null,
+        name: typeof body.name === 'string' ? body.name : null,
+        followersCount: finiteOrNull(body.followers_count),
+        mediaCount: finiteOrNull(body.media_count),
+        verifiedAt: new Date().toISOString(),
+      },
+      externalReference: 'meta-graph-api',
+    };
+  }
+
+  /**
+   * Últimos reels con métricas. Media: GET /{ig-user-id}/media (filtrando
+   * media_product_type=REELS). Insights por reel: views, reach, likes, comments,
+   * shares, saved, total_interactions (Instagram Media Insights; `plays` y
+   * `ig_reels_aggregated_all_plays_count` retirados el 2025-04-21). Si los
+   * insights fallan, se conservan like_count/comments_count del propio media.
+   */
+  private async recentReels(
+    entityId: string,
+    token: string,
+    limit: number,
+    onProgress: (progress: ToolProgress) => void | Promise<void>,
+  ): Promise<ToolResult> {
+    const url = new URL(`${this.graphBase}/${this.apiVersion}/${encodeURIComponent(entityId)}/media`);
+    url.searchParams.set('fields', 'id,caption,media_type,media_product_type,permalink,timestamp,like_count,comments_count');
+    url.searchParams.set('limit', String(Math.min(50, limit * 3)));
+    const listed = await this.getJson(url, token);
+    if (!listed.ok) return listed;
+    const items = (Array.isArray(listed.body.data) ? listed.body.data : [])
+      .filter(isRecord)
+      .filter((item) => item.media_product_type === 'REELS')
+      .slice(0, limit);
+    await onProgress({ phase: 'progress', message: `Meta: ${items.length} reels`, percent: 40 });
+    const reels = [];
+    for (const item of items) {
+      const id = typeof item.id === 'string' ? item.id : '';
+      if (!id) continue;
+      const insightsUrl = new URL(`${this.graphBase}/${this.apiVersion}/${encodeURIComponent(id)}/insights`);
+      insightsUrl.searchParams.set('metric', REEL_METRICS.join(','));
+      const insights = await this.getJson(insightsUrl, token);
+      const metrics: Record<string, number | null> = {
+        likes: finiteOrNull(item.like_count),
+        comments: finiteOrNull(item.comments_count),
+      };
+      if (insights.ok && Array.isArray(insights.body.data)) {
+        for (const row of insights.body.data.filter(isRecord)) {
+          const name = typeof row.name === 'string' ? row.name : '';
+          const values = Array.isArray(row.values) ? row.values.filter(isRecord) : [];
+          const total = isRecord(row.total_value) ? row.total_value.value : values[0]?.value;
+          if (REEL_METRICS.includes(name)) metrics[name] = finiteOrNull(total);
+        }
+      }
+      reels.push({
+        id,
+        caption: typeof item.caption === 'string' ? item.caption.slice(0, 500) : '',
+        permalink: typeof item.permalink === 'string' && item.permalink.startsWith('https://') ? item.permalink : null,
+        publishedAt: typeof item.timestamp === 'string' ? item.timestamp : null,
+        metrics,
+        insightsAvailable: insights.ok,
+      });
+    }
+    return {
+      ok: true,
+      output: { platform: 'instagram', entityId, apiVersion: this.apiVersion, reels, verifiedAt: new Date().toISOString() },
+      externalReference: 'meta-graph-api',
+    };
+  }
+
+  private async getJson(url: URL, token: string): Promise<{ ok: true; body: JsonRecord } | { ok: false; error: string }> {
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, { method: 'GET', headers: { authorization: `Bearer ${token}`, accept: 'application/json' } });
+    } catch (error) {
+      return { ok: false, error: `Meta network error: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    const body = await safeJson(response);
+    if (!response.ok) return { ok: false, error: metaError(body, response.status) };
+    return { ok: true, body };
+  }
+}
+
+const REEL_METRICS = ['views', 'reach', 'likes', 'comments', 'shares', 'saved', 'total_interactions'];
+
+function boundedLimit(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) ? Math.min(25, Math.max(1, value)) : 12;
+}
+
+function finiteOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function metricList(value: unknown): string[] {
