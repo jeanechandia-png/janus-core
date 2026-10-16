@@ -24,6 +24,8 @@ const groups = [
   ['Netlify (lectura)', ['NETLIFY_AUTH_TOKEN'], []],
   ['Netlify (volver a versión anterior)', ['NETLIFY_RELEASE_TOKEN', 'JANUS_NETLIFY_RELEASE_SITES'], []],
   ['Supabase (solo lectura)', ['SUPABASE_ACCESS_TOKEN'], []],
+  ['Supabase (aplicar migraciones/SQL, con aprobación)', ['SUPABASE_WRITE_ACCESS_TOKEN', 'JANUS_SUPABASE_WRITE_PROJECTS'], []],
+  ['Vercel (redesplegar, con aprobación)', ['VERCEL_RELEASE_TOKEN', 'JANUS_VERCEL_RELEASE_PROJECTS'], []],
   ['Runway', ['RUNWAYML_API_SECRET'], ['RUNWAY_API_VERSION']],
   ['Kling AI', ['KLING_API_KEY'], ['KLING_DEFAULT_MODEL']],
   ['n8n (lectura)', ['N8N_BASE_URL', 'N8N_API_KEY'], []],
