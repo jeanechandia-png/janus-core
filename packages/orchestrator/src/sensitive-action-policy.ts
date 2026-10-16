@@ -16,6 +16,7 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'supabase-write.migration.apply': 'Aplica una migración en una base de datos de Supabase (cambia el esquema).',
   'supabase-write.sql.execute': 'Ejecuta SQL en una base de datos de Supabase (escritura; no devuelve datos de clientes).',
   'vercel-release.deployment.redeploy': 'Redespliega un proyecto en Vercel (puede cambiar producción).',
+  'hostinger-release.site.deploy': 'Publica o reemplaza el contenido de una web en Hostinger (cambia un sitio en vivo).',
   'n8n.workflow.trigger': 'Dispara un flujo de n8n (acción externa).',
   'google-workspace-write.gmail.draft.create': 'Crea un borrador en Gmail (escritura en tu correo; no se envía).',
   'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',

@@ -26,6 +26,8 @@ const groups = [
   ['Supabase (solo lectura)', ['SUPABASE_ACCESS_TOKEN'], []],
   ['Supabase (aplicar migraciones/SQL, con aprobación)', ['SUPABASE_WRITE_ACCESS_TOKEN', 'JANUS_SUPABASE_WRITE_PROJECTS'], []],
   ['Vercel (redesplegar, con aprobación)', ['VERCEL_RELEASE_TOKEN', 'JANUS_VERCEL_RELEASE_PROJECTS'], []],
+  ['Hostinger (lectura de webs)', ['HOSTINGER_API_TOKEN'], []],
+  ['Hostinger (publicar/modificar webs, con aprobación)', ['HOSTINGER_RELEASE_TOKEN', 'JANUS_HOSTINGER_SITES'], []],
   ['Runway', ['RUNWAYML_API_SECRET'], ['RUNWAY_API_VERSION']],
   ['Kling AI', ['KLING_API_KEY'], ['KLING_DEFAULT_MODEL']],
   ['n8n (lectura)', ['N8N_BASE_URL', 'N8N_API_KEY'], []],
@@ -40,6 +42,12 @@ if (has('JANUS_N8N_WEBHOOKS')) {
     const parsed = JSON.parse(process.env.JANUS_N8N_WEBHOOKS);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.values(parsed).every((url) => typeof url === 'string' && url.startsWith('https://'))) problems.push('JANUS_N8N_WEBHOOKS debe ser {"nombre":"https://…"}');
   } catch { problems.push('JANUS_N8N_WEBHOOKS no es JSON válido'); }
+}
+if (has('JANUS_HOSTINGER_SITES')) {
+  try {
+    const parsed = JSON.parse(process.env.JANUS_HOSTINGER_SITES);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.values(parsed).every((user) => typeof user === 'string' && user)) problems.push('JANUS_HOSTINGER_SITES debe ser {"dominio.com":"usuario"}');
+  } catch { problems.push('JANUS_HOSTINGER_SITES no es JSON válido'); }
 }
 if (has('JANUS_FOUNDER_PUBLIC_KEY_PEM') && !/-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM)) problems.push('JANUS_FOUNDER_PUBLIC_KEY_PEM no parece una llave pública PEM');
 if (/PRIVATE KEY/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM ?? '')) problems.push('¡JANUS_FOUNDER_PUBLIC_KEY_PEM contiene una llave PRIVADA! Bórrala: solo va la pública.');
