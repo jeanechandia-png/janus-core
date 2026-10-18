@@ -21,7 +21,7 @@ export interface SpeakerRunPolicy {
 }
 
 /** Read-only, local, non-personal tools that are safe for any household member. */
-export const HOUSEHOLD_SAFE_TOOLS: readonly string[] = Object.freeze(['seneca']);
+export const HOUSEHOLD_SAFE_TOOLS: readonly string[] = Object.freeze(['seneca', 'marcus-aurelius']);
 
 export function policyForSpeaker(speaker: SpeakerLike | undefined): SpeakerRunPolicy {
   if (!speaker || speaker.decision !== 'match' || speaker.profile === 'owner' || !speaker.profile) {

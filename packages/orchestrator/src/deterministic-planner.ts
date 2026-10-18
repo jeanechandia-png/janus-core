@@ -32,10 +32,10 @@ export function deterministicPlan(
 }
 
 type SenecaRequest =
-  | { action: 'profile.get'; input: Record<string, unknown> }
-  | { action: 'reflection.daily'; input: Record<string, unknown> }
-  | { action: 'quote.get'; input: Record<string, unknown> }
-  | { action: 'guidance.get'; input: Record<string, unknown> };
+  | { tool?: 'seneca' | 'marcus-aurelius'; action: 'profile.get'; input: Record<string, unknown> }
+  | { tool?: 'seneca' | 'marcus-aurelius'; action: 'reflection.daily'; input: Record<string, unknown> }
+  | { tool?: 'seneca' | 'marcus-aurelius'; action: 'quote.get'; input: Record<string, unknown> }
+  | { tool?: 'seneca' | 'marcus-aurelius'; action: 'guidance.get'; input: Record<string, unknown> };
 
 function foldText(value: string): string {
   return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
@@ -43,17 +43,27 @@ function foldText(value: string): string {
 
 /** Routes Seneca / stress-management requests to the read-only `seneca` tool. Runs after every other tool route. */
 function parseSenecaRequest(command: string): SenecaRequest | null {
+  const request = parseStoicRequest(command);
+  if (!request) return null;
   const text = foldText(command);
-  const mentionsSeneca = /\bsenec[ao]\b|estoic|stoic/.test(text);
+  const marcus = /marco aurelio|marcus aurelius|\bmeditaciones\b/.test(text);
+  const seneca = /\bsenec[ao]\b/.test(text);
+  // Marcus Aurelius only when named and Seneca is not; everything else keeps the Seneca route.
+  return marcus && !seneca ? { ...request, tool: 'marcus-aurelius' } : request;
+}
+
+function parseStoicRequest(command: string): SenecaRequest | null {
+  const text = foldText(command);
+  const mentionsAuthor = /\bsenec[ao]\b|marco aurelio|marcus aurelius|\bmeditaciones\b|estoic|stoic/.test(text);
   const stress = /estres|estresad|ansied|angusti|agobi|abrum|burnout|quemad|preocupad|miedo al futuro|rumi|no puedo parar de pensar|stress|anxious|anxiety|overwhelm/.test(text);
-  if (!mentionsSeneca && !stress) return null;
-  if (mentionsSeneca) {
+  if (!mentionsAuthor && !stress) return null;
+  if (mentionsAuthor) {
     if (/quien (fue|es)|biograf|vida de|su vida/.test(text)) return { action: 'profile.get', input: { section: 'life' } };
-    if (/obras?|libros?|escribio|cartas a lucilio/.test(text)) return { action: 'profile.get', input: { section: 'works' } };
+    if (/obras?|libros?|escribio|cartas a lucilio|meditaciones/.test(text) && !/frase|cita/.test(text)) return { action: 'profile.get', input: { section: 'works' } };
     if (/psicolog|terapia|tcc|cognitiv/.test(text)) return { action: 'profile.get', input: { section: 'modern_psychology' } };
     if (/pensamiento|filosofia|doctrina|ideolog/.test(text)) return { action: 'profile.get', input: { section: 'doctrine' } };
     if (/reflexion del dia|frase del dia|cada dia|diari/.test(text)) return { action: 'reflection.daily', input: {} };
-    if (/frase|cita|dijo/.test(text) && !stress) return { action: 'quote.get', input: { includeLatin: /latin/.test(text) } };
+    if (/frase|cita|dijo/.test(text) && !stress) return { action: 'quote.get', input: { includeLatin: /latin/.test(text), includeEnglish: /ingles|english/.test(text) } };
   }
   return { action: 'guidance.get', input: { text: command } };
 }
@@ -61,10 +71,10 @@ function parseSenecaRequest(command: string): SenecaRequest | null {
 function senecaPlan(command: string, request: SenecaRequest): JanusPlan {
   const steps: PlannedToolStep[] = [
     {
-      id: 'seneca-answer',
+      id: request.tool === 'marcus-aurelius' ? 'marcus-aurelius-answer' : 'seneca-answer',
       kind: 'tool',
-      label: 'Consultar a Séneca',
-      tool: 'seneca',
+      label: request.tool === 'marcus-aurelius' ? 'Consultar a Marco Aurelio' : 'Consultar a Séneca',
+      tool: request.tool ?? 'seneca',
       action: request.action,
       input: request.input,
       risk: 'none',

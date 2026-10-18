@@ -85,7 +85,7 @@ function summarizeResult(step: PlannedToolStep, result: ToolResult): string {
   const output = result.output ?? {};
 
   // Knowledge tools (read-only, local) return a ready-to-read Spanish reply: show it in full.
-  if (step.tool === 'seneca' && typeof output.reply === 'string' && output.reply.trim()) {
+  if ((step.tool === 'seneca' || step.tool === 'marcus-aurelius') && typeof output.reply === 'string' && output.reply.trim()) {
     return clip(output.reply.trim(), 3000);
   }
 

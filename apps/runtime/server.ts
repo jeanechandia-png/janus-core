@@ -195,6 +195,7 @@ import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gatewa
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
+import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
@@ -395,6 +396,12 @@ toolGateway.register(new YouTubeInsightsAdapter({
 toolGateway.register(new SenecaToolAdapter());
 capabilities.register({
   tool: 'seneca',
+  actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
+  state: 'available',
+});
+toolGateway.register(new MarcusAureliusToolAdapter());
+capabilities.register({
+  tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
 });

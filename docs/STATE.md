@@ -337,6 +337,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 - HECHO VERIFICADO: módulos `seneca-wisdom` y `speaker-id` en `packages/modules/`, adaptadores finos, hook genérico de pista de hablante en `packages/voice`, política de perfil restringido, ruta determinista del planificador, CLI `scripts/voice-enroll.ts`. 307/307 pruebas y typecheck limpios.
 - POR CONFIRMAR: calibración del modelo de voz y ejecución real del sidecar; muestras reales de Jean y Kendra; aprobación del Blueprint con la herramienta `seneca`; esquemas de cuerpo de Hostinger.
+- 2026-10-18 (tarde): módulo `marcus-aurelius-wisdom` + herramienta `marcus-aurelius` añadidos (313/313 pruebas). Citas contrastadas con Long; locus libro.sección estándar no visible en la fuente (POR CONFIRMAR); griego no consultado.
 - Rama `claude/seneca-voice-lego`, apilada sobre `claude/execution-supabase-vercel` (PR #37).
 
 ## PRÓXIMO
