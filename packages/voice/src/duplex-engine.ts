@@ -5,6 +5,7 @@ import type {
   VoiceGateway,
 } from '../../gateways/src/contracts.js';
 import type { VoiceSessionController, VoiceUtteranceResult } from './session.js';
+import type { SpeakerResolver, VoiceSpeakerHint } from './speaker-hint.js';
 
 export type DuplexVoiceEvent =
   | {
@@ -37,8 +38,12 @@ export type DuplexVoiceEvent =
       result: VoiceUtteranceResult;
     }
   | {
+      type: 'speaker.identified';
+      speaker: VoiceSpeakerHint;
+    }
+  | {
       type: 'voice.error';
-      stage: 'transcription' | 'synthesis';
+      stage: 'transcription' | 'synthesis' | 'speaker_recognition';
       message: string;
     };
 
@@ -47,6 +52,8 @@ export interface DuplexVoiceEngineOptions {
   session: VoiceSessionController;
   voiceId: string;
   onEvent: (event: DuplexVoiceEvent) => void | Promise<void>;
+  /** Optional convenience speaker recognition. Failures never interrupt transcription. */
+  speakerResolver?: SpeakerResolver;
 }
 
 export class DuplexVoiceEngine {
@@ -54,6 +61,7 @@ export class DuplexVoiceEngine {
   private readonly session: VoiceSessionController;
   private readonly voiceId: string;
   private readonly onEvent: DuplexVoiceEngineOptions['onEvent'];
+  private readonly speakerResolver?: SpeakerResolver;
   private readonly input = new AsyncQueue<SpeechInputChunk>();
   private transcriptionTask?: Promise<void>;
   private synthesisGeneration = 0;
@@ -66,6 +74,7 @@ export class DuplexVoiceEngine {
     this.session = options.session;
     this.voiceId = options.voiceId;
     this.onEvent = options.onEvent;
+    this.speakerResolver = options.speakerResolver;
   }
 
   start(): void {
@@ -77,6 +86,9 @@ export class DuplexVoiceEngine {
   pushAudio(chunk: SpeechInputChunk): void {
     if (this.stopped) throw new Error('Duplex voice engine is stopped');
     if (!this.transcriptionTask) this.start();
+    if (this.speakerResolver) {
+      try { this.speakerResolver.push({ bytes: chunk.bytes, mimeType: chunk.mimeType }); } catch { /* recognition is optional */ }
+    }
     this.input.push(chunk);
   }
 
@@ -204,12 +216,30 @@ export class DuplexVoiceEngine {
     });
 
     if (!event.final) return;
+    const speaker = await this.resolveSpeaker();
     const result = await this.session.transcript({
       text: event.text,
       final: true,
       ...(event.language ? { language: event.language } : {}),
+      ...(speaker ? { speaker } : {}),
     });
     await this.onEvent({ type: 'session.action', result });
+  }
+
+  private async resolveSpeaker(): Promise<VoiceSpeakerHint | undefined> {
+    if (!this.speakerResolver) return undefined;
+    try {
+      const speaker = await this.speakerResolver.resolve();
+      if (speaker) await this.onEvent({ type: 'speaker.identified', speaker });
+      return speaker;
+    } catch (error) {
+      await this.onEvent({
+        type: 'voice.error',
+        stage: 'speaker_recognition',
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return undefined;
+    }
   }
 }
 

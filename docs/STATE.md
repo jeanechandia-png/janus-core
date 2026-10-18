@@ -333,6 +333,12 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - Vision/Office/Builder productivos requieren adapters concretos y validación E2E.
 - Recuperar automáticamente chats históricos de proveedores externos requiere sus adapters/exportaciones disponibles; mientras tanto Janus conserva de forma nativa las sesiones de su propio runtime.
 
+## Handoff 2026-10-18 (Claude): Séneca + voz + LEGO
+
+- HECHO VERIFICADO: módulos `seneca-wisdom` y `speaker-id` en `packages/modules/`, adaptadores finos, hook genérico de pista de hablante en `packages/voice`, política de perfil restringido, ruta determinista del planificador, CLI `scripts/voice-enroll.ts`. 307/307 pruebas y typecheck limpios.
+- POR CONFIRMAR: calibración del modelo de voz y ejecución real del sidecar; muestras reales de Jean y Kendra; aprobación del Blueprint con la herramienta `seneca`; esquemas de cuerpo de Hostinger.
+- Rama `claude/seneca-voice-lego`, apilada sobre `claude/execution-supabase-vercel` (PR #37).
+
 ## PRÓXIMO
 
 Handoff 2026-10-13 (Claude, sesión Cowork): PR #28 apilada sobre #27 (custodia del HEAD + smoke hermético), CI GitHub `success`. Siguiente acción ejecutable: (1) Founder confirma la release ChatBox vigente y se refresca su manifiesto; (2) implementar el probe automático de acknowledgement (2d); (3) verificar/crear manifiestos de Group e IBA.

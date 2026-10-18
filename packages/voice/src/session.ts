@@ -1,13 +1,17 @@
+import type { VoiceRunContext, VoiceSpeakerHint } from './speaker-hint.js';
+
 export type VoiceSessionPhase = 'idle' | 'listening' | 'working' | 'paused' | 'blocked';
 
 export interface VoiceTranscript {
   text: string;
   final: boolean;
   language?: string;
+  /** Convenience hint from speaker recognition (never an authority). */
+  speaker?: VoiceSpeakerHint;
 }
 
 export interface VoiceRunController {
-  start(text: string): Promise<string>;
+  start(text: string, context?: VoiceRunContext): Promise<string>;
   pause(runId: string): Promise<void>;
   resume(runId: string): Promise<void>;
   cancel(runId: string): Promise<void>;
@@ -108,7 +112,7 @@ export class VoiceSessionController {
       return { handled: true, kind: 'command', action: control, runId };
     }
 
-    const runId = await this.runs.start(text);
+    const runId = await this.runs.start(text, input.speaker ? { speaker: input.speaker } : undefined);
     this.activeRunId = runId;
     this.phase = 'working';
     this.touch();

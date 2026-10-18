@@ -1,0 +1,20 @@
+{
+  "id": "seneca-wisdom",
+  "version": "1.0.0",
+  "kind": "knowledge-module",
+  "summary": "Séneca para gestión del estrés: vida, obra, doctrina, citas con estado de verificación y ejercicios.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "public-knowledge",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Every quote carries a verification status; 'attributed-unlocated' quotes are never presented as literal.",
+    "Crisis language returns support_first guidance with no quotations.",
+    "Not a clinical tool: no diagnosis, no treatment claims."
+  ],
+  "reuseNotes": "Import from src/index.ts. Wrap with a thin adapter in each host product (Janus uses packages/adapters/src/seneca-tool-adapter.ts). Add locales by extending corpus.ts; keep the verification statuses."
+}

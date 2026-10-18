@@ -25,7 +25,55 @@ export function deterministicPlan(
   if (gmailQuery !== null) return gmailPlan(command, gmailQuery);
 
   if (mentionsCalendar(command)) return calendarPlan(command, context.timeZone);
+
+  const seneca = parseSenecaRequest(command);
+  if (seneca) return senecaPlan(command, seneca);
   return null;
+}
+
+type SenecaRequest =
+  | { action: 'profile.get'; input: Record<string, unknown> }
+  | { action: 'reflection.daily'; input: Record<string, unknown> }
+  | { action: 'quote.get'; input: Record<string, unknown> }
+  | { action: 'guidance.get'; input: Record<string, unknown> };
+
+function foldText(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** Routes Seneca / stress-management requests to the read-only `seneca` tool. Runs after every other tool route. */
+function parseSenecaRequest(command: string): SenecaRequest | null {
+  const text = foldText(command);
+  const mentionsSeneca = /\bsenec[ao]\b|estoic|stoic/.test(text);
+  const stress = /estres|estresad|ansied|angusti|agobi|abrum|burnout|quemad|preocupad|miedo al futuro|rumi|no puedo parar de pensar|stress|anxious|anxiety|overwhelm/.test(text);
+  if (!mentionsSeneca && !stress) return null;
+  if (mentionsSeneca) {
+    if (/quien (fue|es)|biograf|vida de|su vida/.test(text)) return { action: 'profile.get', input: { section: 'life' } };
+    if (/obras?|libros?|escribio|cartas a lucilio/.test(text)) return { action: 'profile.get', input: { section: 'works' } };
+    if (/psicolog|terapia|tcc|cognitiv/.test(text)) return { action: 'profile.get', input: { section: 'modern_psychology' } };
+    if (/pensamiento|filosofia|doctrina|ideolog/.test(text)) return { action: 'profile.get', input: { section: 'doctrine' } };
+    if (/reflexion del dia|frase del dia|cada dia|diari/.test(text)) return { action: 'reflection.daily', input: {} };
+    if (/frase|cita|dijo/.test(text) && !stress) return { action: 'quote.get', input: { includeLatin: /latin/.test(text) } };
+  }
+  return { action: 'guidance.get', input: { text: command } };
+}
+
+function senecaPlan(command: string, request: SenecaRequest): JanusPlan {
+  const steps: PlannedToolStep[] = [
+    {
+      id: 'seneca-answer',
+      kind: 'tool',
+      label: 'Consultar a Séneca',
+      tool: 'seneca',
+      action: request.action,
+      input: request.input,
+      risk: 'none',
+      reversible: true,
+      requiresApproval: false,
+      resultMode: 'full',
+    },
+  ];
+  return createPlan(command, steps, 'deterministic');
 }
 
 function githubPlan(command: string, target: GitHubTarget): JanusPlan {

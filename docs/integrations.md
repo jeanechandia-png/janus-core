@@ -70,3 +70,8 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 - ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.
 - ~~Revisión del Blueprint para habilitar las nuevas herramientas~~ → hecho desde la app: ver `docs/founder-approvals.md` (el Founder debe confirmarla en su instalación).
 - Pruebas con cuentas reales (nada de lo escrito aquí se ha probado contra Supabase/Vercel reales) (todo verificado con servicios simulados; no verificado contra las APIs reales).
+
+
+## Séneca y reconocimiento de hablante (módulos LEGO)
+- Herramienta `seneca` (solo lectura, local, sin credenciales): `guidance.get`, `profile.get`, `quote.get`, `reflection.daily`. En instalaciones existentes requiere una revisión de Blueprint aprobada por el Founder. Las citas llevan estado de verificación; la frase «liberarse del miedo a un mal futuro y del recuerdo de un mal pasado» se presenta como *atribuida, sin ubicar* (no como cita literal).
+- Reconocimiento de hablante: opcional (`JANUS_SPEAKER_ID_ENABLED=true`), ver ADR-009 y `scripts/voice-enroll.ts`. `/health` expone `speakerRecognition.state`.

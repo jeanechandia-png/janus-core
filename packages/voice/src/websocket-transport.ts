@@ -4,6 +4,7 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import type { VoiceGateway } from '../../gateways/src/contracts.js';
 import { DuplexVoiceEngine, type DuplexVoiceEvent } from './duplex-engine.js';
 import type { VoiceSessionRegistry } from './registry.js';
+import type { SpeakerResolver } from './speaker-hint.js';
 
 export interface VoiceStreamServerOptions {
   server: HttpServer;
@@ -12,6 +13,8 @@ export interface VoiceStreamServerOptions {
   path?: string;
   defaultVoiceId?: string;
   maxAudioFrameBytes?: number;
+  /** Optional per-session speaker recognition (convenience only). */
+  speakerResolverFactory?: (sessionId: string) => SpeakerResolver | undefined;
 }
 
 interface StreamConnection {
@@ -43,6 +46,7 @@ export class VoiceStreamServer {
   private readonly path: string;
   private readonly defaultVoiceId: string;
   private readonly maxAudioFrameBytes: number;
+  private readonly speakerResolverFactory?: VoiceStreamServerOptions['speakerResolverFactory'];
   private readonly wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
   private readonly connections = new Map<string, StreamConnection>();
   private readonly onUpgradeBound: (request: IncomingMessage, socket: Socket, head: Buffer) => void;
@@ -54,6 +58,7 @@ export class VoiceStreamServer {
     this.path = options.path ?? '/api/voice/stream';
     this.defaultVoiceId = options.defaultVoiceId ?? 'janus-default';
     this.maxAudioFrameBytes = options.maxAudioFrameBytes ?? 128 * 1024;
+    this.speakerResolverFactory = options.speakerResolverFactory;
     this.onUpgradeBound = (request, socket, head) => this.onUpgrade(request, socket, head);
 
     this.server.on('upgrade', this.onUpgradeBound);
@@ -157,6 +162,7 @@ export class VoiceStreamServer {
               session: this.sessions.get(sessionId),
               voiceId: control.voiceId?.trim() || this.defaultVoiceId,
               onEvent: async (event) => this.forwardEngineEvent(ws, event),
+              ...(this.speakerResolverFactory ? (() => { const speakerResolver = this.speakerResolverFactory!(sessionId); return speakerResolver ? { speakerResolver } : {}; })() : {}),
             });
             connection = {
               sessionId,

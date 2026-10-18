@@ -193,6 +193,10 @@ import {
 } from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
+import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
+import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
+import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
+import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
 import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.js';
 
@@ -386,6 +390,35 @@ if (metaGraphApiVersion) {
 toolGateway.register(new YouTubeInsightsAdapter({
   tokenProvider: () => credentialBroker.accessToken('youtube'),
 }));
+
+// LEGO modules consumed through thin adapters: read-only, local, no secrets, no network.
+toolGateway.register(new SenecaToolAdapter());
+capabilities.register({
+  tool: 'seneca',
+  actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
+  state: 'available',
+});
+
+// Optional speaker recognition (convenience only; never an authority). Needs explicit configuration.
+let speakerRecognition: SpeakerRecognitionRuntime | undefined;
+const speakerRecognitionState: { state: 'disabled' | 'available' | 'misconfigured'; reason?: string } = { state: 'disabled' };
+if (process.env.JANUS_SPEAKER_ID_ENABLED === 'true') {
+  try {
+    const vaultKey = process.env.JANUS_SPEAKER_VAULT_KEY;
+    const embedUrl = process.env.JANUS_SPEAKER_EMBED_URL ?? 'http://127.0.0.1:8765';
+    if (!vaultKey) throw new Error('JANUS_SPEAKER_VAULT_KEY is required');
+    speakerRecognition = createSpeakerRecognition({
+      embedUrl,
+      vaultPath: process.env.JANUS_SPEAKER_VAULT_PATH ?? 'data/speaker-vault.enc.json',
+      vaultKey,
+    });
+    speakerRecognitionState.state = 'available';
+  } catch (error) {
+    speakerRecognitionState.state = 'misconfigured';
+    speakerRecognitionState.reason = error instanceof Error ? error.message : String(error);
+    console.warn('Speaker recognition disabled:', speakerRecognitionState.reason);
+  }
+}
 
 const githubConfigured = environmentCredentials.configured('github');
 const googleConfigured = environmentCredentials.configured('google-workspace');
@@ -641,7 +674,7 @@ const modelGateway = createConfiguredModelGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
 const voiceSessions = new VoiceSessionRegistry((sessionId) => ({
-  start: async (text) => startRun(text, 'voice', sessionId),
+  start: async (text, context) => startRun(text, 'voice', sessionId, undefined, undefined, undefined, undefined, context?.speaker),
   pause: async (runId) => controlActiveRun(runId, 'pause'),
   resume: async (runId) => controlActiveRun(runId, 'resume'),
   cancel: async (runId) => controlActiveRun(runId, 'cancel'),
@@ -1803,6 +1836,7 @@ function startRun(
   coordinationLink?: { assignmentId: string; principalId: string },
   projectLink?: { projectId: string; threadId: string },
   requestedEffort?: string,
+  speaker?: VoiceSpeakerHint,
 ): string {
   let runner: TaskRunner | undefined;
   const durableSink: EventSink = async (event) => {
@@ -1921,7 +1955,22 @@ function startRun(
 
   const runId = runner.snapshot().runId;
   decisionRunId = runId;
-  runBlueprints.set(runId, runtimeBlueprint);
+  const speakerPolicy = policyForSpeaker(speaker);
+  runBlueprints.set(
+    runId,
+    speakerPolicy.restricted ? restrictBlueprintTools(runtimeBlueprint, speakerPolicy.allowedTools) : runtimeBlueprint,
+  );
+  if (speaker) {
+    recordDecision({
+      runId,
+      decisionKind: 'speaker_recognition_hint',
+      selectedWorker: 'janus-core/speaker-policy-v1',
+      confidence: 1,
+      outputSummary: speakerPolicy.reason,
+      // Data minimisation: no embeddings, no audio; only decision, profile and score.
+      metadata: { decision: speaker.decision, profile: speaker.profile ?? null, score: speaker.score, assurance: speaker.assurance, restricted: speakerPolicy.restricted },
+    });
+  }
   recordDecision({
     runId,
     decisionKind: 'blueprint_selection',
@@ -2473,6 +2522,7 @@ const server = createServer(async (request, response) => {
       db: dbPath === ':memory:' ? 'memory' : 'sqlite',
       timeZone: timeZone ?? 'runtime-default',
       voiceSessionAuthority: 'core',
+      speakerRecognition: speakerRecognitionState,
       voice: {
         streaming: voiceGateway
           ? {
@@ -4967,6 +5017,7 @@ const voiceStream = voiceGateway
       sessions: voiceSessions,
       gatewayFactory: async () => voiceGateway,
       defaultVoiceId,
+      ...(speakerRecognition ? { speakerResolverFactory: speakerRecognition.resolverFactory } : {}),
     })
   : undefined;
 

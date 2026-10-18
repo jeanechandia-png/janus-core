@@ -84,6 +84,11 @@ function describeTarget(input: Record<string, unknown>): string | undefined {
 function summarizeResult(step: PlannedToolStep, result: ToolResult): string {
   const output = result.output ?? {};
 
+  // Knowledge tools (read-only, local) return a ready-to-read Spanish reply: show it in full.
+  if (step.tool === 'seneca' && typeof output.reply === 'string' && output.reply.trim()) {
+    return clip(output.reply.trim(), 3000);
+  }
+
   if (step.tool === 'github' && step.action === 'repo.get') {
     const fullName = stringValue(output.fullName) ?? `${stringValue(output.owner) ?? ''}/${stringValue(output.repo) ?? ''}`;
     const visibility = output.private === true ? 'privado' : 'público';
