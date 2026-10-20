@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
 
-// Document Restoration Lab — reusable LEGO module (ADR-010, owner instruction 2026-10-20).
-// Runs only inside Infinity Lab, InfinitySeed's controlled test environment.
+// Document Restoration Lab — JANUS-EXCLUSIVE capability (ADR-010, owner instructions 2026-10-20).
+// Not a commercial module: no other product (ChatBox, IBA, School, Connect…) may import or sell it.
+// Runs only inside Infinity Lab, InfinitySeed's controlled test environment, and every job
+// needs the Founder's explicit authorization.
 // Purpose: recover damaged, faded, skewed or partial documents and produce clean, searchable,
 // editable working copies — never counterfeits.
 // Invariants:
@@ -10,10 +12,15 @@ import { createHash } from 'node:crypto';
 //     environment) and a visible «restored / modified copy» mark that cannot be switched off.
 //  3. Physical restoration (cleaning, straightening, contrast, repairing tears/stains, OCR)
 //     is allowed for every document class.
-//  4. Changing the *content* (text, figures, dates, names, signatures, seals, photos) is allowed
-//     only for documents the requester owns and that are not official/identity/financial/legal
-//     instruments. For those classes Janus restores, never alters.
-//  5. Every job is chained in a tamper-evident audit log.
+//  4. Changing the *content* (text, figures, dates, names, photos) is allowed under Founder
+//     authorization for every class that is not an official/identity/financial/legal/academic/
+//     medical instrument. For those classes Janus restores, never alters; signatures and seals
+//     are never altered on any document. This line is fixed and not configurable.
+//  5. Every job is chained in a tamper-evident audit log that records who authorized it.
+
+export const JANUS_EXCLUSIVE = true as const;
+export const COMMERCIAL_USE_ALLOWED = false as const;
+export const FOUNDER_ID = 'founder';
 
 export type LabEnvironment = 'infinity-lab' | 'production' | 'unknown';
 
@@ -72,10 +79,12 @@ const ALWAYS_REFUSED: ReadonlySet<RestorationOperation> = new Set(['alter_signat
 export interface RestorationRequest {
   jobId: string;
   environment: LabEnvironment;
+  /** Must be 'janus': the capability is exclusive to Janus and never sold. */
+  product: string;
   operatorId: string;
   documentClass: DocumentClass;
-  /** True when the operator (or the organisation they act for) owns the document's content. */
-  operatorOwnsContent: boolean;
+  /** Founder's explicit authorization for this exact job. */
+  authorization: { authorizedBy: string; jobId: string; authorizedAt: string };
   original: { ref: string; sha256: string; mimeType: string };
   operations: RestorationOperation[];
   purpose: string;
@@ -93,6 +102,7 @@ export interface ProvenanceManifest {
   jobId: string;
   environment: 'infinity-lab';
   operatorId: string;
+  authorizedBy: string;
   documentClass: DocumentClass;
   originalSha256: string;
   outputSha256: string;
@@ -109,7 +119,12 @@ export const RESTORED_MARK = 'COPIA RESTAURADA — Infinity Lab · no es el orig
 export const MODIFIED_MARK = 'COPIA MODIFICADA — Infinity Lab · no es el original';
 
 export function planRestoration(request: RestorationRequest): RestorationPlan {
+  if (request.product !== 'janus') throw new Error('Document restoration is exclusive to Janus and is not a commercial module');
   if (request.environment !== 'infinity-lab') throw new Error('Document restoration runs only inside the Infinity Lab controlled environment');
+  const auth = request.authorization;
+  if (!auth || auth.authorizedBy !== FOUNDER_ID || auth.jobId !== request.jobId || !auth.authorizedAt) {
+    throw new Error('Every Infinity Lab job needs the Founder authorization for this exact job');
+  }
   if (!/^[0-9a-f]{64}$/.test(request.original.sha256)) throw new Error('Original must be referenced by its sha256');
   if (!request.purpose.trim()) throw new Error('Every restoration job needs a stated purpose');
   if (!request.operations.length) throw new Error('No operations requested');
@@ -124,8 +139,6 @@ export function planRestoration(request: RestorationRequest): RestorationPlan {
       refused.push({ operation, reason: 'Signatures and seals are never altered' });
     } else if (isProtected) {
       refused.push({ operation, reason: `Content of ${request.documentClass} documents is restored, never altered` });
-    } else if (!request.operatorOwnsContent) {
-      refused.push({ operation, reason: 'Content changes need ownership of the document' });
     } else {
       allowed.push(operation);
     }
@@ -151,6 +164,7 @@ export function sealRestoration(input: {
     jobId: request.jobId,
     environment: 'infinity-lab' as const,
     operatorId: request.operatorId,
+    authorizedBy: request.authorization.authorizedBy,
     documentClass: request.documentClass,
     originalSha256: request.original.sha256,
     outputSha256: input.outputSha256,
