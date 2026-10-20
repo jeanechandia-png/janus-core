@@ -12,6 +12,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Likeness, voz clonada y restauración de documentos — candidatos (2026-10-20, rama `claude/likeness-voice-docrestore-20261020`)**:
+  - `likeness-consent.ts` (ADR-009): consentimiento propio, acotado, con caducidad y revocable para clonar voz/rostro/avatar; referencias locales por SHA-256; aviso «generado con IA» obligatorio; una síntesis nunca vale como prueba de presencia (ADR-008).
+  - `voice-clone-enrollment.ts`: valida la grabación del Founder (WAV ≥ 8 s, ≥ 16 kHz, 16 bits, transcripción exacta) y genera la entrada `voice_clone` para Qwen3-TTS local; solo acepta la grabación aprobada.
+  - `document-restoration.ts` (ADR-010): restauración solo en Infinity Lab; original inmutable; manifiesto de procedencia encadenado; marca visible de copia; documentos oficiales/identidad/financieros/legales/académicos/médicos se restauran, nunca se alteran; firmas y sellos nunca.
+  - `docs/elevenlabs-exit-plan.md`: mapa ElevenLabs → equivalentes propios y pasos para cancelar sin apagar a Melanie.
+  - Pendiente del Founder: grabación de referencia (30–90 s) + transcripción; host 24/7; prueba física en iPhone.
+
 - **Coding & Agentic Engineering Expertise (2026-09-23)**:
   - `coding` y `agentic_workflow` son tipos de trabajo nativos del Work Graph;
   - Agent Swarm asigna Builder especializado a coding y Workflow Architect a agentic workflows;
