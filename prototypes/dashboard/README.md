@@ -49,3 +49,4 @@ node tests/clicks.cjs
 5. Personal/familiar separado de empresa (ámbitos `p`/`f`/`e`).
 6. Cada módulo indica **REAL** o **EJEMPLO** (Protocolo de la Verdad). Euros, enfoque europeo.
 7. Entrega: cada diseño en un HTML independiente y descargable (no previsualización Artifact).
+8. **Preview SIEMPRE**: al terminar cada actividad, enviar a Jean capturas (tablet 1194x834 y teléfono) + los HTML. Sin preview la entrega se considera incumplida.

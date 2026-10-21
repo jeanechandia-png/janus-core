@@ -239,7 +239,10 @@ ${clima}<div class="b2">${dia}${familia}${mail}${fol}${jan}</div><div class="b3"
 
   const head = '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">';
   const html = L.page({ title: 'Janus · Platino', head, css, body, bg: '#E7ECF5', scheme: 'light' });
+  let out = html;
+  const NM = Object.assign({ __HIJA__: 'Hija', __CLIENTE_IBA__: 'Cliente', __CONTACTO_FIRMA__: 'Proveedor' }, (() => { try { return JSON.parse(fs.readFileSync(require('path').join(__dirname, '../local/names.json'), 'utf8')); } catch (e) { return {}; } })());
+  for (const [k, v] of Object.entries(NM)) out = out.split(k).join(v);
   fs.mkdirSync(require('path').join(__dirname, '../dist'), { recursive: true });
-  fs.writeFileSync(require('path').join(__dirname, '../dist/Janus-B-Platino.html'), html);
+  fs.writeFileSync(require('path').join(__dirname, '../dist/Janus-B-Platino.html'), out);
   console.log('B', (html.length / 1024).toFixed(0) + ' KB');
 })();

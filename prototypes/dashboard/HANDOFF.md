@@ -33,6 +33,9 @@ Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos re
 - `gh` GraphQL devuelve 403 en este entorno → usar `gh api` REST.
 - Gmail: conector en `needs_reconnect`.
 
+## NORMA OPERATIVA (Jean, 2026-10-22)
+Tras CADA actividad: enviar preview (capturas tablet y teléfono de A y B + los HTML). Nunca cerrar solo con código o traspaso.
+
 ## PRÓXIMO (primer paso del siguiente agente)
 Refactorizar a núcleo común + piel A (sin cambiar el resultado visual de A: comparar capturas antes/después), añadir piel B interactiva, luego la sección Proyectos en ambas. Ejecutar las pruebas en las mismas resoluciones y entregar a Jean **cada HTML por separado** (no previsualización Artifact) con una captura de cada uno.
 
