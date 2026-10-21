@@ -342,7 +342,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## Handoff 2026-10-21 (Claude): Janus School + reconocimiento del hogar + filtros de entrega + continuidad
 
-- Rama `claude/school-gates-continuity`, apilada sobre `claude/seneca-voice-lego` (#38) → `claude/execution-supabase-vercel` (#37) → `main` (`f713b74`).
+- Rama `claude/school-gates-continuity` (PR #40, borrador), apilada sobre `claude/seneca-voice-lego` (#38) → `claude/execution-supabase-vercel` (#37) → `main` (`f713b74`).
 - HECHO VERIFICADO (332/332 pruebas y typecheck limpio en esta rama):
   - Módulo LEGO `janus-school` (offline): ruta del Founder, glosario, cuestionarios, repaso espaciado SM-2 y sesiones de matemáticas/atención para un perfil infantil, con nivel de evidencia declarado y sin diagnóstico. Adaptador fino `janus-school-tool-adapter` y ruta determinista del planificador.
   - Módulo LEGO `face-id` (conjunto cerrado, bóveda AES-256-GCM, consentimiento con tutor para menores, sidecar InsightFace local), adaptador `face-recognition-adapter`, fusión de identidad voz+cara (`identity-fusion`), modo estricto y perfil restringido (`HOUSEHOLD_SAFE_TOOLS`), ruta `POST /api/identity/face`, CLI `scripts/face-enroll.ts`. Es comodidad, nunca autorización.

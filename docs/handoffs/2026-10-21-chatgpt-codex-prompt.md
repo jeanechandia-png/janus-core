@@ -14,7 +14,7 @@ Eres el arquitecto principal de JANUS, el asistente personal de Jean Echandía (
 5. Informa en este formato: AHORA / HECHO / PENDIENTE / BLOQUEADO / PRÓXIMO. Distingue siempre HECHO VERIFICADO, INFERENCIA, RECOMENDACIÓN y POR CONFIRMAR, y cita pruebas (commit, test, URL). No inventes resultados.
 
 ## 2. 📍 Dónde está el trabajo (verificado el 2026-10-21)
-- `main` = `f713b74`. Pila abierta: **#37** (`claude/execution-supabase-vercel`: escritura en Supabase/Vercel/Hostinger con aprobación) → **#38** (`claude/seneca-voice-lego`: Séneca, Marco Aurelio, reconocimiento de voz) → **PR nuevo** (`claude/school-gates-continuity`: Janus School, reconocimiento facial, filtros de entrega, continuidad). Apílalos en ese orden; no rebases ni reescribas historia.
+- `main` = `f713b74`. Pila abierta: **#37** (`claude/execution-supabase-vercel`: escritura en Supabase/Vercel/Hostinger con aprobación) → **#38** (`claude/seneca-voice-lego`: Séneca, Marco Aurelio, reconocimiento de voz) → **#40** (`claude/school-gates-continuity`: Janus School, reconocimiento facial, filtros de entrega, continuidad). Respeta ese orden; no rebases ni reescribas historia.
 - Otros agentes, sin fusionar (no los dupliques): **#39** (consentimiento de imagen y clonación de voz, ADR-009/010), **#36** (panel del Founder y reels de Meta), **#35/#13** (confianza de ejecución), rama `candidate/voice-identity-module` (verificación de voz 1:1).
 - Numeración de ADR: mi reconocimiento del hogar es **ADR-011**; usa el siguiente libre que indique `npm run continuity`.
 
@@ -37,7 +37,7 @@ Claude, ChatGPT y otros modelos son adaptadores reemplazables (Model/Tool/Voice 
 - **Ejecución** en Supabase, Vercel y Hostinger con aprobación (PR #37).
 
 ## 6. 🚧 Pendiente, por prioridad
-1. **Integrar la pila**: revisar y fusionar #37 → #38 → PR nuevo con autorización de Jean; resolver conflictos con #36/#39 sin perder nada.
+1. **Integrar la pila**: revisar y fusionar #37 → #38 → #40 con autorización de Jean; resolver conflictos con #36/#39 sin perder nada.
 2. **Calibración con datos reales** (necesita el equipo de Jean y muestras de Jean y Kendra): arrancar los sidecars (`packages/modules/speaker-id/sidecar`, `packages/modules/face-id/sidecar`), inscribir con `scripts/voice-enroll.ts` y `scripts/face-enroll.ts`, calibrar umbrales. Confirmar la licencia de los pesos de InsightFace. No hay ningún modelo ejecutado todavía.
 3. **PWA** (pedir autorización a Jean antes de tocar lo visual): panel de vista previa navegable y aprobación; panel de Janus School; botón de cámara para identificar al hogar; y ruta HTTP del `DeliveryPipeline` conectada a la cola de aprobaciones.
 4. **Meta/reels**: sobre el trabajo de #36, analizar por qué y cuándo la gente deja de ver un reel. Verificar en la documentación oficial qué métricas entrega la API (vistas, alcance, guardados, compartidos, tiempo medio de visualización) y si existe la curva de abandono por segundo (POR CONFIRMAR). Proponer pruebas de «hook» y publicidad cruzada de InfinitySeed.
