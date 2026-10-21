@@ -1,0 +1,42 @@
+# HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
+
+Actualizado: 2026-10-22 00:20 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
+Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
+
+## AHORA
+Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos requisitos nuevos (abajo, PENDIENTE 1 y 2), que son el siguiente trabajo.
+
+## HECHO (verificado)
+- A interactivo: 11 vistas de detalle; todas las zonas abren detalle (`data-go`), acciones (`data-act`), ajustes persistentes.
+- Clima/bici: Open-Meteo en vivo (sin clave), geolocalización/búsqueda de ciudad, veredicto ida/vuelta, salida sugerida, kit de ropa; umbrales ajustables. Ejemplo si no hay red.
+- Datos reales (instantánea 2026-10-21 22:16): Google Calendar principal → «Mi día»; GitHub janus-core (9 PR abiertos, 10 CI en verde) → «Janus».
+- Pruebas: `tests/layout.cjs` TODO OK en 1194x834, 1366x1024, 1920x1080 (sin scroll/recortes) y 390x844 (columna sin desbordes); modo live simulado OK; `tests/clicks.cjs` sin errores JS y persistencia OK.
+- Privacidad: nombres personales como marcadores; datos reales solo en `local/` (gitignored).
+
+## PENDIENTE (orden de prioridad)
+1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
+   - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.
+   - Selector A/B persistente (ajuste `skin`) visible en la cabecera y en la vista «Datos/Ajustes»; el build puede generar los dos HTML y uno combinado.
+   - Base visual de B: `reference/design-b-platino.cjs` (estático). Debe cumplir las mismas reglas que A (una pantalla sin scroll en tablet/escritorio, columna en teléfono, todo clicable, REAL/EJEMPLO).
+2. **Sección «Proyectos» (petición de Jean, 2026-10-22)** — falta en ambos diseños.
+   - Tarjeta en el dashboard (sin romper la regla de una pantalla: rebalancear la cuadrícula) + vista `#proyectos` con detalle extenso.
+   - Por proyecto: icono, nombre, ámbito (empresa/personal), estado (activo / próximo / en pausa), fase, % avance, próximo hito y fecha, responsable(s), riesgos/bloqueos, enlaces (repo, PR, documentos). Filtros por estado y ámbito; gráfico de avance y línea de tiempo.
+   - Proyectos conocidos a confirmar con Jean (POR CONFIRMAR, no inventar estados): Janus, Infinity ChatBox (piloto 3 Kings), IBA, web institucional InfinitySeed, línea de productos Gumroad, patrocinio Potensic, Marketing 360 con dron.
+   - Fuentes reales candidatas: `jeanechandia-png/infinity-chatbox-platform/INFINITYSEED_PROJECT_REGISTRY.md` (registro canónico), GitHub (repos/PR/CI), Google Calendar. Sin fuente → marcar EJEMPLO.
+3. Reconectar Gmail (lo hace Jean en claude.ai → Ajustes → Conectores) → alimentar Prioridades y Clientes.
+4. Datos vivos sin intervención: llevar adaptadores a JANUS Core/PWA (Google Workspace y GitHub ya existen en el core). **Requiere autorización de Jean** (toca `apps/pwa`).
+5. Calendario «Familia» vacío → cuando Jean lo llene, alimentar la zona familiar.
+6. Meta (alcance/reels), ingresos (empresa sin registrar → ejemplo), chatbots: sin conector.
+
+## BLOQUEADO / LIMITACIONES
+- La llamada real a Open-Meteo y Safari/iPad no se verificaron desde el sandbox (sin internet general); solo con simulación.
+- `gh` GraphQL devuelve 403 en este entorno → usar `gh api` REST.
+- Gmail: conector en `needs_reconnect`.
+
+## PRÓXIMO (primer paso del siguiente agente)
+Refactorizar a núcleo común + piel A (sin cambiar el resultado visual de A: comparar capturas antes/después), añadir piel B interactiva, luego la sección Proyectos en ambas. Ejecutar las pruebas en las mismas resoluciones y entregar a Jean **cada HTML por separado** (no previsualización Artifact) con una captura de cada uno.
+
+## Cómo regenerar la instantánea real (no se sube al repo)
+- Calendar: herramienta MCP Google Calendar `list_events` (calendario principal y «Familia», 8 días) → `local/real.js` (`ev: [{d,h,dur,e,t,amb,note}]`).
+- GitHub: `gh api repos/jeanechandia-png/janus-core/pulls?state=open` y `gh api repos/jeanechandia-png/janus-core/actions/runs?per_page=10`.
+- Nombres: `local/names.json` → `{"__HIJA__":"…","__CLIENTE_IBA__":"…","__CONTACTO_FIRMA__":"…"}`.
