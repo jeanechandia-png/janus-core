@@ -9,6 +9,7 @@ function render() {
   dash.innerHTML = renderDash(M, X);
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = VIEWS[ROUTE.v](M, X, ROUTE.sub); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · Obsidiana'; }
+  decorate(ROUTE.v || '');
 }
 function rerender() { render(); }
 function go(r) { const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
@@ -86,3 +87,20 @@ render();
 if (ST.settings.mode === 'vivo') refreshWeather();
 setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);
+
+/* Inclinación 3D de paneles de detalle: sigue al puntero (ratón/lápiz) o al dedo mientras se toca. */
+(function tilt() {
+  let cur = null;
+  const off = () => { if (cur) { cur.classList.remove('tilt'); cur.style.removeProperty('--rx'); cur.style.removeProperty('--ry'); cur = null; } };
+  const on = (ev) => {
+    const v = document.getElementById('view'); if (!v || v.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return off();
+    const cd = ev.target.closest && ev.target.closest('#view .cd'); if (cd !== cur) off(); if (!cd) return;
+    const r = cd.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width - .5, py = (ev.clientY - r.top) / r.height - .5;
+    cd.style.setProperty('--ry', (px * 5).toFixed(2) + 'deg'); cd.style.setProperty('--rx', (-py * 4).toFixed(2) + 'deg'); cd.classList.add('tilt'); cur = cd;
+  };
+  document.addEventListener('pointermove', on, { passive: true });
+  document.addEventListener('pointerdown', on, { passive: true });
+  document.addEventListener('pointerup', (ev) => { if (ev.pointerType === 'touch') setTimeout(off, 350); }, { passive: true });
+  document.addEventListener('pointerleave', off, { passive: true });
+  window.addEventListener('hashchange', off);
+})();

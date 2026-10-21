@@ -13,6 +13,12 @@ Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos re
 - Pruebas: `tests/layout.cjs` TODO OK en 1194x834, 1366x1024, 1920x1080 (sin scroll/recortes) y 390x844 (columna sin desbordes); modo live simulado OK; `tests/clicks.cjs` sin errores JS y persistencia OK.
 - Privacidad: nombres personales como marcadores; datos reales solo en `local/` (gitignored).
 
+## HECHO 2026-10-22 (iteración visual 3D)
+- Capa `src/depth.css` + `src/depth.js`: paneles con volumen e inclinación al dedo, reflejo especular, entrada en profundidad, medalla giratoria, gráficas sobre plano en perspectiva con cinta extruida, barras prisma, tubos de vidrio, donut como disco 3D, embudo 3D, semana familiar con escala horaria.
+- Iconos: emojis sustituidos por iconos vectoriales grabados en oro (`src/icons.js`, generado con `tools/gen-icons.cjs` desde lucide-static, ISC).
+- Tipografías incrustadas (`assets/fonts`, OFL vía @fontsource): nítidas e idénticas offline.
+- Vista previa navegable: `node build.cjs --artifact <ruta>` genera la variante sin esqueleto para publicar como Artifact privado.
+
 ## PENDIENTE (orden de prioridad)
 1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
    - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.

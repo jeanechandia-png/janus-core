@@ -31,6 +31,7 @@ function mockMeteo() {
     await page.goto(FILE); await page.waitForTimeout(400);
     for (const r of ROUTES) {
       await page.evaluate((x) => { location.hash = x ? '#' + x : '#'; }, r); await page.waitForTimeout(450);
+      await page.evaluate(() => document.getAnimations().filter((a) => a.effect.getTiming().iterations !== Infinity).forEach((a) => a.finish()));
       const info = await page.evaluate(() => {
         const de = document.documentElement, root = document.getElementById('view').hidden ? document.getElementById('dash') : document.getElementById('view');
         const clipped = [], inner = [];
