@@ -1,0 +1,21 @@
+{
+  "id": "janus-school",
+  "version": "1.0.0",
+  "kind": "knowledge-module",
+  "summary": "Escuela offline: ruta de formación del Founder (software, IA, web, seguridad, contenido) y sesiones de matemáticas para niños con atención variable, con repaso espaciado.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "public-knowledge",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder; all content is bundled so it works offline.",
+    "Never diagnoses or labels a child (ADHD or otherwise); it proposes strategies and refers to clinicians.",
+    "Claims about techniques carry an evidence level and source; weak evidence (e.g. mental abacus) is stated plainly.",
+    "Learner progress is minimal JSON (counts and card schedules): no free text, audio or images.",
+    "Not a medical or clinical tool."
+  ],
+  "reuseNotes": "Import from src/index.ts; the host persists LearnerProgress. Janus uses packages/adapters/src/janus-school-tool-adapter.ts. Reusable by Infinity School and any InfinitySeed learning product."
+}

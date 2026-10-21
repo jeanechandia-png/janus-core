@@ -1,0 +1,22 @@
+{
+  "id": "face-id",
+  "version": "1.0.0",
+  "kind": "capability-module",
+  "summary": "Identificación facial de hogar en conjunto cerrado: consentimiento, bóveda cifrada, plantilla por persona. Comodidad, nunca autenticación.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "loopback-sidecar",
+  "network": false,
+  "secrets": true,
+  "dataClassification": "biometric-special-category",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Every result carries authorizes:false; a face match never authenticates or authorises anything.",
+    "Enrolment needs active consent; a minor requires a parent or legal guardian who is a different person.",
+    "Templates live only inside an AES-256-GCM vault; raw photos and per-photo vectors are never stored.",
+    "Closed set: it only compares against consented, enrolled household members and never names strangers.",
+    "The embedder must be on loopback unless the host opts in explicitly."
+  ],
+  "reuseNotes": "Import from src/index.ts and wrap with a thin adapter in each host product (Janus: packages/adapters/src/face-recognition-adapter.ts). Sibling of speaker-id; the two modules stay independent. Thresholds are model-dependent and uncalibrated: calibrate on the host."
+}

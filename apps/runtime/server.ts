@@ -73,7 +73,7 @@ import {
   founderSocialIdentityBindingFromChronology,
   validateFounderSocialIdentityBinding,
 } from '../../packages/core/src/founder-social-identity-binding.js';
-import { DeliveryGate } from '../../packages/core/src/delivery-gate.js';
+import { DeliveryGate, FOUNDER_REQUIRED_DIMENSIONS } from '../../packages/core/src/delivery-gate.js';
 import {
   evaluateAuthority,
   type AuthorityPrincipal,
@@ -136,7 +136,7 @@ import {
 } from '../../packages/core/src/progress-policy.js';
 import type { DecisionBlueprint } from '../../packages/core/src/decision-blueprint.js';
 import { verifyReceiptChain } from '../../packages/core/src/decision-receipt.js';
-import { createOfflineQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
+import { createFounderQualityReviewers } from '../../packages/core/src/quality-reviewers.js';
 import {
   appendChainedDecisionReceipt,
   createRuntimeDecisionBlueprint,
@@ -195,9 +195,12 @@ import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gatewa
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
+import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
+import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
+import { createFaceRecognition, type FaceHint, type FaceRecognitionRuntime } from '../../packages/adapters/src/face-recognition-adapter.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
 import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.js';
 
@@ -282,6 +285,7 @@ if (configuredFounderBiometricPublicKey) {
 }
 const runners = new Map<string, TaskRunner>();
 const runBlueprints = new Map<string, DecisionBlueprint>();
+const runLearners = new Map<string, string>();
 const runAssignments = new Map<string, { assignmentId: string; principalId: string }>();
 const runProjects = new Map<string, { projectId: string; threadId: string }>();
 const runBlockerResolutions = new Map<string, OperationalBlockerResolution>();
@@ -306,7 +310,8 @@ const approvalQueue = new ApprovalQueue({
 });
 const toolGateway = new DefaultToolGateway();
 const capabilities = new CapabilityRegistry();
-const deliveryGate = new DeliveryGate(createOfflineQualityReviewers());
+// Founder norm (2026-10-21): structural, orthographic, synthesis, coherence, visual, architectural, i18n filters + style review.
+const deliveryGate = new DeliveryGate(createFounderQualityReviewers(), { required: FOUNDER_REQUIRED_DIMENSIONS });
 
 toolGateway.register(new GitHubAdapter({
   tokenProvider: () => credentialBroker.accessToken('github'),
@@ -399,6 +404,12 @@ capabilities.register({
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
 });
+toolGateway.register(new JanusSchoolToolAdapter(new JsonFileSchoolProgressStore(process.env.JANUS_SCHOOL_PROGRESS_PATH ?? 'data/school-progress.json')));
+capabilities.register({
+  tool: 'janus-school',
+  actions: ['lesson.next', 'lesson.get', 'lesson.complete', 'glossary.lookup', 'review.next', 'review.grade', 'quiz.get', 'quiz.answer', 'kids.session', 'kids.technique', 'kids.guide', 'progress.get'],
+  state: 'available',
+});
 toolGateway.register(new MarcusAureliusToolAdapter());
 capabilities.register({
   tool: 'marcus-aurelius',
@@ -425,6 +436,35 @@ if (process.env.JANUS_SPEAKER_ID_ENABLED === 'true') {
     speakerRecognitionState.reason = error instanceof Error ? error.message : String(error);
     console.warn('Speaker recognition disabled:', speakerRecognitionState.reason);
   }
+}
+
+// Optional face identification of household members (convenience only; ADR-007/008 own authentication).
+let faceRecognition: FaceRecognitionRuntime | undefined;
+const faceRecognitionState: { state: 'disabled' | 'available' | 'misconfigured'; reason?: string } = { state: 'disabled' };
+if (process.env.JANUS_FACE_ID_ENABLED === 'true') {
+  try {
+    const vaultKey = process.env.JANUS_FACE_VAULT_KEY;
+    if (!vaultKey) throw new Error('JANUS_FACE_VAULT_KEY is required');
+    faceRecognition = createFaceRecognition({
+      embedUrl: process.env.JANUS_FACE_EMBED_URL ?? 'http://127.0.0.1:8792',
+      vaultPath: process.env.JANUS_FACE_VAULT_PATH ?? 'data/face-vault.enc.json',
+      vaultKey,
+    });
+    faceRecognitionState.state = 'available';
+  } catch (error) {
+    faceRecognitionState.state = 'misconfigured';
+    faceRecognitionState.reason = error instanceof Error ? error.message : String(error);
+    console.warn('Face recognition disabled:', faceRecognitionState.reason);
+  }
+}
+const householdStrict = process.env.JANUS_HOUSEHOLD_STRICT === 'true';
+const FACE_PRESENCE_TTL_MS = 5 * 60 * 1000;
+const faceHints = new Map<string, { hint: FaceHint; at: number }>();
+function freshFaceHint(sessionId: string): FaceHint | undefined {
+  const entry = faceHints.get(sessionId);
+  if (!entry) return undefined;
+  if (Date.now() - entry.at > FACE_PRESENCE_TTL_MS) { faceHints.delete(sessionId); return undefined; }
+  return entry.hint;
 }
 
 const githubConfigured = environmentCredentials.configured('github');
@@ -1821,7 +1861,11 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       metadata: { enforced: guarded.enforced },
     });
   }
-  return compilePlan(guarded.plan, { toolGateway });
+  const learnerId = runLearners.get(runId);
+  const scopedPlan = learnerId
+    ? { ...guarded.plan, steps: guarded.plan.steps.map((step) => (step.tool === 'janus-school' ? { ...step, input: { ...step.input, learnerId } } : step)) }
+    : guarded.plan;
+  return compilePlan(scopedPlan, { toolGateway });
 }
 
 function assertCapabilitiesReady(plan: JanusPlan): void {
@@ -1962,12 +2006,17 @@ function startRun(
 
   const runId = runner.snapshot().runId;
   decisionRunId = runId;
-  const speakerPolicy = policyForSpeaker(speaker);
+  const faceHint = freshFaceHint(sessionId);
+  const fused = fuseIdentityHints([speaker, faceHint]);
+  const speakerPolicy = policyForSpeaker(fused, { strict: householdStrict });
+  const minorHint = [speaker, faceHint].find((hint) => hint?.decision === 'match' && hint.profile === 'minor');
+  if (minorHint?.subjectId) runLearners.set(runId, minorHint.subjectId);
+  else if (speakerPolicy.restricted) runLearners.set(runId, 'guest');
   runBlueprints.set(
     runId,
     speakerPolicy.restricted ? restrictBlueprintTools(runtimeBlueprint, speakerPolicy.allowedTools) : runtimeBlueprint,
   );
-  if (speaker) {
+  if (fused) {
     recordDecision({
       runId,
       decisionKind: 'speaker_recognition_hint',
@@ -1975,7 +2024,13 @@ function startRun(
       confidence: 1,
       outputSummary: speakerPolicy.reason,
       // Data minimisation: no embeddings, no audio; only decision, profile and score.
-      metadata: { decision: speaker.decision, profile: speaker.profile ?? null, score: speaker.score, assurance: speaker.assurance, restricted: speakerPolicy.restricted },
+      metadata: {
+        decision: fused.decision,
+        profile: fused.profile ?? null,
+        modalities: [speaker ? 'voice' : null, faceHint ? 'face' : null].filter(Boolean),
+        strict: householdStrict,
+        restricted: speakerPolicy.restricted,
+      },
     });
   }
   recordDecision({
@@ -2530,6 +2585,7 @@ const server = createServer(async (request, response) => {
       timeZone: timeZone ?? 'runtime-default',
       voiceSessionAuthority: 'core',
       speakerRecognition: speakerRecognitionState,
+      faceRecognition: { ...faceRecognitionState, householdStrict },
       voice: {
         streaming: voiceGateway
           ? {
@@ -4813,6 +4869,31 @@ const server = createServer(async (request, response) => {
         ? authErrorStatus(error)
         : 409;
       json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/identity/face') {
+    try {
+      requireAuthoritySession(request);
+      if (!faceRecognition) throw new HttpRequestError(503, 'Face recognition is not enabled on this runtime');
+      const sessionId = (url.searchParams.get('sessionId') ?? '').trim();
+      if (!sessionId || sessionId.length > 120) throw new HttpRequestError(400, 'sessionId is required');
+      const chunks: Buffer[] = [];
+      let size = 0;
+      for await (const chunk of request) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        size += buffer.byteLength;
+        if (size > 4 * 1024 * 1024) throw new HttpRequestError(413, 'Image is too large');
+        chunks.push(buffer);
+      }
+      const hint = await faceRecognition.identify(new Uint8Array(Buffer.concat(chunks)));
+      if (hint.decision === 'match') faceHints.set(sessionId, { hint, at: Date.now() });
+      else faceHints.delete(sessionId);
+      // Only decision, profile and score are returned: never embeddings, never the image.
+      json(response, 200, { ok: true, hint, authorizes: false, ttlSeconds: FACE_PRESENCE_TTL_MS / 1000 });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
     }
     return;
   }

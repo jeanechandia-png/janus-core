@@ -19,7 +19,7 @@ test('speaker policy restricts only positively matched non-owner voices', () => 
   assert.equal(policyForSpeaker({ decision: 'match', profile: 'owner' }).restricted, false);
   const minor = policyForSpeaker({ decision: 'match', profile: 'minor' });
   assert.equal(minor.restricted, true);
-  assert.deepEqual([...minor.allowedTools], ['seneca', 'marcus-aurelius']);
+  assert.deepEqual([...minor.allowedTools], ['seneca', 'marcus-aurelius', 'janus-school']);
 });
 
 test('restrictBlueprintTools keeps only allowed tools and preserves identity', () => {

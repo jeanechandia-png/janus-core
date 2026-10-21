@@ -340,6 +340,26 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - 2026-10-18 (tarde): módulo `marcus-aurelius-wisdom` + herramienta `marcus-aurelius` añadidos (313/313 pruebas). Citas contrastadas con Long; locus libro.sección estándar no visible en la fuente (POR CONFIRMAR); griego no consultado.
 - Rama `claude/seneca-voice-lego`, apilada sobre `claude/execution-supabase-vercel` (PR #37).
 
+## Handoff 2026-10-21 (Claude): Janus School + reconocimiento del hogar + filtros de entrega + continuidad
+
+- Rama `claude/school-gates-continuity`, apilada sobre `claude/seneca-voice-lego` (#38) → `claude/execution-supabase-vercel` (#37) → `main` (`f713b74`).
+- HECHO VERIFICADO (332/332 pruebas y typecheck limpio en esta rama):
+  - Módulo LEGO `janus-school` (offline): ruta del Founder, glosario, cuestionarios, repaso espaciado SM-2 y sesiones de matemáticas/atención para un perfil infantil, con nivel de evidencia declarado y sin diagnóstico. Adaptador fino `janus-school-tool-adapter` y ruta determinista del planificador.
+  - Módulo LEGO `face-id` (conjunto cerrado, bóveda AES-256-GCM, consentimiento con tutor para menores, sidecar InsightFace local), adaptador `face-recognition-adapter`, fusión de identidad voz+cara (`identity-fusion`), modo estricto y perfil restringido (`HOUSEHOLD_SAFE_TOOLS`), ruta `POST /api/identity/face`, CLI `scripts/face-enroll.ts`. Es comodidad, nunca autorización.
+  - Filtros de entrega del Founder (estructural, ortográfico, síntesis, coherencia, i18n, estilo) en `DeliveryGate` con `FOUNDER_REQUIRED_DIMENSIONS`; `DeliveryPipeline` (recheck → vista previa navegable → decisión del Founder → paquete con archivo directo y texto en línea).
+  - Continuidad: `npm run continuity`, `docs/PROJECT_MAP.md`, `START_HERE.md`, detección de colisiones de ADR (mi ADR de reconocimiento del hogar pasó a **ADR-011** por choque con #39).
+  - Normas operativas del Founder cargadas como políticas en `config/founder-reference-library.json` y documentadas en `docs/operating-norms.md`.
+- POR CONFIRMAR / NO HECHO:
+  - Ningún modelo de voz ni de cara se ha ejecutado; umbrales sin calibrar; licencia de pesos de InsightFace sin verificar.
+  - Faltan muestras reales de Jean y Kendra (inscripción en el equipo anfitrión).
+  - Retención por segundo de reels vía API de Meta: no verificado y no implementado (depende de #36).
+  - Mecanismo de actualización continua de conocimiento (registro de fuentes + frescura): no implementado.
+  - `DeliveryPipeline` sin ruta HTTP ni panel en la PWA; progreso de Janus School en JSON local (migrar a SQLite); sin UI de cámara/inscripción (requiere autorización de Jean para tocar lo visual).
+  - Revisores ortográficos heurísticos sin conexión; falta un corrector real como adaptador.
+  - Edad de Kendra sin confirmar; aprobación de Blueprint pendiente para las herramientas `seneca`, `marcus-aurelius` y `janus-school` en instalaciones existentes.
+- NO DUPLICAR: clonación de voz/cara (#39), panel y reels (#36), confianza de ejecución (#35/#13), verificación de voz 1:1 (`candidate/voice-identity-module`).
+- Prompt de relevo para ChatGPT/Codex: `docs/handoffs/2026-10-21-chatgpt-codex-prompt.md`.
+
 ## PRÓXIMO
 
 Handoff 2026-10-13 (Claude, sesión Cowork): PR #28 apilada sobre #27 (custodia del HEAD + smoke hermético), CI GitHub `success`. Siguiente acción ejecutable: (1) Founder confirma la release ChatBox vigente y se refresca su manifiesto; (2) implementar el probe automático de acknowledgement (2d); (3) verificar/crear manifiestos de Group e IBA.

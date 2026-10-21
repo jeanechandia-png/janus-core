@@ -26,6 +26,9 @@ export function deterministicPlan(
 
   if (mentionsCalendar(command)) return calendarPlan(command, context.timeZone);
 
+  const school = parseSchoolRequest(command);
+  if (school) return schoolPlan(command, school);
+
   const seneca = parseSenecaRequest(command);
   if (seneca) return senecaPlan(command, seneca);
   return null;
@@ -255,4 +258,68 @@ function cleanNaturalQuery(value: string): string {
     .replace(/^(?:de|del|sobre|acerca\s+de)\s+/i, '')
     .replace(/[.!?]+$/g, '')
     .trim();
+}
+
+// ---------- Janus School (read-only, offline tool) ----------
+interface SchoolRequest { action: string; input: Record<string, unknown>; label: string }
+
+const LESSON_TOPICS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bgit\b|github|repositorio|pull request|commit/, 'f02-git-y-github'],
+  [/\bapi\b|servidor|backend|frontend|base de datos|como funciona el software/, 'f01-como-funciona-el-software'],
+  [/dominio|\bdns\b|hosting|deploy|despliegue|publicar|vercel|https/, 'f03-publicar-en-internet'],
+  [/n8n|automatiz|webhook|workflow/, 'f04-automatizacion-n8n'],
+  [/\bia\b|inteligencia artificial|agente|prompt|llm|token|alucinac/, 'f05-ia-y-agentes'],
+  [/web 3d|\b3d\b|html|css|javascript|react|next\.?js|three\.?js|diseno web|inmersiv/, 'f06-web-moderna-y-3d'],
+  [/seguridad|rgpd|secreto|oauth|2fa|datos personales/, 'f07-seguridad-y-datos'],
+  [/contenido|monetiz|reels?|redes sociales|social media|embudo|marketing|utm/, 'f08-contenido-y-monetizacion'],
+  [/ingenieria de sistemas|arquitectura|requisitos|escalab|mvp/, 'f09-pensar-como-ingeniero-de-sistemas'],
+  [/hablar con (un )?(programador|ingeniero)|reunion tecnica|conversar con (un )?(programador|ingeniero)/, 'f10-hablar-con-un-programador'],
+];
+
+function parseSchoolRequest(command: string): SchoolRequest | null {
+  const text = foldText(command);
+  const kids = /\bkendra\b|\bmi hija\b|\bninos?\b|\bnina\b|tdah|\btda\b|hiperactiv|abaco|tecnicas? chinas?|matematicas|\bmates\b|tablas de multiplicar|amigos del 10/.test(text);
+  if (kids && /como ayudar|guia para padres|guia para mi|como acompan|que hacer con|consejos para/.test(text)) {
+    return { action: 'kids.guide', input: {}, label: 'Guía para acompañarla en casa' };
+  }
+  if (kids && /abaco|tecnicas? chinas?|amigos del 10|tablas de multiplicar|gestos/.test(text)) {
+    const topic = /abaco/.test(text) ? 'abaco' : /chin/.test(text) ? 'chinas' : /amigos del 10/.test(text) ? 'amigos del 10' : 'tablas';
+    return { action: 'kids.technique', input: { topic }, label: 'Técnica de matemáticas' };
+  }
+  if (kids && /sesion|plan|rutina|tarea|estudi|matematicas|clase|ayuda|jugar|practic/.test(text)) {
+    const minutes = /(\d{1,2}) ?(min|minutos)/.exec(text);
+    const age = /(\d{1,2}) ?(anos|ano)/.exec(text);
+    const energy = /inquiet|hiperactiv|mucha energia|nervios|no para quieta?|no se (esta|queda) quiet/.test(text) ? 'high' : /cansad|poca energia|desanimad/.test(text) ? 'low' : 'normal';
+    return {
+      action: 'kids.session',
+      input: { energy, ...(minutes ? { minutes: Number(minutes[1]) } : {}), ...(age ? { age: Number(age[1]) } : {}) },
+      label: 'Preparar sesión de estudio',
+    };
+  }
+  if (/\bjanus school\b|\bescuela de janus\b/.test(text) || /(quiero|necesito|vamos a|empecemos|ayudame a) (aprender|estudiar)|ensename|dame una (leccion|clase)|siguiente (leccion|unidad)|capacitar(me)?|formacion/.test(text)) {
+    for (const [pattern, lessonId] of LESSON_TOPICS) if (pattern.test(text)) return { action: 'lesson.get', input: { lessonId }, label: 'Lección' };
+    return { action: 'lesson.next', input: {}, label: 'Siguiente lección' };
+  }
+  if (/repasar|repaso|tarjetas|flashcards?/.test(text)) return { action: 'review.next', input: {}, label: 'Repaso con tarjetas' };
+  if (/cuestionario|\bquiz\b|ponme a prueba|evaluame/.test(text)) return { action: 'quiz.get', input: {}, label: 'Cuestionario' };
+  const term = /(?:que significa|que quiere decir|definicion de|define|glosario(?: de)?)\s+(.+)$/.exec(text);
+  if (term?.[1]) return { action: 'glossary.lookup', input: { query: term[1].replace(/^(la |el |un |una |lo )/, '').trim() }, label: 'Buscar en el glosario' };
+  return null;
+}
+
+function schoolPlan(command: string, request: SchoolRequest): JanusPlan {
+  return createPlan(command, [
+    {
+      id: 'school-answer',
+      kind: 'tool',
+      label: request.label,
+      tool: 'janus-school',
+      action: request.action,
+      input: request.input,
+      risk: 'none',
+      reversible: true,
+      requiresApproval: false,
+      resultMode: 'full',
+    },
+  ], 'deterministic');
 }
