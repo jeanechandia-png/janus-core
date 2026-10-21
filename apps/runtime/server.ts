@@ -57,6 +57,7 @@ import {
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { buildClosureReport, renderClosureReportMarkdown } from '../../packages/core/src/closure-report.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
   founderReferenceChronologyRecord,
@@ -2317,10 +2318,54 @@ function finalizeCoordinationHandoff(snapshot: RunSnapshot): void {
   runAssignments.delete(snapshot.runId);
 }
 
+function closureReportFor(snapshot: RunSnapshot) {
+  return buildClosureReport({
+    snapshot,
+    events: store.listEvents(snapshot.runId),
+    decisionSummaries: store.listDecisionReceipts(snapshot.runId).map((receipt) => receipt.outputSummary),
+    ...(runBlockerResolutions.get(snapshot.runId)?.nextAction
+      ? { blockerNextAction: runBlockerResolutions.get(snapshot.runId)!.nextAction }
+      : {}),
+  });
+}
+
+/**
+ * Requisito 5: every terminal run leaves a closure report (RESUMEN EJECUTIVO /
+ * CONCLUSIONES TÉCNICAS Y OPERATIVAS / PRÓXIMOS PASOS) in the local chronology,
+ * so the next agent resumes exactly where this one stopped. Idempotent; a
+ * failure here never blocks the run.
+ */
+function persistClosureReport(snapshot: RunSnapshot): void {
+  if (snapshot.status === 'running' || snapshot.status === 'heard' || snapshot.status === 'paused' || snapshot.status === 'waiting_approval') return;
+  try {
+    const id = `closure:${snapshot.runId}`;
+    const continuity = continuitySnapshot();
+    if (continuity.orderedRecords.some((record) => record.id === id)) return;
+    const report = closureReportFor(snapshot);
+    const previous = continuity.currentBySubject['closure-report'];
+    const sessionId = continuity.orderedRecords.find((record) => record.id === `task:${snapshot.runId}`)?.sessionId
+      ?? 'closure-runtime';
+    store.appendChronologyRecord({
+      id,
+      sessionId,
+      at: snapshot.updatedAt,
+      kind: 'verification',
+      subject: 'closure-report',
+      content: renderClosureReportMarkdown(report),
+      status: 'current',
+      ...(previous ? { supersedesId: previous.id } : {}),
+      metadata: { runId: snapshot.runId, checksum: report.checksum, status: report.status },
+    });
+  } catch (error) {
+    console.warn(`[janus] closure report not persisted for ${snapshot.runId}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 function finishRun(snapshot: RunSnapshot): void {
   store.upsertRun(snapshot);
   recordRunOutcome(snapshot);
   ensureBlockedRunResolution(snapshot);
+  persistClosureReport(snapshot);
   finalizeCoordinationHandoff(snapshot);
   finalizeProjectCheckpoint(snapshot);
 
@@ -4867,6 +4912,19 @@ const server = createServer(async (request, response) => {
       receipts,
       chain: verifyReceiptChain(receipts),
     });
+    return;
+  }
+
+  const getRunClosure = url.pathname.match(/^\/api\/runs\/([^/]+)\/closure$/);
+  const closureRunId = getRunClosure?.[1];
+  if (request.method === 'GET' && closureRunId) {
+    const snapshot = runners.get(closureRunId)?.snapshot() ?? store.getRun(closureRunId);
+    if (!snapshot) {
+      json(response, 404, { ok: false, error: 'run not found' });
+      return;
+    }
+    const report = closureReportFor(snapshot);
+    json(response, 200, { ok: true, report, markdown: renderClosureReportMarkdown(report) });
     return;
   }
 
