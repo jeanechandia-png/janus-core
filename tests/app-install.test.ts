@@ -60,10 +60,11 @@ test('Janus app icon: opaque PNGs at the declared sizes are wired in manifest, i
     assert.ok(manifest.icons.some((icon: { src: string; sizes: string }) => icon.src === `/icons/${file}` && icon.sizes === `${size}x${size}`), file);
   }
   assert.match(html, /rel="apple-touch-icon"[^>]*href="\/icons\/janus-icon-180\.png"/);
-  for (const file of ['janus-icon-180.png', 'janus-icon-192.png', 'janus-icon-512.png']) {
+  for (const file of ['janus-icon-180.png', 'janus-icon-192.png', 'janus-icon-512.png', 'janus-icon-maskable-192.png', 'janus-icon-maskable-512.png']) {
     const png = readFileSync(`apps/pwa/icons/${file}`);
     assert.equal(png.subarray(1, 4).toString(), 'PNG');
     const size = Number(file.match(/(\d+)\.png/)![1]);
+    if (file.includes('maskable')) assert.ok(manifest.icons.some((icon: { src: string; purpose?: string }) => icon.src === `/icons/${file}` && icon.purpose === 'maskable'), `${file} declared maskable`);
     assert.equal(png.readUInt32BE(16), size);
     assert.equal(png.readUInt32BE(20), size);
     assert.notEqual(png[25], 6, `${file} must not carry an alpha channel (iOS would paint it black/transparent)`);
