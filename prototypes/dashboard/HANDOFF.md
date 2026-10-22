@@ -1,9 +1,17 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
-Actualizado: 2026-10-22 19:30 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
+Actualizado: 2026-10-23 01:00 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
 
-## AHORA
+## AHORA (2026-10-23)
+Ronda 3D del teléfono lista para aprobación de Jean (vista previa; ZIP solo tras su visto bueno):
+- Robot de Janus en 3D real (oro, brazos, manos, pies, una cara) en lugar del micrófono grande; saluda con frases variadas y al tocarlo abre la Sala. Micrófono pequeño y botón enviar dorado animado junto a «Escribe a Janus». Dictado con transcripción inmediata.
+- Sala: micrófono 3D con ondas permanentes y robot, ambos girables (`lego/janus-3d`).
+- Clima del teléfono: hoy y mañana con mañana/tarde/noche; al tocar, detalle con 15 días, lluvia, tormentas, viento y veredicto de dron (módulo `drone-weather`, rama `claude/companion-research` @ 8cee902).
+- Verificado: layout TODO OK en 7 tamaños, clics sin errores, e2e móvil 18/18 (`tests/e2e-3d.cjs`), `npm test` 351/351 en la rama de módulos.
+- Sin medir: rendimiento WebGL en iPhone/iPad reales.
+
+## Antes (2026-10-22 noche)
 Auditoría de instrucciones de Jean en `INSTRUCCIONES.md` (estado por instrucción). Hecho hoy en la noche:
 - Iconos de objeto 3D hiperrealista.
 - Micrófono tipo Melanie protagonista con chat en el dashboard.

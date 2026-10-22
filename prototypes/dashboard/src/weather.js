@@ -40,7 +40,7 @@ function exampleRaw() {
       const isDay = h >= 8 && h < 18;
       const k = r >= 50 ? 'rain' : r >= 30 ? 'cloud' : !isDay ? (r < 12 ? 'moon' : 'cloud') : (r <= 6 && h >= 10 && h <= 14 ? 'sun' : 'part');
       const uv = isDay ? Math.max(0, +(3.4 * Math.sin(Math.PI * (h - 8) / 10) * (1 - r / 120)).toFixed(1)) : 0;
-      hourly.push({ day, h, k, t, feel, r, w, g, d, mm: r >= 50 ? +((r - 40) / 40 * 1.2).toFixed(1) : r >= 30 ? .1 : 0, rh: Math.round(68 + r / 4), uv, vis: r >= 50 ? 6 : 10, cl: Math.min(100, 25 + r) });
+      hourly.push({ day, h, storm: r >= 88 && h >= 14 && h <= 19, k, t, feel, r, w, g, d, mm: r >= 50 ? +((r - 40) / 40 * 1.2).toFixed(1) : r >= 30 ? .1 : 0, rh: Math.round(68 + r / 4), uv, vis: r >= 50 ? 6 : 10, cl: Math.min(100, 25 + r) });
     }
   }
   const today = dayNum(2026, 10, 21);
@@ -64,7 +64,7 @@ function parseOpenMeteo(j, place) {
     if (day < 0 || day > 6) continue;
     const isDay = H.is_day ? !!H.is_day[i] : (h * 60 >= sr[day] && h * 60 < ss[day]);
     const n = (a) => (H[a] && H[a][i] != null ? H[a][i] : 0);
-    hourly.push({ day, h, k: WMO(n('weather_code'), isDay), t: Math.round(n('temperature_2m')), feel: Math.round(n('apparent_temperature')), r: Math.round(n('precipitation_probability')), w: Math.round(n('wind_speed_10m')), g: Math.round(n('wind_gusts_10m')), d: Math.round(n('wind_direction_10m')), mm: +(+n('precipitation')).toFixed(1), rh: Math.round(n('relative_humidity_2m')), uv: +(+n('uv_index')).toFixed(1), vis: Math.round(n('visibility') / 1000), cl: Math.round(n('cloud_cover')) });
+    hourly.push({ day, h, storm: n('weather_code') >= 95, k: WMO(n('weather_code'), isDay), t: Math.round(n('temperature_2m')), feel: Math.round(n('apparent_temperature')), r: Math.round(n('precipitation_probability')), w: Math.round(n('wind_speed_10m')), g: Math.round(n('wind_gusts_10m')), d: Math.round(n('wind_direction_10m')), mm: +(+n('precipitation')).toFixed(1), rh: Math.round(n('relative_humidity_2m')), uv: +(+n('uv_index')).toFixed(1), vis: Math.round(n('visibility') / 1000), cl: Math.round(n('cloud_cover')) });
   }
   if (hourly.length < 24) throw new Error('menos de 24 horas en la respuesta');
   const daily = Dd.time.slice(0, 15).map((t, i) => { const ymd = t.split('-').map(Number); return { dn: dayNum(ymd[0], ymd[1], ymd[2]), k: WMO(Dd.weather_code[i], true), tmax: Math.round(Dd.temperature_2m_max[i]), tmin: Math.round(Dd.temperature_2m_min[i]), rmax: Math.round(Dd.precipitation_probability_max[i] || 0), wmax: Math.round(Dd.wind_speed_10m_max[i]), sunrise: Dd.sunrise[i].slice(11, 16), sunset: Dd.sunset[i].slice(11, 16) }; });

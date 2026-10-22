@@ -5,8 +5,12 @@
  * iOS/Safari solo permite hablar tras un toque: si el navegador lo bloquea, habla en el primer toque del usuario.
  */
 const OWNER = 'Jean';
+// Saludos variados (Jean, 22-10): no siempre el mismo. Se elige uno por sesión.
+const GREETS_DAY = ['Hola, Jean. ¿Qué tal tu día?', '¿Por dónde comenzamos, Jean?', '¿Qué tienes en mente, Jean?', '¿En qué te inspiraste hoy, Jean?', 'Hola, Jean. ¿Qué construimos hoy?', 'Aquí estoy, Jean. ¿Qué hacemos primero?'];
+const GREETS_AM = ['Buenos días, Jean.', 'Buenos días, Jean. ¿Por dónde comenzamos?', 'Buen día, Jean. ¿Qué tienes en mente para hoy?'];
+const GREET_PICK = Math.random();
 function janusBriefing(M, X) {
-  const now = new Date(), greet = HomeScenes.greeting(OWNER, now, 'abrir');
+  const now = new Date(), am = now.getHours() >= 5 && now.getHours() < 11, L = am ? GREETS_AM : GREETS_DAY, greet = L[Math.floor(GREET_PICK * L.length)];
   const ag = X.agenda.slice(0, 3).map((a) => a.h + ' ' + a.t).join('; ');
   const d1 = M.raw.daily[M.nowDay + 1] || M.raw.daily[0];
   const bike = M.ida.verdict === 'g' ? 'Buen día para ir en bici' : M.ida.verdict === 'r' ? 'Hoy mejor no ir en bici' : 'Bici con precaución';
@@ -23,7 +27,9 @@ function janusBriefing(M, X) {
 }
 let BRIEF_SPOKEN = false;
 function speakText(t) {
-  try { if (!('speechSynthesis' in window)) return false; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'es-ES'; u.rate = 1.02; speechSynthesis.speak(u); return true; } catch (e) { return false; }
+  try { if (!('speechSynthesis' in window)) return false; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'es-ES'; u.rate = 1.02;
+    u.onstart = () => { if (window.Janus3D) Janus3D.state.talking = true; }; u.onend = u.onerror = () => { if (window.Janus3D) Janus3D.state.talking = false; };
+    speechSynthesis.speak(u); return true; } catch (e) { return false; }
 }
 function speakBriefing(full) {
   const M = model(), X = derived(M), B = janusBriefing(M, X);

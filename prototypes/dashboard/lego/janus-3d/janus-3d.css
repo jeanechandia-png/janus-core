@@ -1,0 +1,27 @@
+/* LEGO janus-3d: contenedores 3D y botón de enviar hiperrealista */
+[data-3d]{position:relative;cursor:grab;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
+[data-3d]:active{cursor:grabbing}
+[data-3d] .j3d-cv{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+[data-3d]:has(canvas) .j3d-fb{display:none}
+[data-3d] .j3d-fb{width:100%;height:100%;object-fit:contain}
+/* Botón enviar: esfera de oro pulido con flecha de obsidiana; se hunde y destella al pulsar */
+.gsend{position:relative;flex:none;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;cursor:pointer;isolation:isolate;
+  background:radial-gradient(circle at 34% 28%,#FFF8DD 0 8%,#FFE39A 18%,#E2AC45 42%,#9C6519 72%,#4A2C07 100%);
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.75),inset 0 -6px 9px rgba(60,30,0,.75),0 0 0 1.5px #2a1a05,0 0 0 3px rgba(255,214,140,.45),0 10px 16px -6px #000,0 0 18px -4px rgba(255,200,110,.6);
+  transition:transform .12s ease,box-shadow .2s ease,filter .2s;animation:gsPulse 3.2s ease-in-out infinite}
+.gsend svg{width:56%;height:56%;transform:translateX(1px);filter:drop-shadow(0 1px 0 rgba(255,240,200,.6))}
+.gsend::before{content:"";position:absolute;inset:0;border-radius:50%;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.75) 50%,transparent 65%);background-size:250% 100%;animation:gsSheen 3.6s ease-in-out infinite;mix-blend-mode:screen;pointer-events:none}
+.gsend::after{content:"";position:absolute;inset:-2px;border-radius:50%;box-shadow:0 0 0 0 rgba(255,214,140,.9);opacity:0;pointer-events:none}
+.gsend:hover{filter:brightness(1.08)}
+.gsend:active{transform:translateY(2px) scale(.94);box-shadow:inset 0 3px 8px rgba(60,30,0,.85),inset 0 -2px 3px rgba(255,255,255,.45),0 0 0 1.5px #2a1a05,0 0 0 3px rgba(255,214,140,.8),0 3px 6px -3px #000,0 0 34px 6px rgba(255,210,120,.85);filter:brightness(1.25)}
+.gsend:active::after{animation:gsBurst .55s ease-out}
+@keyframes gsPulse{0%,100%{box-shadow:inset 0 2px 2px rgba(255,255,255,.75),inset 0 -6px 9px rgba(60,30,0,.75),0 0 0 1.5px #2a1a05,0 0 0 3px rgba(255,214,140,.45),0 10px 16px -6px #000,0 0 14px -4px rgba(255,200,110,.5)}50%{box-shadow:inset 0 2px 2px rgba(255,255,255,.75),inset 0 -6px 9px rgba(60,30,0,.75),0 0 0 1.5px #2a1a05,0 0 0 3px rgba(255,214,140,.65),0 10px 16px -6px #000,0 0 24px -2px rgba(255,200,110,.8)}}
+@keyframes gsSheen{0%,55%{background-position:130% 0}100%{background-position:-130% 0}}
+@keyframes gsBurst{0%{opacity:1;box-shadow:0 0 0 0 rgba(255,214,140,.95)}100%{opacity:0;box-shadow:0 0 0 18px rgba(255,214,140,0)}}
+@media (prefers-reduced-motion:reduce){.gsend,.gsend::before{animation:none}}
+/* Sala */
+.empty .j3mic{width:min(260px,60%);height:250px;margin:0 auto 4px}
+.cmp .mic.m3{width:64px;height:64px;border-radius:50%;overflow:visible;background:radial-gradient(circle,rgba(255,200,110,.18),transparent 70%);box-shadow:none}
+.cmp .mic.m3 img{width:100%;height:100%}
+.cmp .gsend{width:48px;height:48px}
+.j3bot{height:190px;margin:-4px 0 4px}

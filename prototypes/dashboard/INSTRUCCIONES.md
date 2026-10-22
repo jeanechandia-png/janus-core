@@ -20,6 +20,10 @@ Leyenda: ✅ hecho y verificado · 🟡 parcial · ⏳ pendiente · 🔒 bloquea
 | Teléfono A2 (cristal + oro pulido); clima de hoy y mañana; 15 días al tocar | ✅ | `src/phonea2.js`, `src/weather.js` |
 | Teléfono: lo importante arriba (micrófono + chat, luego Proyectos) | ✅ | `renderPhoneA2` |
 | **Micrófono tipo Melanie protagonista con chat en el dashboard** | ✅ | Teléfono: tarjeta Sala; tablet: tarjeta Proyectos |
+| **Teléfono: robot 3D hiperrealista (habla, se mueve, manos y pies) en lugar del micrófono grande; saludos variados; tocarlo abre la Sala** | ✅ | `lego/janus-3d`, `src/phonea2.js`, `src/briefing.js`; `tests/e2e-3d.cjs` (rendimiento en iPhone real sin medir) |
+| **Micrófono pequeño junto a «Escribe a Janus» + botón enviar hiperrealista animado; dictado con transcripción inmediata** | ✅ | `.a2micb`, `.gsend`, `ACTS.mic` (transcribe en todos los campos); `tests/e2e-3d.cjs` con reconocimiento simulado. Con voz real de iPhone: por probar |
+| **Sala: micrófono 3D girable con ondas siempre; robot 3D girable; una sola cara; icono Janus conserva su efecto** | ✅ | `src/sala.js`, `lego/janus-3d` |
+| **Clima en el teléfono: hoy y mañana con mañana/tarde/noche; al tocar, detalle (viento, 15 días, lluvia, tormentas) y veredicto de dron** | ✅ | `src/clima2.js`, módulo `drone-weather` (PR #45). Umbrales del dron = RECOMENDACIÓN; datos de ejemplo si no hay red |
 | Sala de trabajo: voz, texto, proyectos, medallón y Mini-Jano articulado | ✅ | `src/sala.js`, `lego/janus-activity` |
 | Dos dashboards: A Obsidiana **y B Platino** | ⏳ | Solo existe la referencia estática de B |
 | Las mejoras LEGO se propagan a landings y web | 🟡 | Las piezas son reutilizables; falta la sincronización con las landings |
