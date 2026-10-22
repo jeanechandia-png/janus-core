@@ -1,0 +1,14 @@
+{
+  "id": "home-scenes",
+  "version": "0.1.0",
+  "kind": "logic-module",
+  "summary": "Casa inteligente: escenas (llegada, salida, despertar, buenas noches, Navidad), órdenes por voz/texto, saludo y comandos Tuya (LSC Smart Connect de Action) idempotentes.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided (Tuya OpenAPI o Local Tuya; presencia vía Atajos de iOS o Wi-Fi)",
+  "network": false,
+  "secrets": "solo secretRef (Tuya client id/secret en llavero o env del host)",
+  "dataClassification": "doméstico (dispositivos, presencia)",
+  "invariants": ["Imports nothing outside its folder.", "Plans are idempotent: no action if the device is already in the wanted state.", "Every execution is logged (HomeEventLog).", "No secrets in code or state."],
+  "reuseNotes": "Otro cliente: declarar Device[] con sus etiquetas (ambiente, navidad, noche, despertar) y conectar un adaptador (Tuya, Home Assistant, Hue) que ejecute tuyaCommand()/equivalente."
+}

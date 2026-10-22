@@ -29,3 +29,8 @@ Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son dis
 - No es terapia ni diagnóstico. Ante señales serias, avisa al adulto.
 - Los filtros por palabras clave son una primera capa. **POR CONFIRMAR:** añadir un clasificador del modelo como segunda capa.
 - Los textos v0.1 están en español y algunos en femenino; la localización por género e idioma queda pendiente.
+
+## Relación con piezas existentes (norma: no duplicar)
+- **janus-school** (PR #40): técnicas de atención, guía para padres y aviso de no diagnóstico. El compañero es la **cara y la voz** que habla con el niño. Las sesiones y la guía para padres salen de janus-school. El tutor de cálculo de este módulo solo genera ejercicios aritméticos rápidos, que janus-school no incluye.
+- **speaker-id / face-id** (PR #38 y #40): el reconocimiento real de voz y cara. `enableBiometrics()` solo registra el consentimiento y el modo local. La identificación la hacen esos módulos, siempre como comodidad y nunca como autorización.
+- **home-scenes**: el saludo (`greeting`) y las escenas de casa.
