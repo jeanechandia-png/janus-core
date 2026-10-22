@@ -1,6 +1,6 @@
 'use strict';
 /* ===== Sala de trabajo (#trabajo) y portada (#inicio) =====
- * Chat de voz + texto por proyecto, medallón bifronte (estado) y Mini-Jano junto al texto.
+ * Chat de voz + texto por proyecto, medallón del logo (estado) y Mini-Jano en la conversación mientras genera la respuesta.
  * VISTA PREVIA: las respuestas de Janus son simuladas; la conexión real vive en la app (apps/pwa) y el núcleo.
  */
 Object.assign(UI, { pFilter: 'todos', pSel: 'janus', js: 'listo', draft: '', listening: false, micMsg: '' });
@@ -15,6 +15,9 @@ function stateBlock(big) {
   return '<div class="jst ' + (big ? 'big' : '') + '"><i class="jdot"></i><div><b class="' + (big ? 'serif gld' : '') + '">' + s[0] + '</b><div class="dim">' + s[1] + '</div></div></div>';
 }
 
+const meMsg = (m) => '<div class="msg me"><div class="bub">' + esc(m.t) + '</div><small class="mono">' + m.at + (m.v ? ' · 🎙' : '') + '</small></div>';
+const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + esc(m.t) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · simulado</small></div>';
+
 function vTrabajo(M, X, sub) {
   if (sub && PROJECTS.find((p) => p.id === sub)) UI.pSel = sub;
   if (sub === 'voz' && !UI.listening) setTimeout(() => SALA_ACTS.mic(), 60);
@@ -23,11 +26,13 @@ function vTrabajo(M, X, sub) {
     '<div class="pjl">' + list.map((p) => '<div class="pjr' + (p.id === P.id ? ' on' : '') + '"' + act('pSel', p.id, p.n) + '><span class="bb s">' + p.e + '</span><div class="mid"><b>' + esc(p.n) + '</b><small class="mono">' + (p.amb === 'p' ? 'personal' : 'empresa') + ' · ' + PGRP_TXT[p.grp] + '</small></div><span class="ct mono">' + (chatsOf(p.id).length || '') + '</span></div>').join('') + '</div>' +
     '<div class="btn2 mono"' + act('newChat', P.id, 'Nueva conversación') + '>＋ Nueva conversación</div>');
   const msgs = chatsOf(P.id);
-  const thread = '<div class="thr" id="thr">' + (msgs.length ? msgs.map((m) => m.who === 'me'
-    ? '<div class="msg me"><div class="bub">' + esc(m.t) + '</div><small class="mono">' + m.at + (m.v ? ' · 🎙' : '') + '</small></div>'
-    : '<div class="msg ja"><div><div class="bub">' + esc(m.t) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · simulado</small></div></div>').join('')
-    : '<div class="empty"><b class="serif gld">' + esc(P.n) + '</b><div class="dim">Escribe o toca el micrófono para empezar a trabajar en este proyecto.</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>') + '</div>';
-  const composer = '<div class="cmp">' + (robotOn() ? '<div class="mjw" title="Mini-Jano">' + miniJano() + '</div>' : '') +
+  const working = UI.js === 'pensando' || UI.js === 'ejecutando';
+  const typing = working ? '<div class="msg ja gen">' + (robotOn() ? '<div class="mjw">' + miniJano() + '</div>' : '') + '<div class="bub mono"><span class="tdots"><i></i><i></i><i></i></span>' + (UI.js === 'pensando' ? 'Janus está pensando la respuesta…' : 'Janus está trabajando en ' + esc(P.n) + '…') + '</div></div>' : '';
+  const lastAppr = msgs.length && msgs[msgs.length - 1].appr ? msgs.length - 1 : -1;
+  const thread = '<div class="thr" id="thr">' + (msgs.length
+    ? msgs.map((m, k) => k === lastAppr && robotOn() ? '<div class="msg ja gen appr"><div class="mjw">' + miniJano() + '</div>' + jaMsg(m) + '</div>' : m.who === 'me' ? meMsg(m) : jaMsg(m)).join('') + typing
+    : (typing || '<div class="empty"><b class="serif gld">' + esc(P.n) + '</b><div class="dim">Escribe o toca el micrófono para empezar a trabajar en este proyecto.</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>')) + '</div>';
+  const composer = '<div class="cmp">' +
     '<div class="inp"><textarea data-f="msg" rows="2" maxlength="2000" placeholder="Escribe a Janus sobre ' + esc(P.n) + '…" aria-label="Mensaje para Janus">' + esc(UI.draft) + '</textarea>' +
     (UI.micMsg ? '<div class="mmsg mono">' + esc(UI.micMsg) + '</div>' : '') + '</div>' +
     '<span class="mic' + (UI.listening ? ' on' : '') + '"' + act('mic', '', UI.listening ? 'Detener dictado' : 'Hablar') + '><img src="' + IMG.mic + '" alt=""><i class="eq"><b></b><b></b><b></b><b></b><b></b></i></span>' +
@@ -37,7 +42,7 @@ function vTrabajo(M, X, sub) {
   const prs = P.real === 'prs' ? '<div class="sb mono">PR abiertos · real</div>' + REAL.prs.slice(0, 4).map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') : '';
   const right = '<div class="col3">' + panel('jsp', '⚙', 'Estado de Janus', 'en vivo', stateBlock(true) +
     '<div class="sts">' + Object.keys(JSTATE).map((k) => '<span class="stt' + (k === UI.js ? ' on' : '') + '" data-k="' + k + '"' + act('jsDemo', k, JSTATE[k][0]) + '><i></i>' + JSTATE[k][0] + '</span>').join('') + '</div>' +
-    '<label class="tgl mono"><input type="checkbox" data-set="robot"' + (robotOn() ? ' checked' : '') + '> Mini-Jano junto al texto</label>') +
+    '<label class="tgl mono"><input type="checkbox" data-set="robot"' + (robotOn() ? ' checked' : '') + '> Mini-Jano al generar la respuesta</label>') +
     panel('pjc', P.e, 'Proyecto', PGRP_TXT[P.grp], '<div class="kv">' + [['🏷', 'Estado declarado', P.decl ? P.decl + ' · Jean 13-oct' : 'Por confirmar'], ['📌', 'Grupo', PGRP_TXT[P.grp] + ' · propuesta'], ['⏭', 'Siguiente paso', P.next], ['🐙', 'Repositorio', P.repo || '—']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + esc(r[2]) + '</b></div>').join('') + '</div>' + prs) + '</div>';
   return frame('trabajo', sub, M, '<div class="sala" data-js="' + UI.js + '">' + left + center + right + '</div>');
 }
@@ -47,7 +52,7 @@ function vInicio(M, X) {
   return '<div class="ini" data-js="' + UI.js + '">' +
     '<div class="ini-top"><span class="back mono" data-go="" role="link" tabindex="0">← Dashboard</span><div class="ini-brand">' + medallion('logo') + '<div><div class="wm serif gld">JANUS</div><div class="dt mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div></div><span class="mono dim">Vista previa</span></div>' +
     '<div class="ini-mid"><div class="ini-mic go" style="--micmask:url(' + IMG.mic + ')" data-go="trabajo/voz" role="button" tabindex="0" aria-label="Hablar con Janus"><img src="' + IMG.mic + '" alt=""><span class="sweep"></span></div>' +
-    '<div class="ini-say">' + (robotOn() ? '<div class="mjw">' + miniJano() + '</div>' : '') + '<div><b class="serif gld">Hola, Patrón.</b><div class="dim">Toca el micrófono y habla, o escribe. Elige un proyecto para trabajar.</div></div></div>' +
+    '<div class="ini-say"><div><b class="serif gld">Hola, Patrón.</b><div class="dim">Toca el micrófono y habla, o escribe. Elige un proyecto para trabajar.</div></div></div>' +
     '<div class="ini-btns"><span class="ibtn gold go" data-go="trabajo/voz" role="button" tabindex="0">🎙 Hablar</span><span class="ibtn go" data-go="trabajo" role="button" tabindex="0">⌨ Escribir</span><span class="ibtn go" data-go="trabajo/' + UI.pSel + '" role="button" tabindex="0">📁 Proyectos</span><span class="ibtn go" data-go="" role="button" tabindex="0">📊 Dashboard</span></div>' +
     '<div class="ini-pj">' + act3.map((p) => '<span class="ipj go" data-go="trabajo/' + p.id + '" role="link" tabindex="0"><span class="bb s">' + p.e + '</span>' + esc(p.n) + '</span>').join('') + '</div></div></div>';
 }

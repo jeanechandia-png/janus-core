@@ -26,7 +26,7 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 - Próximas piezas: sala de trabajo (`src/sala.js` → `lego/janus-workroom/`) con adaptadores (envío al núcleo, proyectos, voz) y el micrófono de Melanie (`isg-voice`) conectado a la voz de Janus.
 
 ## HECHO 2026-10-22 (sala de trabajo)
-- Decisión de Jean: **solo el medallón del logo** con efecto de actividad + **Mini-Jano junto al campo de texto** (nada de medallones repetidos).
+- Decisión de Jean: **solo el medallón del logo** con efecto de actividad + **Mini-Jano en la conversación, donde llega la respuesta, solo mientras Janus la genera** (nada de medallones repetidos; corregido por Jean 15:28).
 - `#inicio` (portada: micrófono vintage, Hablar/Escribir/Proyectos/Dashboard), `#trabajo` (proyectos | chat voz+texto | estado y proyecto), tarjeta «Proyectos» en el dashboard → sala. Respuestas simuladas y rotuladas; acciones que publican/envían/borran/gastan piden visto bueno.
 
 ## PENDIENTE (orden de prioridad)

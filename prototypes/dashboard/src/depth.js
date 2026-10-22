@@ -19,7 +19,10 @@ function decorate(viewId) {
   LAST_VIEW = viewId;
   const host = view.hidden ? dash : view;
   host.querySelectorAll('.cd').forEach((c, i) => c.style.setProperty('--i', i));
-  if (isNew) { host.classList.remove('enter'); void host.offsetWidth; host.classList.add('enter'); }
+  // La entrada en profundidad solo se reproduce al cambiar de vista, nunca en cada re-render.
+  clearTimeout(decorate.t);
+  if (isNew) { host.classList.remove('enter'); void host.offsetWidth; host.classList.add('enter'); decorate.t = setTimeout(() => host.classList.remove('enter'), 1400); }
+  else host.classList.remove('enter');
 }
 // Inclinación 3D: el panel bajo el puntero gira unos grados y un reflejo sigue al dedo.
 const TILT = { el: null, raf: 0, x: 0, y: 0 };
