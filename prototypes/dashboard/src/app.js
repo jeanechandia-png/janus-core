@@ -6,7 +6,7 @@ function parseHash() { const h = decodeURIComponent((location.hash || '').replac
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
-  dash.innerHTML = isPhone() ? renderPhone(M, X) : renderDash(M, X);
+  dash.innerHTML = isPhone() ? renderPhoneV(M, X) : renderDash(M, X);
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = VIEWS[ROUTE.v](M, X, ROUTE.sub); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · Obsidiana'; }
   decorate(ROUTE.v || '');

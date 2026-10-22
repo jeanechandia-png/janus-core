@@ -37,6 +37,10 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 ## HECHO 2026-10-22 16:10 (teléfono)
 - Jean: en teléfono las tarjetas de borde a borde eran innecesariamente grandes. Ahora el teléfono tiene su propio tablero (`src/phone.js`, `src/phone.css`): clima compacto + acceso «Hablar con Janus» + 10 widgets en 2 columnas con cifra clave y mini gráfica; cada widget abre su vista de detalle. Alto total en 430x932: ~1.130 px (antes ~3.100 px).
 
+## TELÉFONO — POR DECIDIR (Jean, 22-oct 16:08)
+- RECHAZADO: tablero de widgets/botones (no es un dashboard; la información debe verse de una sola vista).
+- Presentadas 3 opciones con toda la información a la vista (`src/phonev.js`, `?tel=a|b|c`): A Terminal (bandas densas, ~1,15 pantallas), B Cuadrantes (2 columnas con listas y gráficas, 1 pantalla), C Cronología (día por carriles personal/__HIJA__/empresa con clima por hora + KPI + estado, 1 pantalla). Por defecto A hasta que Jean elija. No publicar vista interactiva hasta su elección.
+
 ## PENDIENTE (orden de prioridad)
 1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
    - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.
