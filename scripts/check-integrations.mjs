@@ -4,6 +4,7 @@
  * variable NAMES are missing. It never prints, logs or sends any secret value.
  * Usage: npm run integrations:check   (reads .env.local if present)
  */
+import { existsSync, readFileSync } from 'node:fs';
 import { loadEnvFile } from './lib/env-file.mjs';
 
 const envFile = process.env.JANUS_ENV_FILE?.trim() || '.env.local';
@@ -32,6 +33,9 @@ const groups = [
   ['Kling AI', ['KLING_API_KEY'], ['KLING_DEFAULT_MODEL']],
   ['n8n (lectura)', ['N8N_BASE_URL', 'N8N_API_KEY'], []],
   ['n8n (disparar flujos autorizados)', ['JANUS_N8N_WEBHOOKS'], []],
+  ['Facebook / Instagram (métricas, solo lectura)', ['META_GRAPH_API_VERSION', 'META_ACCESS_TOKEN'], []],
+  ['Threads (métricas, solo lectura)', ['THREADS_ACCESS_TOKEN'], ['THREADS_API_VERSION']],
+  ['Peticiones HTTP/REST autorizadas', ['JANUS_HTTP_ENDPOINTS'], []],
   ['Founder (inicio de sesión)', ['JANUS_FOUNDER_PUBLIC_KEY_PEM'], []],
 ];
 
@@ -49,6 +53,13 @@ if (has('JANUS_HOSTINGER_SITES')) {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.values(parsed).every((user) => typeof user === 'string' && user)) problems.push('JANUS_HOSTINGER_SITES debe ser {"dominio.com":"usuario"}');
   } catch { problems.push('JANUS_HOSTINGER_SITES no es JSON válido'); }
 }
+if (has('JANUS_HTTP_ENDPOINTS')) {
+  try {
+    const parsed = JSON.parse(process.env.JANUS_HTTP_ENDPOINTS);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.values(parsed).every((e) => e && typeof e.baseUrl === 'string' && e.baseUrl.startsWith('https://'))) problems.push('JANUS_HTTP_ENDPOINTS debe ser {"nombre":{"baseUrl":"https://…"}}');
+  } catch { problems.push('JANUS_HTTP_ENDPOINTS no es JSON válido'); }
+}
+if (has('THREADS_API_VERSION') && !/^v\d+\.\d+$/.test(process.env.THREADS_API_VERSION.trim())) problems.push('THREADS_API_VERSION debe tener la forma v1.0');
 if (has('JANUS_FOUNDER_PUBLIC_KEY_PEM') && !/-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM)) problems.push('JANUS_FOUNDER_PUBLIC_KEY_PEM no parece una llave pública PEM');
 if (/PRIVATE KEY/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM ?? '')) problems.push('¡JANUS_FOUNDER_PUBLIC_KEY_PEM contiene una llave PRIVADA! Bórrala: solo va la pública.');
 
@@ -62,6 +73,37 @@ for (const [label, required, optional] of groups) {
   console.log(`${missing.length === 0 ? '✅' : '⬜'} ${label}${missing.length ? ' — falta: ' + missing.join(', ') : ''}${extra.length ? ' (opcional: ' + extra.join(', ') + ')' : ''}`);
 }
 console.log(`\n${ready}/${groups.length} integraciones listas.`);
+
+// Buzones del Founder (capa local, ignorada por git). Solo se comprueban NOMBRES de variables:
+// nunca se imprimen direcciones ni valores, solo el id del buzón.
+const overlayPath = process.env.JANUS_FOUNDER_REFERENCE_LOCAL?.trim() || 'config/founder-reference-library.local.json';
+if (existsSync(overlayPath)) {
+  try {
+    const document = JSON.parse(readFileSync(overlayPath, 'utf8'));
+    const seen = new Set();
+    const mailboxes = [];
+    for (const record of Array.isArray(document.records) ? document.records : []) {
+      if (record?.kind !== 'reference' || !Array.isArray(record.tags) || !record.tags.includes('mail')) continue;
+      const address = String(record.value ?? '').trim().toLowerCase();
+      if (!address || seen.has(address)) continue; // el mismo buzón dado dos veces es uno solo
+      seen.add(address);
+      const domain = address.slice(address.indexOf('@') + 1);
+      mailboxes.push({ id: String(record.id), minor: record.tags.includes('minor'), google: domain === 'gmail.com' || domain === 'googlemail.com' });
+    }
+    if (mailboxes.length) {
+      console.log(`\nBuzones del Founder (${mailboxes.length}):`);
+      for (const box of mailboxes) {
+        const suffix = box.id.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+        const read = `GOOGLE_ACCESS_TOKEN__${suffix}`;
+        const write = `GOOGLE_WRITE_ACCESS_TOKEN__${suffix}`;
+        const note = (box.minor ? ' [menor: solo lectura, sin borradores]' : '') + (box.google ? '' : ' [proveedor sin confirmar: ¿Google Workspace? Si no lo es, estas credenciales no aplican]');
+        console.log(`${has(read) ? '✅' : '⬜'} ${box.id} — lectura${has(read) ? '' : ' (falta: ' + read + ')'}${box.minor ? '' : `; borradores ${has(write) ? 'listos' : '(falta: ' + write + ')'}`}${note}`);
+      }
+    }
+  } catch {
+    problems.push(`${overlayPath} no es JSON válido`);
+  }
+}
 if (problems.length) {
   console.log('\nRevisa:');
   for (const problem of problems) console.log('⚠️  ' + problem);

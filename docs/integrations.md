@@ -40,8 +40,11 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 | Vercel (release, nuevo) | `VERCEL_RELEASE_TOKEN` + `JANUS_VERCEL_RELEASE_PROJECTS` (nombres permitidos) | `deployment.redeploy` | **puede cambiar producción → aprobación explícita**; solo proyectos autorizados |
 | Hostinger (lectura, nuevo) | `HOSTINGER_API_TOKEN` (hPanel) | `websites.list` | solo lectura |
 | Hostinger (publicar/modificar webs, nuevo) | `HOSTINGER_RELEASE_TOKEN` + `JANUS_HOSTINGER_SITES` = `{"dominio.com":"usuario_hosting"}` | `site.deploy` (sube un sitio estático como ZIP y lo despliega en el dominio) | **cambia un sitio en vivo → aprobación explícita**; solo dominios del mapa; exige `index.html` en la raíz; rechaza `.env`, `.git`, claves y rutas con `..` |
-| Google Workspace (ya existente) | `GOOGLE_ACCESS_TOKEN` (solo lectura) | `drive.files.search`, `gmail.messages.search`, `calendar.events.list` | lectura |
+| Google Workspace (ya existente) | `GOOGLE_ACCESS_TOKEN` (solo lectura) + una credencial por buzón registrado: `GOOGLE_ACCESS_TOKEN__<ID>` | `drive.files.search`, `gmail.messages.search`, `calendar.events.list` (con `input.account` = id de un buzón registrado) | lectura. Una cuenta no registrada o sin autorizar se rechaza **antes** de tocar la red |
 | Google Workspace (escritura, nuevo) | `GOOGLE_WRITE_ACCESS_TOKEN` (scopes `gmail.compose`, `calendar.events`) | `gmail.draft.create` (**solo borrador, nunca envía**), `calendar.event.create` (sin avisar a invitados salvo `notifyGuests`) | **escritura → aprobación explícita** |
+| Google Workspace (escritura, por buzón) | `GOOGLE_WRITE_ACCESS_TOKEN__<ID>` | las mismas acciones, sobre el buzón indicado en `input.account` | **escritura → aprobación explícita**; las cuentas de **menores** no tienen escritura (el adaptador las rechaza) |
+| Facebook / Instagram | `META_GRAPH_API_VERSION` + `META_ACCESS_TOKEN` | `meta-insights`: `facebook.page.insights`, `instagram.account.insights` | solo lectura; Instagram exige cuenta **profesional**; los nombres de las métricas los defines tú (Meta los cambia y no se suponen) |
+| Threads (nuevo) | `THREADS_ACCESS_TOKEN` (+ `THREADS_API_VERSION`, por defecto `v1.0`) | `threads-insights`: `threads.account.profile`, `threads.account.insights` | solo lectura de **tu propia** cuenta (permisos `threads_basic` + `threads_manage_insights`); sin publicar ni responder |
 
 ### Garantías
 - **Política de acciones sensibles** (`packages/orchestrator/src/sensitive-action-policy.ts`): tras planificar y antes de ejecutar, `asana.task.create`, `runway.image.create`, `runway.video.create` y `github.file.publish` quedan en riesgo alto, irreversibles y con aprobación obligatoria, aunque el planificador diga lo contrario. Además, sus nombres las hacen privilegiadas en el TaskRunner (autoridad autenticada) y las escrituras exigen clave de idempotencia.
@@ -66,6 +69,15 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 - Janus recibe el contenido como `files: {"index.html": "…", "css/site.css": "…"}` (y `binaryFiles` en base64 para imágenes), construye el ZIP él mismo y lo publica. **Modificar una web actual = volver a publicarla con los archivos corregidos.**
 - **POR CONFIRMAR (sin inventar):** las páginas públicas de la documentación no muestran el esquema del cuerpo de dos llamadas y el OpenAPI no se pudo descargar desde este entorno (host bloqueado). El adaptador envía `{username, domain}` a `upload-urls` y `{archive_path}` a `deploy`; si Hostinger responde 4xx, el mensaje de error vuelve tal cual y se corrige en dos constantes (`UPLOAD_URL_BODY`, `DEPLOY_BODY`). Tampoco se sabe si el despliegue **reemplaza** todo el sitio o extrae encima, ni si el ZIP queda dentro de `public_html`.
 - No cubre: WordPress, Node.js, bases de datos ni limpiar la caché (endpoint no verificado); la primera prueba debe hacerse en un subdominio de pruebas.
+
+### Cuentas de Jean: redes y buzones (2026-10-23)
+Detalle y estado real en `docs/founder-social-source-readiness.md`. Resumen:
+- **Datos personales fuera del repositorio público.** Buzones y el perfil personal viven en `config/founder-reference-library.local.json` (ignorado por git, se fusiona al cargar). Un registro con etiqueta `mail` guarda una **dirección**, no una URL; el resto de referencias sigue exigiendo HTTPS.
+- **Supervisión del Founder.** Lectura permitida; borradores solo con su aprobación; **enviar, borrar, archivar, etiquetar, reenviar y responder solas están desactivados** (serían otra capacidad, con su propia aprobación). Cada ámbito (personal / empresa / familia) está separado y solo el Founder los ve juntos.
+- **Menores.** Una cuenta con etiqueta `minor` es de solo lectura, sin borradores, y solo la ve el Founder.
+- **Dominios propios.** Solo `gmail.com`/`googlemail.com` se dan por Google. Un dominio propio queda en `needs_provider_confirmation` hasta que el Founder confirme si es Google Workspace (el correo por IMAP no está implementado).
+- **Hechos verificados contra documentación oficial (2026-10-23)** — Threads: host `graph.threads.com`, versión `v1.0`, `GET /me`, `GET /{id}/threads_insights`, tokens de 60 días renovables, los *insights* leen la cuenta autenticada. Instagram Platform: solo cuentas profesionales; *Standard Access* basta para cuentas propias. **INFERENCIA (no confirmada):** la API de Páginas gestiona Páginas, no perfiles personales; por eso un perfil personal de Facebook queda `manual_only`.
+- `npm run integrations:check` lista, buzón a buzón, qué nombre de variable falta (sin mostrar direcciones ni valores).
 
 ### Pendiente
 - ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.

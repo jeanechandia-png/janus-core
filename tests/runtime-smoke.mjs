@@ -26,6 +26,7 @@ const child = spawn(
       JANUS_DB: ':memory:',
       JANUS_TIME_ZONE: 'Europe/Amsterdam',
       GOOGLE_ACCESS_TOKEN: '',
+      THREADS_ACCESS_TOKEN: '',
       // Hermetic: never inherit a GitHub credential from the developer/CI shell.
       GITHUB_TOKEN: '',
       NETLIFY_AUTH_TOKEN: '',
@@ -83,6 +84,9 @@ try {
   );
   assert.equal(github?.state, 'available');
   assert.equal(google?.state, 'needs_auth');
+  const threadsActions = capabilities.filter((item) => item?.tool === 'threads-insights').map((item) => item.action).sort();
+  assert.deepEqual(threadsActions, ['threads.account.insights', 'threads.account.profile']);
+  assert.ok(capabilities.filter((item) => item?.tool === 'threads-insights').every((item) => item.state === 'needs_auth'));
 
   const localRunId = await startCommand(base, 'haz una tarea local sin herramienta');
   const localRun = await waitForRun(base, localRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
@@ -434,6 +438,29 @@ try {
     'x-janus-biometric-proof': delegationProof,
   });
   assert.equal(delegated.operator?.principal?.role, 'operator');
+
+  // Buzones del Founder: datos personales, solo con sesión de Founder + prueba biométrica, y solo lectura.
+  const mailAnonymous = await fetch(`${base}/api/founder/mail-accounts`);
+  assert.ok(mailAnonymous.status === 401 || mailAnonymous.status === 403, `mail-accounts sin sesión: ${mailAnonymous.status}`);
+  const mailWithoutFace = await fetch(`${base}/api/founder/mail-accounts`, { headers: { authorization: `Bearer ${founderToken}` } });
+  assert.equal(mailWithoutFace.status, 403);
+  assert.equal((await mailWithoutFace.json()).error, 'founder_biometric_required');
+  const mailProof = await founderBiometricProof(base, founderToken, 'founder.private.mail_accounts.read', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const mailResponse = await fetch(`${base}/api/founder/mail-accounts`, {
+    headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': mailProof },
+  });
+  assert.equal(mailResponse.status, 200);
+  const mailBody = await mailResponse.json();
+  assert.equal(mailBody.registry?.policy?.supervision, 'founder');
+  for (const key of ['sendAllowed', 'deleteAllowed', 'archiveOrLabelAllowed', 'forwardAllowed', 'autoReplyAllowed']) {
+    assert.equal(mailBody.registry.policy[key], false, key);
+  }
+  assert.equal(mailBody.registry.automaticExternalCalls, false);
+  assert.ok(Array.isArray(mailBody.registry.accounts));
+  assert.equal(mailBody.registry.plan.length, mailBody.registry.accounts.length);
+  // Hermético: sin credenciales, ningún buzón puede estar "ready", y la respuesta no lleva secretos.
+  assert.ok(mailBody.registry.plan.every((item) => item.readiness !== 'ready'));
+  assert.doesNotMatch(JSON.stringify(mailBody), /Bearer |access_token|refresh_token/i);
 
   const scopeBody = await postJson(base, '/api/coordination/scopes', {
     id: 'scope-smoke-shared',

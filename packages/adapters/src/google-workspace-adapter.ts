@@ -8,8 +8,16 @@ import type {
 export interface GoogleWorkspaceAdapterOptions {
   accessToken?: string;
   tokenProvider?: () => Promise<string>;
+  /**
+   * Multi-cuenta: si la petición trae `input.account`, el token sale de aquí. Solo valen cuentas de `allowedAccounts`
+   * (las que el Founder registró), nunca un nombre libre. Sin `account` se usa el comportamiento de siempre.
+   */
+  accountTokenProvider?: (accountId: string) => Promise<string | undefined>;
+  allowedAccounts?: ReadonlySet<string>;
   fetchImpl?: typeof fetch;
 }
+
+export const GOOGLE_ACCOUNT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -23,11 +31,15 @@ export class GoogleWorkspaceAdapter implements ToolAdapter {
 
   private readonly accessToken?: string;
   private readonly tokenProvider?: () => Promise<string>;
+  private readonly accountTokenProvider?: (accountId: string) => Promise<string | undefined>;
+  private readonly allowedAccounts?: ReadonlySet<string>;
   private readonly fetchImpl: typeof fetch;
 
   constructor(options: GoogleWorkspaceAdapterOptions = {}) {
     this.accessToken = options.accessToken;
     this.tokenProvider = options.tokenProvider;
+    this.accountTokenProvider = options.accountTokenProvider;
+    this.allowedAccounts = options.allowedAccounts;
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -41,7 +53,7 @@ export class GoogleWorkspaceAdapter implements ToolAdapter {
 
     let token: string;
     try {
-      token = await this.getAccessToken();
+      token = await this.getAccessToken(request.input.account);
     } catch (error) {
       return {
         ok: false,
@@ -79,7 +91,18 @@ export class GoogleWorkspaceAdapter implements ToolAdapter {
     }
   }
 
-  private async getAccessToken(): Promise<string> {
+  private async getAccessToken(account?: unknown): Promise<string> {
+    if (account !== undefined) {
+      const id = typeof account === 'string' ? account : '';
+      if (!GOOGLE_ACCOUNT_ID.test(id) || !this.allowedAccounts?.has(id) || !this.accountTokenProvider) {
+        throw new Error('Google Workspace account is not registered by the Founder.');
+      }
+      const accountToken = (await this.accountTokenProvider(id))?.trim();
+      if (!accountToken) {
+        throw new Error(`Google Workspace account "${id}" is not authenticated; authorise it through the secure credential provider.`);
+      }
+      return accountToken;
+    }
     const token = (this.tokenProvider ? await this.tokenProvider() : this.accessToken)?.trim();
     if (!token) {
       throw new Error('Google Workspace is not authenticated; provide an ephemeral access token through the secure credential provider.');

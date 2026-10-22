@@ -101,7 +101,7 @@ export function founderSocialIdentityBindingFromChronology(
 ): FounderSocialIdentityBinding | undefined {
   if (!record || !record.subject.startsWith('founder-social-binding:')) return undefined;
   const metadata = record.metadata ?? {};
-  const platform = metadata.platform === 'facebook' || metadata.platform === 'instagram'
+  const platform = metadata.platform === 'facebook' || metadata.platform === 'instagram' || metadata.platform === 'threads'
     ? metadata.platform
     : undefined;
   if (!platform) return undefined;
@@ -197,8 +197,12 @@ function evidenceReferenceList(value: unknown): string[] {
 
 function urlMatchesPlatform(value: string, platform: FounderSocialPlatform): boolean {
   const host = new URL(value).hostname.toLowerCase();
-  const expected = platform === 'facebook' ? 'facebook.com' : 'instagram.com';
-  return host === expected || host.endsWith('.' + expected);
+  const expected = platform === 'facebook'
+    ? ['facebook.com']
+    : platform === 'instagram'
+      ? ['instagram.com']
+      : ['threads.com', 'threads.net'];
+  return expected.some((domain) => host === domain || host.endsWith('.' + domain));
 }
 
 function containsCredentialLikeQuery(url: URL): boolean {

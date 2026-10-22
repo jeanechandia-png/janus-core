@@ -12,6 +12,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Cuentas sociales y buzones del Founder — seguimiento de solo lectura (2026-10-23, rama `claude/social-accounts-watch`)**:
+  - Threads como plataforma + adaptador de solo lectura; plan y vigilancia de métricas (`social-watch`) con alertas de caída/subida;
+  - registro de buzones con política de supervisión (lectura sí; borradores solo con aprobación; enviar/borrar/archivar/reenviar/responder solas, desactivado; menores solo lectura) y Google multi-cuenta, una credencial por buzón;
+  - datos personales en una capa local ignorada por git; el repositorio público no contiene ninguna dirección de correo;
+  - **no existe todavía** seguimiento continuo (sin planificador ni instantáneas en SQLite) y ninguna cuenta está conectada; faltan tokens y confirmaciones de Jean;
+  - detalle, límites y pendientes: `docs/handoffs/2026-10-23-social-accounts-mail-watch.md` y `docs/founder-social-source-readiness.md`.
+
 - **Motor de flujos inspirado en n8n + respuestas con citas (2026-10-23, rama `claude/flow-engine-n8n-parity`)**:
   - ejecución real de flujos (ramas, reintentos, ramas de error, aprobación y esperas reanudables, subflujos, desduplicación, tiempo máximo), código JS aislado, nodo HTTP/REST con endpoints autorizados por nombre, nodos de IA con el texto externo acotado como dato, catálogo de nodos/conectores honesto y 5 plantillas;
   - `cited-answer`: búsqueda → citas numeradas con enlaces → verificación automática;

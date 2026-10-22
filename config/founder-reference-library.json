@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-21T17:00:00.000Z",
+  "updatedAt": "2026-10-22T22:50:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -91,6 +91,61 @@
         "facebook",
         "founder-provided",
         "canonical-target-unresolved"
+      ]
+    },
+    {
+      "id": "social-facebook-share-1C3ja3pvM7",
+      "subject": "founder-reference:social:facebook:1C3ja3pvM7",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook — Infinity",
+      "value": "https://www.facebook.com/share/1C3ja3pvM7/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved",
+        "scope:business",
+        "label-by-founder",
+        "label-position-inferred"
+      ]
+    },
+    {
+      "id": "social-facebook-share-19dzeLqae4",
+      "subject": "founder-reference:social:facebook:19dzeLqae4",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook — La Tribuna",
+      "value": "https://www.facebook.com/share/19dzeLqae4/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved",
+        "scope:business",
+        "la-tribuna-virtual",
+        "label-by-founder",
+        "label-position-inferred",
+        "scope-inferred"
+      ]
+    },
+    {
+      "id": "social-threads-la-tribuna-virtual",
+      "subject": "founder-reference:social:threads:la-tribuna-virtual",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Threads — La Tribuna Virtual",
+      "value": "https://www.threads.com/@la_tribuna_virtual?igshid=NTc4MTIwNjQ2YQ==",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "threads",
+        "la-tribuna-virtual",
+        "founder-provided",
+        "scope:business",
+        "scope-inferred"
       ]
     },
     {

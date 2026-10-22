@@ -44,6 +44,7 @@ import {
 } from '../../packages/core/src/published-release.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
 import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
+import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
@@ -66,9 +67,12 @@ import { classifyExplicitContinuity } from '../../packages/core/src/continuity-c
 import {
   founderReferenceChronologyRecord,
   founderReferenceNeedsUpdate,
+  mergeFounderReferenceLibraries,
   parseFounderReferenceLibrary,
 } from '../../packages/core/src/founder-reference-library.js';
 import { buildFounderSocialSourceRegistry } from '../../packages/core/src/founder-social-sources.js';
+import { planSocialWatch } from '../../packages/core/src/social-watch.js';
+import { buildFounderMailAccountRegistry, planMailAccess } from '../../packages/core/src/founder-mail-accounts.js';
 import {
   founderSocialIdentityBindingChronologyRecord,
   founderSocialIdentityBindingFromChronology,
@@ -210,6 +214,10 @@ const root = fileURLToPath(new URL('../pwa/', import.meta.url));
 const founderReferenceLibraryPath = fileURLToPath(
   new URL('../../config/founder-reference-library.json', import.meta.url),
 );
+// Capa LOCAL (ignorada por git) con referencias personales del Founder; nunca se publica.
+const founderReferenceLocalOverlayPath = fileURLToPath(
+  new URL('../../config/founder-reference-library.local.json', import.meta.url),
+);
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
@@ -220,6 +228,26 @@ const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
+
+// Buzones del Founder (capa LOCAL de la biblioteca de referencias). Un fallo al leerla no debe tumbar el runtime.
+const founderMailRegistry = (() => {
+  try {
+    if (!existsSync(founderReferenceLibraryPath)) return null;
+    return buildFounderMailAccountRegistry(loadFounderReferenceLibrary());
+  } catch (error) {
+    console.warn(`Founder mail accounts unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+})();
+const mailAccounts = founderMailRegistry?.accounts ?? [];
+const envSuffix = (accountId: string) => accountId.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+// Una credencial por buzón: GOOGLE_ACCESS_TOKEN__<ID> (lectura) y GOOGLE_WRITE_ACCESS_TOKEN__<ID> (borradores).
+const mailServiceVariables: Record<string, string> = Object.fromEntries(
+  mailAccounts.flatMap((account) => [
+    [`google-workspace:${account.accountId}`, `GOOGLE_ACCESS_TOKEN__${envSuffix(account.accountId)}`],
+    [`google-workspace-write:${account.accountId}`, `GOOGLE_WRITE_ACCESS_TOKEN__${envSuffix(account.accountId)}`],
+  ]),
+);
 
 // Endpoints HTTP que el Founder autoriza por nombre (JANUS_HTTP_ENDPOINTS). Cada credencial viaja en
 // JANUS_HTTP_TOKEN_<SERVICIO>; nunca en el JSON de endpoints ni en SQLite.
@@ -246,6 +274,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     perplexity: 'PERPLEXITY_API_KEY',
     kling: 'KLING_API_KEY',
     n8n: 'N8N_API_KEY',
+    threads: 'THREADS_ACCESS_TOKEN',
     'google-workspace-write': 'GOOGLE_WRITE_ACCESS_TOKEN',
     'netlify-release': 'NETLIFY_RELEASE_TOKEN',
     supabase: 'SUPABASE_ACCESS_TOKEN',
@@ -254,6 +283,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
     ...httpServiceVariables,
+    ...mailServiceVariables,
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -390,8 +420,16 @@ toolGateway.register(new HttpRequestAdapter({
 }));
 toolGateway.register(new GoogleWorkspaceWriteAdapter({
   tokenProvider: () => credentialBroker.accessToken('google-workspace-write', ['gmail.compose', 'calendar.events']),
+  accountTokenProvider: (accountId) => credentialBroker.accessToken(`google-workspace-write:${accountId}`, ['gmail.compose', 'calendar.events']),
+  allowedAccounts: new Set(mailAccounts.filter((account) => !account.minor).map((account) => account.accountId)),
 }));
 toolGateway.register(new GoogleWorkspaceAdapter({
+  accountTokenProvider: (accountId) => credentialBroker.accessToken(`google-workspace:${accountId}`, [
+    'drive.metadata.readonly',
+    'gmail.readonly',
+    'calendar.events.readonly',
+  ]),
+  allowedAccounts: new Set(mailAccounts.map((account) => account.accountId)),
   tokenProvider: async () => (
     await credentialBroker.accessToken('google-workspace', [
       'drive.metadata.readonly',
@@ -407,6 +445,10 @@ if (metaGraphApiVersion) {
     tokenProvider: () => credentialBroker.accessToken('meta'),
   }));
 }
+toolGateway.register(new ThreadsInsightsAdapter({
+  tokenProvider: () => credentialBroker.accessToken('threads'),
+  ...(process.env.THREADS_API_VERSION?.trim() ? { apiVersion: process.env.THREADS_API_VERSION.trim() } : {}),
+}));
 toolGateway.register(new YouTubeInsightsAdapter({
   tokenProvider: () => credentialBroker.accessToken('youtube'),
 }));
@@ -626,6 +668,7 @@ capabilities.register({
   ...(!googleWriteConfigured ? { reason: 'Escribir en Google (borradores de Gmail, eventos de Calendar) necesita un token aparte con permisos gmail.compose y calendar.events.' } : {}),
 });
 const metaTokenConfigured = environmentCredentials.configured('meta');
+const threadsTokenConfigured = environmentCredentials.configured('threads');
 const youtubeConfigured = environmentCredentials.configured('youtube');
 capabilities.register({
   tool: 'github',
@@ -659,6 +702,12 @@ capabilities.register({
     : !metaTokenConfigured
       ? { reason: 'Meta necesita autorización antes de consultar insights.' }
       : {}),
+});
+capabilities.register({
+  tool: 'threads-insights',
+  actions: ['threads.account.profile', 'threads.account.insights'],
+  state: threadsTokenConfigured ? 'available' : 'needs_auth',
+  ...(!threadsTokenConfigured ? { reason: 'Threads necesita un token (THREADS_ACCESS_TOKEN) con permisos threads_basic y threads_manage_insights; solo lectura.' } : {}),
 });
 capabilities.register({
   tool: 'youtube-insights',
@@ -770,10 +819,16 @@ function continuitySnapshot(projectId?: string) {
   );
 }
 
+function loadFounderReferenceLibrary() {
+  const base = parseFounderReferenceLibrary(JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown);
+  if (!existsSync(founderReferenceLocalOverlayPath)) return base;
+  const overlay = parseFounderReferenceLibrary(JSON.parse(readFileSync(founderReferenceLocalOverlayPath, 'utf8')) as unknown);
+  return mergeFounderReferenceLibraries(base, overlay);
+}
+
 function ensureFounderReferenceLibrary(): void {
   if (!existsSync(founderReferenceLibraryPath)) return;
-  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
-  const library = parseFounderReferenceLibrary(raw);
+  const library = loadFounderReferenceLibrary();
   const current = continuitySnapshot().currentBySubject;
 
   for (const seed of library.records) {
@@ -814,8 +869,7 @@ function founderSocialSourceSnapshot() {
   if (!existsSync(founderReferenceLibraryPath)) {
     throw new HttpRequestError(503, 'Founder reference library is unavailable');
   }
-  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
-  const library = parseFounderReferenceLibrary(raw);
+  const library = loadFounderReferenceLibrary();
   const registry = buildFounderSocialSourceRegistry(library);
   const current = continuitySnapshot().currentBySubject;
   const bindings = Object.values(current).flatMap((record) => {
@@ -834,10 +888,17 @@ function founderSocialSourceSnapshot() {
     };
   });
 
+  const watchPlan = planSocialWatch(sources, {
+    adapters: new Set([...(metaGraphApiVersion ? ['meta-insights'] : []), 'threads-insights']),
+    credentials: { meta: metaTokenConfigured, threads: threadsTokenConfigured },
+  });
+
   return {
     ...registry,
     sources,
     bindings,
+    // Plan de seguimiento: puro, sin llamadas externas. Dice qué se puede leer ya y qué falta por cuenta.
+    watchPlan,
     metaRuntime: {
       mode: 'read_only' as const,
       graphApiVersion: metaGraphApiVersion ?? null,
@@ -857,6 +918,19 @@ function founderSocialSourceSnapshot() {
         (source) => !source.currentBinding?.graphEntityId,
       ),
     },
+  };
+}
+
+function founderMailAccountSnapshot() {
+  const registry = founderMailRegistry ?? { schemaVersion: 1 as const, ownerPrincipalId: 'founder', sourceUpdatedAt: new Date(0).toISOString(), policy: buildFounderMailAccountRegistry({ schemaVersion: 1, ownerPrincipalId: 'founder', updatedAt: new Date(0).toISOString(), records: [] }).policy, accounts: [] };
+  return {
+    ...registry,
+    // Plan puro: sin llamadas externas. Dice qué buzón puede leerse ya y qué falta en cada uno.
+    plan: planMailAccess(registry.accounts, {
+      adapters: new Set(['google-workspace']),
+      hasCredential: (accountId) => environmentCredentials.configured(`google-workspace:${accountId}`),
+    }),
+    automaticExternalCalls: false,
   };
 }
 
@@ -4141,6 +4215,21 @@ const server = createServer(async (request, response) => {
         ok: true,
         references: founderReferenceSnapshot(),
       });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/founder/mail-accounts') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.mail_accounts.read');
+      json(response, 200, { ok: true, registry: founderMailAccountSnapshot() });
     } catch (error) {
       const status = error instanceof HttpRequestError
         || error instanceof AuthorityAuthenticationError

@@ -12,6 +12,9 @@ import { isRecord, requestJson } from './http-json.js';
 export interface GoogleWorkspaceWriteAdapterOptions {
   tokenProvider?: () => Promise<string | undefined>;
   token?: string;
+  /** Multi-cuenta (ver el adaptador de lectura): `input.account` debe estar en `allowedAccounts`. */
+  accountTokenProvider?: (accountId: string) => Promise<string | undefined>;
+  allowedAccounts?: ReadonlySet<string>;
   fetchImpl?: typeof fetch;
 }
 
@@ -53,7 +56,17 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
 
   async execute(request: ToolRequest, onProgress: (progress: ToolProgress) => void | Promise<void>): Promise<ToolResult> {
     if (!this.capabilities.includes(request.action)) return { ok: false, error: `Unsupported Google Workspace write action: ${request.action}` };
-    const token = (this.options.tokenProvider ? await this.options.tokenProvider() : this.options.token)?.trim();
+    let token: string | undefined;
+    if (request.input.account !== undefined) {
+      const id = typeof request.input.account === 'string' ? request.input.account : '';
+      if (!/^[a-z0-9][a-z0-9-]{0,39}$/.test(id) || !this.options.allowedAccounts?.has(id) || !this.options.accountTokenProvider) {
+        return { ok: false, error: 'Google Workspace account is not registered for writing by the Founder (accounts of minors are read-only).' };
+      }
+      token = (await this.options.accountTokenProvider(id))?.trim();
+      if (!token) return { ok: false, error: `Google Workspace account "${id}" is not authenticated for writing; authorise it with gmail.compose / calendar.events scopes.` };
+    } else {
+      token = (this.options.tokenProvider ? await this.options.tokenProvider() : this.options.token)?.trim();
+    }
     if (!token) return { ok: false, error: 'Google Workspace write access is not authenticated; provide a token with gmail.compose / calendar.events scopes.' };
     const headers = { authorization: `Bearer ${token}` };
     const input = request.input;

@@ -3,7 +3,10 @@ import type {
   FounderReferenceSeed,
 } from './founder-reference-library.js';
 
-export type FounderSocialPlatform = 'facebook' | 'instagram';
+export type FounderSocialPlatform = 'facebook' | 'instagram' | 'threads';
+
+/** Ámbito (personal/familiar vs laboral): se declara con las etiquetas `scope:personal` / `scope:business`; sin etiqueta queda `unknown`. */
+export type FounderSocialScope = 'personal' | 'business' | 'unknown';
 
 export type FounderSocialBindingState =
   | 'canonical_target_unresolved'
@@ -15,6 +18,9 @@ export interface FounderSocialSource {
   platform: FounderSocialPlatform;
   label: string;
   sourceUrl: string;
+  /** Misma URL sin parámetros de seguimiento (mibextid, igshid, stkn, psln, utm_*…). Solo para mostrar y comparar; `sourceUrl` se conserva exacta. */
+  cleanUrl: string;
+  scope: FounderSocialScope;
   classification: FounderReferenceSeed['classification'];
   retention: FounderReferenceSeed['retention'];
   tags: string[];
@@ -66,10 +72,28 @@ export function buildFounderSocialSourceRegistry(
   };
 }
 
+const TRACKING_PARAMS = /^(mibextid|igshid|igsh|stkn|psln|obrf|fbclid|ref|ref_src|utm_[a-z]+)$/i;
+
+export function cleanSocialUrl(value: string): string {
+  const url = new URL(value);
+  for (const key of [...url.searchParams.keys()]) {
+    if (TRACKING_PARAMS.test(key)) url.searchParams.delete(key);
+  }
+  url.hash = '';
+  return url.toString();
+}
+
+function scopeOf(tags: readonly string[]): FounderSocialScope {
+  if (tags.includes('scope:personal')) return 'personal';
+  if (tags.includes('scope:business')) return 'business';
+  return 'unknown';
+}
+
 function socialSource(seed: FounderReferenceSeed): FounderSocialSource | null {
   const url = new URL(seed.value);
   const host = url.hostname.toLowerCase().replace(/^www\./, '');
   const tags = seed.tags ?? [];
+  const common = { cleanUrl: cleanSocialUrl(seed.value), scope: scopeOf(tags) };
 
   if (host === 'instagram.com') {
     const publicHandle = url.pathname.split('/').filter(Boolean)[0];
@@ -80,6 +104,7 @@ function socialSource(seed: FounderReferenceSeed): FounderSocialSource | null {
       platform: 'instagram',
       label: seed.label,
       sourceUrl: seed.value,
+      ...common,
       classification: seed.classification,
       retention: seed.retention,
       tags,
@@ -88,6 +113,27 @@ function socialSource(seed: FounderReferenceSeed): FounderSocialSource | null {
       graphEntityId: null,
       bindingState: 'graph_entity_unbound',
       permittedReadActions: ['instagram.account.insights'],
+    };
+  }
+
+  if (host === 'threads.com' || host === 'threads.net') {
+    const handleSegment = url.pathname.split('/').filter(Boolean)[0];
+    if (!handleSegment?.startsWith('@') || handleSegment.length < 2) return null;
+    return {
+      referenceId: seed.id,
+      subject: seed.subject,
+      platform: 'threads',
+      label: seed.label,
+      sourceUrl: seed.value,
+      ...common,
+      classification: seed.classification,
+      retention: seed.retention,
+      tags,
+      publicHandle: handleSegment.slice(1),
+      canonicalTarget: null,
+      graphEntityId: null,
+      bindingState: 'graph_entity_unbound',
+      permittedReadActions: ['threads.account.profile', 'threads.account.insights'],
     };
   }
 
@@ -101,6 +147,7 @@ function socialSource(seed: FounderReferenceSeed): FounderSocialSource | null {
       platform: 'facebook',
       label: seed.label,
       sourceUrl: seed.value,
+      ...common,
       classification: seed.classification,
       retention: seed.retention,
       tags,
