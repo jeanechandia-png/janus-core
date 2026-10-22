@@ -1468,6 +1468,17 @@ export class SqliteStore {
     );
   }
 
+  /** Última instantánea de un canal con ese origen (p. ej. `social-watch`), para comparar con la lectura nueva. */
+  latestSocialChannelSnapshot(platform: string, channelId: string, source: string): SocialChannelSnapshot | undefined {
+    const row = this.db.prepare(`
+      SELECT snapshot_json FROM social_channel_snapshots
+      WHERE platform = ? AND channel_id = ? AND json_extract(snapshot_json, '$.source') = ?
+      ORDER BY verified_at DESC, id DESC
+      LIMIT 1
+    `).get(platform, channelId, source) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.snapshot_json)) as SocialChannelSnapshot : undefined;
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`

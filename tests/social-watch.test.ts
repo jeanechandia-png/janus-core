@@ -111,16 +111,16 @@ test('registro: Threads se reconoce, el ámbito sale de las etiquetas y la URL l
 
 test('el repositorio público NO contiene la referencia personal; la capa local la añade sin colisiones', () => {
   const publicRaw = readFileSync(new URL('../config/founder-reference-library.json', import.meta.url), 'utf8');
-  assert.equal(publicRaw.includes('1FEMENbNiD'), false);
+  assert.equal(JSON.parse(publicRaw).records.some((r: { tags?: string[] }) => (r.tags ?? []).includes('account:jean-personal') && (r.tags ?? []).includes('facebook')), false, 'el Facebook personal vive solo en la capa local');
 
   const base = parseFounderReferenceLibrary(JSON.parse(publicRaw));
   const overlay = parseFounderReferenceLibrary({
     schemaVersion: 1, ownerPrincipalId: base.ownerPrincipalId, updatedAt: '2026-10-23T00:00:00.000Z',
-    records: [{ id: 'social-facebook-share-1FEMENbNiD', subject: 'founder-reference:social:facebook:1FEMENbNiD', kind: 'reference', classification: 'current', label: 'Facebook — personal del Founder', value: 'https://www.facebook.com/share/1FEMENbNiD/?mibextid=wwXIfr', retention: 'preserve', tags: ['social', 'facebook', 'scope:personal'] }],
+    records: [{ id: 'social-facebook-share-personal-demo', subject: 'founder-reference:social:facebook:personal-demo', kind: 'reference', classification: 'current', label: 'Facebook — personal del Founder', value: 'https://www.facebook.com/share/1AbCdEf234/?mibextid=wwXIfr', retention: 'preserve', tags: ['social', 'facebook', 'scope:personal'] }],
   });
   const merged = mergeFounderReferenceLibraries(base, overlay);
   assert.equal(merged.records.length, base.records.length + 1);
-  const personal = buildFounderSocialSourceRegistry(merged).sources.find((s) => s.shareToken === '1FEMENbNiD')!;
+  const personal = buildFounderSocialSourceRegistry(merged).sources.find((s) => s.shareToken === '1AbCdEf234')!;
   assert.equal(personal.scope, 'personal');
 
   assert.throws(() => mergeFounderReferenceLibraries(base, { ...overlay, ownerPrincipalId: 'otro' }), /different owner/);

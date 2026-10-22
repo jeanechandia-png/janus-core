@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-10-13
+Fecha: 2026-10-23
 
 ## AHORA
 
@@ -12,12 +12,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
-- **Cuentas sociales y buzones del Founder — seguimiento de solo lectura (2026-10-23, rama `claude/social-accounts-watch`)**:
-  - Threads como plataforma + adaptador de solo lectura; plan y vigilancia de métricas (`social-watch`) con alertas de caída/subida;
-  - registro de buzones con política de supervisión (lectura sí; borradores solo con aprobación; enviar/borrar/archivar/reenviar/responder solas, desactivado; menores solo lectura) y Google multi-cuenta, una credencial por buzón;
-  - datos personales en una capa local ignorada por git; el repositorio público no contiene ninguna dirección de correo;
-  - **no existe todavía** seguimiento continuo (sin planificador ni instantáneas en SQLite) y ninguna cuenta está conectada; faltan tokens y confirmaciones de Jean;
-  - detalle, límites y pendientes: `docs/handoffs/2026-10-23-social-accounts-mail-watch.md` y `docs/founder-social-source-readiness.md`.
+- **Cuentas, buzones y teléfono del Founder — lectura, redacción y envío con confirmación (2026-10-23, rama `claude/social-accounts-watch`, PR #47)**:
+  - correo: leer, redactar, corregir y **enviar bajo instrucción del Founder con su confirmación en cada envío** (el envío relee el borrador y se niega si destinatarios/asunto difieren de lo aprobado); nada autónomo (sin respuestas automáticas, borrar, archivar ni reenviar); cuenta de menor solo lectura salvo `guardian-managed`;
+  - almacén cifrado de credenciales (AES-256-GCM) + consentimiento de Google por buzón (PKCE, cuenta verificada, lectura y escritura separadas, renovación automática); token de Threads renovable;
+  - teléfono/WhatsApp: registro, política, plan por rutas y enlaces de un toque (WhatsApp/SMS/llamada); API oficial, voz y SMS **no existen todavía** (requieren número dedicado y gasto); clientes no oficiales de WhatsApp rechazados;
+  - vigilancia periódica de redes opt-in (fotos en SQLite, alertas de caída/subida), agrupación de enlaces por cuenta;
+  - datos personales en una capa local ignorada por git; escaneo de privacidad local; **nada probado contra las API reales**; 467/467 pruebas + humo del runtime;
+  - detalle, límites, lecciones y bloqueos: `docs/handoffs/2026-10-23-vault-oauth-phone-watch.md` (y el anterior, histórico) y `docs/founder-social-source-readiness.md`.
 
 - **Motor de flujos inspirado en n8n + respuestas con citas (2026-10-23, rama `claude/flow-engine-n8n-parity`)**:
   - ejecución real de flujos (ramas, reintentos, ramas de error, aprobación y esperas reanudables, subflujos, desduplicación, tiempo máximo), código JS aislado, nodo HTTP/REST con endpoints autorizados por nombre, nodos de IA con el texto externo acotado como dato, catálogo de nodos/conectores honesto y 5 plantillas;

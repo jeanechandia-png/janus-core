@@ -37,6 +37,9 @@ const groups = [
   ['Threads (métricas, solo lectura)', ['THREADS_ACCESS_TOKEN'], ['THREADS_API_VERSION']],
   ['Peticiones HTTP/REST autorizadas', ['JANUS_HTTP_ENDPOINTS'], []],
   ['Founder (inicio de sesión)', ['JANUS_FOUNDER_PUBLIC_KEY_PEM'], []],
+  ['Almacén cifrado de credenciales', ['JANUS_CREDENTIAL_VAULT_KEY'], ['JANUS_CREDENTIAL_VAULT_PATH']],
+  ['Consentimiento de Google por buzón', ['JANUS_CREDENTIAL_VAULT_KEY', 'GOOGLE_OAUTH_CLIENT_ID'], ['GOOGLE_OAUTH_CLIENT_SECRET', 'JANUS_OAUTH_REDIRECT_BASE']],
+  ['Seguimiento periódico de redes', ['JANUS_SOCIAL_WATCH_INTERVAL_MIN'], []],
 ];
 
 const problems = [];
@@ -59,6 +62,20 @@ if (has('JANUS_HTTP_ENDPOINTS')) {
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !Object.values(parsed).every((e) => e && typeof e.baseUrl === 'string' && e.baseUrl.startsWith('https://'))) problems.push('JANUS_HTTP_ENDPOINTS debe ser {"nombre":{"baseUrl":"https://…"}}');
   } catch { problems.push('JANUS_HTTP_ENDPOINTS no es JSON válido'); }
 }
+if (has('JANUS_CREDENTIAL_VAULT_KEY')) {
+  const raw = process.env.JANUS_CREDENTIAL_VAULT_KEY.trim();
+  const bytes = /^[0-9a-fA-F]{64}$/.test(raw) ? 32 : /^[A-Za-z0-9+/_-]+={0,2}$/.test(raw) ? Buffer.from(raw.replace(/-/g, '+').replace(/_/g, '/'), 'base64').length : 0;
+  if (bytes !== 32) problems.push('JANUS_CREDENTIAL_VAULT_KEY debe ser de exactamente 32 bytes (base64 o hex): openssl rand -base64 32');
+}
+if (has('GOOGLE_OAUTH_CLIENT_ID') && !has('JANUS_CREDENTIAL_VAULT_KEY')) problems.push('GOOGLE_OAUTH_CLIENT_ID necesita JANUS_CREDENTIAL_VAULT_KEY: sin almacén cifrado Janus no guarda el consentimiento.');
+if (has('JANUS_OAUTH_REDIRECT_BASE')) {
+  try {
+    const base = new URL(process.env.JANUS_OAUTH_REDIRECT_BASE.trim());
+    const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname);
+    if (base.protocol !== 'https:' && !(base.protocol === 'http:' && loopback)) problems.push('JANUS_OAUTH_REDIRECT_BASE debe ser https (o http en 127.0.0.1)');
+  } catch { problems.push('JANUS_OAUTH_REDIRECT_BASE no es una URL válida'); }
+}
+if (has('JANUS_SOCIAL_WATCH_INTERVAL_MIN') && !(Number(process.env.JANUS_SOCIAL_WATCH_INTERVAL_MIN) > 0)) problems.push('JANUS_SOCIAL_WATCH_INTERVAL_MIN debe ser un número de minutos mayor que 0 (mínimo efectivo 15)');
 if (has('THREADS_API_VERSION') && !/^v\d+\.\d+$/.test(process.env.THREADS_API_VERSION.trim())) problems.push('THREADS_API_VERSION debe tener la forma v1.0');
 if (has('JANUS_FOUNDER_PUBLIC_KEY_PEM') && !/-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM)) problems.push('JANUS_FOUNDER_PUBLIC_KEY_PEM no parece una llave pública PEM');
 if (/PRIVATE KEY/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM ?? '')) problems.push('¡JANUS_FOUNDER_PUBLIC_KEY_PEM contiene una llave PRIVADA! Bórrala: solo va la pública.');
@@ -88,16 +105,17 @@ if (existsSync(overlayPath)) {
       if (!address || seen.has(address)) continue; // el mismo buzón dado dos veces es uno solo
       seen.add(address);
       const domain = address.slice(address.indexOf('@') + 1);
-      mailboxes.push({ id: String(record.id), minor: record.tags.includes('minor'), google: domain === 'gmail.com' || domain === 'googlemail.com' });
+      mailboxes.push({ id: String(record.id), minor: record.tags.includes('minor') && !record.tags.includes('guardian-managed'), google: domain === 'gmail.com' || domain === 'googlemail.com' });
     }
     if (mailboxes.length) {
       console.log(`\nBuzones del Founder (${mailboxes.length}):`);
+      console.log('(Estas variables son el puente de desarrollo. Con el almacén cifrado y el consentimiento de Google no hace falta ninguna.)');
       for (const box of mailboxes) {
         const suffix = box.id.toUpperCase().replace(/[^A-Z0-9]/g, '_');
         const read = `GOOGLE_ACCESS_TOKEN__${suffix}`;
         const write = `GOOGLE_WRITE_ACCESS_TOKEN__${suffix}`;
-        const note = (box.minor ? ' [menor: solo lectura, sin borradores]' : '') + (box.google ? '' : ' [proveedor sin confirmar: ¿Google Workspace? Si no lo es, estas credenciales no aplican]');
-        console.log(`${has(read) ? '✅' : '⬜'} ${box.id} — lectura${has(read) ? '' : ' (falta: ' + read + ')'}${box.minor ? '' : `; borradores ${has(write) ? 'listos' : '(falta: ' + write + ')'}`}${note}`);
+        const note = (box.minor ? ' [menor sin guardian-managed: solo lectura]' : '') + (box.google ? '' : ' [proveedor sin confirmar: ¿Google Workspace? Si no lo es, estas credenciales no aplican]');
+        console.log(`${has(read) ? '✅' : '⬜'} ${box.id} — lectura${has(read) ? '' : ' (falta: ' + read + ')'}${box.minor ? '' : `; redactar/enviar ${has(write) ? 'listos' : '(falta: ' + write + ')'}`}${note}`);
       }
     }
   } catch {

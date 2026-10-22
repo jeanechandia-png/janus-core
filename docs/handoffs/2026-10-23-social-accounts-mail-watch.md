@@ -1,5 +1,7 @@
 # Handoff — Cuentas sociales y buzones del Founder: seguimiento de solo lectura (2026-10-23)
 
+> **Actualización (misma fecha, segunda pasada):** la política de este documento ("lectura + borradores; enviar desactivado") fue **superada** por las decisiones de Jean; ver `2026-10-23-vault-oauth-phone-watch.md`. Esta versión se conserva como histórico. Corrección: la prueba de fugas cubre solo algunos archivos, y `START_HERE.md` (publicado el 2026-10-21) ya contiene la dirección personal de Jean; el detalle está en el segundo handoff.
+
 Rama: `claude/social-accounts-watch` (apilada sobre `claude/flow-engine-n8n-parity`, PR #46). No se toca `apps/pwa`.
 
 ## AHORA
@@ -8,7 +10,7 @@ Jean entregó (00:41) sus cuentas de Facebook, Instagram y Threads, y (00:49) ci
 Lo que esto significa hoy (decisión de diseño, no una limitación accidental): **lectura + borradores aprobados**. Publicar, responder, enviar, borrar, archivar o reenviar queda desactivado y sería otra capacidad con aprobación por acción. Es decisión de Jean ampliarlo.
 
 ## HECHO (verificado: `tsc` limpio, 428/428 pruebas, `tests/runtime-smoke.mjs` ok)
-- **Datos personales fuera del repo público.** Capa local `config/founder-reference-library.local.json` (ignorada por git) fusionada al cargar con `mergeFounderReferenceLibraries`. Contiene el perfil personal de Facebook y los 4 buzones únicos. Una prueba verifica que ninguna dirección de correo del Founder aparece en archivos versionados.
+- **Datos personales fuera del repo público.** Capa local `config/founder-reference-library.local.json` (ignorada por git) fusionada al cargar con `mergeFounderReferenceLibraries`. Contiene el perfil personal de Facebook y los 4 buzones únicos. Una prueba verifica que no hay direcciones reales en la configuración, `.env.example` y estos documentos (alcance limitado: ver la actualización arriba).
 - **Threads** añadido como plataforma (registro, vinculación, validación) + `ThreadsInsightsAdapter` de solo lectura. Hechos de API verificados contra documentación oficial (ver `docs/founder-social-source-readiness.md`).
 - **Plan y vigilancia** `packages/core/src/social-watch.ts`: `planSocialWatch` (qué se puede leer ya y qué falta, cuenta por cuenta, sin llamar a nadie), `flattenInsights`, `diffMetrics`, `runSocialWatch`. `tests/social-watch.test.ts` (12).
 - **Buzones** `packages/core/src/founder-mail-accounts.ts`: normaliza, colapsa duplicados, ámbito por etiqueta, `minor`, proveedor `google` solo para Gmail; política de supervisión; `planMailAccess`.

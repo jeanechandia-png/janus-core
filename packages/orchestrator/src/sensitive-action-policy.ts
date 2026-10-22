@@ -21,6 +21,15 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'http.request.send': 'Envía datos a un sistema externo por HTTP (POST/PUT/PATCH/DELETE; escritura externa).',
   'google-workspace-write.gmail.draft.create': 'Crea un borrador en Gmail (escritura en tu correo; no se envía).',
   'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',
+  'google-workspace-write.gmail.draft.update': 'Corrige un borrador de Gmail (escritura en tu correo; no se envía).',
+  'google-workspace-write.gmail.draft.send': 'ENVÍA un correo desde tu cuenta (irreversible: el destinatario lo recibe).',
+  // Reservadas para canales por venir. Ningún adaptador las implementa todavía, pero nacen con aprobación obligatoria:
+  // el día que exista uno, ni un planificador ni un flujo podrán ejecutarlas sin la confirmación del Founder.
+  'whatsapp.message.send': 'ENVÍA un mensaje de WhatsApp en tu nombre (irreversible: el destinatario lo recibe).',
+  'whatsapp.template.send': 'ENVÍA una plantilla de WhatsApp en tu nombre (irreversible; puede tener coste por mensaje).',
+  'sms.message.send': 'ENVÍA un SMS en tu nombre (irreversible; puede tener coste).',
+  'phone.call.place': 'REALIZA una llamada telefónica en tu nombre (coste y efecto inmediato sobre un tercero).',
+  'phone.call.answer.profile.activate': 'Activa un perfil para que Janus conteste llamadas en tu nombre (se identifica como asistente de IA).',
 });
 
 export interface SensitiveActionReport {

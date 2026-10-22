@@ -21,6 +21,11 @@ export interface FounderSocialSource {
   /** Misma URL sin parámetros de seguimiento (mibextid, igshid, stkn, psln, utm_*…). Solo para mostrar y comparar; `sourceUrl` se conserva exacta. */
   cleanUrl: string;
   scope: FounderSocialScope;
+  /**
+   * Cuenta (persona u organización) a la que el Founder asignó este enlace: etiqueta `account:<id>`.
+   * Varios enlaces de una misma cuenta (otra plataforma, otro enlace compartido) se suman, no se cuentan por separado.
+   */
+  accountGroup?: string;
   classification: FounderReferenceSeed['classification'];
   retention: FounderReferenceSeed['retention'];
   tags: string[];
@@ -89,11 +94,63 @@ function scopeOf(tags: readonly string[]): FounderSocialScope {
   return 'unknown';
 }
 
+const ACCOUNT_GROUP = /^account:([a-z0-9][a-z0-9-]{0,39})$/;
+
+function accountOf(tags: readonly string[]): string | undefined {
+  for (const tag of tags) {
+    const match = ACCOUNT_GROUP.exec(tag);
+    if (match) return match[1];
+  }
+  return undefined;
+}
+
+export interface FounderSocialAccountGroup {
+  accountId: string;
+  /** Ámbito si todos los enlaces del grupo coinciden; `unknown` si alguno no lo declara o hay desacuerdo. */
+  scope: FounderSocialScope;
+  platforms: FounderSocialPlatform[];
+  referenceIds: string[];
+  /** Enlaces de Facebook del grupo: pueden ser varios compartidos de la misma Página; se vinculan una sola vez. */
+  facebookLinks: number;
+}
+
+/**
+ * Suma los enlaces por cuenta. Los enlaces sin etiqueta `account:` no se agrupan (siguen sueltos hasta que se resuelvan).
+ */
+export function groupFounderSocialAccounts(sources: readonly FounderSocialSource[]): {
+  accounts: FounderSocialAccountGroup[];
+  ungrouped: string[];
+} {
+  const byAccount = new Map<string, FounderSocialSource[]>();
+  const ungrouped: string[] = [];
+  for (const source of sources) {
+    if (!source.accountGroup) {
+      ungrouped.push(source.referenceId);
+      continue;
+    }
+    byAccount.set(source.accountGroup, [...(byAccount.get(source.accountGroup) ?? []), source]);
+  }
+  const accounts = [...byAccount.entries()]
+    .map(([accountId, members]): FounderSocialAccountGroup => {
+      const scopes = new Set(members.map((member) => member.scope));
+      return {
+        accountId,
+        scope: scopes.size === 1 ? [...scopes][0]! : 'unknown',
+        platforms: [...new Set(members.map((member) => member.platform))].sort(),
+        referenceIds: members.map((member) => member.referenceId),
+        facebookLinks: members.filter((member) => member.platform === 'facebook').length,
+      };
+    })
+    .sort((a, b) => a.accountId.localeCompare(b.accountId));
+  return { accounts, ungrouped };
+}
+
 function socialSource(seed: FounderReferenceSeed): FounderSocialSource | null {
   const url = new URL(seed.value);
   const host = url.hostname.toLowerCase().replace(/^www\./, '');
   const tags = seed.tags ?? [];
-  const common = { cleanUrl: cleanSocialUrl(seed.value), scope: scopeOf(tags) };
+  const group = accountOf(tags);
+  const common = { cleanUrl: cleanSocialUrl(seed.value), scope: scopeOf(tags), ...(group ? { accountGroup: group } : {}) };
 
   if (host === 'instagram.com') {
     const publicHandle = url.pathname.split('/').filter(Boolean)[0];

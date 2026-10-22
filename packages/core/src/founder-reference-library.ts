@@ -148,6 +148,9 @@ function validateSeed(value: unknown): FounderReferenceSeed {
     if (isMailboxTagged(tags)) {
       // Un buzón no es una URL: se guarda la dirección tal cual. Se valida su forma, nada más.
       if (!MAILBOX_ADDRESS.test(rawValue)) throw new Error(`Founder reference ${id} must contain a valid mail address`);
+    } else if (isPhoneTagged(tags)) {
+      // Un teléfono tampoco es una URL: formato internacional E.164 (+ prefijo de país + número).
+      if (!PHONE_E164.test(rawValue)) throw new Error(`Founder reference ${id} must contain a phone number in E.164 format (+<country><number>)`);
     } else {
       let parsed: URL;
       try {
@@ -180,8 +183,15 @@ function referenceInstruction(seed: FounderReferenceSeed): string {
   if (isMailboxTagged(seed.tags)) {
     return (
       `VIGENTE Founder mailbox — ${seed.label}: ${seed.value}. `
-      + 'Acceso solo bajo supervisión del Founder: lectura permitida; borradores solo con su aprobación; '
-      + 'sin enviar, borrar, archivar, reenviar ni responder de forma automática.'
+      + 'Acceso bajo supervisión del Founder: lectura permitida; redactar, corregir y enviar solo por instrucción suya '
+      + 'y con su confirmación en cada envío; sin borrar, archivar, reenviar ni responder de forma automática.'
+    );
+  }
+  if (isPhoneTagged(seed.tags)) {
+    return (
+      `VIGENTE Founder phone — ${seed.label}: ${seed.value}. `
+      + 'Llamadas, SMS y WhatsApp solo por instrucción del Founder y con su confirmación en cada envío o llamada; '
+      + 'Janus se identifica como asistente de IA y no imita su voz ni escribe como si fuera él sin su aprobación.'
     );
   }
   return (
@@ -195,6 +205,13 @@ const MAILBOX_ADDRESS = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{
 
 function isMailboxTagged(tags: readonly string[] | undefined): boolean {
   return (tags ?? []).includes('mail');
+}
+
+/** Número internacional E.164: «+», prefijo de país sin cero inicial y hasta 15 dígitos en total. */
+const PHONE_E164 = /^\+[1-9][0-9]{6,14}$/;
+
+function isPhoneTagged(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).includes('phone');
 }
 
 function safeId(value: unknown, label: string): string {

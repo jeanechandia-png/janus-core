@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-22T22:50:00.000Z",
+  "updatedAt": "2026-10-22T23:10:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -30,7 +30,10 @@
         "social",
         "instagram",
         "la-tribuna-virtual",
-        "founder-provided"
+        "founder-provided",
+        "account:la-tribuna",
+        "scope:business",
+        "scope-inferred"
       ]
     },
     {
@@ -45,7 +48,8 @@
         "social",
         "instagram",
         "jean-echandia",
-        "founder-provided"
+        "founder-provided",
+        "account:jean-personal"
       ]
     },
     {
@@ -60,7 +64,9 @@
         "social",
         "instagram",
         "infinityseedgroup",
-        "founder-provided"
+        "founder-provided",
+        "account:infinity-group",
+        "scope:business"
       ]
     },
     {
@@ -108,7 +114,8 @@
         "canonical-target-unresolved",
         "scope:business",
         "label-by-founder",
-        "label-position-inferred"
+        "label-position-inferred",
+        "account:infinity-group"
       ]
     },
     {
@@ -128,7 +135,8 @@
         "la-tribuna-virtual",
         "label-by-founder",
         "label-position-inferred",
-        "scope-inferred"
+        "scope-inferred",
+        "account:la-tribuna"
       ]
     },
     {
@@ -145,7 +153,8 @@
         "la-tribuna-virtual",
         "founder-provided",
         "scope:business",
-        "scope-inferred"
+        "scope-inferred",
+        "account:la-tribuna"
       ]
     },
     {
