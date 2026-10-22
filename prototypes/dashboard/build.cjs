@@ -21,12 +21,20 @@ const svg = (f) => 'data:image/svg+xml;base64,' + b64('assets/' + f);
 const moon = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="m" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFF7DC"/><stop offset=".6" stop-color="#E9D9A8"/><stop offset="1" stop-color="#9C8650"/></radialGradient><mask id="k"><rect width="64" height="64" fill="#fff"/><circle cx="42" cy="22" r="20" fill="#000"/></mask></defs><circle cx="30" cy="34" r="22" fill="url(#m)" mask="url(#k)"/><circle cx="48" cy="44" r="1.6" fill="#FFF3C4"/><circle cx="52" cy="30" r="1.1" fill="#FFF3C4"/></svg>').toString('base64');
 const IMG = { sun: svg('wx-sun.svg'), part: svg('wx-partly.svg'), cloud: svg('wx-cloud.svg'), rain: svg('wx-rain.svg'), moon, medal: 'data:image/png;base64,' + b64('assets/medal.png'), mic: 'data:image/webp;base64,' + b64('assets/mic-vintage.webp'), cLumi: 'data:image/jpeg;base64,' + b64('assets/creatures/lumi.jpg'), cBombo: 'data:image/jpeg;base64,' + b64('assets/creatures/bombo.jpg'), cMusgo: 'data:image/jpeg;base64,' + b64('assets/creatures/musgo.jpg'), cNimbo: 'data:image/jpeg;base64,' + b64('assets/creatures/nimbo.jpg') };
 
-const files = ['src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/phone.js', 'src/phonev.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'src/ofertas.js', 'vendor/companion.js', 'src/companero.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
-let js = 'const IMG=' + JSON.stringify(IMG) + ';\n' + files.map(rd).join('\n');
+const files = ['src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/phone.js', 'src/phonev.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'src/ofertas.js', 'vendor/companion.js', 'src/companero.js', 'src/phonea2.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
+
+const GA = 'lego/janus-gold/assets/pulido/', gw = (f) => 'data:image/webp;base64,' + b64(GA + f);
+const GLY = JSON.parse(rd(GA + 'glyphs.json')).chars;
+const GOLD = { wm: gw('janus.webp'), i: {}, g: {} };
+for (const f of fs.readdirSync(path.join(D, GA))) if (/^i-.*\.webp$/.test(f)) GOLD.i[f.slice(2, -5)] = gw(f);
+[...GLY].forEach((ch, i) => { GOLD.g[ch] = gw('g' + i + '.webp'); });
+const MARBLE = "url(\"data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="430" height="1100"><filter id="m"><feTurbulence type="fractalNoise" baseFrequency=".004 .012" numOctaves="5" seed="7"/><feColorMatrix values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .34  0 0 0 -2.6 1.55"/></filter><rect width="100%" height="100%" fill="#0a0908"/><rect width="100%" height="100%" filter="url(#m)" opacity=".55"/></svg>') + "\")";
+let js = 'const IMG=' + JSON.stringify(IMG) + ';\nconst GOLD=' + JSON.stringify(GOLD) + ';\n' + files.map(rd).join('\n');
 const FONTS = [['Cinzel', 700, 'cinzel-latin-700'], ['Cinzel', 900, 'cinzel-latin-900'], ['Bodoni Moda', 500, 'bodoni-moda-latin-500'], ['Bodoni Moda', 700, 'bodoni-moda-latin-700'], ['Instrument Sans', 400, 'instrument-sans-latin-400'], ['Instrument Sans', 500, 'instrument-sans-latin-500'], ['Instrument Sans', 600, 'instrument-sans-latin-600'], ['IBM Plex Mono', 400, 'ibm-plex-mono-latin-400'], ['IBM Plex Mono', 500, 'ibm-plex-mono-latin-500'], ['IBM Plex Mono', 600, 'ibm-plex-mono-latin-600']];
 // Tipografías incrustadas (OFL): nítidas y idénticas en cualquier dispositivo, también sin conexión.
 const fontCss = FONTS.map(([f, w, file]) => "@font-face{font-family:'" + f + "';font-style:normal;font-weight:" + w + ";font-display:block;src:url(data:font/woff2;base64," + b64('assets/fonts/' + file + '-normal.woff2') + ") format('woff2')}").join('\n');
-let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css') + rd('src/phone.css') + rd('src/phonev.css') + rd('src/companero.css');
+let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css') + rd('src/phone.css') + rd('src/phonev.css') + rd('src/companero.css') + rd('src/phonea2.css');
+css = ':root{--marble:' + MARBLE + '}\n' + css;
 for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = css.split(k).join(v); }
 
 const head = '';

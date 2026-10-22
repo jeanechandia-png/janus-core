@@ -5,7 +5,7 @@
  * C · Cronología: el día como eje (clima + eventos por carriles) y métricas debajo.
  * Ninguna depende de tocar para ver datos; tocar solo abre más detalle.
  */
-const PV = (() => { try { return (new URLSearchParams(location.search).get('tel') || localStorage.getItem('janus.tel') || 'a'); } catch (e) { return 'a'; } })();
+const PV = (() => { try { return (new URLSearchParams(location.search).get('tel') || localStorage.getItem('janus.tel') || 'a2'); } catch (e) { return 'a2'; } })();
 const svgSpark = (arr, w, h, col) => '<svg class="pvs" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + spk(arr, w, h) + '" fill="none" stroke="' + (col || '#E8C37A') + '" stroke-width="1.8" vector-effect="non-scaling-stroke" stroke-linecap="round"/></svg>';
 const sevBars = (s) => '<i class="sv">' + [1, 2, 3].map((k) => '<b class="' + (k <= s ? 'on s' + s : '') + '"></b>').join('') + '</i>';
 function pvData(M, X) {
@@ -86,4 +86,4 @@ function renderPhoneC(M, X) {
   ].map((r) => '<div class="pvr go"' + goAttr(r[0], r[2]) + '><span class="bb s">' + r[1] + '</span><div><b>' + r[2] + ' <span class="mono gold">' + esc(String(r[3])) + '</span></b><small>' + esc(r[4]) + '</small></div></div>').join('') + '</section>';
   return pvHead(M, X) + '<main class="pvCm">' + tl + kp + st + '</main>';
 }
-function renderPhoneV(M, X) { return PV === 'b' ? renderPhoneB(M, X) : PV === 'c' ? renderPhoneC(M, X) : renderPhoneA(M, X); }
+function renderPhoneV(M, X) { return PV === 'a2' ? renderPhoneA2(M, X) : PV === 'b' ? renderPhoneB(M, X) : PV === 'c' ? renderPhoneC(M, X) : renderPhoneA(M, X); }
