@@ -4,7 +4,18 @@ Actualizado: 2026-10-22 19:30 (Europe/Amsterdam) · Rama: `claude/dashboard-obsi
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
 
 ## AHORA
-Teléfono A2 (cristal · oro pulido 3D real) integrado; modo Compañero, Ofertas y Correo funcionando; PWA instalable lista (rama `gh-pages`). Esperando: (1) que Jean active GitHub Pages o cree un proyecto Vercel vacío, (2) créditos de ElevenLabs para el clip de Nimbo y las voces, (3) aprobación del preview antes de generar el ZIP (norma IS6).
+Auditoría de instrucciones de Jean en `INSTRUCCIONES.md` (estado por instrucción). Hecho hoy en la noche:
+- Iconos de objeto 3D hiperrealista.
+- Micrófono tipo Melanie protagonista con chat en el dashboard.
+- Proyectos arriba en el teléfono.
+- Bienvenida en voz.
+- Casa inteligente (home-scenes, Tuya/LSC).
+- Clima de 15 días.
+
+Bloqueos:
+- Créditos de ElevenLabs (voces y clip de Nimbo).
+- Publicación: activar GitHub Pages en la rama `gh-pages`.
+- Credenciales de Tuya.
 
 ## HECHO 2026-10-22 (tarde-noche)
 - **Teléfono A2** (`src/phonea2.js`, `src/phonea2.css`): fondo mármol, tarjetas de cristal, oro 3D renderizado en el wordmark, las monedas-icono y las cifras (atlas `lego/janus-gold/assets/pulido`, función `gNum()`). Clima solo hoy y mañana, banda de Ofertas, acceso al Compañero. `?tel=a|b|c` conserva las opciones históricas.
