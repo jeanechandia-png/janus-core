@@ -1,0 +1,20 @@
+{
+  "id": "mail-hub",
+  "version": "1.0.0",
+  "kind": "logic-module",
+  "summary": "Correo unificado multicuenta: varias cuentas por proveedor (iCloud, Gmail, Yahoo, Outlook, IMAP), selector agrupado, bandeja unificada y prioridad explicable.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided (IMAP/API)",
+  "network": false,
+  "secrets": "solo referencias (secretRef); nunca valores",
+  "dataClassification": "personal (direcciones de correo, metadatos de mensajes)",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Never stores passwords: accounts hold secretRef names; the host reads values from env/keychain.",
+    "Multiple accounts per provider are allowed; the same address is never duplicated.",
+    "Gmail and Outlook use OAuth, never stored passwords."
+  ],
+  "reuseNotes": "Otro producto: guardar MailAccount[] en su almacén, implementar la conexión (IMAP con imapflow o API) usando connectionConfig() y pintar pickerGroups()."
+}
