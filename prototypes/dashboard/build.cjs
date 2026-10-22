@@ -21,12 +21,12 @@ const svg = (f) => 'data:image/svg+xml;base64,' + b64('assets/' + f);
 const moon = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="m" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFF7DC"/><stop offset=".6" stop-color="#E9D9A8"/><stop offset="1" stop-color="#9C8650"/></radialGradient><mask id="k"><rect width="64" height="64" fill="#fff"/><circle cx="42" cy="22" r="20" fill="#000"/></mask></defs><circle cx="30" cy="34" r="22" fill="url(#m)" mask="url(#k)"/><circle cx="48" cy="44" r="1.6" fill="#FFF3C4"/><circle cx="52" cy="30" r="1.1" fill="#FFF3C4"/></svg>').toString('base64');
 const IMG = { sun: svg('wx-sun.svg'), part: svg('wx-partly.svg'), cloud: svg('wx-cloud.svg'), rain: svg('wx-rain.svg'), moon, medal: 'data:image/png;base64,' + b64('assets/medal.png'), mic: 'data:image/webp;base64,' + b64('assets/mic-vintage.webp') };
 
-const files = ['src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/views.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
+const files = ['src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/phone.js', 'src/views.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
 let js = 'const IMG=' + JSON.stringify(IMG) + ';\n' + files.map(rd).join('\n');
 const FONTS = [['Cinzel', 700, 'cinzel-latin-700'], ['Cinzel', 900, 'cinzel-latin-900'], ['Bodoni Moda', 500, 'bodoni-moda-latin-500'], ['Bodoni Moda', 700, 'bodoni-moda-latin-700'], ['Instrument Sans', 400, 'instrument-sans-latin-400'], ['Instrument Sans', 500, 'instrument-sans-latin-500'], ['Instrument Sans', 600, 'instrument-sans-latin-600'], ['IBM Plex Mono', 400, 'ibm-plex-mono-latin-400'], ['IBM Plex Mono', 500, 'ibm-plex-mono-latin-500'], ['IBM Plex Mono', 600, 'ibm-plex-mono-latin-600']];
 // Tipografías incrustadas (OFL): nítidas y idénticas en cualquier dispositivo, también sin conexión.
 const fontCss = FONTS.map(([f, w, file]) => "@font-face{font-family:'" + f + "';font-style:normal;font-weight:" + w + ";font-display:block;src:url(data:font/woff2;base64," + b64('assets/fonts/' + file + '-normal.woff2') + ") format('woff2')}").join('\n');
-let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css');
+let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css') + rd('src/phone.css');
 for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = css.split(k).join(v); }
 
 const head = '';
