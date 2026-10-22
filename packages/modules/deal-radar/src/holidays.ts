@@ -2,7 +2,7 @@
  * Vacaciones escolares de Países Bajos (fechas orientativas del Ministerio OCW; cada colegio puede variar).
  * Fuente verificada el 2026-10-22:
  * https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/overzicht-schoolvakanties-per-schooljaar/overzicht-schoolvakanties-2026-2027
- * Regiones: https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/regios-schoolvakantie (Arnhem y Lingewaard → zuid).
+ * Regiones: https://www.rijksoverheid.nl/themas/onderwijs/schoolvakanties/regios-schoolvakantie.
  * Para otros cursos, el anfitrión añade ventanas con addHolidayWindows() desde la misma fuente oficial.
  */
 import type { HolidayWindow } from './types.js';

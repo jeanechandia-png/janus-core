@@ -21,7 +21,7 @@ digest.headline // "3 productos de tu cesta en oferta · 2 de tus marcas · ahor
 ## Reglas
 - Sin red ni secretos: las fuentes (`SourceAdapter`) las aporta el anfitrión, tras revisar sus condiciones de uso. `SOURCE_CATALOG` lista candidatas con estado `por-confirmar`.
 - Nunca inventa: cada aviso lleva `source`, `observedAt` y, si existe, `url`.
-- Fechas de vacaciones: rijksoverheid.nl (consultado 2026-10-22). Arnhem y Lingewaard → región **zuid**.
+- Fechas de vacaciones: rijksoverheid.nl (consultado 2026-10-22). La región se configura por perfil (`schoolRegion`).
 
 ## Pruebas
 `node --import tsx --test tests/deal-radar.test.ts`
