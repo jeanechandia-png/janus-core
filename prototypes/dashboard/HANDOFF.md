@@ -29,7 +29,12 @@ Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos re
    - Por proyecto: icono, nombre, ámbito (empresa/personal), estado (activo / próximo / en pausa), fase, % avance, próximo hito y fecha, responsable(s), riesgos/bloqueos, enlaces (repo, PR, documentos). Filtros por estado y ámbito; gráfico de avance y línea de tiempo.
    - Proyectos conocidos a confirmar con Jean (POR CONFIRMAR, no inventar estados): Janus, Infinity ChatBox (piloto 3 Kings), IBA, web institucional InfinitySeed, línea de productos Gumroad, patrocinio Potensic, Marketing 360 con dron.
    - Fuentes reales candidatas: `jeanechandia-png/infinity-chatbox-platform/INFINITYSEED_PROJECT_REGISTRY.md` (registro canónico), GitHub (repos/PR/CI), Google Calendar. Sin fuente → marcar EJEMPLO.
-3. Reconectar Gmail (lo hace Jean en claude.ai → Ajustes → Conectores) → alimentar Prioridades y Clientes.
+3. **Sala de trabajo (petición de Jean, 2026-10-22 15:06)** — POR DECIDIR entre opciones presentadas (Artifact «Janus · Sala de trabajo»):
+   - Landing Janus: micrófono 3D de Melanie (pieza visual `isg-voice` 2.1.0 de `infinity-chatbox-platform`, rama `fix/chatbox-visual-parity-20260927`; micro WebGL en `infinityseed-group-website@feature/v8-premium-continuity-20261012:assets/js/infinityseed-mic3d.js`) **conectado a la voz propia de Janus, no al agente de Melanie**; botón «Escribir» y «Proyectos».
+   - Sala de trabajo tipo Claude/ChatGPT: chat de voz + texto, lista de proyectos, señal de actividad. Distribuciones 1/2/3; señales A ondas, B medallón, C Mini-Jano robot, D núcleo, E hilo de fases. Recomendado: distribución 3 + B + E, C opcional.
+   - Dashboard: tarjeta «Proyectos» que abre la sala con el proyecto seleccionado (se une a PENDIENTE 2).
+   - La PWA (`apps/pwa`) ya tiene orbe de voz y campo de texto; tocarla requiere autorización explícita de Jean.
+4. Reconectar Gmail (lo hace Jean en claude.ai → Ajustes → Conectores) → alimentar Prioridades y Clientes.
 4. Datos vivos sin intervención: llevar adaptadores a JANUS Core/PWA (Google Workspace y GitHub ya existen en el core). **Requiere autorización de Jean** (toca `apps/pwa`).
 5. Calendario «Familia» vacío → cuando Jean lo llene, alimentar la zona familiar.
 6. Meta (alcance/reels), ingresos (empresa sin registrar → ejemplo), chatbots: sin conector.
