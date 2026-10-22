@@ -43,7 +43,7 @@ const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div cl
 
 function frame(id, sub, M, body) {
   const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="serif gld">' + t[2] + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : srcBadge(live)) +
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : srcBadge(live)) +
     '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
     '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }

@@ -8,6 +8,15 @@ function ensureDefs() {
   d.innerHTML = '<svg width="0" height="0" style="position:absolute"><defs>' +
     '<linearGradient id="jg" gradientUnits="userSpaceOnUse" x1="0" y1="2" x2="0" y2="22"><stop offset="0" stop-color="#FFF6DA"/><stop offset=".45" stop-color="#F0CD86"/><stop offset="1" stop-color="#A8752A"/></linearGradient>' +
     '<linearGradient id="jgi" gradientUnits="userSpaceOnUse" x1="0" y1="2" x2="0" y2="22"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E9DCC0"/></linearGradient>' +
+    // Metal: el trazo del icono se convierte en relieve de oro con luz especular y sombra de contacto.
+    '<filter id="jmetal" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">' +
+    '<feGaussianBlur in="SourceAlpha" stdDeviation=".6" result="b"/>' +
+    '<feSpecularLighting in="b" surfaceScale="3.2" specularConstant="1.5" specularExponent="20" lighting-color="#fff4d6" result="s"><feDistantLight azimuth="235" elevation="48"/></feSpecularLighting>' +
+    '<feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>' +
+    '<feComposite in="SourceGraphic" in2="si" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="lit"/>' +
+    '<feOffset in="SourceAlpha" dy="1.1" result="o"/><feGaussianBlur in="o" stdDeviation=".5" result="ob"/>' +
+    '<feFlood flood-color="#000" flood-opacity=".9"/><feComposite in2="ob" operator="in" result="sh"/>' +
+    '<feMerge><feMergeNode in="sh"/><feMergeNode in="lit"/></feMerge></filter>' +
     '</defs></svg>';
   document.body.appendChild(d);
 }
@@ -15,6 +24,7 @@ function decorate(viewId) {
   ensureDefs();
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   iconize(view.hidden ? dash : view);
+  goldify(view.hidden ? dash : view);
   const isNew = viewId !== LAST_VIEW;
   LAST_VIEW = viewId;
   const host = view.hidden ? dash : view;
@@ -50,3 +60,17 @@ if (!REDUCED) {
   document.addEventListener('pointerleave', () => { tiltReset(TILT.el); TILT.el = null; });
   document.addEventListener('pointerup', (ev) => { if (ev.pointerType !== 'mouse') { tiltReset(TILT.el); TILT.el = null; } });
 }
+
+/* Oro 3D: asigna la anatomía de la pieza LEGO janus-gold a los elementos del dashboard */
+const GOLD_MAP = [
+  ['jg-cta', '.back,.ibtn.gold,.snd,.btn:not(.ghost),.seg .sg.on,.apb .btn:first-child'],
+  ['jg-row', '.ibtn:not(.gold),.btn.ghost,.btn2,.sg2,.chip,.jp,.pjp,.stt,.ipj,.nt,.mini,.demo'],
+  ['jg-coin', '.bb']
+];
+function goldify(host) {
+  GOLD_MAP.forEach(([cls, sel]) => host.querySelectorAll(sel).forEach((n, i) => { n.classList.add(cls); if (!n.style.getPropertyValue('--gd')) n.style.setProperty('--gd', ((i * 0.37) % 6).toFixed(2) + 's'); }));
+  JanusGold.hydrate(host);
+  JanusGold.bindLit();
+}
+// Las letras 3D se miden con Cinzel: al terminar de cargar la tipografía se vuelve a pintar una vez.
+try { if (document.fonts && document.fonts.load) document.fonts.load('900 40px Cinzel').then(() => setTimeout(() => { try { rerender(); } catch (e) { } }, 0)); } catch (e) { }

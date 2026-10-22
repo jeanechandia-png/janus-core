@@ -1,0 +1,50 @@
+/* ===== Capa premium: luz cinematográfica, cantos de oro, letras 3D y divisiones marcadas ===== */
+/* Escenario: haces de luz cálida que se desplazan despacio + viñeta */
+.stage.a{isolation:isolate}
+.stage.a::before{content:"";position:absolute;inset:-25%;z-index:-1;pointer-events:none;opacity:.7;
+  background:conic-gradient(from 200deg at 12% -8%,transparent 0deg,rgba(255,214,140,.16) 12deg,transparent 26deg,rgba(255,226,170,.1) 38deg,transparent 52deg,rgba(255,206,120,.08) 64deg,transparent 80deg,transparent 360deg),
+    conic-gradient(from 150deg at 92% -12%,transparent 0deg,rgba(134,182,255,.07) 10deg,transparent 24deg,rgba(255,220,160,.06) 34deg,transparent 48deg,transparent 360deg);
+  animation:beams 22s ease-in-out infinite alternate}
+.stage.a::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(130% 110% at 50% 45%,transparent 55%,rgba(0,0,0,.65) 100%)}
+@keyframes beams{0%{transform:translate3d(-2%,0,0) rotate(-1.5deg)}100%{transform:translate3d(3%,1.5%,0) rotate(1.5deg)}}
+
+/* Paneles: canto de oro pulido (división marcada) + luz superior que barre */
+.a .cd{border:1.5px solid transparent!important;
+  background:radial-gradient(120% 70% at 50% -12%,rgba(255,228,170,.12),transparent 60%) padding-box,linear-gradient(162deg,rgba(255,255,255,.085),rgba(255,255,255,.02) 38%,rgba(255,255,255,.035) 100%) padding-box,linear-gradient(#0b0a0d,#0b0a0d) padding-box,
+    linear-gradient(155deg,#fff1c9 0%,#c8963f 9%,#5c3a0e 24%,#2a1c08 42%,#2a1c08 62%,#8a5a1c 80%,#f7dc93 94%,#fffaf0 100%) border-box!important;
+  box-shadow:0 0 0 1px rgba(0,0,0,.95),0 0 18px -6px rgba(232,195,122,.35),inset 0 1px 0 rgba(255,238,200,.32),inset 0 -2px 0 rgba(0,0,0,.7),0 22px 34px -20px #000,0 46px 60px -40px rgba(0,0,0,.9)!important}
+.a .cd::before{left:10%!important;right:10%!important;height:2px!important;top:-1px!important;background:linear-gradient(90deg,transparent,rgba(255,246,214,.95),transparent)!important;filter:blur(.3px);box-shadow:0 0 12px 2px rgba(255,226,160,.45)}
+.a .cd>.lb{position:relative}
+.a .cd>.lb::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:1px;background:linear-gradient(90deg,rgba(232,195,122,.75),rgba(232,195,122,.18) 60%,transparent)}
+.a .cd.tilt,.a .cd:hover{box-shadow:0 0 0 1px rgba(0,0,0,.95),0 0 26px -4px rgba(232,195,122,.6),inset 0 1px 0 rgba(255,238,200,.4),inset 0 -2px 0 rgba(0,0,0,.7),0 22px 34px -20px #000!important}
+.hd,.vh{border:1.5px solid transparent!important;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02)) padding-box,linear-gradient(#0b0a0d,#0b0a0d) padding-box,linear-gradient(155deg,#fff1c9,#c8963f 10%,#3a2709 35%,#2a1c08 65%,#b07a2c 90%,#fffaf0) border-box!important;box-shadow:0 0 0 1px #000,inset 0 1px 0 rgba(255,238,200,.3),0 18px 30px -22px #000,0 0 22px -8px rgba(232,195,122,.4)!important}
+
+/* Divisiones internas: líneas de oro */
+.ml,.li2,.tr,.ci,.ev+.ev,.kvr{border-color:rgba(232,195,122,.26)!important}
+.th2{border-bottom:1px solid rgba(232,195,122,.55)!important}
+.sep{border-top:1px solid rgba(232,195,122,.55)!important;color:#F0CD86!important}
+.wkly{border-top:1px solid rgba(232,195,122,.4)!important}
+.chd{border-bottom:1px solid rgba(232,195,122,.4)!important}
+
+/* Letras de oro: cara pulida con línea de horizonte reflejada + extrusión */
+.a .gld{background:linear-gradient(180deg,#fffaf0 0%,#fde7a8 14%,#e6b75a 34%,#9a661f 48%,#5c3a0e 51%,#f7dc93 54%,#e3ae4f 66%,#b07a2c 84%,#6e4512 100%)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important;
+  filter:drop-shadow(0 1px 0 #8a5a1c) drop-shadow(0 1px 0 #6e4512) drop-shadow(0 1px 0 #4a2e0b) drop-shadow(0 3px 3px rgba(0,0,0,.85)) drop-shadow(0 0 10px rgba(232,195,122,.25))!important}
+.a .lb{color:#F6D894!important;text-shadow:0 1px 0 #000,0 0 10px rgba(232,195,122,.3)!important}
+
+/* Wordmarks */
+.hd .wm[data-jg]{display:block;height:30px;line-height:0}
+.vh h1.vt{height:34px;margin:0;line-height:0;display:flex;align-items:center}
+.vh h1.vt .jg-wordmark-wrap{height:100%}
+.ini-brand .wm[data-jg]{display:block;height:36px;line-height:0}
+
+/* Iconos de las pestañas: metal */
+.tb2 i .ji{filter:url(#jmetal) drop-shadow(0 0 4px rgba(232,195,122,.25))!important}
+.tb2[data-lit="true"] i .ji,.tb2.on i .ji{filter:url(#jmetal) drop-shadow(0 0 8px rgba(255,226,160,.9))!important}
+.tb2.on{border-radius:12px}
+
+/* Medalla del encabezado: barrido especular y luz al tocar */
+.hd .medal{transition:filter .3s,transform .3s}
+.hd .medal[data-lit="true"]{filter:brightness(1.15) drop-shadow(0 0 14px rgba(255,226,160,.9));transform:scale(1.06)}
+
+@media (prefers-reduced-motion:reduce){.stage.a::before{animation:none}}
+@media (max-width:47.5em),(max-height:31.25em){.stage.a::before,.stage.a::after{position:fixed}}

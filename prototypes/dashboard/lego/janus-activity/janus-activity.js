@@ -22,9 +22,13 @@
       '<g class="mj-f1"><circle class="mj-glow" cx="52" cy="50" r="3.6"/><circle class="mj-glow" cx="68" cy="50" r="3.6"/><path d="M53 57q7 4 14 0" stroke="#E8C37A" stroke-width="2" fill="none" stroke-linecap="round"/></g>' +
       '<g class="mj-f2"><rect class="mj-glow" x="48" y="48" width="8" height="3" rx="1.5"/><rect class="mj-glow" x="64" y="48" width="8" height="3" rx="1.5"/><path d="M53 58h14" stroke="#E8C37A" stroke-width="2" stroke-linecap="round"/></g>' +
       '<path d="M38 33q22-9 44 0" stroke="#FFF6DA" stroke-width="1.5" fill="none" opacity=".7"/></g>' +
-      '<rect x="42" y="74" width="36" height="30" rx="10" fill="url(#mjb)"/><circle class="mj-glow" cx="60" cy="88" r="4"/>' +
-      '<path d="M42 84q-10 4-12 14" stroke="url(#mjb)" stroke-width="6" stroke-linecap="round" fill="none"/><g class="mj-arm"><path d="M78 84q10 4 12 14" stroke="url(#mjb)" stroke-width="6" stroke-linecap="round" fill="none"/></g>' +
-      '<path d="M51 104v14M69 104v14" stroke="url(#mjb)" stroke-width="7" stroke-linecap="round"/><path d="M46 121h10M64 121h10" stroke="#A8752A" stroke-width="5" stroke-linecap="round"/></g>' +
+      // Cuerpo articulado: hombros/codos y caderas/rodillas son grupos con su propio pivote.
+      '<g class="mj-legL"><path d="M53 103L52 113" stroke="url(#mjb)" stroke-width="6.5" stroke-linecap="round"/><circle cx="53" cy="103" r="3.4" fill="#A8752A"/><g class="mj-legL-2"><path d="M52 113L51 121" stroke="url(#mjb)" stroke-width="5.5" stroke-linecap="round"/><circle cx="52" cy="113" r="2.8" fill="#8a5a1c"/><rect x="43" y="120" width="12" height="5" rx="2.5" fill="#A8752A"/></g></g>' +
+      '<g class="mj-legR"><path d="M67 103L68 113" stroke="url(#mjb)" stroke-width="6.5" stroke-linecap="round"/><circle cx="67" cy="103" r="3.4" fill="#A8752A"/><g class="mj-legR-2"><path d="M68 113L69 121" stroke="url(#mjb)" stroke-width="5.5" stroke-linecap="round"/><circle cx="68" cy="113" r="2.8" fill="#8a5a1c"/><rect x="65" y="120" width="12" height="5" rx="2.5" fill="#A8752A"/></g></g>' +
+      '<rect x="42" y="74" width="36" height="30" rx="10" fill="url(#mjb)"/><rect x="46" y="78" width="28" height="7" rx="3.5" fill="#fff6da" opacity=".25"/><circle class="mj-glow" cx="60" cy="90" r="4"/>' +
+      '<g class="mj-armL"><path d="M44 81L35 91" stroke="url(#mjb)" stroke-width="6.5" stroke-linecap="round"/><circle cx="44" cy="81" r="3.4" fill="#A8752A"/><g class="mj-armL-2"><path d="M35 91L33 101" stroke="url(#mjb)" stroke-width="5.5" stroke-linecap="round"/><circle cx="35" cy="91" r="2.8" fill="#8a5a1c"/><circle cx="33" cy="102" r="4" fill="url(#mjb)"/></g></g>' +
+      '<g class="mj-armR"><path d="M76 81L85 91" stroke="url(#mjb)" stroke-width="6.5" stroke-linecap="round"/><circle cx="76" cy="81" r="3.4" fill="#A8752A"/><g class="mj-armR-2"><path d="M85 91L87 101" stroke="url(#mjb)" stroke-width="5.5" stroke-linecap="round"/><circle cx="85" cy="91" r="2.8" fill="#8a5a1c"/><circle cx="87" cy="102" r="4" fill="url(#mjb)"/></g></g>' +
+      '</g>' +
       '<g class="mj-ok"><circle cx="100" cy="22" r="11" fill="#5FD39A"/><path d="M95 22l4 4 7-8" stroke="#0b1a12" stroke-width="2.6" fill="none" stroke-linecap="round"/></g></svg>';
   }
   /* Medallón bifronte (moneda de Jano) con aro de actividad. */

@@ -29,6 +29,11 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 - Decisión de Jean: **solo el medallón del logo** con efecto de actividad + **Mini-Jano en la conversación, donde llega la respuesta, solo mientras Janus la genera** (nada de medallones repetidos; corregido por Jean 15:28).
 - `#inicio` (portada: micrófono vintage, Hablar/Escribir/Proyectos/Dashboard), `#trabajo` (proyectos | chat voz+texto | estado y proyecto), tarjeta «Proyectos» en el dashboard → sala. Respuestas simuladas y rotuladas; acciones que publican/envían/borran/gastan piden visto bueno.
 
+## HECHO 2026-10-22 15:50 (premium hiperrealista)
+- Pieza LEGO `lego/janus-gold/` v1.0.0 (reutiliza el oro aprobado de la PWA): letras JANUS y títulos de sección en mayúsculas 3D de oro (Cinzel 900, extrusión, bisel especular, horizonte reflejado, barrido de luz que sigue al dedo); botones de oro con relieve, destello y luz al tocar; iconos acuñados (canto de oro, esmalte, cristal, destello animado, relieve metálico SVG) que se iluminan al tocar.
+- `src/premium.css`: luz cinematográfica (haces cálidos animados + viñeta), cantos de oro pulido en todos los paneles (divisiones marcadas), líneas internas doradas, cifras en oro 3D.
+- Mini-Jano articulado (hombro, codo, cadera, rodilla): camina y trabaja con brazos y piernas, voltereta con brazos arriba y rodillas recogidas, mano al mentón al pensar, saludo con el antebrazo al pedir visto bueno.
+
 ## PENDIENTE (orden de prioridad)
 1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
    - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.

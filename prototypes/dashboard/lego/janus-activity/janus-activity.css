@@ -28,7 +28,6 @@
 .mj{width:100%;height:100%;overflow:visible;display:block}
 .mj .mj-all{transform-origin:60px 105px;transform-box:view-box}
 .mj .mj-head{transform-origin:60px 52px;transform-box:view-box}
-.mj .mj-arm{transform-origin:86px 86px;transform-box:view-box}
 .mj .mj-ant{transform-origin:60px 18px;transform-box:view-box}
 .mj .mj-glow{fill:var(--jc,#E8C37A);filter:drop-shadow(0 0 4px var(--jc,#E8C37A))}
 .mj .mj-f2,.mj .mj-dots,.mj .mj-bub,.mj .mj-spk,.mj .mj-ok{opacity:0;transition:opacity .3s}
@@ -44,7 +43,6 @@
 [data-js="pensando"] .mj .mj-dots circle:nth-child(3){animation-delay:.4s}
 [data-js="ejecutando"] .mj .mj-all{animation:mjflip 1.5s cubic-bezier(.45,0,.3,1) infinite}
 [data-js="ejecutando"] .mj .mj-spk{opacity:1;animation:mjspk 1.5s ease-out infinite;transform-origin:60px 60px;transform-box:view-box}
-[data-js="aprobacion"] .mj .mj-arm{animation:mjwave .7s ease-in-out infinite alternate}
 [data-js="aprobacion"] .mj .mj-bub{opacity:1}
 [data-js="listo"] .mj .mj-ok{opacity:0}
 @keyframes mjidle{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
@@ -56,7 +54,50 @@
 @keyframes mjdot{50%{transform:translateY(-4px);opacity:.4}}
 @keyframes mjflip{0%{transform:translateY(0) rotate(0)}20%{transform:translateY(4px) scaleY(.92)}45%{transform:translateY(-30px) rotate(-180deg)}70%{transform:translateY(-6px) rotate(-360deg)}85%{transform:translateY(3px) rotate(-360deg) scaleY(.94)}100%{transform:translateY(0) rotate(-360deg)}}
 @keyframes mjspk{0%{transform:scale(.4);opacity:0}40%{opacity:1}100%{transform:scale(1.4);opacity:0}}
-@keyframes mjwave{from{transform:rotate(-10deg)}to{transform:rotate(-70deg)}}
 .mjw{flex:none;width:64px;height:78px;margin:-14px 0 -6px}
 
 @media (prefers-reduced-motion:reduce){.mdl-c,.mdl::after,.mj *{animation:none!important}}
+
+/* ---- Articulaciones de Mini-Jano: hombro, codo, cadera y rodilla ---- */
+.mj [class^="mj-arm"],.mj [class^="mj-leg"]{transform-box:view-box}
+.mj .mj-armL{transform-origin:44px 81px}.mj .mj-armL-2{transform-origin:35px 91px}
+.mj .mj-armR{transform-origin:76px 81px}.mj .mj-armR-2{transform-origin:85px 91px}
+.mj .mj-legL{transform-origin:53px 103px}.mj .mj-legL-2{transform-origin:52px 113px}
+.mj .mj-legR{transform-origin:67px 103px}.mj .mj-legR-2{transform-origin:68px 113px}
+/* Reposo: respira y balancea los brazos */
+.mj .mj-armL{animation:aSwayL 3.2s ease-in-out infinite}.mj .mj-armR{animation:aSwayR 3.2s ease-in-out infinite}
+@keyframes aSwayL{50%{transform:rotate(6deg)}}@keyframes aSwayR{50%{transform:rotate(-6deg)}}
+/* Escuchando: mano a la "oreja" y pie que marca el ritmo */
+[data-js="escuchando"] .mj .mj-armR{animation:none;transform:rotate(-120deg)}
+[data-js="escuchando"] .mj .mj-armR-2{animation:none;transform:rotate(-70deg)}
+[data-js="escuchando"] .mj .mj-legR{animation:tap .7s ease-in-out infinite}
+@keyframes tap{50%{transform:rotate(-14deg)}}
+/* Pensando: mano en el mentón, otra en la cintura, gira la cabeza */
+[data-js="pensando"] .mj .mj-armR{animation:none;transform:rotate(-95deg)}
+[data-js="pensando"] .mj .mj-armR-2{animation:chin 2.6s ease-in-out infinite}
+[data-js="pensando"] .mj .mj-armL{animation:none;transform:rotate(25deg)}
+[data-js="pensando"] .mj .mj-armL-2{animation:none;transform:rotate(-95deg)}
+@keyframes chin{0%,100%{transform:rotate(-110deg)}50%{transform:rotate(-95deg)}}
+/* Ejecutando: camina/trabaja con brazos y piernas alternos y, cada ciclo, una voltereta con brazos arriba y rodillas recogidas */
+[data-js="ejecutando"] .mj .mj-all{animation:runflip 2.8s cubic-bezier(.45,0,.3,1) infinite}
+[data-js="ejecutando"] .mj .mj-armL{animation:armRunL 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-armR{animation:armRunR 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-armL-2,[data-js="ejecutando"] .mj .mj-armR-2{animation:elbow 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-legL{animation:legRunL 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-legR{animation:legRunR 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-legL-2,[data-js="ejecutando"] .mj .mj-legR-2{animation:knee 2.8s ease-in-out infinite}
+[data-js="ejecutando"] .mj .mj-spk{animation-duration:2.8s}
+@keyframes runflip{0%,8%,16%,24%,32%,40%,48%{transform:translateY(0)}4%,12%,20%,28%,36%,44%{transform:translateY(-3px)}56%{transform:translateY(3px) scaleY(.9)}72%{transform:translateY(-34px) rotate(-180deg)}88%{transform:translateY(-4px) rotate(-360deg)}94%{transform:translateY(2px) rotate(-360deg) scaleY(.94)}100%{transform:translateY(0) rotate(-360deg)}}
+@keyframes armRunL{0%,16%,32%,48%{transform:rotate(-38deg)}8%,24%,40%{transform:rotate(38deg)}58%,90%{transform:rotate(150deg)}100%{transform:rotate(0)}}
+@keyframes armRunR{0%,16%,32%,48%{transform:rotate(38deg)}8%,24%,40%{transform:rotate(-38deg)}58%,90%{transform:rotate(-150deg)}100%{transform:rotate(0)}}
+@keyframes elbow{0%,48%{transform:rotate(-25deg)}58%,90%{transform:rotate(0)}100%{transform:rotate(0)}}
+@keyframes legRunL{0%,16%,32%,48%{transform:rotate(26deg)}8%,24%,40%{transform:rotate(-26deg)}58%,88%{transform:rotate(-55deg)}100%{transform:rotate(0)}}
+@keyframes legRunR{0%,16%,32%,48%{transform:rotate(-26deg)}8%,24%,40%{transform:rotate(26deg)}58%,88%{transform:rotate(-55deg)}100%{transform:rotate(0)}}
+@keyframes knee{0%,48%{transform:rotate(18deg)}58%,88%{transform:rotate(95deg)}100%{transform:rotate(0)}}
+/* Espera tu visto bueno: saluda con el antebrazo; la otra mano en la cintura */
+[data-js="aprobacion"] .mj .mj-armR{animation:none;transform:rotate(-100deg)}
+[data-js="aprobacion"] .mj .mj-armR-2{animation:wave2 .55s ease-in-out infinite alternate}
+[data-js="aprobacion"] .mj .mj-armL{animation:none;transform:rotate(30deg)}
+[data-js="aprobacion"] .mj .mj-armL-2{animation:none;transform:rotate(-100deg)}
+@keyframes wave2{from{transform:rotate(-55deg)}to{transform:rotate(15deg)}}
+@media (prefers-reduced-motion:reduce){.mj [class^="mj-arm"],.mj [class^="mj-leg"]{animation:none!important}}

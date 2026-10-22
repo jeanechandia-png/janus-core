@@ -50,7 +50,7 @@ function vTrabajo(M, X, sub) {
 function vInicio(M, X) {
   const act3 = PROJECTS.filter((p) => p.grp === 'activo');
   return '<div class="ini" data-js="' + UI.js + '">' +
-    '<div class="ini-top"><span class="back mono" data-go="" role="link" tabindex="0">← Dashboard</span><div class="ini-brand">' + medallion('logo') + '<div><div class="wm serif gld">JANUS</div><div class="dt mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div></div><span class="mono dim">Vista previa</span></div>' +
+    '<div class="ini-top"><span class="back mono" data-go="" role="link" tabindex="0">← Dashboard</span><div class="ini-brand">' + medallion('logo') + '<div><div class="wm" data-jg="JANUS" data-jg-refl>JANUS</div><div class="dt mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div></div><span class="mono dim">Vista previa</span></div>' +
     '<div class="ini-mid"><div class="ini-mic go" style="--micmask:url(' + IMG.mic + ')" data-go="trabajo/voz" role="button" tabindex="0" aria-label="Hablar con Janus"><img src="' + IMG.mic + '" alt=""><span class="sweep"></span></div>' +
     '<div class="ini-say"><div><b class="serif gld">Hola, Patrón.</b><div class="dim">Toca el micrófono y habla, o escribe. Elige un proyecto para trabajar.</div></div></div>' +
     '<div class="ini-btns"><span class="ibtn gold go" data-go="trabajo/voz" role="button" tabindex="0">🎙 Hablar</span><span class="ibtn go" data-go="trabajo" role="button" tabindex="0">⌨ Escribir</span><span class="ibtn go" data-go="trabajo/' + UI.pSel + '" role="button" tabindex="0">📁 Proyectos</span><span class="ibtn go" data-go="" role="button" tabindex="0">📊 Dashboard</span></div>' +

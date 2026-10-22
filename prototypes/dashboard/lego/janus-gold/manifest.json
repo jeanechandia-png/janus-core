@@ -1,0 +1,11 @@
+{
+  "piece": "janus-gold",
+  "name": "Oro Janus 3D hiperrealista: letras, botones de oro, iconos acuñados y cantos",
+  "moduleVersion": "1.0.0",
+  "origin": "Wordmark y CTA aprobados de la PWA (rama janus/dashboard-20261014: apps/pwa/janus-gold.js y styles.css)",
+  "dependencies": ["Tipografía Cinzel 900 (OFL) para las letras"],
+  "api": "JanusGold.wordmark(text, opts) · JanusGold.hydrate(root) para [data-jg] · JanusGold.bindLit() · clases .jg-cta .jg-row .jg-coin .jg-rim",
+  "mounts": [{ "product": "Janus · dashboard A (prototipo)", "file": "prototypes/dashboard/src/depth.js", "version": "1.0.0" }],
+  "plannedMounts": ["Janus PWA (apps/pwa) — requiere autorización de Jean", "landing.infinity-group", "landing.infinity-chatbox", "landing.iba"],
+  "distribution": "Registrar en la Reusable LEGO Library y en el perfil padre infinity-landing-assistant (tracking=current)."
+}
