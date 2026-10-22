@@ -48,3 +48,36 @@
 
 @media (prefers-reduced-motion:reduce){.stage.a::before{animation:none}}
 @media (max-width:47.5em),(max-height:31.25em){.stage.a::before,.stage.a::after{position:fixed}}
+/* ===== Iconos de objeto 3D hiperrealista ===== */
+img.ji3{stroke:none!important;object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.85)) drop-shadow(0 0 6px rgba(232,195,122,.18))!important;transition:transform .2s,filter .2s}
+.jg-coin:has(img.ji3),.bb:has(img.ji3){background:none!important;box-shadow:none!important;overflow:visible!important}
+.jg-coin:has(img.ji3)::before,.jg-coin:has(img.ji3)::after{display:none!important}
+.bb img.ji3,.jg-coin img.ji3{width:118%!important;height:118%!important;max-width:none}
+.tb2 i img.ji3{width:1.7em!important;height:1.7em!important}
+.a .jiw>img.ji3{width:1.35em!important;height:1.35em!important;display:inline-block!important;vertical-align:-.3em!important;margin:0 .22em 0 0}
+:is(.go,.bb,.tb2,.chip,.jg-coin):is(:hover,[data-lit="true"]) img.ji3{transform:translateY(-1px) scale(1.08);filter:drop-shadow(0 3px 4px rgba(0,0,0,.85)) drop-shadow(0 0 10px rgba(255,214,140,.85)) brightness(1.12)!important}
+/* Iconos 3D más grandes dentro de las monedas (tablet) */
+.bb:has(img.ji3){position:relative}
+.bb img.ji3,.jg-coin img.ji3{width:150%!important;height:150%!important;margin:-25%!important}
+.chip img.ji3{width:1.6em!important;height:1.6em!important;margin:-.3em 0!important}
+/* Sala en la tarjeta Proyectos (tablet): micrófono de Janus + chat */
+.tsala{display:flex;gap:10px;align-items:stretch;min-height:0;flex:1}
+.tmic{flex:none;position:relative;width:62px;cursor:pointer;filter:drop-shadow(0 10px 10px rgba(0,0,0,.85)) drop-shadow(0 0 16px rgba(232,195,122,.35));transition:transform .25s,filter .25s}
+.tmic img{width:100%;height:100%;object-fit:contain;position:relative}
+.tmic .sweep{position:absolute;inset:0;pointer-events:none;-webkit-mask:var(--micmask) center/contain no-repeat;mask:var(--micmask) center/contain no-repeat;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.6) 50%,transparent 65%);background-size:250% 100%;animation:msweep 4.5s ease-in-out infinite;mix-blend-mode:screen}
+.tmic:hover{transform:scale(1.06);filter:drop-shadow(0 10px 10px rgba(0,0,0,.85)) drop-shadow(0 0 26px rgba(255,214,140,.7))}
+.tsr{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;justify-content:center}
+.tin{display:flex;gap:6px;align-items:center}
+.tin textarea{flex:1;min-width:0;resize:none;height:30px;font:400 12px 'Instrument Sans';color:#F3EBDD;padding:6px 10px;border-radius:14px;border:1px solid rgba(232,195,122,.45);background:rgba(0,0,0,.35)}
+.tsend{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;cursor:pointer;color:#2a1a05;font-size:12px;background:linear-gradient(180deg,#FFE7A8,#D9A441 55%,#8E5F1C);box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 4px 8px -3px #000}
+.tsala{height:74px;flex:none}
+.tmic{width:46px}
+.tsr{gap:5px}
+.tin textarea{height:28px;padding:5px 10px}
+.tsala .pjrow{gap:5px}
+.tsala .pjp{flex:1 1 0;min-width:0}
+.tsala .pjp .t{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bb img.ji3,.jg-coin img.ji3{width:175%!important;height:175%!important;margin:-37.5%!important}
+.tsala .pjp{padding:3px 8px 3px 3px!important;gap:5px!important;justify-content:flex-start}
+.tsala .pjp>i{display:none}
+.tsala .pjp .t{font-size:11.5px}

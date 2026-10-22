@@ -29,8 +29,8 @@ function exampleRaw() {
   };
   const rnd = prng(2110);
   const hourly = [];
-  for (let day = 0; day < 7; day++) {
-    const dt = [0, -1, 1, 0, -2, 2, 1][day], dr = [0, -15, 20, -5, 25, -20, 5][day], dw = [0, -4, 6, -2, 8, -6, 0][day];
+  for (let day = 0; day < 15; day++) {
+    const dt = [0, -1, 1, 0, -2, 2, 1][day % 7] - Math.floor(day / 7), dr = [0, -15, 20, -5, 25, -20, 5][(day * 3) % 7], dw = [0, -4, 6, -2, 8, -6, 0][(day * 5) % 7];
     for (let h = 0; h < 24; h++) {
       const hh = day === 0 && h === 7 ? 7.75 : h;
       const j = day ? (rnd() - .5) * 2 : 0;
@@ -45,7 +45,7 @@ function exampleRaw() {
   }
   const today = dayNum(2026, 10, 21);
   const daily = [];
-  for (let day = 0; day < 7; day++) {
+  for (let day = 0; day < 15; day++) {
     const hs = hourly.slice(day * 24, day * 24 + 24), day8 = hs.slice(8, 20);
     const rmax = Math.max(...day8.map((x) => x.r));
     daily.push({ dn: today + day, k: rmax >= 50 ? 'rain' : rmax >= 30 ? 'cloud' : 'part', tmax: Math.max(...hs.map((x) => x.t)), tmin: Math.min(...hs.map((x) => x.t)), rmax, wmax: Math.max(...hs.map((x) => x.w)), sunrise: '08:20', sunset: '18:31' });
@@ -67,7 +67,7 @@ function parseOpenMeteo(j, place) {
     hourly.push({ day, h, k: WMO(n('weather_code'), isDay), t: Math.round(n('temperature_2m')), feel: Math.round(n('apparent_temperature')), r: Math.round(n('precipitation_probability')), w: Math.round(n('wind_speed_10m')), g: Math.round(n('wind_gusts_10m')), d: Math.round(n('wind_direction_10m')), mm: +(+n('precipitation')).toFixed(1), rh: Math.round(n('relative_humidity_2m')), uv: +(+n('uv_index')).toFixed(1), vis: Math.round(n('visibility') / 1000), cl: Math.round(n('cloud_cover')) });
   }
   if (hourly.length < 24) throw new Error('menos de 24 horas en la respuesta');
-  const daily = Dd.time.slice(0, 7).map((t, i) => { const ymd = t.split('-').map(Number); return { dn: dayNum(ymd[0], ymd[1], ymd[2]), k: WMO(Dd.weather_code[i], true), tmax: Math.round(Dd.temperature_2m_max[i]), tmin: Math.round(Dd.temperature_2m_min[i]), rmax: Math.round(Dd.precipitation_probability_max[i] || 0), wmax: Math.round(Dd.wind_speed_10m_max[i]), sunrise: Dd.sunrise[i].slice(11, 16), sunset: Dd.sunset[i].slice(11, 16) }; });
+  const daily = Dd.time.slice(0, 15).map((t, i) => { const ymd = t.split('-').map(Number); return { dn: dayNum(ymd[0], ymd[1], ymd[2]), k: WMO(Dd.weather_code[i], true), tmax: Math.round(Dd.temperature_2m_max[i]), tmin: Math.round(Dd.temperature_2m_min[i]), rmax: Math.round(Dd.precipitation_probability_max[i] || 0), wmax: Math.round(Dd.wind_speed_10m_max[i]), sunrise: Dd.sunrise[i].slice(11, 16), sunset: Dd.sunset[i].slice(11, 16) }; });
   const ct = cur.time || H.time[0], cymd = ct.slice(0, 10).split('-').map(Number), cday = dayNum(cymd[0], cymd[1], cymd[2]) - today;
   const nowMin = hmToMin(ct.slice(11, 16)), nowIdx = clamp(cday * 24 + Math.floor(nowMin / 60), 0, hourly.length - 1);
   const nowCur = cur.temperature_2m != null ? { t: Math.round(cur.temperature_2m), feel: Math.round(cur.apparent_temperature), w: Math.round(cur.wind_speed_10m), g: Math.round(cur.wind_gusts_10m), d: Math.round(cur.wind_direction_10m), k: WMO(cur.weather_code, cur.is_day !== 0) } : null;
@@ -77,7 +77,7 @@ function parseOpenMeteo(j, place) {
 const WX = { status: 'idle', err: '', live: null, ex: exampleRaw() };
 function wxUrl(lat, lon) {
   const hv = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,relative_humidity_2m,uv_index,visibility,cloud_cover,is_day';
-  return 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&hourly=' + hv + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=7&wind_speed_unit=kmh';
+  return 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&hourly=' + hv + '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset&timezone=auto&forecast_days=16&wind_speed_unit=kmh';
 }
 async function loadLiveWeather() {
   const s = ST.settings;

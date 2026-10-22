@@ -62,12 +62,15 @@ VIEWS.inicio = vInicio;
 /* ---- Acciones ---- */
 let SIM = [];
 const clearSim = () => { SIM.forEach(clearTimeout); SIM = []; };
-const later = (ms, fn) => SIM.push(setTimeout(() => { fn(); if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio') { rerender(); scrollThread(); } }, ms));
+const later = (ms, fn) => SIM.push(setTimeout(() => { fn(); if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio' || !ROUTE.v) { rerender(); scrollThread(); } }, ms));
 function scrollThread() { const t = document.getElementById('thr'); if (t) t.scrollTop = t.scrollHeight; }
 function reply(pid, text, voice) {
   const P = projById(pid), list = chatsOf(pid), id = 'm' + Date.now();
   list.push({ who: 'me', t: text, at: hhmm(), v: !!voice });
   UI.js = 'pensando'; saveState(); clearSim();
+  const hi = typeof HomeScenes !== 'undefined' ? HomeScenes.parseIntent(text) : null;
+  if (hi && hi.scene) { const a = runScene(hi.scene, voice ? 'voz' : 'texto'); later(700, () => { list.push({ who: 'ja', t: HomeScenes.SCENES[hi.scene].label + ' hecho: ' + (a.length ? a.length + ' cambios' : 'ya estaba así') + '. ' + homeSummary() + ' (casa de ejemplo hasta conectar Tuya).', at: hhmm() }); UI.js = 'listo'; saveState(); rerender(); }); return; }
+  if (hi && hi.temp) { later(700, () => { const H = homeSt(); H.state = HomeScenes.applyActions(H.state, [{ deviceId: 'calefaccion', cmd: 'setTemp', value: hi.temp }]); saveState(); list.push({ who: 'ja', t: 'Calefacción a ' + String(hi.temp).replace('.', ',') + '° (ejemplo hasta conectar tu termostato).', at: hhmm() }); UI.js = 'listo'; rerender(); }); return; }
   if (SENSITIVE.test(text)) {
     later(1200, () => { UI.js = 'aprobacion'; list.push({ who: 'ja', id, appr: true, t: 'Entendido. «' + text.slice(0, 80) + '» actúa fuera (publica, envía, borra o gasta). Necesito tu visto bueno antes de hacerlo en ' + P.n + '.', at: hhmm() }); saveState(); });
   } else {
@@ -81,7 +84,7 @@ const SALA_ACTS = {
   pSel: (a) => { UI.pSel = a; UI.draft = ''; ROUTE.sub = ''; },
   newChat: (a) => { ST.chats = ST.chats || {}; ST.chats[a] = []; UI.js = 'listo'; clearSim(); saveState(); },
   suggest: (t) => { reply(UI.pSel, t); },
-  send: () => { const t = (UI.draft || '').trim(); if (!t) return; UI.draft = ''; reply(UI.pSel, t); setTimeout(scrollThread, 30); },
+  send: () => { const t = (UI.draft || '').trim(); if (!t) return; UI.draft = ''; reply(UI.pSel, t); if (!ROUTE.v && !isPhone()) location.hash = '#trabajo/' + UI.pSel; setTimeout(scrollThread, 30); },
   jsDemo: (k) => { clearSim(); UI.js = k; },
   apprOk: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Aprobado. En la app real lo ejecutaría ahora y registraría la acción en la auditoría.', at: hhmm() }); UI.js = 'ejecutando'; saveState(); later(2000, () => { UI.js = 'listo'; }); },
   apprNo: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Rechazado. No hago nada fuera.', at: hhmm() }); UI.js = 'listo'; saveState(); },
