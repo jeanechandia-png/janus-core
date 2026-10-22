@@ -15,7 +15,7 @@ import { isRecord, requestJson } from './http-json.js';
  *
  * Sending is a separate, irreversible step: `gmail.draft.send` re-reads the draft and refuses to send unless its recipients
  * (To, Cc and Bcc — a hidden Bcc is never approved implicitly) and subject are exactly what the Founder approved (`input.expect`),
- * and, when `expect.bodySha256` is given (see `draftBodyDigest`), its plain-text body too. If the draft cannot be read or
+ * and its plain-text body (`expect.bodySha256`, mandatory — see `draftBodyDigest`). If the draft cannot be read or
  * verified, nothing is sent. Residual risk: compare-then-send is not atomic (Gmail has no conditional send); the window is milliseconds.
  */
 export interface GoogleWorkspaceWriteAdapterOptions {
@@ -149,12 +149,12 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     const expectedCc = addressSet(expect?.cc);
     const expectedBcc = addressSet(expect?.bcc);
     const expectedBody = typeof expect?.bodySha256 === 'string' ? expect.bodySha256.trim().toLowerCase() : null;
-    if (expect && expect.bodySha256 !== undefined && !(expectedBody && /^[0-9a-f]{64}$/.test(expectedBody))) {
-      return { ok: false, error: 'gmail.draft.send: expect.bodySha256 must be a 64-character hex SHA-256 (see draftBodyDigest)' };
-    }
     const expectedSubject = typeof expect?.subject === 'string' ? normaliseSubject(expect.subject) : '';
     if (!expect || expectedTo.size === 0 || !expectedSubject) {
       return { ok: false, error: 'gmail.draft.send needs expect.to and expect.subject: the recipients and subject the Founder approved' };
+    }
+    if (!expectedBody || !/^[0-9a-f]{64}$/.test(expectedBody)) {
+      return { ok: false, error: 'gmail.draft.send needs expect.bodySha256: the SHA-256 of the text the Founder approved (see draftBodyDigest). Nothing was sent.' };
     }
 
     await onProgress({ phase: 'progress', message: 'Gmail: comprobando el borrador antes de enviar', percent: 30 });
@@ -175,12 +175,10 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     if (!sameSet(actualTo, expectedTo) || !sameSet(actualCc, expectedCc) || !sameSet(actualBcc, expectedBcc) || actualSubject !== expectedSubject) {
       return { ok: false, error: 'Nothing was sent: the draft no longer matches the recipients/subject the Founder approved. Review it and approve again.' };
     }
-    if (expectedBody) {
-      const text = plainTextBody(payload);
-      if (text === null) return { ok: false, error: 'Nothing was sent: the draft body could not be verified' };
-      if (draftBodyDigest(text) !== expectedBody) {
-        return { ok: false, error: 'Nothing was sent: the draft body no longer matches the text the Founder approved. Review it and approve again.' };
-      }
+    const text = plainTextBody(payload);
+    if (text === null) return { ok: false, error: 'Nothing was sent: the draft body could not be verified' };
+    if (draftBodyDigest(text) !== expectedBody) {
+      return { ok: false, error: 'Nothing was sent: the draft body no longer matches the text the Founder approved. Review it and approve again.' };
     }
 
     await onProgress({ phase: 'progress', message: 'Gmail: ENVIANDO el correo aprobado', percent: 70 });
@@ -189,7 +187,7 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     const result = isRecord(sent.body) ? sent.body : {};
     return {
       ok: true,
-      output: { sent: true, messageId: result.id ?? null, threadId: result.threadId ?? null, recipients: actualTo.size + actualCc.size + actualBcc.size, bodyVerified: Boolean(expectedBody) },
+      output: { sent: true, messageId: result.id ?? null, threadId: result.threadId ?? null, recipients: actualTo.size + actualCc.size + actualBcc.size, bodyVerified: true },
       ...(typeof result.id === 'string' ? { externalReference: `gmail:message:${result.id}` } : {}),
     };
   }

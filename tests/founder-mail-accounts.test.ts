@@ -217,7 +217,7 @@ const approvedHeaders = [
 const sendRequest = (extra: Record<string, unknown> = {}): ToolRequest => ({
   tool: 'google-workspace-write',
   action: 'gmail.draft.send',
-  input: { account: 'mail-persona', draftId: 'd1', expect: { to: ['ana@cliente.example', 'LUIS@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Propuesta de marketing' }, ...extra },
+  input: { account: 'mail-persona', draftId: 'd1', expect: { to: ['ana@cliente.example', 'LUIS@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Propuesta de marketing', bodySha256: draftBodyDigest('Texto aprobado') }, ...extra },
 });
 const writer = (gmail: ReturnType<typeof fakeGmail>) => new GoogleWorkspaceWriteAdapter({
   accountTokenProvider: async (id) => `W-${id}`,
@@ -297,7 +297,7 @@ test('enviar: falla cerrado si no hay aprobación explícita, si el borrador no 
 test('enviar: acepta un asunto codificado RFC 2047 (UTF-8/base64) igual al aprobado', async () => {
   const encoded = `=?UTF-8?B?${Buffer.from('Señal de humo', 'utf8').toString('base64')}?=`;
   const gmail = fakeGmail({ headers: [approvedHeaders[0]!, approvedHeaders[1]!, { name: 'Subject', value: encoded }] });
-  const res = await writer(gmail).execute(sendRequest({ expect: { to: ['ana@cliente.example', 'luis@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Señal de humo' } }), noop);
+  const res = await writer(gmail).execute(sendRequest({ expect: { to: ['ana@cliente.example', 'luis@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Señal de humo', bodySha256: draftBodyDigest('Texto aprobado') } }), noop);
   assert.equal(res.ok, true, res.error);
   assert.equal(sends(gmail).length, 1);
 });
@@ -318,7 +318,7 @@ test('enviar: un Cco añadido al borrador NO se envía; uno aprobado explícitam
   assert.equal(sends(approved).length, 1);
 });
 
-test('enviar: con expect.bodySha256 el texto debe ser el aprobado (también en multiparte); sin poder verificarlo, no se envía', async () => {
+test('enviar: el texto debe ser el aprobado (expect.bodySha256 obligatorio; también en multiparte); sin poder verificarlo, no se envía', async () => {
   const expectation = (text: string) => sendRequest({ expect: { to: ['ana@cliente.example', 'luis@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Propuesta de marketing', bodySha256: draftBodyDigest(text) } });
 
   const same = fakeGmail({ headers: approvedHeaders, body: 'Texto aprobado\r\n' });
@@ -347,7 +347,10 @@ test('enviar: con expect.bodySha256 el texto debe ser el aprobado (también en m
   assert.match(invalid.error ?? '', /bodySha256/);
   assert.equal(badHash.calls.length, 0, 'ni se consulta Gmail');
 
-  // Sin bodySha256 el texto no queda ligado: la salida lo dice explícitamente.
-  const unbound = await writer(fakeGmail({ headers: approvedHeaders })).execute(sendRequest(), noop);
-  assert.equal(unbound.output!.bodyVerified, false);
+  // Sin bodySha256 NO se envía: el texto siempre debe quedar ligado a lo aprobado, y ni se consulta Gmail.
+  const unbound = fakeGmail({ headers: approvedHeaders });
+  const missing = await writer(unbound).execute(sendRequest({ expect: { to: ['ana@cliente.example', 'luis@cliente.example'], cc: ['jefe@cliente.example'], subject: 'Propuesta de marketing' } }), noop);
+  assert.equal(missing.ok, false);
+  assert.match(missing.error ?? '', /bodySha256/);
+  assert.equal(unbound.calls.length, 0);
 });
