@@ -64,7 +64,7 @@ const DATA = (() => {
     reach30, reach90,
     platforms: [['📱 Instagram', 61], ['📘 Facebook', 24], ['🎵 Otros', 15]],
     ages: [['18–24', 14], ['25–34', 38], ['35–44', 29], ['45–54', 12], ['55+', 7]],
-    cities: [['Medellín', 31], ['Arnhem', 22], ['Nueva York', 18], ['Ámsterdam', 11]],
+    cities: [['Medellín', 31], ['__CIUDAD__', 22], ['Nueva York', 18], ['Ámsterdam', 11]],
     heat: Array.from({ length: 7 }, (_, d) => Array.from({ length: 12 }, (_, h) => Math.round(clamp(20 + 60 * Math.exp(-Math.pow(h - (d > 4 ? 6 : 8), 2) / 6) + (R() - .5) * 25, 3, 100)))),
     sources, prevTotal: 4140,
     kpis: [

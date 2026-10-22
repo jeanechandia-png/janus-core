@@ -35,7 +35,7 @@ const dateMid = (n) => { const o = fromDayNum(n); return WD[o.wd].toLowerCase() 
 /* ===== Estado local (solo este dispositivo) ===== */
 const STORE_KEY = 'janus.preview.A.v1';
 const DEFAULT_ST = {
-  settings: { ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: 51.98, lon: 5.91, place: 'Arnhem', placeSrc: 'por defecto', goal: 5000 },
+  settings: { ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
   done: {}, lleva: {}, mail: {}, follow: {}, appr: {}, upd: {}, localEv: [], newFollow: [], kcheck: {}
 };
 let ST = JSON.parse(JSON.stringify(DEFAULT_ST));

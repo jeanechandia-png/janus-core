@@ -14,7 +14,7 @@ const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const outArg = process.argv.indexOf('--out');
 const OUT = outArg > 0 ? process.argv[outArg + 1] : path.join(D, 'dist', 'Janus-A-Obsidiana-interactivo.html');
 
-const NAMES = Object.assign({ __HIJA__: 'Hija', __CLIENTE_IBA__: 'Cliente', __CONTACTO_FIRMA__: 'Proveedor', __EDAD_HIJA__: '8', __CIUDAD__: 'Ciudad' }, has('local/names.json') ? JSON.parse(rd('local/names.json')) : {});
+const NAMES = Object.assign({ __HIJA__: 'Hija', __CLIENTE_IBA__: 'Cliente', __CONTACTO_FIRMA__: 'Proveedor', __EDAD_HIJA__: '8', __CIUDAD__: 'Ciudad', __CLIMA_LUGAR__: 'Ámsterdam', __LAT__: '52.37', __LON__: '4.90' }, has('local/names.json') ? JSON.parse(rd('local/names.json')) : {});
 const realFile = has('local/real.js') ? 'local/real.js' : 'src/real.example.js';
 
 const svg = (f) => 'data:image/svg+xml;base64,' + b64('assets/' + f);
