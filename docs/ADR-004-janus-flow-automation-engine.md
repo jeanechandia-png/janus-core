@@ -83,6 +83,17 @@ Janus deliberately extends these patterns:
   - node readiness, concurrency and retry backoff primitives.
 - `packages/automation/src/compiler.ts`
   - compiles automation nodes into Janus Work Graph nodes and safe Tool Plan steps.
+- `packages/automation/src/flow-runner.ts` (2026-10-23)
+  - executes a workflow end to end: branches (`logic.if`/`switch`/`ai.classify`), retries with backoff, error branches, approval pause/resume, durable-ready waits, sub-workflows, dedupe, per-run deadline, idempotency key per node;
+  - the run snapshot is plain JSON (serialisable to SQLite later); tools/models/agent/research are injected, never imported.
+- `packages/automation/src/code-runner.ts` (2026-10-23)
+  - sandboxed JavaScript code node (worker + empty `vm` context, time/memory/size limits); Python is declared unavailable.
+- `packages/automation/src/node-catalog.ts` + `flow-templates.ts` (2026-10-23)
+  - built-in node manifests whose availability reflects the real runtime; connector catalog counted from registered adapters; five starter templates with explicit `requires` and a `templateReadiness` check.
+- `packages/adapters/src/http-request-adapter.ts` (2026-10-23)
+  - HTTP/REST node via Founder-named endpoints only (`JANUS_HTTP_ENDPOINTS`), https only, credentials through the CredentialBroker, `request.send` privileged.
+- `packages/orchestrator/src/cited-answer.ts` (2026-10-23)
+  - search → numbered-citation synthesis → automatic verification; used by the `ai.research` node.
 
 ## Next integration
 
@@ -108,3 +119,33 @@ Trigger
 - Janus does not require n8n to operate.
 - Janus does not store provider secrets inside workflow JSON.
 - Janus does not silently rewrite production workflows based on AI suggestions.
+
+## Addendum 2026-10-23 — n8n-inspired runtime (decision record)
+
+**Context.** The Founder asked to apply to Janus the features of n8n's public feature list (visual node editor, self-hosting, code customisation in JS/Python, AI integration, apps + HTTP/REST connectivity), taking only what is useful and implementing it as Janus's own capability.
+
+**Verified fact.** n8n is distributed under the *Sustainable Use License* ("fair-code"); it is source-available, **not** OSI open source, and limits use to internal business / non-commercial purposes (n8n documentation, "Sustainable Use License"). Embedding or redistributing it inside Janus (which may be commercialised) would carry licence risk. **Decision:** keep the existing non-goal — no embedded n8n — and implement the *ideas* natively. n8n remains an optional external system reachable through the existing `n8n` adapter.
+
+**Mapping (idea → Janus).**
+
+| n8n feature | Janus decision |
+| --- | --- |
+| Visual node interface | Same `AutomationWorkflow` JSON; editor UI is a dashboard deliverable (two static options first, then interactive). |
+| Self-hosted / data control | Already the architecture (local-first, SQLite). |
+| Code node (JS/Python) | JS implemented (`CodeRunner`); Python **not available** until WASM/container isolation exists — it is registered `unavailable`, never simulated. |
+| AI nodes | `ai.summarize/classify/extract/complete/research/agent`; external text is always fenced as untrusted DATA. |
+| HTTP Request node | `http.request` over named, Founder-authorised endpoints; a flow can never supply a free URL. |
+| 400+ app nodes | Janus counts only **real** Tool Gateway adapters (`connectorCatalog`), credential state never assumed. |
+
+**Security decisions.**
+- `http.request` method must match the action (`request.read` for GET/HEAD, `request.send` for writes) so the Tool Gateway privileged-action rule cannot be bypassed by relabelling.
+- The `code` node is *not* a security boundary against hostile code (`vm` + worker); it is for code written or approved by the Founder. Strong isolation remains a pending item behind the same `CodeRunner` interface.
+- A workflow's `executionTimeoutMs` is enforced per invocation; the in-flight external call cannot be cancelled and the node is marked failed.
+
+**Expression contract (runner).** `{{ $input }}` is the output of the single upstream node (or an object keyed by node id when several feed in); `{{ $trigger }}` is always the original payload; `{{ $nodes.<id>.output }}` / `.error` read any finished node; `{{ $vars }}` are run variables. Node ids must match `^[A-Za-z0-9_-]+$` so expressions stay unambiguous.
+
+**Known defects / pending.**
+- `execution.ts: readyWorkflowNodes` can mark a node ready when its only upstream edges are error-only or all skipped; the runner uses its own readiness and does not depend on it. To be fixed or removed.
+- Triggers `schedule`, `poll`, `webhook`, `event` are contract-only: the runtime has no scheduler or webhook receiver yet (nodes registered `unavailable`).
+- Run snapshots and the dedupe store are in memory (`InMemoryRunStore`); persistence in SQLite is pending.
+- Visual editor, Python runner, Agent Swarm binding for `ai.agent`, and delivery channels for template outputs are pending.

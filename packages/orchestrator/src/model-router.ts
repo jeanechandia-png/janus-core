@@ -6,7 +6,8 @@ export type ModelCapability =
   | 'tool_use'
   | 'structured_output'
   | 'fast'
-  | 'local';
+  | 'local'
+  | 'web_search';
 
 export interface ModelProfile {
   id: string;
