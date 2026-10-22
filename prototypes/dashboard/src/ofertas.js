@@ -29,7 +29,7 @@ const OF = (() => {
     Object.assign(O('s2', 'Herramienta de diseño', 'Herramienta de diseño Pro (InfinitySeed)', null, null, null, null, 'tool'), { intro: { introPrice: 9, introMonths: 3, regularPrice: 24, minCommitmentMonths: 0 } })
   ];
   const profile = { owner: 'jean', locale: 'es', currency: 'EUR', country: 'NL', schoolRegion: 'zuid', weeklyRun: { weekday: 1, hour: 8, timeZone: 'Europe/Amsterdam' }, watchlist: watch, defaultMinDiscount: 0.15,
-    travel: { origin: 'Arnhem', adults: 1, childAges: [__EDAD_HIJA__], destinations: [
+    travel: { origin: '__CIUDAD__', adults: 1, childAges: [__EDAD_HIJA__], destinations: [
       { name: 'Phantasialand (Brühl)', country: 'DE', modes: ['park', 'hotel', 'train'], priority: 1 }, { name: 'Efteling', country: 'NL', modes: ['park', 'hotel'], priority: 0.95 },
       { name: 'Movie Park Germany', country: 'DE', modes: ['park'], priority: 0.8 }, { name: 'Berlín', country: 'DE', modes: ['train', 'hotel'], priority: 0.7 }, { name: 'Destino de sol (vuelo)', country: 'EU', modes: ['flight', 'hotel'], priority: 0.75 }] } };
   const now = new Date(today + 'T08:00:00Z');
