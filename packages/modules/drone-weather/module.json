@@ -1,0 +1,14 @@
+{
+  "id": "drone-weather",
+  "version": "0.1.0",
+  "kind": "logic-module",
+  "summary": "¿Se puede volar el dron hoy? Veredicto por hora y por día (sí / precaución / no), mejores franjas y resumen mañana/tarde/noche. Perfil por defecto: Potensic Atom 2 (< 249 g, viento nivel 5 hasta 38 km/h) con márgenes de seguridad ajustables.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none (el host aporta los datos horarios del pronóstico)",
+  "network": false,
+  "secrets": "none",
+  "dataClassification": "público (meteorología)",
+  "invariants": ["Imports nothing outside its folder.", "Pure functions: no I/O, no clock, no randomness.", "Verdict 'no' always wins over 'precaucion' (storm, rain, wind > margin).", "Thresholds are RECOMENDACIÓN with margin below the manufacturer limit; the pilot decides."],
+  "reuseNotes": "Otro dron u otro cliente: pasar un DroneProfile propio (windOkKmh, windWarnKmh, gustOkKmh, gustWarnKmh, waterproof) a checkHour/dayVerdict. Los datos horarios provienen de cualquier pronóstico (Open-Meteo, AEMET, KNMI) mapeados a HourWx."
+}
