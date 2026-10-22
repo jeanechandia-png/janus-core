@@ -1,10 +1,18 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
-Actualizado: 2026-10-22 00:20 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
+Actualizado: 2026-10-22 19:30 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
 
 ## AHORA
-Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos requisitos nuevos (abajo, PENDIENTE 1 y 2), que son el siguiente trabajo.
+Teléfono A2 (cristal · oro pulido 3D real) integrado; modo Compañero, Ofertas y Correo funcionando; PWA instalable lista (rama `gh-pages`). Esperando: (1) que Jean active GitHub Pages o cree un proyecto Vercel vacío, (2) créditos de ElevenLabs para el clip de Nimbo y las voces, (3) aprobación del preview antes de generar el ZIP (norma IS6).
+
+## HECHO 2026-10-22 (tarde-noche)
+- **Teléfono A2** (`src/phonea2.js`, `src/phonea2.css`): fondo mármol, tarjetas de cristal, oro 3D renderizado en el wordmark, las monedas-icono y las cifras (atlas `lego/janus-gold/assets/pulido`, función `gNum()`). Clima solo hoy y mañana, banda de Ofertas, acceso al Compañero. `?tel=a|b|c` conserva las opciones históricas.
+- **Compañero** (`src/companero.js`, pieza `packages/modules/companion` en PR #45): 4 criaturas originales (Lumi, Bombo, Musgo, Nimbo) elegibles y renombrables; mates con pistas; semáforo social; avisos a papá; clips importables a IndexedDB; voz del navegador provisional.
+- **Ofertas / Correo** (PR #44: `deal-radar`, `mail-hub`): varias cuentas por proveedor, sin contraseñas.
+- **PWA** (`tools/pwa.cjs`, `pwa/`): manifest, service worker con modo sin conexión verificado, iconos con el wordmark de oro.
+- **Corrección:** la barra de pestañas desbordaba la vista (+22 px en Ofertas, ya existía antes); ahora se desplaza.
+- **Pruebas:** layout OK en 7 tamaños (1194x834, 1366x1024, 1920x1080, 1133x744, 390x844, 430x932, 375x667), clicks sin errores, e2e del compañero OK, `npm test` 284/284.
 
 ## HECHO (verificado)
 - A interactivo: 11 vistas de detalle; todas las zonas abren detalle (`data-go`), acciones (`data-act`), ajustes persistentes.
@@ -37,9 +45,8 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 ## HECHO 2026-10-22 16:10 (teléfono)
 - Jean: en teléfono las tarjetas de borde a borde eran innecesariamente grandes. Ahora el teléfono tiene su propio tablero (`src/phone.js`, `src/phone.css`): clima compacto + acceso «Hablar con Janus» + 10 widgets en 2 columnas con cifra clave y mini gráfica; cada widget abre su vista de detalle. Alto total en 430x932: ~1.130 px (antes ~3.100 px).
 
-## TELÉFONO — POR DECIDIR (Jean, 22-oct 16:20)
-- Jean rechazó B y C y las 3 primeras por falta de hiperrealismo; prefiere la estructura A. Clima en teléfono: SOLO hoy y mañana. Aplicar filtros de coherencia estructural y visual.
-- Oro ahora RENDERIZADO en 3D real (`tools/gold3d/`): wordmark JANUS, cifras (misma altura), iconos-moneda y marcos. Presentadas 4 variantes de la A: A1 Marco·satinado, A2 Cristal·pulido sobre mármol, A3 Joyero·champán, A4 Placa·satinado sobre carbono. Pendiente su elección para integrarla (cifras dinámicas → atlas de dígitos renderizados).
+## TELÉFONO — DECIDIDO (Jean, 22-oct)
+- Elegido: estructura A + **A2 Cristal · oro pulido** sobre mármol. Clima solo hoy y mañana. Escritorio y tablet no se tocan.
 
 ## TELÉFONO — HISTÓRICO (Jean, 22-oct 16:08)
 - RECHAZADO: tablero de widgets/botones (no es un dashboard; la información debe verse de una sola vista).
@@ -66,15 +73,21 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 7. Meta (alcance/reels), ingresos (empresa sin registrar → ejemplo), chatbots: sin conector.
 
 ## BLOQUEADO / LIMITACIONES
-- La llamada real a Open-Meteo y Safari/iPad no se verificaron desde el sandbox (sin internet general); solo con simulación.
-- `gh` GraphQL devuelve 403 en este entorno → usar `gh api` REST.
+- **Publicación:** Vercel MCP → 403 "no permission to create a project"; GitHub Pages API bloqueada por el proxy. La rama `gh-pages` ya está subida: falta que Jean active Settings → Pages → `gh-pages` / root.
+- **ElevenLabs:** créditos agotados (quedan 3.537 y un clip de kling-3-pro cuesta unos 5.090). Falta el clip de Nimbo y diseñar 4 voces. El proxy bloquea la descarga desde storage.googleapis.com: la app usa vistas previas de 512 px.
+- La llamada real a Open-Meteo y Safari/iPad no se verificaron desde el sandbox.
+- `gh` GraphQL devuelve 403 → usar `gh api` REST.
 - Gmail: conector en `needs_reconnect`.
 
 ## NORMA OPERATIVA (Jean, 2026-10-22)
-Tras CADA actividad: enviar preview (capturas tablet y teléfono de A y B + los HTML). Nunca cerrar solo con código o traspaso.
+Tras CADA actividad: enviar preview (capturas tablet y teléfono + los HTML). Nunca cerrar solo con código o traspaso.
+Normas Infinity Seed 6: `docs/OPERATING_NORMS.md` (filtros → preview → aprobación → ZIP; avisar cuando ChatGPT, Gemini o Workspace sean mejores para una tarea).
 
 ## PRÓXIMO (primer paso del siguiente agente)
-Refactorizar a núcleo común + piel A (sin cambiar el resultado visual de A: comparar capturas antes/después), añadir piel B interactiva, luego la sección Proyectos en ambas. Ejecutar las pruebas en las mismas resoluciones y entregar a Jean **cada HTML por separado** (no previsualización Artifact) con una captura de cada uno.
+1. Si Jean aprobó el preview: generar el ZIP (HTML personal desde `local/`, PWA y capturas).
+2. Con créditos o con Gemini/ChatGPT: clip de Nimbo + 4 voces → `voiceRef` en `packages/modules/companion/src/personas.ts`.
+3. B Platino interactivo (PENDIENTE 1).
+4. Biometría local (voz/rostro) con consentimiento: diseño en el core, sin subir datos.
 
 ## Cómo regenerar la instantánea real (no se sube al repo)
 - Calendar: herramienta MCP Google Calendar `list_events` (calendario principal y «Familia», 8 días) → `local/real.js` (`ev: [{d,h,dur,e,t,amb,note}]`).
