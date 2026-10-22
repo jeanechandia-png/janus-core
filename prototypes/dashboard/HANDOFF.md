@@ -35,9 +35,9 @@ Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos re
    - Dashboard: tarjeta «Proyectos» que abre la sala con el proyecto seleccionado (se une a PENDIENTE 2).
    - La PWA (`apps/pwa`) ya tiene orbe de voz y campo de texto; tocarla requiere autorización explícita de Jean.
 4. Reconectar Gmail (lo hace Jean en claude.ai → Ajustes → Conectores) → alimentar Prioridades y Clientes.
-4. Datos vivos sin intervención: llevar adaptadores a JANUS Core/PWA (Google Workspace y GitHub ya existen en el core). **Requiere autorización de Jean** (toca `apps/pwa`).
-5. Calendario «Familia» vacío → cuando Jean lo llene, alimentar la zona familiar.
-6. Meta (alcance/reels), ingresos (empresa sin registrar → ejemplo), chatbots: sin conector.
+5. Datos vivos sin intervención: llevar adaptadores a JANUS Core/PWA (Google Workspace y GitHub ya existen en el core). **Requiere autorización de Jean** (toca `apps/pwa`).
+6. Calendario «Familia» vacío → cuando Jean lo llene, alimentar la zona familiar.
+7. Meta (alcance/reels), ingresos (empresa sin registrar → ejemplo), chatbots: sin conector.
 
 ## BLOQUEADO / LIMITACIONES
 - La llamada real a Open-Meteo y Safari/iPad no se verificaron desde el sandbox (sin internet general); solo con simulación.
