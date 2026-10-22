@@ -19,6 +19,16 @@ Dashboard A (Obsidiana) interactivo terminado y verificado. Jean añadió dos re
 - Tipografías incrustadas (`assets/fonts`, OFL vía @fontsource): nítidas e idénticas offline.
 - Vista previa navegable: `node build.cjs --artifact <ruta>` genera la variante sin esqueleto para publicar como Artifact privado.
 
+## REGLA LEGO (Jean, 2026-10-22 15:22)
+Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA, ChatBox) y propagarse: si se actualiza una pieza, las superficies que la usan la heredan.
+- Mecanismo existente en el núcleo: Assistant Control Plane (perfil padre `infinity-landing-assistant`, superficies `landing.infinity-group|chatbox|iba` con `tracking=current`) + Reusable LEGO Library (ver docs/STATE.md).
+- Primera pieza extraída: `lego/janus-activity/` v0.1.0 (medallón del logo con actividad + Mini-Jano), sin dependencias, con `manifest.json` y `demo.html`. Pendiente: registrarla en la LEGO Library y en el perfil padre.
+- Próximas piezas: sala de trabajo (`src/sala.js` → `lego/janus-workroom/`) con adaptadores (envío al núcleo, proyectos, voz) y el micrófono de Melanie (`isg-voice`) conectado a la voz de Janus.
+
+## HECHO 2026-10-22 (sala de trabajo)
+- Decisión de Jean: **solo el medallón del logo** con efecto de actividad + **Mini-Jano junto al campo de texto** (nada de medallones repetidos).
+- `#inicio` (portada: micrófono vintage, Hablar/Escribir/Proyectos/Dashboard), `#trabajo` (proyectos | chat voz+texto | estado y proyecto), tarjeta «Proyectos» en el dashboard → sala. Respuestas simuladas y rotuladas; acciones que publican/envían/borran/gastan piden visto bueno.
+
 ## PENDIENTE (orden de prioridad)
 1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
    - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.

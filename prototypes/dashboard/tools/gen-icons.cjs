@@ -17,7 +17,7 @@ const MAP = {
   '🆕': 'sparkles', '🍽': 'utensils', '🛒': 'shopping-cart', '✂': 'scissors', '🎒': 'backpack', '👟': 'footprints', '🍎': 'apple', '🚌': 'bus',
   '📚': 'graduation-cap', '🎄': 'tree-pine', '⛷': 'mountain-snow', '🏊': 'waves', '🔁': 'repeat', '🐙': 'github', '📧': 'mail', '🔗': 'link',
   '📘': 'book', '🎵': 'music', '🛟': 'life-buoy', '📄': 'file-text', '🧊': 'snowflake', '🕶': 'glasses', '🧣': 'snowflake', '🔦': 'flashlight',
-  '🛍': 'shopping-bag', '🥧': 'chart-pie', '🦷': 'smile', '🐝': 'bug', '↺': 'rotate-ccw', '↻': 'rotate-cw', '🖐': 'hand', '👨‍👩‍👧': 'users', '🔻': 'filter', '➡': 'arrow-right', '🔺': 'triangle'
+  '🛍': 'shopping-bag', '🥧': 'chart-pie', '🦷': 'smile', '🐝': 'bug', '↺': 'rotate-ccw', '↻': 'rotate-cw', '🖐': 'hand', '👨‍👩‍👧': 'users', '🔻': 'filter', '➡': 'arrow-right', '🔺': 'triangle', '🎙': 'mic', '📁': 'folder', '⌨': 'keyboard', '🏷': 'tag', '➤': 'send-horizontal'
 };
 const out = {};
 for (const [e, n] of Object.entries(MAP)) {

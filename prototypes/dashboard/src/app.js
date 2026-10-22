@@ -48,6 +48,7 @@ const ACTS = {
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
+Object.assign(ACTS, SALA_ACTS);
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
 function trigger(el) {
@@ -75,6 +76,7 @@ $root.addEventListener('change', (ev) => {
   let v = ev.target.value;
   if (ev.target.type === 'range' || ev.target.type === 'number') { v = +v; if (k === 'goal') v = clamp(v || 5000, 100, 1e7); }
   else if (ev.target.type === 'time' && !/^\d\d:\d\d$/.test(v)) return;
+  else if (ev.target.type === 'checkbox') v = ev.target.checked;
   ST.settings[k] = v;
   if (k === 'rainBad') ST.settings.rainWarn = Math.max(10, v - 20);
   if (k === 'windBad') ST.settings.windWarn = Math.max(8, v - 8);
