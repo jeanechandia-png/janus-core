@@ -325,3 +325,8 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 .vb-correo{align-content:stretch;grid-auto-rows:minmax(0,1fr)}
 .vb-correo .mlf{grid-row:auto}
 .vb-ofertas .li2 .tm{flex:none;min-width:70px}
+/* Barra de pestañas: nunca ensancha la vista; se desplaza en horizontal si no caben (fix desbordamiento 22-10) */
+.vh{min-width:0;max-width:100%}
+.vh .tabs{flex:1 1 0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent);mask-image:linear-gradient(90deg,transparent,#000 14px,#000 calc(100% - 14px),transparent)}
+.vh .tabs::-webkit-scrollbar{display:none}
+.vh .tabs .tb2{flex:none}

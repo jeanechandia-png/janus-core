@@ -7,7 +7,7 @@ const SHOTS = process.env.SHOTS_DIR || path.join(__dirname, '../dist/shots');
 require('fs').mkdirSync(SHOTS, { recursive: true });
 const mode = process.argv[2] || 'offline';
 const sizes = (process.argv[3] || '1194x834').split(',').map((s) => s.split('x').map(Number));
-const ROUTES = ['', 'inicio', 'trabajo', 'trabajo/chatbox', 'ofertas', 'correo', 'clima', 'clima/h17', 'dia', 'familia', 'prioridades', 'janus', 'ingresos', 'alcance', 'chatbots', 'contenido', 'clientes', 'datos'];
+const ROUTES = ['', 'inicio', 'trabajo', 'trabajo/chatbox', 'ofertas', 'correo', 'companero', 'clima', 'clima/h17', 'dia', 'familia', 'prioridades', 'janus', 'ingresos', 'alcance', 'chatbots', 'contenido', 'clientes', 'datos'];
 function mockMeteo() {
   const today = '2026-10-21', H = { time: [], temperature_2m: [], apparent_temperature: [], precipitation_probability: [], precipitation: [], weather_code: [], wind_speed_10m: [], wind_direction_10m: [], wind_gusts_10m: [], relative_humidity_2m: [], uv_index: [], visibility: [], cloud_cover: [], is_day: [] };
   for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) {

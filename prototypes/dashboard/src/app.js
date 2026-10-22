@@ -7,11 +7,12 @@ function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   dash.innerHTML = isPhone() ? renderPhoneV(M, X) : renderDash(M, X);
-  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = VIEWS[ROUTE.v](M, X, ROUTE.sub); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; }
+  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = VIEWS[ROUTE.v](M, X, ROUTE.sub); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · Obsidiana'; }
   decorate(ROUTE.v || '');
 }
 function rerender() { render(); }
+function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
 function go(r) { const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
@@ -49,7 +50,7 @@ const ACTS = {
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
-Object.assign(ACTS, SALA_ACTS, OF_ACTS);
+Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS);
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
 function trigger(el) {
