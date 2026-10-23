@@ -2,7 +2,7 @@ import type { ModelGateway, ToolExecutionAuthorization, ToolGateway } from '../.
 import type { CodeLanguage, CodeRunner } from './code-runner.js';
 import { canRetryWorkflowNode, createWorkflowExecutionState, nextRetryDelayMs, type WorkflowExecutionState } from './execution.js';
 import { resolveWorkflowValue, resolveWorkflowString, type WorkflowExpressionContext } from './expression-engine.js';
-import { validateAutomationWorkflow, workflowErrorTargets, type AutomationWorkflow, type WorkflowConnection, type WorkflowNode } from './workflow.js';
+import { validateAutomationWorkflow, workflowErrorTargets, type AutomationWorkflow, type WorkflowConnection, type WorkflowNode, type WorkflowRisk } from './workflow.js';
 
 /**
  * Ejecutor de flujos de Janus (pieza propia, inspirada en los patrones de plataformas de automatización).
@@ -57,7 +57,18 @@ export interface FlowRunResult {
   error?: string;
 }
 
-export interface AgentRunRequest { objective: string; requiredCapabilities: string[]; input: unknown; nodeId: string }
+export interface AgentRunRequest {
+  objective: string;
+  requiredCapabilities: string[];
+  input: unknown;
+  nodeId: string;
+  preferredCapabilities?: string[];
+  requireLocal?: boolean;
+  preferLocal?: boolean;
+  /** Riesgo y reversibilidad del nodo: el ejecutor decide cuánta verificación independiente exigir. */
+  risk?: WorkflowRisk;
+  reversible?: boolean;
+}
 
 export interface FlowDeps {
   tools?: ToolGateway;
@@ -342,7 +353,17 @@ async function handleNode(
   if (node.executionMode === 'agentic' && node.kind !== 'action') {
     if (!deps.agent) throw new Error('Nodo agéntico sin ejecutor: Agent Swarm no está conectado');
     const op = node.agentOperation!;
-    const res = await deps.agent({ objective: String(resolveWorkflowString(op.objective, ctx)), requiredCapabilities: op.requiredCapabilities, input: ctx.input, nodeId: node.id });
+    const res = await deps.agent({
+      objective: String(resolveWorkflowString(op.objective, ctx)),
+      requiredCapabilities: op.requiredCapabilities,
+      input: ctx.input,
+      nodeId: node.id,
+      ...(op.preferredCapabilities ? { preferredCapabilities: op.preferredCapabilities } : {}),
+      ...(op.requireLocal !== undefined ? { requireLocal: op.requireLocal } : {}),
+      ...(op.preferLocal !== undefined ? { preferLocal: op.preferLocal } : {}),
+      risk: node.risk,
+      reversible: node.reversible,
+    });
     return { output: res.output };
   }
 

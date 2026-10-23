@@ -68,7 +68,7 @@ const SPECS: Spec[] = [
   { type: 'ai.extract', displayName: 'IA: extraer campos', kind: 'ai', capabilities: ['ai.text'], needs: (e) => (e.models ? yes : unavailable('Falta el Model Gateway.')) },
   { type: 'ai.complete', displayName: 'IA: instrucción libre', kind: 'ai', capabilities: ['ai.text'], needs: (e) => (e.models ? yes : unavailable('Falta el Model Gateway.')) },
   { type: 'ai.research', displayName: 'IA: investigar con fuentes citadas', kind: 'ai', capabilities: ['ai.research', 'web.search'], needs: (e) => (e.research ? yes : needsAuth('Necesita un buscador (p. ej. Perplexity con su API key) y un modelo para sintetizar con citas.')) },
-  { type: 'ai.agent', displayName: 'Agente (Agent Swarm)', kind: 'ai', capabilities: ['ai.agent'], executionModes: ['agentic'], needs: (e) => (e.agent ? yes : unavailable('Agent Swarm no está conectado al motor de flujos.')) },
+  { type: 'ai.agent', displayName: 'Agente (Agent Swarm)', kind: 'ai', capabilities: ['ai.agent'], executionModes: ['agentic'], needs: (e) => (e.agent ? yes : unavailable('Agent Swarm no está conectado al motor de flujos: el adaptador (FlowAgentAdapter) existe y está probado, pero faltan agentes reales (un modelo de lenguaje con API es gasto; en reposo, norma 7).')) },
   // Conectividad
   { type: 'action.tool', displayName: 'Acción de conector', kind: 'action', capabilities: ['tool.call'], needs: (e) => (e.tools ? yes : unavailable('Falta el Tool Gateway.')) },
   {
