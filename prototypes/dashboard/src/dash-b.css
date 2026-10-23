@@ -208,17 +208,15 @@ background:radial-gradient(800px 460px at 0% 0%,rgba(47,107,255,.22),transparent
 .stage.b .pl-hd .seg{margin:0 4px;align-self:center}
 @media (max-width:47.5em),(max-height:31.25em){body:has(.stage.b){background:#E7ECF5!important;background-attachment:scroll!important}}
 
-/* Iconos vectoriales dentro de las burbujas de B (sustituyen a los objetos 3D de oro de A) */
+/* Iconos de B = los de A (mismos objetos 3D de oro; el trazo vectorial en oro grabado). Solo cambia la sombra, pensada para fondo claro. */
 .stage.b .pl-bb{color:var(--ink)}
-.stage.b .pl-bb.pl-sap,.stage.b .pl-bb.pl-em,.stage.b .pl-bb.pl-vi,.stage.b .pl-bb.pl-pk,.stage.b .pl-bb.pl-am{color:#fff}
-.stage.b .pl-bb .ji,.stage.b .bb .ji{width:62%;height:62%;stroke:currentColor;stroke-width:2.1;filter:none}
+.stage.b .pl-bb .ji,.stage.b .bb .ji{width:62%;height:62%;stroke:url(#jg);stroke-width:2.1;filter:drop-shadow(0 1px 0 rgba(50,32,0,.75)) drop-shadow(0 0 3px rgba(120,80,0,.25))}
 .stage.b .bb{color:var(--ink)}
-.stage.b .tb2 i .ji,.stage.b .wkt .kit3 .ji{stroke:currentColor;filter:none!important}
-.stage.b .tb2.on i .ji{filter:none!important}
+.stage.b .tb2 i .ji,.stage.b .wkt .kit3 .ji{stroke:url(#jg);filter:drop-shadow(0 1px 0 rgba(50,32,0,.75))!important}
+.stage.b .tb2.on i .ji{filter:drop-shadow(0 0 5px rgba(212,160,40,.7)) drop-shadow(0 1px 0 rgba(50,32,0,.75))!important}
 .stage.b .tb2 em{color:var(--mute)}
 .stage.b .tb2.on{color:var(--sap)}
-.stage.b .pl-chip .ji,.stage.b .pl-ft1 .ji,.stage.b .pl-gl .ji,.stage.b .pl-lb .ji{width:1.08em;height:1.08em;vertical-align:-.16em;stroke:currentColor}
-.stage.b .pl-ft1 .ji{stroke:var(--sap)}
+.stage.b .pl-chip .ji,.stage.b .pl-ft1 .ji,.stage.b .pl-gl .ji,.stage.b .pl-lb .ji{width:1.08em;height:1.08em;vertical-align:-.16em;stroke:url(#jg);filter:drop-shadow(0 1px 0 rgba(50,32,0,.7))}
 .stage.b .back{color:#fff;background:linear-gradient(180deg,#3F79FF,#1F55E0);box-shadow:0 5px 9px -4px rgba(47,107,255,.7)}
 
 .stage.b .pl-lb{white-space:nowrap;overflow:hidden}
@@ -226,7 +224,9 @@ background:radial-gradient(800px 460px at 0% 0%,rgba(47,107,255,.22),transparent
 .stage.b .pl-lb .src{margin-left:2px}
 
 /* ---- Objetos 3D dorados (PNG/WebP/canvas): giro de tono dorado → zafiro (+178°). No se tocan iconos del tiempo ni criaturas. ---- */
-.stage.b .medal,.stage.b .pl-medal,.stage.b .mdl-c img,.stage.b .a2md,.stage.b .wm3,.stage.b .a2i,.stage.b .a2n img,.stage.b .a2bot img,.stage.b .a2micb img,.stage.b .j3d-fb,.stage.b .j3bot img,.stage.b .j3mic img,.stage.b .m3 img,.stage.b .ini-mic img,.stage.b .pl-mic img,.stage.b [data-3d] canvas,.stage.b img.ji3{filter:hue-rotate(178deg) saturate(1.08) drop-shadow(0 3px 4px rgba(30,50,110,.28))!important}
+.stage.b .medal,.stage.b .pl-medal,.stage.b .mdl-c img,.stage.b .a2md,.stage.b .wm3,.stage.b .j3d-fb,.stage.b [data-3d] canvas{filter:hue-rotate(178deg) saturate(1.08) drop-shadow(0 3px 4px rgba(30,50,110,.28))!important}
+/* Iconos y objetos de A (robot, micrófono, moneda…): SIN giro de tono, los mismos que en la piel negra; sombra suave para fondo claro */
+.stage.b :is(.a2i,.a2n img,.a2bot img,.a2micb img,.j3bot img,.j3mic img,.m3 img,.ini-mic img,.pl-mic img){filter:drop-shadow(0 3px 4px rgba(60,42,8,.34))!important}
 .stage.b .hd .medal[data-lit="true"]{filter:hue-rotate(178deg) saturate(1.2) brightness(1.1) drop-shadow(0 0 12px rgba(47,107,255,.6))!important}
 
 /* Filas de lista de las vistas (Mi día, Prioridades): superficie clara con acento zafiro, en vez del pozo oscuro traducido. */
@@ -249,3 +249,28 @@ background:radial-gradient(800px 460px at 0% 0%,rgba(47,107,255,.22),transparent
 /* Fila desactivada (equipo «no»): atenuada pero legible. */
 .stage.b .kr2{opacity:.86}.stage.b .kr2.on{opacity:1}
 .stage.b .tb2.on em{color:#0E1A33}
+/* ---- Objetos 3D de oro de A en la piel B: tamaños por contexto (burbujas, chips, cabeceras, celdas) ---- */
+.stage.b img.ji3{width:1.5em;height:1.5em;max-width:none;object-fit:contain;display:inline-block;flex:none;vertical-align:-.42em;margin:0 .14em 0 0;stroke:none;transition:transform .2s,filter .2s;animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(--gd,0s)}
+.stage.b img.ji3.ji3{filter:drop-shadow(0 3px 3px rgba(60,42,8,.38)) drop-shadow(0 6px 8px rgba(60,42,8,.16))!important}
+.stage.b :is(.go,.pl-bb,.bb,.tb2,.chip,.pl-chip,.jg-coin):is(:hover,[data-lit="true"]) img.ji3.ji3{transform:translateY(-1px) scale(1.1);filter:drop-shadow(0 3px 3px rgba(60,42,8,.38)) drop-shadow(0 0 10px rgba(255,200,90,.85)) brightness(1.1)!important}
+@media (prefers-reduced-motion:reduce){.stage.b img.ji3{animation:none}}
+/* Burbujas: el medallón sustituye al círculo plano; crece hacia fuera sin mover el diseño */
+.stage.b .pl-bb:has(img.ji3),.stage.b .bb:has(img.ji3),.stage.b .jg-coin:has(img.ji3){background:none!important;box-shadow:none!important;border-color:transparent!important;overflow:visible!important;position:relative}
+.stage.b .jg-coin:has(img.ji3)::before,.stage.b .jg-coin:has(img.ji3)::after{display:none!important}
+.stage.b .pl-bb img.ji3,.stage.b .bb img.ji3,.stage.b .jg-coin img.ji3{width:150%;height:150%;margin:-25%;vertical-align:0}
+.stage.b .pl-bb.pl-m img.ji3{width:140%;height:140%;margin:-20%}
+.stage.b .pl-pjp .pl-bb img.ji3{width:165%;height:165%;margin:-32%}
+.stage.b .pl-chip img.ji3,.stage.b .chip img.ji3{width:1.75em;height:1.75em;margin:-.34em .14em -.34em -.1em;vertical-align:-.5em}
+.stage.b .pl-ft1 img.ji3,.stage.b .pl-gl img.ji3,.stage.b .pl-mt img.ji3{width:1.45em;height:1.45em;margin:-.2em .1em -.2em 0;vertical-align:-.4em}
+.stage.b .pl-bb.pl-off img.ji3{opacity:.9}
+/* Cabeceras de tarjeta: el medallón no se recorta (la fila admite desborde visible) y el texto de la derecha no se parte */
+.stage.b .pl-lb:has(img.ji3){overflow:visible}
+.stage.b .pl-lb .pl-bb:has(img.ji3){width:26px;height:26px;margin:-2px 0}
+.stage.b .pl-lb:has(img.ji3){gap:4px;letter-spacing:.06em}
+.stage.b .pl-lb .pl-bb img.ji3{width:100%;height:100%;margin:0}
+.stage.b .pl-lb .pl-mt{white-space:nowrap}
+.stage.b .pl-mt img.ji3{width:14px;height:14px;margin:-.15em .06em -.15em 0;vertical-align:-.3em}
+.stage.b .pl-lb .jiw,.stage.b .pl-lb .pl-mt{white-space:nowrap}
+.stage.b .pl-mt img.ji3.ji3{filter:none!important;margin:0 .06em 0 0;vertical-align:-.26em}
+.stage.b .pl-dy img.ji3{width:15px;height:15px;margin:0}
+.stage.b .band img.ji3,.stage.b .pill2 img.ji3{width:15px;height:15px;margin:0 .12em 0 0}

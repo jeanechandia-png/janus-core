@@ -42,6 +42,7 @@ async function contrast(page, size) {
       if (/^[\p{Extended_Pictographic}\s‍️]+$/u.test(t)) continue;       // emoji
       const r = document.createRange(); r.selectNodeContents(n); const b = r.getBoundingClientRect();
       if (b.width < 2 || b.height < 2 || b.bottom < 0 || b.right < 0 || b.top > innerHeight || b.left > innerWidth) continue;
+      if (b.left < 0 || b.right > innerWidth) continue;                              // asomado por el borde de una tira que se desplaza (se muestra recortado a propósito)
       const top = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2)));
       if (!top || !(el === top || el.contains(top) || top.contains(el))) continue;  // tapado por otra capa
       let op = 1, e = el; while (e && e !== document.body) { op *= +getComputedStyle(e).opacity; e = e.parentElement; }
@@ -130,6 +131,31 @@ async function contrast(page, size) {
     }
     check(nom + ': ' + ROUTES.length + ' vistas abren en B, sin desborde horizontal', ko.length === 0, ko.join(', '));
     check(nom + ': sin errores JS', errs.length === 0, errs.slice(0, 2).join(' | ')); await ctx.close();
+  }
+
+  console.log('\n[5b] Iconos de B = los MISMOS que los de A (norma operativa: se reutilizan, no se inventan otros)');
+  // Huella de cada icono visible: objeto 3D (archivo de lego/janus-gold) o trazo vectorial; se compara el conjunto de B con el de A en cada vista.
+  const iconos = () => {
+    const f = [];
+    document.querySelectorAll('.stage img.ji3,.stage img.a2i,.stage img.a2n,.stage .a2n img,.stage .a2bot img,.stage .a2micb img,.stage .j3bot img,.stage .j3mic img,.stage .m3 img,.stage .ini-mic img').forEach((im) => { const r = im.getBoundingClientRect(); if (r.width < 2 || im.closest('[hidden]') || getComputedStyle(im).display === 'none') return; const src = im.getAttribute('src') || ''; if (/^data:image\/webp/.test(src)) f.push('obj:' + src.length + ':' + src.slice(-20)); });
+    document.querySelectorAll('.stage svg.ji').forEach((sv) => { const r = sv.getBoundingClientRect(); if (r.width < 2) return; f.push('svg:' + (sv.innerHTML || '').slice(0, 60)); });
+    const ajenos = [...document.querySelectorAll('.stage img.pt3,.stage img.ji-pt')].length;          // restos de iconos inventados para B
+    const girados = [...document.querySelectorAll('.stage img.ji3,.stage .a2i,.stage .a2bot img,.stage .a2micb img,.stage .j3bot img,.stage .j3mic img')].filter((e) => /hue-rotate/.test(getComputedStyle(e).filter)).length;
+    return { f: f.sort(), ajenos, girados };
+  };
+  for (const [nom, size] of [['tablet', TABLET], ['móvil', PHONE]]) {
+    const A = await open(br, FA, '?skin=a', size), B = await open(br, FA, '?skin=b', size); const ko = [], girados = [], ajenos = []; let obj = 0;
+    for (const r of ROUTES) {
+      for (const pg of [A.page, B.page]) { await pg.goto('about:blank'); await pg.goto('file://' + FA + (pg === A.page ? '?skin=a' : '?skin=b') + '#' + r); await pg.waitForTimeout(450); }
+      const ia = await A.page.evaluate(iconos), ib = await B.page.evaluate(iconos);
+      obj += ib.f.filter((x) => x.startsWith('obj:')).length;
+      if (JSON.stringify(ia.f) !== JSON.stringify(ib.f)) ko.push(r + ' (A ' + ia.f.length + ' / B ' + ib.f.length + ')');
+      if (ib.girados) girados.push(r + '×' + ib.girados); if (ib.ajenos) ajenos.push(r + '×' + ib.ajenos);
+    }
+    check(nom + ': en las ' + ROUTES.length + ' vistas B muestra exactamente los mismos iconos que A (' + obj + ' objetos 3D de oro en B)', ko.length === 0, ko.join(', '));
+    check(nom + ': los objetos de A no llevan giro de tono en B (mismo color: oro)', girados.length === 0, girados.join(', '));
+    check(nom + ': ningún icono inventado para B', ajenos.length === 0, ajenos.join(', '));
+    await A.ctx.close(); await B.ctx.close();
   }
 
   console.log('\n[6] Contraste de texto en B (WCAG: ≥ 4,5:1; ≥ 3:1 en texto grande y símbolos)');
