@@ -43,6 +43,7 @@ import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insi
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
+import { loadOwnerContact, OwnerContactError } from '../../packages/core/src/owner-contact.js';
 import {
   buildProductOperationsSnapshot,
   createMonetizationRequirementSnapshot,
@@ -3935,6 +3936,18 @@ const server = createServer(async (request, response) => {
         ? authErrorStatus(error)
         : 409;
       json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/owner/contact') {
+    try {
+      requireFounderAuthority(request);
+      const contactPath = process.env.JANUS_OWNER_CONTACT_FILE?.trim() || join(root, '..', '..', 'config', 'owner-contact.local.json');
+      json(response, 200, { ok: true, contact: loadOwnerContact(contactPath) });
+    } catch (error) {
+      if (error instanceof OwnerContactError) json(response, 422, { ok: false, error: error.message });
+      else json(response, authErrorStatus(error), authErrorBody(error));
     }
     return;
   }

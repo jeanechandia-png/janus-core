@@ -16,3 +16,4 @@ dist/
 models/
 voices/private/
 config/voices.local.json
+config/owner-contact.local.json

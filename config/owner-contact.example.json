@@ -1,0 +1,10 @@
+{
+  "displayName": "Nombre del propietario",
+  "emails": [
+    { "address": "persona@example.com", "label": "Personal", "role": "personal" },
+    { "address": "empresa@example.com", "label": "Corporativo", "role": "corporativo" }
+  ],
+  "phones": [
+    { "label": "Móvil / WhatsApp", "number": "06 12345678", "whatsapp": true }
+  ]
+}

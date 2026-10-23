@@ -788,12 +788,79 @@ let approvalsTimer = 0;
 
 function setApprovalsStatus(text) { approvalsStatus.textContent = text; }
 
+// ---- Owner contact card (private; served only behind the Founder session) ----
+const contactCard = document.querySelector('#contactCard');
+const contactStatus = document.querySelector('#contactStatus');
+const contactList = document.querySelector('#contactList');
+
+function contactRow(kind, label, value, href, note) {
+  const li = document.createElement('li');
+  li.className = 'contact-row';
+  li.dataset.kind = kind;
+  const copy = document.createElement('div');
+  const name = document.createElement('div');
+  name.className = 'capability-name';
+  name.textContent = label;
+  const detail = document.createElement('a');
+  detail.className = 'contact-value';
+  detail.href = href;
+  detail.textContent = value;
+  if (href.startsWith('https://')) { detail.target = '_blank'; detail.rel = 'noopener noreferrer'; }
+  copy.append(name, detail);
+  if (note) {
+    const flag = document.createElement('div');
+    flag.className = 'capability-detail';
+    flag.textContent = note;
+    copy.append(flag);
+  }
+  li.append(copy);
+  return li;
+}
+
+function renderOwnerContact(contact) {
+  contactList.replaceChildren();
+  contactCard.hidden = false;
+  if (!contact || contact.configured !== true) {
+    contactStatus.textContent = contact?.reason ?? 'Aún no hay datos de contacto configurados en este Janus.';
+    return;
+  }
+  const { profile, whatsappLinks } = contact;
+  contactStatus.textContent = profile.displayName;
+  const rows = [];
+  for (const phone of profile.phones ?? []) {
+    rows.push(contactRow('phone', phone.label, phone.display, `tel:${phone.e164}`));
+    if (phone.whatsapp) {
+      const link = (whatsappLinks ?? []).find((item) => item.label === phone.label);
+      if (link) rows.push(contactRow('whatsapp', `WhatsApp · ${phone.label}`, phone.display, link.url));
+    }
+  }
+  for (const email of profile.emails ?? []) {
+    rows.push(contactRow('email', `${email.label} · ${email.role}`, email.address, `mailto:${email.address}`,
+      email.needsConfirmation ? 'Ortografía por confirmar' : ''));
+  }
+  contactList.replaceChildren(...rows);
+}
+
+async function loadOwnerContact() {
+  if (!sessionToken()) { contactCard.hidden = true; contactList.replaceChildren(); return; }
+  try {
+    const response = await fetch('/api/owner/contact', { headers: authHeaders(), cache: 'no-store' });
+    const data = await response.json();
+    if (response.ok) renderOwnerContact(data.contact);
+    else { contactCard.hidden = false; contactList.replaceChildren(); contactStatus.textContent = data.error ?? 'No se pudo cargar el contacto.'; }
+  } catch {
+    contactCard.hidden = false;
+    contactStatus.textContent = 'No se pudo consultar el contacto; reintenta en unos segundos.';
+  }
+}
+
 async function refreshFounderControls() {
   deviceKey = await loadDeviceKey();
   const signedIn = Boolean(sessionToken());
   founderLinkButton.hidden = Boolean(deviceKey);
   founderSignInButton.hidden = !deviceKey || signedIn;
   founderSignOutButton.hidden = !signedIn;
+  loadOwnerContact();
   if (signedIn) { pollApprovals(); refreshToolSync(); }
   else { approvalsList.replaceChildren(); approvalsBadge.hidden = true; toolSyncBox.hidden = true; }
 }

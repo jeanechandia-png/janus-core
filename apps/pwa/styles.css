@@ -352,3 +352,23 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 .tool-sync-list { margin: 8px 0; padding-left: 18px; font-size: 13px; overflow-wrap: anywhere; }
 .tool-sync-note { font-size: 13px; opacity: .8; margin: 6px 0 10px; }
 .tool-sync button { min-height: 44px; width: 100%; }
+
+/* Owner contact card */
+.contact-card {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,.075);
+  background: rgba(13,17,26,.86);
+  border-radius: 22px;
+}
+.contact-list { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.contact-row {
+  min-height: 54px;
+  padding: 10px 11px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.035);
+  border: 1px solid rgba(255,255,255,.05);
+}
+.contact-row[data-kind="whatsapp"] { border-color: rgba(70,205,130,.35); }
+.contact-value { color: #9db8ff; text-decoration: none; overflow-wrap: anywhere; font-weight: 600; }
+.contact-value:active { opacity: .7; }
