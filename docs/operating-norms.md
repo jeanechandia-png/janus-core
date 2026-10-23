@@ -24,3 +24,14 @@ Fuente: instrucciones directas de Jean. Se cargan como políticas permanentes (`
 4. **Todo activo debe ser reutilizable y monetizable** (piezas LEGO en `packages/modules/*`).
 5. **Desarrollo centralizado:** no se crean repositorios nuevos y todo agente continúa desde donde lo dejó el anterior (`npm run continuity`, `START_HERE.md`, `docs/STATE.md`).
 6. **Herramientas de pago disponibles:** ChatGPT, Gemini, Claude y Google Workspace. Si otra herramienta rinde mejor en una tarea, el agente **lo dice** y propone usarla o combinarla.
+
+## Norma 7 — El gasto va al final (Jean, 2026-10-23)
+Instrucción del Founder: «Siempre tenemos que poder trabajar al máximo sin necesidad de comprar nada. Lo que implique comprar herramientas nuevas o suscripciones se deja siempre como último.» Motivo: se pagó un mes completo de CatCut y se usó una o dos veces.
+
+1. **Primero lo que no cuesta:** lo gratuito, lo local y lo ya pagado (ChatGPT, Gemini, Claude y Google Workspace; ver norma 6 de Infinity Seed 6).
+2. **Lo que requiere pago se construye y se deja en reposo.** Adaptador, política y pruebas con servicios simulados; se registra en `docs/dormant-capabilities.md` como «preparado, pendiente de activación». **No se contrata.**
+3. **Solo el Founder activa.** Cuando lo pida, el agente presenta: precio **en euros** de fuente primaria con fecha, si incluye IVA, plazo y permanencia, condiciones de baja y uso previsto frente a coste. Se prefiere facturación mensual cancelable al prepago largo. **El pago lo hace el Founder** (el agente no introduce datos de pago).
+4. **Todo gasto aprobado se anota** (fecha, importe, fecha de baja prevista y uso real) en el registro de `docs/dormant-capabilities.md`.
+5. **Nunca en dólares:** toda cifra al Founder, en euros.
+
+Cómo se cumple hoy: política `founder-policy:spend-last` en `config/founder-reference-library.json` (la leen todos los agentes); `SENSITIVE_TOOL_ACTIONS` obliga a aprobación en las acciones que gastan o escriben fuera; `planPhoneAccess` recomienda siempre la ruta sin gasto; `npm run integrations:check` muestra lo no activado como «en reposo» (no como fallo); `tests/spend-last-norm.test.ts` vigila la política, el registro y la ruta recomendada.

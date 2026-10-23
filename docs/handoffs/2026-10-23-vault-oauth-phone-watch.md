@@ -57,3 +57,19 @@ JANUS_OAUTH_REDIRECT_BASE=https://...   # dirección pública de este Janus alca
 THREADS_APP_SECRET=...                  # solo si pegas un token de corta duración
 JANUS_SOCIAL_WATCH_INTERVAL_MIN=360     # opcional; mínimo 15
 ```
+
+## Decisión del Founder (2026-10-23, 01:44–01:56) — el gasto va al final
+- **Opción C:** el motor (runtime) **no se despliega por ahora** y no se contrata servidor. Jean confirma que de momento **no necesita** leer/enviar correos por sí mismo, vigilar redes ni contestar WhatsApp/llamadas; quiere la opción **preparada y pendiente de activación**.
+- **Norma 7** (`docs/operating-norms.md`, política `founder-policy:spend-last`): se trabaja al máximo sin comprar; herramientas, suscripciones y servidores van siempre al final y en euros. Origen: CatCut (un mes pagado, 1–2 usos).
+- `docs/dormant-capabilities.md` lista lo que está en reposo, con precios de servidor en euros verificados el 2026-10-23, y lleva el registro de gasto. `npm run integrations:check` ahora dice «en reposo» en lugar de «falta».
+- Nada de esto cambia el código ya entregado: lo que hay en la PR #47 sigue siendo válido y se activa con variables cuando el Founder lo pida.
+
+## Lección: pruebas faciales rechazadas al azar como «caducadas» (hallada y corregida 2026-10-23)
+- **ERROR:** la prueba de humo del runtime fallaba de forma intermitente (≈ 4–5 de cada 48 ejecuciones en paralelo; 2 de 14 en serie) con 403 `founder_biometric_expired` justo después de crear la prueba.
+- **CAUSA:** `FounderBiometricService.verifyAssertion` leía el reloj dos veces (`verifiedAt` y, aparte, `expiresAt = ahora + TTL`). Si el milisegundo cambiaba entre las dos lecturas, la vigencia salía TTL + 1 ms y `evaluateAuthority` (`expiresAt - verifiedAt > biometricFreshnessMs`) la rechazaba. Defecto previo a este trabajo (rama base), no introducido hoy.
+- **IMPACTO:** en uso real, un porcentaje pequeño de las acciones privadas del Founder (con cara) habría fallado sin motivo y pedido repetir la verificación. Más probable con la máquina cargada. Ninguna brecha de seguridad: fallaba cerrado.
+- **LECCIÓN:** un instante que se usa para derivar otros debe leerse una sola vez.
+- **PREVENCIÓN:** prueba de regresión con reloj que avanza 1 ms por lectura (`tests/founder-biometric.test.ts`); verificada: **falla sin el arreglo y pasa con él**. La prueba de humo guarda ahora el motivo de cada 403 para que un fallo intermitente deje rastro.
+- **CAMBIO:** `packages/security/src/founder-biometric.ts` (una sola lectura de reloj).
+- **VERIFICACIÓN:** 0 fallos en 48 ejecuciones paralelas de la prueba de humo tras el arreglo (antes, 4–5). Es evidencia, no demostración; escaneo de otros pares de lecturas de reloj en `packages/` y `apps/runtime`: sin coincidencias.
+

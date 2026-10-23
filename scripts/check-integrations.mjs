@@ -81,15 +81,16 @@ if (has('JANUS_FOUNDER_PUBLIC_KEY_PEM') && !/-----BEGIN PUBLIC KEY-----[\s\S]+--
 if (/PRIVATE KEY/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM ?? '')) problems.push('¡JANUS_FOUNDER_PUBLIC_KEY_PEM contiene una llave PRIVADA! Bórrala: solo va la pública.');
 
 console.log(`Janus — comprobación de integraciones (${loaded.loaded ? envFile : 'sin ' + envFile + '; solo variables del sistema'})`);
-console.log('Nunca se muestran valores, solo si cada variable existe.\n');
+console.log('Nunca se muestran valores, solo si cada variable existe.');
+console.log('⬜ = en reposo: preparado, pendiente de activación (norma 7: el gasto va al final). No es un fallo.\n');
 let ready = 0;
 for (const [label, required, optional] of groups) {
   const missing = required.filter((name) => !has(name));
   if (missing.length === 0) ready += 1;
   const extra = optional.filter((name) => has(name));
-  console.log(`${missing.length === 0 ? '✅' : '⬜'} ${label}${missing.length ? ' — falta: ' + missing.join(', ') : ''}${extra.length ? ' (opcional: ' + extra.join(', ') + ')' : ''}`);
+  console.log(`${missing.length === 0 ? '✅' : '⬜'} ${label}${missing.length ? ' — en reposo; para activar falta: ' + missing.join(', ') : ''}${extra.length ? ' (opcional: ' + extra.join(', ') + ')' : ''}`);
 }
-console.log(`\n${ready}/${groups.length} integraciones listas.`);
+console.log(`\n${ready}/${groups.length} integraciones activas; ${groups.length - ready} en reposo (ver docs/dormant-capabilities.md).`);
 
 // Buzones del Founder (capa local, ignorada por git). Solo se comprueban NOMBRES de variables:
 // nunca se imprimen direcciones ni valores, solo el id del buzón.

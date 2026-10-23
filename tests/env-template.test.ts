@@ -36,7 +36,9 @@ test('integrations checker reports readiness and problems but never prints secre
   writeFileSync(file, `JANUS_OPENAI_API_KEY=${secret}\nJANUS_OPENAI_MODEL=modelo-x\nN8N_BASE_URL=http://inseguro\nN8N_API_KEY=${secret}\nJANUS_FOUNDER_PUBLIC_KEY_PEM="-----BEGIN PRIVATE KEY-----\nX\n-----END PRIVATE KEY-----"\n`);
   const run = spawnSync(process.execPath, ['scripts/check-integrations.mjs'], { env: { PATH: process.env.PATH, JANUS_ENV_FILE: file }, encoding: 'utf8' });
   assert.match(run.stdout, /✅ ChatGPT \(OpenAI\)/);
-  assert.match(run.stdout, /⬜ Claude \(Anthropic\) — falta: JANUS_ANTHROPIC_API_KEY, JANUS_ANTHROPIC_MODEL/);
+  // Norma 7: lo no activado se presenta como «en reposo» (preparado, pendiente de activación), no como un fallo.
+  assert.match(run.stdout, /⬜ Claude \(Anthropic\) — en reposo; para activar falta: JANUS_ANTHROPIC_API_KEY, JANUS_ANTHROPIC_MODEL/);
+  assert.match(run.stdout, /No es un fallo/);
   assert.match(run.stdout, /N8N_BASE_URL debe empezar por https/);
   assert.match(run.stdout, /contiene una llave PRIVADA/);
   assert.equal(run.stdout.includes(secret) || run.stderr.includes(secret), false);

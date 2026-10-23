@@ -260,6 +260,20 @@
         "safety",
         "founder-provided"
       ]
+    },
+    {
+      "id": "policy-spend-last",
+      "subject": "founder-policy:spend-last",
+      "kind": "policy",
+      "classification": "current",
+      "label": "El gasto va al final",
+      "value": "Janus debe poder trabajar al máximo sin comprar nada. Las herramientas nuevas, suscripciones y servidores se dejan siempre como último recurso: se construye la opción, se prueba con servicios simulados y queda en reposo, pendiente de activación, hasta que el Founder la pida. Antes de proponer un gasto se agota lo gratuito, lo local y lo ya pagado (ChatGPT, Gemini, Claude, Google Workspace). Toda propuesta de gasto va en euros, con precio de fuente primaria, IVA, plazo, condiciones de baja y uso previsto; se prefiere el pago mensual cancelable al prepago largo. El pago lo hace el Founder. Motivo: ya se pagó un mes completo de CatCut y apenas se usó.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "spend",
+        "founder-provided"
+      ]
     }
   ]
 }

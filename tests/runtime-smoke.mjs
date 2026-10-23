@@ -15,6 +15,18 @@ const founderBiometricKeys = generateKeyPairSync('ec', {
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
+// Diagnóstico: guarda el motivo de cada 403 para que un fallo intermitente deje rastro (sin cuerpos de otros códigos).
+const forbiddenLog = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (...args) => {
+  const response = await realFetch(...args);
+  if (response.status === 403) {
+    const body = await response.clone().text().catch(() => '');
+    forbiddenLog.push(`${new Date().toISOString()} ${String(args[1]?.method ?? 'GET')} ${String(args[0]).replace(/^https?:\/\/[^/]+/, '')} -> ${body.slice(0, 200)}`);
+  }
+  return response;
+};
+
 const child = spawn(
   process.execPath,
   ['--import', 'tsx', 'apps/runtime/server.ts'],
@@ -560,7 +572,7 @@ try {
   const phoneResponse = await fetch(`${base}/api/founder/phone-channels`, {
     headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': phoneProof },
   });
-  assert.equal(phoneResponse.status, 200);
+  assert.equal(phoneResponse.status, 200, await phoneResponse.clone().text());
   const phoneBody = await phoneResponse.json();
   for (const key of ['autonomousSendAllowed', 'autonomousCallAllowed', 'voiceImpersonationAllowed', 'unofficialWhatsAppClientsAllowed']) {
     assert.equal(phoneBody.registry.policy[key], false, key);
@@ -689,6 +701,7 @@ try {
   console.log('runtime smoke ok');
 } catch (error) {
   console.error('JANUS runtime smoke failed');
+  if (forbiddenLog.length) console.error('--- respuestas 403 observadas ---\n' + forbiddenLog.join('\n'));
   if (stdout) console.error('--- runtime stdout ---\n' + stdout);
   if (stderr) console.error('--- runtime stderr ---\n' + stderr);
   throw error;
