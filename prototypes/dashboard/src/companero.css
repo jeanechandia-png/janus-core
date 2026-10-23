@@ -1,0 +1,55 @@
+/* ===== Modo compañero ===== */
+.vb-companero{display:grid!important;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:14px;min-height:0;height:100%}
+.vb-companero:has(.cpst.wide){grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.cpst{position:relative;min-height:0;border-radius:22px;overflow:clip;display:grid;grid-template-rows:auto minmax(0,1fr) auto auto auto;gap:6px;padding:10px;
+  border:1px solid rgba(255,222,160,.55);box-shadow:0 24px 40px -24px #000,inset 0 1px 0 rgba(255,255,255,.18),0 0 0 4px rgba(10,8,6,.7),0 0 0 5px rgba(232,195,122,.35);
+  background:radial-gradient(90% 60% at 50% 55%,color-mix(in srgb,var(--cg) 26%,transparent),transparent 70%),linear-gradient(180deg,#14100c,#070605)}
+.cpbg{position:absolute;inset:0;pointer-events:none;background:radial-gradient(2px 2px at 20% 30%,var(--cg),transparent),radial-gradient(1.5px 1.5px at 70% 20%,#fff,transparent),radial-gradient(2px 2px at 85% 60%,var(--cg),transparent),radial-gradient(1.5px 1.5px at 35% 75%,#fff,transparent);opacity:.7;animation:cpTw 4s ease-in-out infinite alternate}
+@keyframes cpTw{to{opacity:.25;transform:translateY(-6px)}}
+.cpfig{position:relative;min-height:0;grid-row:2;display:grid;place-items:center}
+.cpfig img,.cpfig video{width:100%;height:100%;object-fit:cover;object-position:50% 45%;border-radius:16px;transform-origin:50% 90%;animation:cpBreath 3.2s ease-in-out infinite;
+  -webkit-mask-image:radial-gradient(120% 95% at 50% 50%,#000 62%,transparent 100%);mask-image:radial-gradient(120% 95% at 50% 50%,#000 62%,transparent 100%)}
+.cpsh{position:absolute;left:25%;right:25%;bottom:4%;height:10px;border-radius:50%;background:radial-gradient(closest-side,rgba(0,0,0,.6),transparent);filter:blur(2px)}
+@keyframes cpBreath{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-4px) scale(1.012,1.022)}}
+.g-saludo .cpfig img{animation:cpWave .65s ease-in-out 3}
+@keyframes cpWave{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg) translateY(-3px)}75%{transform:rotate(4deg) translateY(-3px)}}
+.g-baile .cpfig img{animation:cpDance .8s ease-in-out 3}
+@keyframes cpDance{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-10px) rotate(-5deg) translateY(-6px)}50%{transform:translateX(0) translateY(0)}75%{transform:translateX(10px) rotate(5deg) translateY(-6px)}}
+.g-risa .cpfig img{animation:cpLaugh .32s ease-in-out 6}
+@keyframes cpLaugh{0%,100%{transform:scale(1,1)}50%{transform:scale(1.04,.95) translateY(3px)}}
+.g-cara .cpfig img{animation:cpFace .9s ease-in-out 2}
+@keyframes cpFace{0%,100%{transform:scale(1)}40%{transform:scale(.94,1.07) rotate(-2deg)}70%{transform:scale(1.06,.94) rotate(2deg)}}
+.cpsay{grid-row:1;position:relative;z-index:1;display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:16px 16px 16px 4px;background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(255,236,205,.92));color:#2a1a08;font-size:13px;line-height:1.3;box-shadow:0 8px 18px -8px #000}
+.cpsay b{flex:none;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a5a14}
+.cpsay span:nth-child(2){flex:1;min-width:0}
+.cpsay .mini{flex:none;background:rgba(0,0,0,.08);color:#2a1a08}
+.cpname{grid-row:3;display:flex;align-items:center;gap:8px;z-index:1}
+.cpname b{font-size:24px;line-height:1}.cpname small{color:var(--mute);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cpname input{flex:1;min-width:0}
+.cpges{grid-row:4;display:flex;gap:6px;z-index:1}
+.cpg{flex:1;display:grid;place-items:center;height:34px;border-radius:12px;font-size:17px;cursor:pointer;background:linear-gradient(180deg,rgba(255,236,190,.22),rgba(168,117,42,.12));box-shadow:inset 0 0 0 1px rgba(232,195,122,.5),0 4px 8px -4px #000;transition:transform .15s,box-shadow .15s}
+.cpg:active,.cpg:hover{transform:translateY(-2px);box-shadow:inset 0 0 0 1px #FFE2A0,0 0 14px rgba(255,214,140,.55)}
+.cpg.wide{flex:.6;font-size:14px}
+.cpsel{grid-row:5;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;z-index:1}
+.cpo{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-radius:12px;padding:3px;box-shadow:inset 0 0 0 1px rgba(232,195,122,.25)}
+.cpo img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px}
+.cpo em{font-style:normal;font-size:9.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cpo.on{box-shadow:inset 0 0 0 1.5px #FFE2A0,0 0 12px rgba(255,214,140,.45)}.cpo.on em{color:#F6D894}
+.cpact{min-height:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:14px}
+.cpact .cd{min-height:0;overflow:auto}
+.cptp{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.cptp .pill2{cursor:pointer;min-width:34px;text-align:center}
+.cptp .pill2.on{box-shadow:inset 0 0 0 1.5px #FFE2A0;color:#FFE2A0}
+.cpq{font-size:34px;line-height:1.15;margin:4px 0 10px;color:#FFF1CC;text-shadow:0 2px 0 #000}
+.cpm .note.ok{color:#5FD39A}
+.cpstory{margin:0 0 10px;font-size:14px;line-height:1.4}
+.cplights{display:flex;gap:8px;flex-wrap:wrap}.cplights .btn2{cursor:pointer}
+.cpp label.btn2{display:inline-flex;margin:8px 0;cursor:pointer}
+@media (max-width:47.5em),(max-height:31.25em){
+  .vb-companero,.vb-companero:has(.cpst.wide){grid-template-columns:1fr;height:auto}
+  .cpst{height:50svh;min-height:330px}
+  .cpact{grid-template-columns:1fr;grid-auto-rows:auto}
+  .cpact .cd{overflow:visible}
+  .cpq{font-size:28px}
+}
+.cpact .pb{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-content:start!important;gap:8px}

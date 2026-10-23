@@ -1,0 +1,51 @@
+/* ===== Pieza LEGO janus-gold v1.0.0 — oro 3D hiperrealista (unidades px; el dashboard las pasa a rem) =====
+ * Clases: .jg-wordmark-wrap (letras), .jg-cta (botón de oro), .jg-row (botón oscuro con canto de oro),
+ *         .jg-coin (icono acuñado), .jg-rim (panel con canto de oro). Estado iluminado: [data-lit="true"].
+ */
+/* Letras de oro 3D */
+.jg-wordmark-wrap{position:relative;display:inline-block;height:100%;aspect-ratio:var(--ar,3.5);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;vertical-align:middle;
+  filter:drop-shadow(0 1px 0 rgba(255,236,190,.25)) drop-shadow(0 6px 8px rgba(0,0,0,.8)) drop-shadow(0 0 14px rgba(212,175,105,.3));animation:jgBreath 4.2s ease-in-out infinite;transition:filter .35s ease,transform .35s cubic-bezier(.2,.8,.2,1)}
+.jg-wordmark{display:block;width:100%;height:100%;overflow:visible}
+.jg-wordmark-wrap[data-lit="true"]{animation:none;filter:brightness(1.18) saturate(1.12) drop-shadow(0 1px 0 rgba(255,240,200,.45)) drop-shadow(0 6px 10px rgba(0,0,0,.8)) drop-shadow(0 0 16px rgba(241,215,155,.8)) drop-shadow(0 0 40px rgba(212,175,105,.5))}
+.jg-wordmark-wrap:active{transform:translateY(1px) scale(.985)}
+.jg-sweep{animation:jgSweep 5.6s cubic-bezier(.3,.6,.2,1) infinite}
+.jg-wordmark-wrap[data-lit="true"] .jg-sweep{animation-duration:1.4s}
+@keyframes jgSweep{0%,55%{transform:translateX(0)}100%{transform:translateX(var(--sw,1400px))}}
+@keyframes jgBreath{0%,100%{filter:drop-shadow(0 1px 0 rgba(255,236,190,.25)) drop-shadow(0 6px 8px rgba(0,0,0,.8)) drop-shadow(0 0 14px rgba(212,175,105,.3))}50%{filter:drop-shadow(0 1px 0 rgba(255,236,190,.35)) drop-shadow(0 6px 8px rgba(0,0,0,.8)) drop-shadow(0 0 24px rgba(212,175,105,.5))}}
+
+/* Botón de oro 3D (anatomía de los CTA de ChatBox/Janus) */
+.jg-cta{position:relative;isolation:isolate;overflow:hidden;overflow:clip;color:#1d1305!important;border:0!important;text-shadow:0 1px 0 rgba(255,255,255,.45);
+  background:radial-gradient(ellipse at 50% -20%,rgba(255,255,255,.75),rgba(255,240,200,.25) 22%,transparent 42%),linear-gradient(180deg,#fbe7ad 0%,#e2b85e 38%,#b4832f 70%,#7a4f15 100%)!important;
+  box-shadow:inset 0 2px 1px rgba(255,255,255,.7),inset 0 -4px 7px rgba(80,45,5,.65),inset 0 -1px 0 rgba(0,0,0,.6),0 2px 0 #6e4812,0 4px 0 #3b2506,0 8px 14px rgba(0,0,0,.6),0 0 18px rgba(212,175,105,.35)!important;
+  transition:transform .18s cubic-bezier(.2,.8,.2,1),filter .18s ease,box-shadow .18s ease;animation:jgBtnBreath 3.4s ease-in-out infinite}
+.jg-cta::before,.jg-row::before{content:"";position:absolute;inset:-80% -35%;z-index:-1;pointer-events:none;background:linear-gradient(112deg,transparent 34%,rgba(255,255,255,.06) 42%,rgba(255,250,232,.8) 49%,rgba(255,214,140,.18) 56%,transparent 65%);transform:translateX(-62%) rotate(3deg);animation:jgSpecular 3.8s cubic-bezier(.22,.7,.2,1) infinite;animation-delay:var(--gd,0s)}
+.jg-cta:is(:hover,:focus-visible,[data-lit="true"]){transform:translateY(-2px) scale(1.02);filter:brightness(1.16) saturate(1.14);box-shadow:inset 0 2px 1px rgba(255,255,255,.85),inset 0 -4px 7px rgba(80,45,5,.6),0 2px 0 #7d5216,0 5px 0 #3b2506,0 10px 18px rgba(0,0,0,.6),0 0 16px rgba(255,226,160,.95),0 0 38px rgba(212,175,105,.75),0 0 64px rgba(212,175,105,.4)!important}
+.jg-cta:active{transform:translateY(3px) scale(.98);filter:brightness(1.25)}
+.jg-cta .ji{stroke:#2a1a05!important;filter:none!important}
+
+/* Botón oscuro con canto de oro */
+.jg-row{position:relative;isolation:isolate;overflow:hidden;overflow:clip;border:1px solid rgba(232,195,122,.45)!important;background:linear-gradient(180deg,rgba(255,236,190,.1),rgba(255,255,255,.02) 45%,rgba(0,0,0,.25))!important;
+  box-shadow:inset 0 1px 0 rgba(255,240,200,.28),inset 0 -1px 0 rgba(0,0,0,.6),0 2px 0 rgba(60,38,8,.9),0 6px 12px rgba(0,0,0,.45)!important;transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease,filter .18s ease}
+.jg-row::before{opacity:.32}
+.jg-row:is(:hover,:focus-visible,[data-lit="true"]){transform:translateY(-1px);filter:brightness(1.15);border-color:rgba(255,226,160,.85)!important;box-shadow:inset 0 1px 0 rgba(255,240,200,.4),0 3px 0 rgba(60,38,8,.9),0 10px 18px rgba(0,0,0,.5),0 0 18px rgba(212,175,105,.55)!important}
+.jg-row:is(:hover,[data-lit="true"])::before{opacity:.8;animation-duration:1.2s}
+.jg-row:active{transform:translateY(2px) scale(.99)}
+
+/* Icono acuñado: canto de oro pulido, esmalte oscuro, cristal y destello que pasa */
+.jg-coin{position:relative;isolation:isolate;overflow:hidden;overflow:clip;border:0!important;color:#F0CD86;
+  background:radial-gradient(circle at 50% 38%,#2b2416 0%,#0c0a08 62%) padding-box,conic-gradient(from 210deg,#6e4512,#fde7a8,#b07a2c,#fffaf0,#9a661f,#e6b75a,#5c3a0e,#f7dc93,#6e4512) border-box!important;
+  border:2px solid transparent!important;box-shadow:0 0 0 1px rgba(20,12,2,.9),inset 0 2px 3px rgba(255,248,225,.25),inset 0 -4px 7px rgba(0,0,0,.85),0 6px 10px -4px rgba(0,0,0,.95),0 0 10px -3px rgba(232,195,122,.45)!important;
+  transition:transform .18s cubic-bezier(.2,.8,.2,1),box-shadow .2s,filter .2s}
+.jg-coin::before{content:"";position:absolute;inset:-30%;z-index:2;pointer-events:none;background:linear-gradient(115deg,transparent 40%,rgba(255,252,236,.85) 50%,transparent 60%);transform:translateX(-120%);animation:jgGlint 7s cubic-bezier(.3,.6,.2,1) infinite;animation-delay:var(--gd,0s);mix-blend-mode:screen}
+.jg-coin::after{content:"";position:absolute;left:14%;right:14%;top:6%;height:36%;border-radius:50%;z-index:3;pointer-events:none;background:linear-gradient(180deg,rgba(255,255,255,.42),rgba(255,255,255,0))}
+.jg-coin .ji{position:relative;z-index:1;stroke:url(#jg)!important;filter:url(#jmetal)!important;stroke-width:2.2!important;width:62%!important;height:62%!important}
+.jg-coin:is(:hover,[data-lit="true"]){transform:translateY(-1px) scale(1.08);filter:brightness(1.2) saturate(1.1);box-shadow:0 0 0 1px rgba(20,12,2,.9),inset 0 2px 3px rgba(255,248,225,.35),inset 0 -4px 7px rgba(0,0,0,.8),0 6px 10px -4px #000,0 0 14px rgba(255,226,160,.95),0 0 30px rgba(212,175,105,.7)!important}
+.jg-coin:is(:hover,[data-lit="true"])::before{animation-duration:1.1s;animation-delay:0s}
+.jg-coin:active{transform:translateY(1px) scale(.96)}
+
+/* Panel con canto de oro */
+.jg-rim{border:1.5px solid transparent!important;background-origin:border-box}
+@keyframes jgSpecular{0%,58%{transform:translateX(-68%) rotate(3deg);opacity:.16}72%{opacity:.78}88%,100%{transform:translateX(68%) rotate(3deg);opacity:.12}}
+@keyframes jgGlint{0%,78%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+@keyframes jgBtnBreath{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.08) saturate(1.07)}}
+@media (prefers-reduced-motion:reduce){.jg-wordmark-wrap,.jg-sweep,.jg-cta,.jg-cta::before,.jg-row::before,.jg-coin::before{animation:none!important}}

@@ -1,0 +1,11 @@
+{
+  "piece": "janus-activity",
+  "name": "Señal de actividad de Janus (medallón del logo + Mini-Jano)",
+  "moduleVersion": "0.1.0",
+  "dependencies": [],
+  "api": "JanusActivity.mount(el, { kind: 'robot' | 'medallion', medalSrc }) -> { set(state), get(), destroy() }",
+  "states": ["listo", "escuchando", "pensando", "ejecutando", "aprobacion"],
+  "mounts": [{ "product": "Janus · dashboard A (prototipo)", "file": "prototypes/dashboard/src/sala.js", "version": "0.1.0" }],
+  "plannedMounts": ["Janus PWA (apps/pwa) — requiere autorización de Jean", "landing.infinity-group", "landing.infinity-chatbox", "landing.iba"],
+  "distribution": "Registrar en la Reusable LEGO Library y como módulo del perfil padre infinity-landing-assistant (tracking=current) para que todas las superficies hereden las mejoras."
+}
