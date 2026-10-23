@@ -16,7 +16,43 @@ function stateBlock(big) {
 }
 
 const meMsg = (m) => '<div class="msg me"><div class="bub">' + esc(m.t) + '</div><small class="mono">' + m.at + (m.v ? ' · 🎙' : '') + '</small></div>';
-const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + esc(m.t) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · simulado</small></div>';
+const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + (citedOk(m.cited) ? citedBlock(m.cited) : esc(m.t)) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · simulado</small></div>';
+
+/* ---- Respuesta con fuentes citadas (EJEMPLO) ----
+ * El verificador es el REAL del núcleo (packages/orchestrator/src/cited-answer.ts, empaquetado en vendor/cited-answer.js):
+ * numera las fuentes, comprueba que cada [n] apunta a una fuente que existe, mide la cobertura de citas y compara cada
+ * cita literal con el texto de la fuente. Lo único simulado es la BÚSQUEDA: las fuentes son de muestra (dominio .invalid),
+ * no hay buscador real conectado. Con fuentes sin catalogar el veredicto honesto es POR CONFIRMAR, y así se muestra. */
+const RESEARCH = /\b(investiga|investigar|averigua|busca|con fuentes|fuentes|cítame|cita las fuentes)\b/i;
+const VERDICT_CLS = { 'VERIFICADO': 'v-ok', 'PROBABLE': 'v-pr', 'POR CONFIRMAR': 'v-wa', 'RECHAZADO': 'v-no' };
+function exampleCited(question) {
+  const hits = [
+    { url: 'https://fuente-a.ejemplo.invalid/muestra-1', title: 'EJEMPLO · Documento de muestra A', text: 'Cada afirmación de una respuesta debe llevar el número de su fuente. Sin fuentes, Janus no responde con datos.' },
+    { url: 'https://fuente-b.ejemplo.invalid/muestra-2', title: 'EJEMPLO · Documento de muestra B', text: 'La verificación se hace con código, comparando la cita literal con la página, no confiando en lo que diga el modelo.' }
+  ];
+  const sources = CitedAnswer.numberSources(hits);
+  const text = 'Así se verá una respuesta con fuentes: cada afirmación lleva el número de su fuente [1]. La verificación compara la cita literal con la página y no se fía de lo que diga el modelo [2].';
+  return CitedAnswer.verifyCitedAnswer({
+    question, text, sources,
+    claims: [
+      { text: 'Cada afirmación lleva el número de su fuente.', sources: [1], quotes: ['Cada afirmación de una respuesta debe llevar el número de su fuente'] },
+      { text: 'La verificación compara la cita literal con la página.', sources: [2], quotes: ['comparando la cita literal con la página'] }
+    ]
+  });
+}
+/* Lo guardado en el navegador no es de fiar (puede estar manipulado o ser de otra versión): si la forma no es la esperada, se muestra el texto plano. */
+const citedOk = (a) => !!a && typeof a.text === 'string' && typeof a.verdict === 'string' && Array.isArray(a.sources) && Array.isArray(a.claims) && Array.isArray(a.invalidMarkers) && typeof a.coverage === 'number' &&
+  a.sources.every((x) => x && Number.isFinite(x.n) && typeof x.title === 'string' && typeof x.domain === 'string') && a.claims.every((c) => c && Array.isArray(c.flags));
+function citedBlock(a) {
+  const body = esc(a.text).replace(/\[(\d{1,3})\]/g, (w, n) => a.sources.some((x) => x.n === +n) ? '<span class="cm' + (UI.citeSel === +n ? ' on' : '') + '"' + act('cite', String(n), 'Fuente ' + n) + '>' + n + '</span>' : '<span class="cm bad" title="Cita a una fuente que no existe">' + n + '?</span>');
+  const flags = [...new Set(a.claims.flatMap((c) => c.flags))];
+  const srcs = a.sources.map((s) => '<div class="csr' + (UI.citeSel === s.n ? ' on' : '') + '"' + act('cite', String(s.n), 'Fuente ' + s.n) + '><b class="mono">' + s.n + '</b><div><span>' + esc(s.title) + '</span><small class="mono">' + esc(s.domain) + ' · nivel ' + esc(s.tier) + ' · ' + esc(s.tierReason) + ' · ' + (s.basis === 'pagina' ? 'página completa' : 'solo fragmento') + '</small></div></div>').join('');
+  return '<div class="cit"><div class="cit-tag mono">EJEMPLO · fuentes simuladas (aún no hay buscador real conectado)</div><div class="cit-txt">' + body + '</div>' +
+    '<div class="cit-sb mono">Fuentes</div>' + srcs +
+    '<div class="cit-v"><span class="vchip ' + (VERDICT_CLS[a.verdict] || 'v-wa') + ' mono">' + esc(a.verdict) + '</span><span class="dim">Cobertura de citas ' + Math.round(a.coverage * 100) + ' %' + (a.invalidMarkers.length ? ' · citas a fuentes inexistentes: ' + a.invalidMarkers.join(', ') : ' · todas las citas apuntan a una fuente') + (flags.length ? ' · ' + esc(flags.join('; ')) : '') + '</span></div>' +
+    '<div class="cit-n dim">La verificación la hace código (compara la cita literal con la fuente); no depende de lo que diga el modelo. Con fuentes sin catalogar, el veredicto no pasa de «por confirmar».</div></div>';
+}
+const citedPlain = (a) => a.text + ' — Fuentes de ejemplo; veredicto: ' + a.verdict + '. Ábrelo en la Sala para ver las fuentes.';
 
 function vTrabajo(M, X, sub) {
   if (sub && PROJECTS.find((p) => p.id === sub)) UI.pSel = sub;
@@ -31,7 +67,7 @@ function vTrabajo(M, X, sub) {
   const lastAppr = msgs.length && msgs[msgs.length - 1].appr ? msgs.length - 1 : -1;
   const thread = '<div class="thr" id="thr">' + (msgs.length
     ? msgs.map((m, k) => k === lastAppr && robotOn() ? '<div class="msg ja gen appr"><div class="mjw">' + miniJano() + '</div>' + jaMsg(m) + '</div>' : m.who === 'me' ? meMsg(m) : jaMsg(m)).join('') + typing
-    : (typing || '<div class="empty"><div class="j3mic" data-3d="mic" data-id="mic-hero" data-tapact="mic" role="button" aria-label="Hablar con Janus"><img class="j3d-fb" src="' + IMG.mic + '" alt=""></div><b class="serif gld">' + esc(P.n) + '</b><div class="dim">Toca el micrófono y habla (te transcribo al instante), o escribe. Gíralo con el dedo.</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>')) + '</div>';
+    : (typing || '<div class="empty"><div class="j3mic" data-3d="mic" data-id="mic-hero" data-tapact="mic" role="button" aria-label="Hablar con Janus"><img class="j3d-fb" src="' + IMG.mic + '" alt=""></div><b class="serif gld">' + esc(P.n) + '</b><div class="dim">Toca el micrófono y habla (te transcribo al instante), o escribe. Gíralo con el dedo.</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso', 'Investiga con fuentes: ¿cómo verificas una respuesta?'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>')) + '</div>';
   const composer = '<div class="cmp">' +
     '<div class="inp"><textarea data-f="msg" rows="2" maxlength="2000" placeholder="Escribe a Janus sobre ' + esc(P.n) + '…" aria-label="Mensaje para Janus">' + esc(UI.draft) + '</textarea>' +
     (UI.micMsg ? '<div class="mmsg mono">' + esc(UI.micMsg) + '</div>' : '') + '</div>' +
@@ -73,6 +109,9 @@ function reply(pid, text, voice) {
   if (hi && hi.temp) { later(700, () => { const H = homeSt(); H.state = HomeScenes.applyActions(H.state, [{ deviceId: 'calefaccion', cmd: 'setTemp', value: hi.temp }]); saveState(); list.push({ who: 'ja', t: 'Calefacción a ' + String(hi.temp).replace('.', ',') + '° (ejemplo hasta conectar tu termostato).', at: hhmm() }); UI.js = 'listo'; rerender(); }); return; }
   if (SENSITIVE.test(text)) {
     later(1200, () => { UI.js = 'aprobacion'; list.push({ who: 'ja', id, appr: true, t: 'Entendido. «' + text.slice(0, 80) + '» actúa fuera (publica, envía, borra o gasta). Necesito tu visto bueno antes de hacerlo en ' + P.n + '.', at: hhmm() }); saveState(); });
+  } else if (RESEARCH.test(text) && typeof CitedAnswer !== 'undefined') {
+    later(1200, () => { UI.js = 'ejecutando'; });
+    later(3000, () => { UI.js = 'listo'; const a = exampleCited(text); list.push({ who: 'ja', cited: a, t: citedPlain(a), at: hhmm() }); saveState(); });
   } else {
     later(1200, () => { UI.js = 'ejecutando'; });
     later(3400, () => { UI.js = 'listo'; list.push({ who: 'ja', t: 'Hecho en la vista previa. En la app real trabajaría sobre ' + P.n + ' (siguiente paso: ' + P.next + ') y te dejaría aquí el resultado verificado.', at: hhmm() }); saveState(); });
@@ -86,6 +125,7 @@ const SALA_ACTS = {
   suggest: (t) => { reply(UI.pSel, t); },
   send: () => { const t = (UI.draft || '').trim(); if (!t) return; UI.draft = ''; reply(UI.pSel, t); if (!ROUTE.v && !isPhone()) location.hash = '#trabajo/' + UI.pSel; setTimeout(scrollThread, 30); },
   jsDemo: (k) => { clearSim(); UI.js = k; },
+  cite: (n) => { UI.citeSel = UI.citeSel === +n ? 0 : +n; },
   apprOk: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Aprobado. En la app real lo ejecutaría ahora y registraría la acción en la auditoría.', at: hhmm() }); UI.js = 'ejecutando'; saveState(); later(2000, () => { UI.js = 'listo'; }); },
   apprNo: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Rechazado. No hago nada fuera.', at: hhmm() }); UI.js = 'listo'; saveState(); },
   mic: () => {

@@ -117,3 +117,25 @@
 @keyframes tdot{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
 .msg.gen{animation:genin .35s ease-out both}
 @keyframes genin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* Respuesta con fuentes citadas (EJEMPLO) */
+.cit{display:flex;flex-direction:column;gap:7px;min-width:0}
+.cit-tag{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);border:1px dashed rgba(232,195,122,.5);border-radius:999px;padding:2px 9px;align-self:flex-start}
+.cit-txt{font-size:13px;line-height:1.55}
+.cm{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 4px;margin:0 2px;border-radius:999px;font:700 10px/1 'IBM Plex Mono',ui-monospace,monospace;color:#1b1206;background:linear-gradient(180deg,#FFF3D1,#E8C37A);cursor:pointer;vertical-align:1px}
+.cm.on{box-shadow:0 0 0 2px rgba(255,233,176,.55)}
+.cm.bad{background:var(--bad);color:#200806;cursor:default}
+.cit-sb{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-top:2px}
+.csr{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;padding:6px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.22);cursor:pointer}
+.csr b{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;font-size:10px;color:#1b1206;background:linear-gradient(180deg,#FFF3D1,#E8C37A)}
+.csr span{font-size:12px}
+.csr small{display:block;font-size:9.5px;color:var(--mute);margin-top:2px;overflow-wrap:anywhere}
+.csr.on{border-color:rgba(255,226,160,.7);background:rgba(232,195,122,.1)}
+.cit-v{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:10.5px}
+.vchip{padding:2px 9px;border-radius:999px;font-size:10px;letter-spacing:.08em;font-weight:700;border:1px solid}
+.v-ok{color:var(--good);border-color:rgba(95,211,154,.5);background:rgba(95,211,154,.1)}
+.v-pr{color:var(--gold3);border-color:rgba(232,195,122,.55);background:rgba(232,195,122,.1)}
+.v-wa{color:var(--warn);border-color:rgba(255,180,84,.5);background:rgba(255,180,84,.1)}
+.v-no{color:var(--bad);border-color:rgba(255,107,94,.5);background:rgba(255,107,94,.1)}
+.cit-n{font-size:10px;line-height:1.4}
+.msg.ja .bub .cit{max-width:100%}

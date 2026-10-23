@@ -1,9 +1,19 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
-Actualizado: 2026-10-23 01:00 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
+Actualizado: 2026-10-23 12:10 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
 
-## AHORA (2026-10-23)
+## AHORA (2026-10-23 12:10) — La Sala responde con fuentes citadas (EJEMPLO)
+Pregunta de investigación en la Sala («Investiga con fuentes: …», `investiga|averigua|busca|fuentes…`) → respuesta con marcas [n] tocables, lista numerada de fuentes (dominio, nivel, base: página/fragmento), veredicto y cobertura de citas.
+- **HECHO VERIFICADO (probado en Chromium, tablet 1194×834 y móvil 430×932, `tests/cited.cjs`, 44/44):** el verificador es el REAL del núcleo (`packages/orchestrator/src/cited-answer.ts`, empaquetado sin cambios en `vendor/cited-answer.js`, global `CitedAnswer`, janus-core @ d95ca0d). Lo único simulado es la BÚSQUEDA: las dos fuentes son de muestra (dominio `.invalid`, sin enlace ni red) y la respuesta lleva el rótulo «EJEMPLO · fuentes simuladas».
+- **Resultado honesto:** con fuentes sin catalogar el veredicto es **POR CONFIRMAR** (cobertura 100 %, «fuentes independientes: 1/2», «sin fuente de nivel A»). No se maquilla a VERIFICADO.
+- Seguridad: texto de la respuesta escapado; una marca a una fuente inexistente se pinta como inválida; lo guardado en `localStorage` se valida (`citedOk`) y, si su forma no es la esperada, degrada a texto plano en vez de romper la Sala; sin peticiones de red.
+- Teléfono: el hilo del dashboard (A2) muestra el texto plano con las marcas y remite a la Sala para ver las fuentes.
+- Regresión: `tests/layout.cjs` TODO OK (1194×834 y 430×932), `tests/clicks.cjs` sin errores JS, `tests/e2e-3d.cjs` E2E OK.
+- **Para pasar de EJEMPLO a real** (en reposo, Norm 7 — hace falta un buscador/modelo con API, que sería gasto a aprobar): sustituir `exampleCited()` por la llamada al núcleo; el verificador y la pantalla no cambian.
+- Sin medir: iPhone/iPad reales.
+
+## Antes (2026-10-23 01:00)
 Ronda 3D del teléfono lista para aprobación de Jean (vista previa; ZIP solo tras su visto bueno):
 - Robot de Janus en 3D real (oro, brazos, manos, pies, una cara) en lugar del micrófono grande; saluda con frases variadas y al tocarlo abre la Sala. Micrófono pequeño y botón enviar dorado animado junto a «Escribe a Janus». Dictado con transcripción inmediata.
 - Sala: micrófono 3D con ondas permanentes y robot, ambos girables (`lego/janus-3d`).
