@@ -1,9 +1,17 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
-Actualizado: 2026-10-23 12:10 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
+Actualizado: 2026-10-23 14:10 (Europe/Amsterdam) · Rama: `claude/dashboard-obsidiana` · Autor: sesión Claude.
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.
 
-## AHORA (2026-10-23 12:10) — La Sala responde con fuentes citadas (EJEMPLO)
+## AHORA (2026-10-23 14:10) — B Platino interactivo + selector A/B (EJEMPLO; pendiente de tu visto bueno)
+Janus ya ofrece las dos pieles en el mismo núcleo: **A · Obsidiana** (oro, oscuro) y **B · Platino** (claro, zafiro). Una sola fuente de verdad (datos, modelo del clima, router, acciones, vistas): B no duplica vistas.
+- **Cómo funciona:** `src/skin-map.js` (`SkinMap`) traduce la paleta de A a B: en el build convierte el CSS de A en reglas `.stage.b …` y en el navegador traduce el HTML que generan las vistas. El dashboard de tablet de B es propio (`src/dash-b.js` + `src/dash-b.css`, clases `pl-`, basado en `reference/design-b-platino.cjs`, con las mismas zonas `data-go` que A). Los objetos 3D dorados (robot, micrófono, medalla, logotipo, iconos del móvil) pasan a zafiro con un giro de tono CSS (+178°); el tiempo y las criaturas no se tocan.
+- **Selector A/B:** cabecera de A y de B (tablet), botón A|B en la cabecera del móvil y panel «Piel del dashboard» en Datos; se guarda en `ST.settings.skin` (localStorage) y `?skin=a|b` la fuerza. Salidas: `node build.cjs` → `dist/Janus-A-Obsidiana-interactivo.html` (arranca en A) y `node build.cjs --skin b` → `dist/Janus-B-Platino-interactivo.html` (arranca en B); las dos contienen las dos pieles.
+- **HECHO VERIFICADO (Chromium, 1194×834 y 430×932):** `tests/skin.cjs`: 31/32 en la última pasada completa (selector, persistencia, `?skin=`, B de tablet en una pantalla sin recortes, 67 rutas tocables, 16 vistas abren en B en tablet y móvil sin desborde ni errores JS); el único fallo era la regla de red del propio test (contaba la llamada a Open-Meteo, que es el clima en vivo por diseño) y ya está corregida; **POR CONFIRMAR: repetir `node tests/skin.cjs` completo tras esa corrección** + **auditoría de contraste automática** (texto frente al fondo real): ningún texto < 3:1; < 4,5:1 solo 7/1632 en tablet y 1/838 en móvil (iniciales sobre esferas 3D y filas desactivadas). Regresión de A intacta: `tests/layout.cjs` TODO OK, `tests/clicks.cjs` sin errores JS, `tests/e2e-3d.cjs` E2E OK, `tests/cited.cjs` 44/44.
+- **Límites honestos (INFERENCIA / POR CONFIRMAR):** en el móvil B usa el diseño A2 con la paleta traducida (no hay un diseño móvil propio de B); las vistas de detalle son traducción automática (legibles y con contraste auditado, pero sin retoque a mano una a una); el giro de tono hace los objetos 3D azules, no «platino» real; las iniciales sobre esferas 3D se revisaron a ojo (llevan sombra de texto). Fuentes Sora/Manrope/DM Mono incrustadas (+≈200 KB; HTML ≈ 2,5 MB). **Sin probar en iPhone/iPad reales.**
+- **Lección (ERROR→CAUSA→IMPACTO→LECCIÓN→PREVENCIÓN→CAMBIO→VERIFICACIÓN):** los chips ámbar de A llevan la clase `a`, que en A es también la raíz (`.a{--warn…;background:#07070a}`). ERROR: texto ámbar ilegible y fondos oscuros en B. CAUSA: la regla raíz se aplica a cualquier elemento con esa clase. IMPACTO: contraste 1,6:1. LECCIÓN: una clase de estado no puede compartir nombre con la raíz del tema. PREVENCIÓN: `.stage.b .a{…variables de B…;background:none}` + auditoría de contraste en `tests/skin.cjs`. VERIFICACIÓN: sin textos < 3:1.
+
+## Antes (2026-10-23 12:10) (2026-10-23 12:10) — La Sala responde con fuentes citadas (EJEMPLO)
 Pregunta de investigación en la Sala («Investiga con fuentes: …», `investiga|averigua|busca|fuentes…`) → respuesta con marcas [n] tocables, lista numerada de fuentes (dominio, nivel, base: página/fragmento), veredicto y cobertura de citas.
 - **HECHO VERIFICADO (probado en Chromium, tablet 1194×834 y móvil 430×932, `tests/cited.cjs`, 44/44):** el verificador es el REAL del núcleo (`packages/orchestrator/src/cited-answer.ts`, empaquetado sin cambios en `vendor/cited-answer.js`, global `CitedAnswer`, janus-core @ d95ca0d). Lo único simulado es la BÚSQUEDA: las dos fuentes son de muestra (dominio `.invalid`, sin enlace ni red) y la respuesta lleva el rótulo «EJEMPLO · fuentes simuladas».
 - **Resultado honesto:** con fuentes sin catalogar el veredicto es **POR CONFIRMAR** (cobertura 100 %, «fuentes independientes: 1/2», «sin fuente de nivel A»). No se maquilla a VERIFICADO.
@@ -82,7 +90,7 @@ Toda mejora de Janus debe poder montarse en otros productos (landings, web, IBA,
 - Presentadas 3 opciones con toda la información a la vista (`src/phonev.js`, `?tel=a|b|c`): A Terminal (bandas densas, ~1,15 pantallas), B Cuadrantes (2 columnas con listas y gráficas, 1 pantalla), C Cronología (día por carriles personal/__HIJA__/empresa con clima por hora + KPI + estado, 1 pantalla). Por defecto A hasta que Jean elija. No publicar vista interactiva hasta su elección.
 
 ## PENDIENTE (orden de prioridad)
-1. **Opción B también implementada (petición de Jean, 2026-10-22).** Janus debe ofrecer **dos dashboards: A Obsidiana y B Platino**.
+1. ~~**Opción B también implementada (petición de Jean, 2026-10-22).**~~ **HECHA (2026-10-23, ver AHORA): B interactivo + selector A/B; pendiente de tu visto bueno.** Queda opcional: diseño móvil propio de B, retoque a mano de las vistas de detalle, probar en iPhone/iPad. Texto original:
    - Recomendación: un solo núcleo (datos, modelo clima, router, acciones, vistas) y dos «pieles»: `dash-a.js`+`theme-a.css` y `dash-b.js`+`theme-b.css`. Las vistas de detalle deben heredar el tema activo.
    - Selector A/B persistente (ajuste `skin`) visible en la cabecera y en la vista «Datos/Ajustes»; el build puede generar los dos HTML y uno combinado.
    - Base visual de B: `reference/design-b-platino.cjs` (estático). Debe cumplir las mismas reglas que A (una pantalla sin scroll en tablet/escritorio, columna en teléfono, todo clicable, REAL/EJEMPLO).
@@ -115,7 +123,7 @@ Normas Infinity Seed 6: `docs/OPERATING_NORMS.md` (filtros → preview → aprob
 ## PRÓXIMO (primer paso del siguiente agente)
 1. Si Jean aprobó el preview: generar el ZIP (HTML personal desde `local/`, PWA y capturas).
 2. Con créditos o con Gemini/ChatGPT: clip de Nimbo + 4 voces → `voiceRef` en `packages/modules/companion/src/personas.ts`.
-3. B Platino interactivo (PENDIENTE 1).
+3. ~~B Platino interactivo~~ hecho (ver AHORA); falta tu visto bueno y probarlo en iPhone/iPad reales.
 4. Biometría local (voz/rostro) con consentimiento: diseño en el core, sin subir datos.
 
 ## Cómo regenerar la instantánea real (no se sube al repo)

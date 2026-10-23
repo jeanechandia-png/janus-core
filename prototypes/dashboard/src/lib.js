@@ -35,7 +35,7 @@ const dateMid = (n) => { const o = fromDayNum(n); return WD[o.wd].toLowerCase() 
 /* ===== Estado local (solo este dispositivo) ===== */
 const STORE_KEY = 'janus.preview.A.v1';
 const DEFAULT_ST = {
-  settings: { ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
+  settings: { skin: (typeof BUILD_SKIN !== 'undefined' && BUILD_SKIN === 'b' ? 'b' : 'a'), ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
   done: {}, lleva: {}, mail: {}, follow: {}, appr: {}, upd: {}, localEv: [], newFollow: [], kcheck: {}
 };
 let ST = JSON.parse(JSON.stringify(DEFAULT_ST));
@@ -45,6 +45,10 @@ function loadState() {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) { const o = JSON.parse(raw); ST = Object.assign({}, ST, o); ST.settings = Object.assign({}, DEFAULT_ST.settings, o.settings || {}); }
   } catch (e) { storeOk = false; }
+  // ?skin=a|b fuerza la piel (vistas previas y pruebas); sin parámetro manda lo guardado y, si no hay nada, el valor del build.
+  try { const q = new URLSearchParams(location.search).get('skin'); if (q === 'a' || q === 'b') ST.settings.skin = q; else if (!ST.settings.skin) ST.settings.skin = 'a'; } catch (e) { /* sin URL */ }
 }
+/** Piel activa: 'a' (Obsidiana) o 'b' (Platino). Cualquier otro valor guardado cuenta como 'a'. */
+const skinNow = () => (ST.settings && ST.settings.skin === 'b' ? 'b' : 'a');
 function saveState() { try { localStorage.setItem(STORE_KEY, JSON.stringify(ST)); } catch (e) { storeOk = false; } }
 function resetState() { ST = JSON.parse(JSON.stringify(DEFAULT_ST)); try { localStorage.removeItem(STORE_KEY); } catch (e) { /* sin almacenamiento */ } }

@@ -6,9 +6,13 @@ function parseHash() { const h = decodeURIComponent((location.hash || '').replac
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
-  dash.innerHTML = isPhone() ? renderPhoneV(M, X) : renderDash(M, X);
-  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = VIEWS[ROUTE.v](M, X, ROUTE.sub); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
-  else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · Obsidiana'; }
+  const skin = skinNow(), phone = isPhone(), isB = skin === 'b';
+  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '');
+  // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
+  const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
+  dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
+  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
+  else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
   if (window.Janus3D) Janus3D.hydrate(document);
 }
@@ -44,6 +48,7 @@ const ACTS = {
   upd: (a) => { ST.upd[a] = !ST.upd[a]; saveState(); },
   cSort: (a) => { UI.cSort = a; }, cSel: (a) => { UI.cSel = a; ROUTE.sub = ''; },
   clCat: (a) => { UI.clCat = a; UI.clSel = 0; ROUTE.sub = ''; }, clSel: (a) => { UI.clSel = +a; },
+  skin: (a) => { ST.settings.skin = a === 'b' ? 'b' : 'a'; saveState(); },
   mode: (a) => { ST.settings.mode = a; saveState(); if (a === 'vivo') refreshWeather(); },
   wxReload: () => { refreshWeather(); },
   geoSearch: async () => { const q = field('geoQ'); if (!q) return; UI.geoMsg = 'Buscando…'; rerender(); try { UI.geo = await geocode(q); UI.geoMsg = UI.geo.length ? 'Toca un resultado' : 'Sin resultados'; } catch (e) { UI.geo = []; UI.geoMsg = 'No se pudo buscar (sin conexión)'; } rerender(); },

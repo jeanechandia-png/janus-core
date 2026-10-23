@@ -24,7 +24,7 @@ function decorate(viewId) {
   ensureDefs();
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   iconize(view.hidden ? dash : view);
-  goldify(view.hidden ? dash : view);
+  if (skinNow() !== 'b') goldify(view.hidden ? dash : view); // el oro 3D es la piel A; B usa sus propios botones zafiro
   const isNew = viewId !== LAST_VIEW;
   LAST_VIEW = viewId;
   const host = view.hidden ? dash : view;

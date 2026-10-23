@@ -4,7 +4,8 @@ const ICONS = {"🚴":"<circle cx=\"18.5\" cy=\"17.5\" r=\"3.5\" /><circle cx=\"
 const ICON_RE = new RegExp('(' + "👨‍👩‍👧|🚴|🤖|💧|💦|🏠|🤸|👁|🏢|🏫|💶|💨|📍|🎬|🤝|👧|🗓|📅|🔐|🎯|📈|🔎|📌|📊|🧩|📥|🌟|🌡|🧥|📝|🩺|💾|🧭|📱|💬|🌐|🎨|🕐|🧤|🌦|🚦|🏃|🌿|🧠|🧪|🛡|🏆|🚁|🛈|🎚|🗑|🏖|📖|🔌|📜|💻|🧾|👥|🙋|📡|🔖|🏁|📩|📞|🆕|🍽|🛒|🎒|👟|🍎|🚌|📚|🎄|🏊|🔁|🐙|📧|🔗|📘|🎵|🛟|📄|🧊|🕶|🧣|🔦|🛍|🥧|🦷|🐝|🖐|🔻|🔺|🎙|📁|🏷|✉|✅|⏱|❤|⚙|⏳|☔|☝|⚡|☀|☁|⚠|✋|⚖|➕|⚑|⏭|☎|✂|⛷|↺|↻|➡|⌨|➤" + ')\\uFE0F?', 'g');
 // Iconos de OBJETO 3D hiperrealista (oro pulido + obsidiana, lego/janus-gold/assets/obj). Si no hay objeto, cae al trazo vectorial.
 const EMO_OBJ = {'🚴':'bike','🤖':'bot','👁':'eye','🏫':'school','📚':'school','🎓':'school','💶':'euro','🎬':'clapperboard','🤝':'handshake','✉':'mail','📧':'mail','📩':'mail','🗓':'calendar-days','📅':'calendar-days','🔐':'lock','🎯':'target','📥':'inbox','🌟':'sparkles','🆕':'sparkles','🩺':'stethoscope','☔':'umbrella','🏖':'umbrella','⚙':'settings','☀':'sun','🛒':'shopping-cart','🛍':'shopping-cart','🎙':'mic','📁':'folder','🏷':'tag','❤':'heart','🤸':'dumbbell','🏃':'dumbbell','✈':'plane'};
-const iconSvg = (e) => (typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[EMO_OBJ[e]]) ? '<img class="ji ji3" src="' + GOLD.o[EMO_OBJ[e]] + '" alt="" aria-hidden="true">' : '<svg class="ji" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICONS[e] + '</svg>';
+// Piel B (Platino): siempre el trazo vectorial (limpio y legible sobre claro); los objetos 3D de oro son de la piel A.
+const iconSvg = (e) => (typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[EMO_OBJ[e]] && !(typeof skinNow === 'function' && skinNow() === 'b')) ? '<img class="ji ji3" src="' + GOLD.o[EMO_OBJ[e]] + '" alt="" aria-hidden="true">' : '<svg class="ji" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICONS[e] + '</svg>';
 // Recorre los nodos de texto y cambia cada emoji conocido por su icono (los desconocidos se quedan).
 function iconize(root) {
   if (!root) return;
