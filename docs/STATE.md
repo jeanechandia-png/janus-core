@@ -12,6 +12,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Editor visual de flujos «Flujos» (2026-10-23, rama `claude/social-accounts-watch`)**: `apps/flow-editor/` — lienzo táctil de nodos sobre el motor real (catálogo, validación, plantillas), conexión en dos toques con ramas, deshacer/rehacer, problemas en español, orden previsto, importar/exportar borradores sin claves, entorno **simulado** rotulado; lo «en reposo» se cuenta aparte de los errores (norma 7). Un solo HTML sin red (`npm run flow-editor:build`); 64 comprobaciones en navegador (`npm run flow-editor:e2e`). **No publica ni ejecuta; no probado en iPhone/iPad reales.** Detalle: `apps/flow-editor/README.md` y el handoff `2026-10-23-vault-oauth-phone-watch`.
+
 - **Cuentas, buzones y teléfono del Founder — lectura, redacción y envío con confirmación (2026-10-23, rama `claude/social-accounts-watch`, PR #47)**:
   - correo: leer, redactar, corregir y **enviar bajo instrucción del Founder con su confirmación en cada envío** (el envío relee el borrador y se niega si destinatarios/asunto difieren de lo aprobado); nada autónomo (sin respuestas automáticas, borrar, archivar ni reenviar); cuenta de menor solo lectura salvo `guardian-managed`;
   - almacén cifrado de credenciales (AES-256-GCM) + consentimiento de Google por buzón (PKCE, cuenta verificada, lectura y escritura separadas, renovación automática); token de Threads renovable;

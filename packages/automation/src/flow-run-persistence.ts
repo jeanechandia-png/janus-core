@@ -1,6 +1,10 @@
 import type { FlowRunRecord, FlowRunEventRecord, FlowRunStatus } from '../../core/src/sqlite-store.js';
 import { runWorkflow, type ApprovalDecision, type FlowDeps, type FlowEvent, type FlowRunOptions, type FlowRunResult, type FlowRunSnapshot } from './flow-runner.js';
+import { redactSecrets } from './secret-shape.js';
 import type { AutomationWorkflow } from './workflow.js';
+
+// La definición de «aspecto de secreto» vive en secret-shape.ts (la comparte el editor de flujos); se reexporta por compatibilidad.
+export { redactSecrets };
 
 /**
  * Persistencia de las ejecuciones de flujos (local-first: SQLite guarda estado y auditoría).
@@ -17,31 +21,7 @@ export interface FlowRunPersistence {
   appendFlowRunEvent(event: Omit<FlowRunEventRecord, 'seq'>): void;
 }
 
-const SECRET_KEY = /(token|secret|password|passwd|authorization|api[-_]?key|cookie|private[-_]?key|bearer|credential)/i;
 const MAX_SNAPSHOT_BYTES = 2_000_000;
-
-/** Copia profunda con los valores de claves con aspecto de secreto sustituidos. Devuelve cuántos se ocultaron. */
-export function redactSecrets(value: unknown): { value: unknown; redactions: number } {
-  let redactions = 0;
-  const walk = (input: unknown, depth: number): unknown => {
-    if (depth > 40) return '[truncated]';
-    if (Array.isArray(input)) return input.map((item) => walk(item, depth + 1));
-    if (input && typeof input === 'object') {
-      const out: Record<string, unknown> = {};
-      for (const [key, item] of Object.entries(input as Record<string, unknown>)) {
-        if (SECRET_KEY.test(key) && item !== null && item !== undefined && item !== '') {
-          out[key] = '[redacted]';
-          redactions += 1;
-        } else {
-          out[key] = walk(item, depth + 1);
-        }
-      }
-      return out;
-    }
-    return input;
-  };
-  return { value: walk(value, 0), redactions };
-}
 
 function toRecord(result: FlowRunResult, previous: FlowRunRecord | undefined, now: Date): FlowRunRecord {
   const redacted = redactSecrets({ snapshot: result.snapshot, outputs: result.outputs });
