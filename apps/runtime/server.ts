@@ -551,7 +551,11 @@ capabilities.register({
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
 });
-toolGateway.register(new JanusSchoolToolAdapter(new JsonFileSchoolProgressStore(process.env.JANUS_SCHOOL_PROGRESS_PATH ?? 'data/school-progress.json')));
+toolGateway.register(new JanusSchoolToolAdapter(
+  new JsonFileSchoolProgressStore(process.env.JANUS_SCHOOL_PROGRESS_PATH ?? 'data/school-progress.json'),
+  undefined,
+  { kidBirthDate: process.env.JANUS_SCHOOL_KID_BIRTHDATE?.trim() || undefined },
+));
 capabilities.register({
   tool: 'janus-school',
   actions: ['lesson.next', 'lesson.get', 'lesson.complete', 'glossary.lookup', 'review.next', 'review.grade', 'quiz.get', 'quiz.answer', 'kids.session', 'kids.technique', 'kids.guide', 'progress.get'],

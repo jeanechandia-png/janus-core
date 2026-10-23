@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  FOUNDER_LESSONS, GLOSSARY, NO_DIAGNOSIS_NOTICE, allEvidence, checkAnswer, completeLesson, dueCards, freshCard,
-  gradeCard, listTechniques, lookupTerm, newProgress, nextLesson, planKidSession, renderTechnique, reviewCard,
+  FOUNDER_LESSONS, GLOSSARY, NO_DIAGNOSIS_NOTICE, ageOnDate, allEvidence, checkAnswer, completeLesson, dueCards, freshCard,
+  gradeCard, inferAgeBand, listTechniques, lookupTerm, newProgress, nextLesson, planKidSession, renderTechnique, reviewCard,
 } from '../packages/modules/janus-school/src/index.js';
 import { JanusSchoolToolAdapter, MemorySchoolProgressStore } from '../packages/adapters/src/janus-school-tool-adapter.js';
 import { deterministicPlan } from '../packages/orchestrator/src/deterministic-planner.js';
@@ -103,4 +103,33 @@ test('identity fusion: the most restricted matched profile wins; strict mode res
   assert.equal(policyForSpeaker({ decision: 'match', profile: 'owner' }, { strict: true }).restricted, false);
   assert.equal(policyForSpeaker(undefined, { strict: true }).restricted, false);
   assert.ok(policyForSpeaker({ decision: 'match', profile: 'minor' }).allowedTools.includes('janus-school'));
+});
+
+test('age is computed from a birth date on the day, never stored, and advances on the birthday', () => {
+  // Fictional fixture dates only: a real birth date must never live in the repository.
+  assert.equal(ageOnDate('2016-06-15', new Date('2026-06-14T12:00:00Z')), 9);
+  assert.equal(ageOnDate('2016-06-15', new Date('2026-06-15T12:00:00Z')), 10);
+  assert.equal(ageOnDate('2016-02-29', new Date('2027-02-28T12:00:00Z')), 10);
+  assert.equal(ageOnDate('2016-02-29', new Date('2027-03-01T12:00:00Z')), 11);
+  assert.equal(ageOnDate('2030-01-01', new Date('2026-10-23T12:00:00Z')), undefined, 'future date');
+  assert.equal(ageOnDate('2016-13-40', new Date('2026-10-23T12:00:00Z')), undefined, 'impossible date');
+  assert.equal(ageOnDate('15/06/2016', new Date('2026-10-23T12:00:00Z')), undefined, 'not ISO');
+  assert.equal(ageOnDate(undefined, new Date('2026-10-23T12:00:00Z')), undefined);
+  // Bands follow the age: 9 and 10 share the 8-10 band; 11 moves to 11-13.
+  assert.equal(inferAgeBand(ageOnDate('2016-06-15', new Date('2026-10-23T12:00:00Z'))), '8-10');
+  assert.equal(inferAgeBand(ageOnDate('2016-06-15', new Date('2027-06-15T12:00:00Z'))), '11-13');
+});
+
+test('adapter: a configured birth date adapts kids sessions without asking; an explicit age still wins', async () => {
+  const request = { tool: 'janus-school', action: 'kids.session', input: { learnerId: 'kendra', minutes: 12 } };
+  const without = await new JanusSchoolToolAdapter(new MemorySchoolProgressStore(), () => NOW).execute(request, noop);
+  assert.match(String(without.output?.reply), /No sé la edad/, 'unknown age is asked for, not guessed');
+  const configured = new JanusSchoolToolAdapter(new MemorySchoolProgressStore(), () => NOW, { kidBirthDate: '2016-06-15' });
+  const withAge = await configured.execute(request, noop);
+  assert.equal(withAge.ok, true);
+  assert.doesNotMatch(String(withAge.output?.reply), /No sé la edad/);
+  assert.doesNotMatch(JSON.stringify(withAge), /2016-06-15/, 'the birth date never leaks into outputs');
+  const explicit = await configured.execute({ ...request, input: { ...request.input, age: 6 } }, noop);
+  assert.equal(explicit.ok, true);
+  assert.notEqual(String(explicit.output?.reply), String(withAge.output?.reply), 'explicit age 6 changes the plan');
 });

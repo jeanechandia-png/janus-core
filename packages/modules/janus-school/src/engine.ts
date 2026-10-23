@@ -143,6 +143,22 @@ export function inferAgeBand(age: number | undefined): AgeBand | undefined {
   return '11-13';
 }
 
+/**
+ * Completed years on a given day, from an ISO birth date (YYYY-MM-DD). Computed at call time so the age
+ * (and therefore the age band) advances by itself on every birthday; the birth date is never stored here.
+ * Returns undefined for malformed or future dates.
+ */
+export function ageOnDate(birthDate: string | undefined, on: Date): number | undefined {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec((birthDate ?? '').trim());
+  if (!match) return undefined;
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return undefined;
+  let age = on.getUTCFullYear() - year;
+  if (on.getUTCMonth() + 1 < month || (on.getUTCMonth() + 1 === month && on.getUTCDate() < day)) age -= 1;
+  return age >= 0 && age <= 120 ? age : undefined;
+}
+
 export function listTechniques(ageBand?: AgeBand): readonly KidTechnique[] {
   return ageBand ? KID_TECHNIQUES.filter((technique) => technique.ageBands.includes(ageBand)) : KID_TECHNIQUES;
 }
