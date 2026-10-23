@@ -35,6 +35,10 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 | Netlify (ya existente, ampliado) | `NETLIFY_AUTH_TOKEN` | `site.published_deploy`, `sites.list`, `deploys.list`, `deploy.get` | solo lectura |
 | Netlify (release, nuevo) | `NETLIFY_RELEASE_TOKEN` + `JANUS_NETLIFY_RELEASE_SITES` (ids permitidos) | `deploy.restore` (volver a un despliegue anterior) | **cambia producción → aprobación explícita**; solo sitios autorizados |
 | Supabase | `SUPABASE_ACCESS_TOKEN` | `projects.list`, `project.health`, `advisors.security`, `advisors.performance`, `migrations.list` | solo lectura; **nunca SQL ni datos de clientes** |
+| Supabase (escritura, nuevo) | `SUPABASE_WRITE_ACCESS_TOKEN` + `JANUS_SUPABASE_WRITE_PROJECTS` (refs permitidos) | `migration.apply`, `sql.execute` | **cambia la base de datos → aprobación explícita**; SQL destructivo (DROP, TRUNCATE, DELETE/UPDATE sin WHERE) se rechaza salvo `allowDestructive: true` aprobado; `sql.execute` **nunca devuelve filas** (solo recuento y nombres de columnas) |
+| Vercel (release, nuevo) | `VERCEL_RELEASE_TOKEN` + `JANUS_VERCEL_RELEASE_PROJECTS` (nombres permitidos) | `deployment.redeploy` | **puede cambiar producción → aprobación explícita**; solo proyectos autorizados |
+| Hostinger (lectura, nuevo) | `HOSTINGER_API_TOKEN` (hPanel) | `websites.list` | solo lectura |
+| Hostinger (publicar/modificar webs, nuevo) | `HOSTINGER_RELEASE_TOKEN` + `JANUS_HOSTINGER_SITES` = `{"dominio.com":"usuario_hosting"}` | `site.deploy` (sube un sitio estático como ZIP y lo despliega en el dominio) | **cambia un sitio en vivo → aprobación explícita**; solo dominios del mapa; exige `index.html` en la raíz; rechaza `.env`, `.git`, claves y rutas con `..` |
 | Google Workspace (ya existente) | `GOOGLE_ACCESS_TOKEN` (solo lectura) | `drive.files.search`, `gmail.messages.search`, `calendar.events.list` | lectura |
 | Google Workspace (escritura, nuevo) | `GOOGLE_WRITE_ACCESS_TOKEN` (scopes `gmail.compose`, `calendar.events`) | `gmail.draft.create` (**solo borrador, nunca envía**), `calendar.event.create` (sin avisar a invitados salvo `notifyGuests`) | **escritura → aprobación explícita** |
 
@@ -49,7 +53,20 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 - Supabase: Management API (`https://api.supabase.com/v1`, 120 peticiones/min). Un token personal da acceso amplio a la cuenta, por eso el adaptador solo tiene peticiones GET de salud, asesores y migraciones: los datos de los clientes (tenants) nunca pasan por Janus.
 - n8n: Janus nunca dispara URLs arbitrarias; solo los webhooks que el Founder nombra en `JANUS_N8N_WEBHOOKS`.
 
+### Ejecución (2026-10-16)
+- Supabase: `POST /v1/projects/{ref}/database/migrations` (body `query`, `name`) y `POST /v1/projects/{ref}/database/query` (Supabase lo documenta como **experimental**). Verificado contra su documentación el 2026-10-16.
+- Vercel: `POST /v13/deployments?forceNew=1` con `deploymentId` (redeploy de un despliegue existente). Verificado contra su documentación el 2026-10-16.
+- Las acciones nuevas son privilegiadas en el Tool Gateway (clave de idempotencia + permiso de autoridad auditado) y la política las fuerza a aprobación aunque el planificador diga lo contrario.
+- **POR CONFIRMAR (no implementado a propósito):** activar/desactivar flujos de n8n por API y promover despliegues en Vercel — no pude verificar esos endpoints en la documentación oficial. n8n ya ejecuta flujos mediante webhooks autorizados (`workflow.trigger`).
+- Instalaciones existentes: las herramientas nuevas requieren una revisión del Blueprint (Permitir herramientas nuevas) antes de que el planificador las use.
+
+### Hostinger (2026-10-16)
+- Flujo (docs.hostinger.com + repo oficial `hostinger/api-mcp-server`): `POST /api/hosting/v1/files/upload-urls` → subida TUS 1.0.0 del ZIP a `public_html` (cabeceras `X-Auth`, `X-Auth-Rest`) → `POST /api/hosting/v1/accounts/{username}/websites/{domain}/deploy`.
+- Janus recibe el contenido como `files: {"index.html": "…", "css/site.css": "…"}` (y `binaryFiles` en base64 para imágenes), construye el ZIP él mismo y lo publica. **Modificar una web actual = volver a publicarla con los archivos corregidos.**
+- **POR CONFIRMAR (sin inventar):** las páginas públicas de la documentación no muestran el esquema del cuerpo de dos llamadas y el OpenAPI no se pudo descargar desde este entorno (host bloqueado). El adaptador envía `{username, domain}` a `upload-urls` y `{archive_path}` a `deploy`; si Hostinger responde 4xx, el mensaje de error vuelve tal cual y se corrige en dos constantes (`UPLOAD_URL_BODY`, `DEPLOY_BODY`). Tampoco se sabe si el despliegue **reemplaza** todo el sitio o extrae encima, ni si el ZIP queda dentro de `public_html`.
+- No cubre: WordPress, Node.js, bases de datos ni limpiar la caché (endpoint no verificado); la primera prueba debe hacerse en un subdominio de pruebas.
+
 ### Pendiente
 - ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.
 - ~~Revisión del Blueprint para habilitar las nuevas herramientas~~ → hecho desde la app: ver `docs/founder-approvals.md` (el Founder debe confirmarla en su instalación).
-- Pruebas con cuentas reales (todo verificado con servicios simulados; no verificado contra las APIs reales).
+- Pruebas con cuentas reales (nada de lo escrito aquí se ha probado contra Supabase/Vercel reales) (todo verificado con servicios simulados; no verificado contra las APIs reales).

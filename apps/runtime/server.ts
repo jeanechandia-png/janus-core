@@ -15,6 +15,10 @@ import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-ad
 import { GoogleWorkspaceWriteAdapter } from '../../packages/adapters/src/google-workspace-write-adapter.js';
 import { NetlifyReleaseAdapter } from '../../packages/adapters/src/netlify-release-adapter.js';
 import { SupabaseManagementAdapter } from '../../packages/adapters/src/supabase-management-adapter.js';
+import { SupabaseWriteAdapter } from '../../packages/adapters/src/supabase-write-adapter.js';
+import { HostingerAdapter } from '../../packages/adapters/src/hostinger-adapter.js';
+import { HostingerReleaseAdapter, parseHostingerSites } from '../../packages/adapters/src/hostinger-release-adapter.js';
+import { VercelReleaseAdapter } from '../../packages/adapters/src/vercel-release-adapter.js';
 import {
   interpretTranscript,
   transcriptionVocabularyPrompt,
@@ -228,6 +232,10 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     'google-workspace-write': 'GOOGLE_WRITE_ACCESS_TOKEN',
     'netlify-release': 'NETLIFY_RELEASE_TOKEN',
     supabase: 'SUPABASE_ACCESS_TOKEN',
+    'supabase-write': 'SUPABASE_WRITE_ACCESS_TOKEN',
+    'vercel-release': 'VERCEL_RELEASE_TOKEN',
+    hostinger: 'HOSTINGER_API_TOKEN',
+    'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -323,6 +331,25 @@ toolGateway.register(new NetlifyReleaseAdapter({
 }));
 toolGateway.register(new SupabaseManagementAdapter({
   tokenProvider: () => credentialBroker.accessToken('supabase'),
+}));
+const supabaseWriteProjects = (process.env.JANUS_SUPABASE_WRITE_PROJECTS ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+toolGateway.register(new SupabaseWriteAdapter({
+  tokenProvider: () => credentialBroker.accessToken('supabase-write'),
+  allowedProjectRefs: supabaseWriteProjects,
+}));
+const vercelReleaseProjects = (process.env.JANUS_VERCEL_RELEASE_PROJECTS ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+toolGateway.register(new VercelReleaseAdapter({
+  tokenProvider: () => credentialBroker.accessToken('vercel-release'),
+  allowedProjects: vercelReleaseProjects,
+  ...(process.env.VERCEL_TEAM_ID?.trim() ? { defaultTeamId: process.env.VERCEL_TEAM_ID.trim() } : {}),
+}));
+toolGateway.register(new HostingerAdapter({
+  tokenProvider: () => credentialBroker.accessToken('hostinger'),
+}));
+const hostingerSites = parseHostingerSites(process.env.JANUS_HOSTINGER_SITES);
+toolGateway.register(new HostingerReleaseAdapter({
+  tokenProvider: () => credentialBroker.accessToken('hostinger-release'),
+  sites: hostingerSites,
 }));
 toolGateway.register(new PerplexityAdapter({
   tokenProvider: () => credentialBroker.accessToken('perplexity'),
@@ -428,6 +455,34 @@ capabilities.register({
   actions: ['projects.list', 'project.health', 'advisors.security', 'advisors.performance', 'migrations.list'],
   state: supabaseConfigured ? 'available' : 'needs_auth',
   ...(!supabaseConfigured ? { reason: 'Supabase necesita un token de acceso (SUPABASE_ACCESS_TOKEN); Janus solo consulta salud, asesores y migraciones, nunca datos de clientes.' } : {}),
+});
+const supabaseWriteConfigured = environmentCredentials.configured('supabase-write') && supabaseWriteProjects.length > 0;
+capabilities.register({
+  tool: 'supabase-write',
+  actions: ['migration.apply', 'sql.execute'],
+  state: supabaseWriteConfigured ? 'available' : 'needs_auth',
+  ...(!supabaseWriteConfigured ? { reason: 'Aplicar migraciones o SQL necesita SUPABASE_WRITE_ACCESS_TOKEN y los proyectos autorizados en JANUS_SUPABASE_WRITE_PROJECTS; siempre con aprobación y sin devolver datos de clientes.' } : {}),
+});
+const vercelReleaseConfigured = environmentCredentials.configured('vercel-release') && vercelReleaseProjects.length > 0;
+capabilities.register({
+  tool: 'vercel-release',
+  actions: ['deployment.redeploy'],
+  state: vercelReleaseConfigured ? 'available' : 'needs_auth',
+  ...(!vercelReleaseConfigured ? { reason: 'Redesplegar necesita VERCEL_RELEASE_TOKEN y los proyectos autorizados en JANUS_VERCEL_RELEASE_PROJECTS; siempre con aprobación.' } : {}),
+});
+const hostingerConfigured = environmentCredentials.configured('hostinger');
+capabilities.register({
+  tool: 'hostinger',
+  actions: ['websites.list'],
+  state: hostingerConfigured ? 'available' : 'needs_auth',
+  ...(!hostingerConfigured ? { reason: 'Hostinger necesita un token de API (HOSTINGER_API_TOKEN, se crea en hPanel) para listar las webs.' } : {}),
+});
+const hostingerReleaseConfigured = environmentCredentials.configured('hostinger-release') && Object.keys(hostingerSites).length > 0;
+capabilities.register({
+  tool: 'hostinger-release',
+  actions: ['site.deploy'],
+  state: hostingerReleaseConfigured ? 'available' : 'needs_auth',
+  ...(!hostingerReleaseConfigured ? { reason: 'Publicar o reemplazar una web en Hostinger necesita HOSTINGER_RELEASE_TOKEN y los dominios autorizados en JANUS_HOSTINGER_SITES; siempre con aprobación.' } : {}),
 });
 const perplexityConfigured = environmentCredentials.configured('perplexity');
 const klingConfigured = environmentCredentials.configured('kling');
