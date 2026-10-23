@@ -14,6 +14,7 @@ Leyenda: ✅ hecho y verificado · 🟡 parcial · ⏳ pendiente · 🔒 bloquea
 | Una sola vista con todo el día, personal y empresa separados; Kendra con su bloque | ✅ | `src/dash.js`, `tests/layout.cjs` (7 tamaños) |
 | Premium 4K, oro que parezca oro, JANUS en mayúsculas 3D | ✅ | Renders three.js en `lego/janus-gold/assets/pulido` |
 | **Iconos de objeto 3D hiperrealista** que se iluminan al tocar y se animan | ✅ | `lego/janus-gold/assets/obj` (24); `iconize` usa la clase `ji3` |
+| **Piel B: todos los iconos 3D hiperrealistas** (medallones de platino + zafiro, también los puntos de estado) | ✅ | `lego/janus-platino/assets/obj` (126, generados con `tools/platino3d`); `iconize` usa la clase `pt3`; `tests/skin.cjs` [5b] |
 | Botones de acción en oro que se iluminan | ✅ | `janus-gold.css` (`jg-cta`) |
 | Líneas divisorias marcadas | ✅ | `premium.css` |
 | Tablet: una pantalla sin scroll | ✅ | `tests/layout.cjs` |

@@ -1,0 +1,117 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./nm/three/build/three.module.js","three/addons/":"./nm/three/examples/jsm/"}}</script>
+<!-- nm/ = enlace a node_modules con three@0.160, clipper-lib y lucide-static (ver README.md) -->
+<script src="./nm/clipper-lib/clipper.js"></script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+
+/* Platino Janus: medallón acuñado de platino pulido + esmalte zafiro con el símbolo en relieve (platino macizo con bisel).
+ * Mismo estudio de softboxes que el oro de la piel A (tools/gold3d), con paneles fríos para el platino. */
+const FIN = {
+  platino: { color: 0xf3f6fb, rough: 0.09, clear: 0.5, env: 1.4 },
+  zafiro:  { color: 0x2f62f0, rough: 0.07, clear: 1.0, env: 1.0 }
+};
+function studio(renderer) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x070a12);
+  const room = new RoomEnvironment(renderer); room.scale.setScalar(0.6);
+  room.traverse((o) => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.2); } });
+  scene.add(room);
+  const panel = (w, h, color, k, pos) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(...pos); m.lookAt(0, 0, 0); scene.add(m); };
+  panel(9, 1.3, 0xffffff, 12, [0, 6, 2]);          // tira superior (reflejo de horizonte)
+  panel(2.2, 9, 0xe9f1ff, 15, [-6, 1, 4]);         // softbox clave fría
+  panel(1.2, 9, 0xdfe9ff, 10, [6, 0, 3.5]);
+  panel(3, 3, 0x1b2f7a, 2.4, [2, -2, 7]);          // relleno zafiro
+  panel(2, 6, 0x4f7bff, 7, [-5, -1, -4]);          // contraluz azul
+  panel(9, 1, 0xcfe0ff, 4.5, [0, -6, 2]);          // suelo claro
+  return new THREE.PMREMGenerator(renderer).fromScene(scene, 0.05).texture;
+}
+const metal = (f) => new THREE.MeshPhysicalMaterial({ color: f.color, metalness: 1, roughness: f.rough, clearcoat: f.clear, clearcoatRoughness: 0.07, envMapIntensity: f.env });
+
+function enamelTexture(cs) {
+  cs = cs || ['#5b8cff', '#2a55e6', '#1233b4', '#091a63'];
+  const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+  const r = g.createRadialGradient(210, 170, 20, 256, 256, 300);
+  r.addColorStop(0, cs[0]); r.addColorStop(.35, cs[1]); r.addColorStop(.75, cs[2]); r.addColorStop(1, cs[3]);
+  g.fillStyle = r; g.fillRect(0, 0, 512, 512);
+  // rayos finos (acabado «sunburst»)
+  g.translate(256, 256); g.globalAlpha = .07; g.strokeStyle = '#fff'; g.lineWidth = 1.2;
+  for (let i = 0; i < 96; i++) { g.rotate(Math.PI * 2 / 96); g.beginPath(); g.moveTo(40, 0); g.lineTo(256, 0); g.stroke(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+/* Trazos Lucide (24×24, trazo 2) → contorno macizo (Clipper) → formas extruidas con bisel */
+function glyphShapes(svg, k, halfW) {
+  const data = new SVGLoader().parse(svg);
+  const S = 1000, co = new ClipperLib.ClipperOffset(2, 0.6 * S * 0.01); co.ArcTolerance = 6;
+  data.paths.forEach((p) => p.subPaths.forEach((sp) => {
+    let pts = sp.getPoints(20).map((v) => ({ X: Math.round((v.x - 12) * k * S), Y: Math.round(-(v.y - 12) * k * S) }));
+    pts = pts.filter((v, i) => i === 0 || Math.hypot(v.X - pts[i - 1].X, v.Y - pts[i - 1].Y) > 2);
+    if (pts.length < 2) pts = [pts[0], { X: pts[0].X + 3, Y: pts[0].Y }];
+    const closed = pts.length > 2 && Math.hypot(pts[0].X - pts[pts.length - 1].X, pts[0].Y - pts[pts.length - 1].Y) < 40;
+    if (closed) pts.pop();
+    co.AddPath(pts, ClipperLib.JoinType.jtRound, closed ? ClipperLib.EndType.etClosedLine : ClipperLib.EndType.etOpenRound);
+  }));
+  const tree = new ClipperLib.PolyTree(); co.Execute(tree, halfW * S);
+  const out = [];
+  const toV = (path) => path.map((q) => new THREE.Vector2(q.X / S, q.Y / S));
+  const walk = (node, isHole) => {
+    node.Childs().forEach((ch) => {
+      if (!ch.IsHole()) { const sh = new THREE.Shape(toV(ch.Contour())); ch.Childs().forEach((h) => { sh.holes.push(new THREE.Path(toV(h.Contour()))); }); out.push(sh); ch.Childs().forEach((h) => walk(h)); }
+    });
+  };
+  walk(tree);
+  return out;
+}
+
+function medal(o) {
+  const S = o.size || 768, tilt = o.tilt || [-0.26, 0.24];
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1); renderer.setSize(S, S); renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = o.exposure || 0.98; renderer.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene(); scene.environment = studio(renderer);
+  const grp = new THREE.Group(), pt = metal(FIN.platino);
+  // Canto de platino torneado (bisel doble y labio que enmarca el esmalte)
+  const prof = [[0, -2.2], [10.8, -2.2], [12.1, -1.4], [12.5, 0.2], [12.1, 1.5], [11.3, 2.0], [10.7, 1.45], [10.45, 0.7], [0, 0.7]].map((p) => new THREE.Vector2(p[0], p[1]));
+  const rim = new THREE.Mesh(new THREE.LatheGeometry(prof, 128), pt); rim.rotation.x = Math.PI / 2; grp.add(rim);
+  // Esmalte zafiro abombado (cabujón): el reflejo curvo de los softboxes da el brillo de gema
+  const a = 10.5, h = o.dome || 1.2, R = (a * a + h * h) / (2 * h), th = Math.asin(a / R);
+  const dg = new THREE.SphereGeometry(R, 128, 48, 0, Math.PI * 2, 0, th);
+  { const pos = dg.attributes.position, uv = dg.attributes.uv; for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / (2 * a) + .5, -pos.getZ(i) / (2 * a) + .5); }
+  const en = new THREE.Mesh(dg, new THREE.MeshPhysicalMaterial({ map: enamelTexture(o.colors), metalness: 0.1, roughness: 0.05, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 0.8, ior: 1.7, specularIntensity: 1 }));
+  en.rotation.x = Math.PI / 2; en.position.z = 0.72 + h - R; grp.add(en);
+  // Anillo fino de platino dentro del esmalte
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(10.0, 0.2, 16, 160), pt); ring.position.z = 0.78; grp.add(ring);
+  // Sin símbolo (puntos de estado): solo canto de platino + cabujón de color
+  if (!o.svg) return finish();
+  // Símbolo macizo
+  const k = o.k || 0.62, hw = (o.stroke || 1.3) * k, depth = o.depth || (h + 1.5), bv = o.bevel || 0.46;
+  const shapes = glyphShapes(o.svg, k, Math.max(0.05, hw - bv * 0.55));
+  const geo = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: true, bevelThickness: bv, bevelSize: bv * 0.75, bevelSegments: 6, curveSegments: 14 });
+  geo.computeVertexNormals();
+  const gm = new THREE.Mesh(geo, new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 1, roughness: 0.08, clearcoat: 0.6, clearcoatRoughness: 0.06, envMapIntensity: 1.9 })); gm.position.set(0, 0, 0.72 + 0.05); grp.add(gm);
+  return finish();
+  function finish() {
+  // Encuadre
+  const box = new THREE.Box3().setFromObject(grp), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  grp.position.sub(c);
+  const piv = new THREE.Group(); piv.add(grp); piv.rotation.x = tilt[0]; piv.rotation.y = tilt[1];
+  const cam = new THREE.PerspectiveCamera(24, 1, 0.1, 1000);
+  const fit = Math.max(s.x, s.y) * 1.06;
+  cam.position.set(0, 0, fit / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) + s.z); cam.lookAt(0, 0, 0);
+  scene.add(piv);
+  const key = new THREE.DirectionalLight(0xf3f7ff, 2.4); key.position.set(-3, 4, 5); scene.add(key);
+  const rimL = new THREE.DirectionalLight(0x8fb0ff, 1.4); rimL.position.set(4, -2, -3); scene.add(rimL);
+  const fill = new THREE.DirectionalLight(0xffffff, 1.1); fill.position.set(0.5, 1, 6); scene.add(fill);
+  renderer.render(scene, cam);
+  const url = renderer.domElement.toDataURL('image/png');
+  renderer.dispose(); renderer.forceContextLoss();
+  return url;
+  }
+}
+window.R = { medal, ready: true };
+</script></body></html>

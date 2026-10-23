@@ -97,6 +97,8 @@ async function contrast(page, size) {
     check('sin scroll vertical ni horizontal', m.sh <= m.ih + 1 && m.sw <= m.iw + 1, JSON.stringify(m));
     const clipped = await page.evaluate(() => [...document.querySelectorAll('.pl-cd')].filter((c) => c.scrollWidth > c.clientWidth + 2 || c.scrollHeight > c.clientHeight + 2).map((c) => (c.querySelector('.pl-lb') || {}).textContent));
     check('ninguna tarjeta con contenido recortado', clipped.length === 0, clipped.join(', '));
+    const cortados = await page.evaluate(() => [...document.querySelectorAll('.pl-lb .pl-mt')].filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent.trim().slice(0, 18)));
+    check('ninguna cabecera de tarjeta con el texto cortado (…)', cortados.length === 0, cortados.join(' | '));
     const routes = await page.evaluate(() => [...new Set([...document.querySelectorAll('.stage [data-go]')].map((e) => e.getAttribute('data-go')))]);
     check('el dashboard B expone ≥ 14 rutas distintas', routes.length >= 14, String(routes.length));
     const rutasKo = [];
@@ -130,6 +132,30 @@ async function contrast(page, size) {
     }
     check(nom + ': ' + ROUTES.length + ' vistas abren en B, sin desborde horizontal', ko.length === 0, ko.join(', '));
     check(nom + ': sin errores JS', errs.length === 0, errs.slice(0, 2).join(' | ')); await ctx.close();
+  }
+
+  console.log('\n[5b] Iconos de B: todos 3D (medallones de platino + zafiro), ninguno de trazo plano ni de oro');
+  for (const [nom, size] of [['tablet', TABLET], ['móvil', PHONE]]) {
+    const { ctx, page } = await open(br, FA, '?skin=b', size); const planos = [], oro = [], rotos = [], chicos = []; let n3d = 0;
+    for (const r of [''].concat(ROUTES)) {
+      await page.goto('about:blank'); await page.goto('file://' + FA + '?skin=b' + (r ? '#' + r : '')); await page.waitForTimeout(500);
+      const res = await page.evaluate(() => {
+        const st = document.querySelector('.stage'); const vis = (e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden'; };
+        const im = [...st.querySelectorAll('img.pt3')].filter(vis);
+        return {
+          planos: [...st.querySelectorAll('svg.ji')].filter(vis).map((e) => e.getAttribute('data-e')),
+          oro: [...st.querySelectorAll('img.ji3,.a2i:not(.pt3)')].filter(vis).length,
+          rotos: im.filter((i) => !i.complete || !i.naturalWidth).length,
+          chicos: im.filter((i) => i.getBoundingClientRect().width < 13.5).length, n: im.length
+        };
+      });
+      res.planos.forEach((e) => planos.push((r || 'inicio') + ':' + e)); if (res.oro) oro.push((r || 'inicio') + ' ×' + res.oro); if (res.rotos) rotos.push(r || 'inicio'); if (res.chicos) chicos.push((r || 'inicio') + ' ×' + res.chicos); n3d += res.n;
+    }
+    check(nom + ': ' + n3d + ' iconos 3D visibles y todos cargados', n3d > 40 && rotos.length === 0, rotos.join(', ') || String(n3d));
+    check(nom + ': ningún icono de trazo plano', planos.length === 0, [...new Set(planos)].slice(0, 8).join(' '));
+    check(nom + ': ningún objeto de oro de A sin traducir', oro.length === 0, oro.join(', '));
+    check(nom + ': ningún icono 3D menor de 14 px', chicos.length === 0, chicos.join(', '));
+    await ctx.close();
   }
 
   console.log('\n[6] Contraste de texto en B (WCAG: ≥ 4,5:1; ≥ 3:1 en texto grande y símbolos)');
