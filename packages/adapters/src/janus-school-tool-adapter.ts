@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from '
 import { dirname } from 'node:path';
 import type { ToolAdapter, ToolProgress, ToolRequest, ToolResult } from '../../gateways/src/contracts.js';
 import {
-  NO_DIAGNOSIS_NOTICE, attentionPrinciples, cardFront, checkAnswer, completeLesson, dueCards, getLesson, gradeCard,
+  NO_DIAGNOSIS_NOTICE, ageOnDate, attentionPrinciples, cardFront, checkAnswer, completeLesson, dueCards, getLesson, gradeCard,
   inferAgeBand, listTechniques, lookupTerm, newProgress, nextLesson, normalize, parentGuide, planKidSession, quizFor,
   recordAnswer, renderKidSession, renderLesson, renderTechnique, renderTerm,
   type AgeBand, type Energy, type LearnerProgress,
@@ -53,7 +53,15 @@ export class JanusSchoolToolAdapter implements ToolAdapter {
     'quiz.get', 'quiz.answer', 'kids.session', 'kids.technique', 'kids.guide', 'progress.get',
   ];
 
-  constructor(private readonly store: SchoolProgressStore = new MemorySchoolProgressStore(), private readonly now: () => Date = () => new Date()) {}
+  /**
+   * `options.kidBirthDate` (ISO, from local configuration only: never commit it) lets kids sessions adapt to the
+   * child's current age without asking each time. An explicit `age`/`ageBand` in the request still wins.
+   */
+  constructor(
+    private readonly store: SchoolProgressStore = new MemorySchoolProgressStore(),
+    private readonly now: () => Date = () => new Date(),
+    private readonly options: { kidBirthDate?: string } = {},
+  ) {}
 
   async execute(request: ToolRequest, onProgress: (progress: ToolProgress) => void | Promise<void>): Promise<ToolResult> {
     if (!this.capabilities.includes(request.action)) return { ok: false, error: `Unsupported Janus School action: ${request.action}` };
@@ -121,7 +129,7 @@ export class JanusSchoolToolAdapter implements ToolAdapter {
         return reply(`${result.correct ? '✅ ¡Correcto!' : '❌ No exactamente.'} ${result.why}`);
       }
       case 'kids.session': {
-        const age = typeof input.age === 'number' ? input.age : undefined;
+        const age = typeof input.age === 'number' ? input.age : ageOnDate(this.options.kidBirthDate, now);
         const ageBand = (['5-7', '8-10', '11-13'] as const).includes(input.ageBand as AgeBand) ? (input.ageBand as AgeBand) : inferAgeBand(age);
         const energy = ENERGIES.includes(input.energy as Energy) ? (input.energy as Energy) : 'normal';
         const plan = planKidSession({

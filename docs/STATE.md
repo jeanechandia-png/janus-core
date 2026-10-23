@@ -385,6 +385,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - NO DUPLICAR: clonación de voz/cara (#39), panel y reels (#36), confianza de ejecución (#35/#13), verificación de voz 1:1 (`candidate/voice-identity-module`).
 - Prompt de relevo para ChatGPT/Codex: `docs/handoffs/2026-10-21-chatgpt-codex-prompt.md`.
 
+## Handoff 2026-10-23 (Claude): decisiones del Founder + edad de la niña en Janus School
+
+- DECISIÓN DEL FOUNDER (2026-10-23, en chat): aprueba las herramientas `seneca`, `marcus-aurelius` y `janus-school`. Pendiente solo el gesto técnico en la app (panel «Aprobaciones» → «Permitir herramientas nuevas» → «Confirmar»), que exige su sesión autenticada y no puede hacerlo un agente.
+- DECISIÓN DEL FOUNDER: edad de la niña comunicada; cae en el tramo 8–10. La fecha de nacimiento es dato personal de una menor y el repositorio es público: no se versiona. Se configura solo en local con `JANUS_SCHOOL_KID_BIRTHDATE` (AAAA-MM-DD, en `.env.local`).
+- HECHO VERIFICADO: `ageOnDate` en el módulo `janus-school` (la edad se calcula al momento y avanza sola cada cumpleaños; fechas futuras o mal formadas se ignoran); el adaptador la usa para las sesiones de la niña cuando la petición no trae edad; una edad explícita siempre manda; la fecha nunca aparece en las salidas. 581 pruebas (580 ok, 1 omitida por la capa privada), `tsc` limpio, `runtime-smoke` ok. Fixtures con fechas ficticias.
+- POR CONFIRMAR: que Jean ponga la variable en el equipo anfitrión; que la fusión de la pila (#37 → #38 → #40 → #45 → #46 → #47 → #48) la autorice con un sí explícito (no se fusionó nada).
+
 ## PRÓXIMO
 
 Handoff 2026-10-13 (Claude, sesión Cowork): PR #28 apilada sobre #27 (custodia del HEAD + smoke hermético), CI GitHub `success`. Siguiente acción ejecutable: (1) Founder confirma la release ChatBox vigente y se refresca su manifiesto; (2) implementar el probe automático de acknowledgement (2d); (3) verificar/crear manifiestos de Group e IBA.
