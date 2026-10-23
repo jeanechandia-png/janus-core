@@ -112,6 +112,28 @@ export const FLOW_TEMPLATES: readonly FlowTemplate[] = [
     ], [...chain('inicio', 'correo', 'plano', 'decidir'), { from: 'decidir', to: 'resumen', branch: 'requiere_atencion' }]),
   },
   {
+    id: 'correo-enviar-aprobado',
+    name: 'Enviar un borrador con tu aprobación exacta',
+    description: 'Lee el borrador (solo lectura), te muestra destinatarios —también la copia oculta—, asunto y texto exactos, y SOLO envía si tú lo apruebas. Si el borrador cambia después de aprobar, no se envía. Nunca se dispara solo (inicio manual).',
+    category: 'correo',
+    requires: { tools: ['google-workspace-write.gmail.draft.preview', 'google-workspace-write.gmail.draft.send'], endpoints: [] },
+    build: () => wf('tpl-correo-enviar-aprobado', 'Enviar un borrador con aprobación exacta', ['plantilla', 'correo', 'aprobacion'], [
+      trigger('manual', 'Borrador a enviar (cuenta y borrador)'),
+      tool('ver', 'Leer el borrador (solo lectura)', 'google-workspace-write', 'gmail.draft.preview', { account: '{{ $trigger.account }}', draftId: '{{ $trigger.draftId }}' }),
+      tool('enviar', 'ENVIAR el correo aprobado (irreversible)', 'google-workspace-write', 'gmail.draft.send', {
+        account: '{{ $trigger.account }}',
+        draftId: '{{ $trigger.draftId }}',
+        expect: {
+          to: '{{ $nodes.ver.output.to }}',
+          cc: '{{ $nodes.ver.output.cc }}',
+          bcc: '{{ $nodes.ver.output.bcc }}',
+          subject: '{{ $nodes.ver.output.subject }}',
+          bodySha256: '{{ $nodes.ver.output.bodySha256 }}',
+        },
+      }, { risk: 'high', reversible: false, requiresApproval: true }),
+    ], chain('inicio', 'ver', 'enviar')),
+  },
+  {
     id: 'investigacion-fuentes',
     name: 'Investigación con fuentes citadas',
     description: 'Pregunta → búsqueda → respuesta con citas numeradas, nivel de fuente y veredicto verificable. Rechaza lo que no se sostiene.',

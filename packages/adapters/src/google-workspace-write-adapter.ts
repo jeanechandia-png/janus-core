@@ -11,7 +11,8 @@ import { isRecord, requestJson } from './http-json.js';
  * POST https://gmail.googleapis.com/gmail/v1/users/me/drafts/send  (Draft { id }) — sends an existing draft; verified 2026-10-23
  *   (all three accept the scope gmail.compose);
  * POST https://www.googleapis.com/calendar/v3/calendars/{calendarId}/events?sendUpdates=none|all — start/end with dateTime+timeZone.
- * Every action is forced to explicit approval by the sensitive-action policy.
+ * Every WRITE action is forced to explicit approval by the sensitive-action policy. `gmail.draft.preview` is read-only (it changes nothing)
+ * and is what an approval screen shows: the exact recipients, subject and text, plus the digest (`bodySha256`) that `gmail.draft.send` will demand.
  *
  * Sending is a separate, irreversible step: `gmail.draft.send` re-reads the draft and refuses to send unless its recipients
  * (To, Cc and Bcc — a hidden Bcc is never approved implicitly) and subject are exactly what the Founder approved (`input.expect`),
@@ -56,7 +57,7 @@ export function buildRfc2822(input: { to: string[]; cc?: string[]; subject: stri
 
 export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
   readonly name = 'google-workspace-write';
-  readonly capabilities: string[] = ['gmail.draft.create', 'gmail.draft.update', 'gmail.draft.send', 'calendar.event.create'];
+  readonly capabilities: string[] = ['gmail.draft.create', 'gmail.draft.update', 'gmail.draft.preview', 'gmail.draft.send', 'calendar.event.create'];
   private readonly fetchImpl: typeof fetch;
 
   constructor(private readonly options: GoogleWorkspaceWriteAdapterOptions = {}) {
@@ -81,6 +82,7 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     const input = request.input;
 
     if (request.action === 'gmail.draft.send') return this.sendDraft(input, headers, onProgress);
+    if (request.action === 'gmail.draft.preview') return this.previewDraft(input, headers, onProgress);
 
     if (request.action === 'gmail.draft.create' || request.action === 'gmail.draft.update') {
       const updating = request.action === 'gmail.draft.update';
@@ -136,6 +138,58 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     return { ok: true, output: { eventId: event.id ?? null, link: event.htmlLink ?? null, guestsNotified: sendUpdates === 'all' }, ...(typeof event.htmlLink === 'string' ? { externalReference: event.htmlLink } : {}) };
   }
 
+  /** Reads a draft from Gmail and normalises what both the preview and the send compare. Never mutates anything. */
+  private async readDraft(
+    draftId: string,
+    headers: Record<string, string>,
+    failurePrefix: string,
+  ): Promise<{ ok: true; to: Set<string>; cc: Set<string>; bcc: Set<string>; subject: string; text: string | null } | { ok: false; error: string }> {
+    const current = await requestJson({ fetchImpl: this.fetchImpl, url: `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(draftId)}`, headers, service: 'Gmail' });
+    if (!current.ok) return { ok: false, error: `${failurePrefix}: the draft could not be read (${current.error ?? 'error'})` };
+    const message = isRecord(current.body) && isRecord(current.body.message) ? current.body.message : null;
+    const payload = message && isRecord(message.payload) ? message.payload : null;
+    const rawHeaders = payload && Array.isArray(payload.headers) ? payload.headers : null;
+    if (!rawHeaders) return { ok: false, error: `${failurePrefix}: the draft headers could not be verified` };
+    const header = (name: string): string => {
+      const found = rawHeaders.find((item) => isRecord(item) && typeof item.name === 'string' && item.name.toLowerCase() === name);
+      return isRecord(found) && typeof found.value === 'string' ? found.value : '';
+    };
+    return { ok: true, to: addressSet(header('to')), cc: addressSet(header('cc')), bcc: addressSet(header('bcc')), subject: normaliseSubject(header('subject')), text: plainTextBody(payload) };
+  }
+
+  /**
+   * Read-only: what the approval screen must show. The digest is computed over the FULL plain text with the very function the send uses,
+   * so "what the Founder saw" and "what the send compares" cannot drift apart. `text` is capped for display only.
+   */
+  private async previewDraft(
+    input: Record<string, unknown>,
+    headers: Record<string, string>,
+    onProgress: (progress: ToolProgress) => void | Promise<void>,
+  ): Promise<ToolResult> {
+    const draftId = cleanId(input.draftId, DRAFT_ID);
+    if (!draftId) return { ok: false, error: 'gmail.draft.preview needs the draftId of an existing draft' };
+    await onProgress({ phase: 'progress', message: 'Gmail: leyendo el borrador para su aprobación (solo lectura)', percent: 50 });
+    const draft = await this.readDraft(draftId, headers, 'Preview unavailable');
+    if (!draft.ok) return { ok: false, error: draft.error };
+    if (draft.text === null) return { ok: false, error: 'Preview unavailable: the draft has no plain-text body to approve (HTML-only drafts cannot be verified)' };
+    if (draft.to.size === 0 || !draft.subject) return { ok: false, error: 'Preview unavailable: the draft needs at least one To recipient and a subject' };
+    const text = draft.text.replace(/\r\n?/g, '\n').trim();
+    return {
+      ok: true,
+      output: {
+        draftId,
+        to: [...draft.to].sort(),
+        cc: [...draft.cc].sort(),
+        bcc: [...draft.bcc].sort(),
+        subject: draft.subject,
+        text: text.length > PREVIEW_TEXT_LIMIT ? text.slice(0, PREVIEW_TEXT_LIMIT) : text,
+        textTruncated: text.length > PREVIEW_TEXT_LIMIT,
+        bodySha256: draftBodyDigest(text),
+        sent: false,
+      },
+    };
+  }
+
   /** Reads the draft, checks it against what the Founder approved, and only then sends it. Fails closed. */
   private async sendDraft(
     input: Record<string, unknown>,
@@ -158,24 +212,13 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
     }
 
     await onProgress({ phase: 'progress', message: 'Gmail: comprobando el borrador antes de enviar', percent: 30 });
-    const current = await requestJson({ fetchImpl: this.fetchImpl, url: `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(draftId)}`, headers, service: 'Gmail' });
-    if (!current.ok) return { ok: false, error: `Nothing was sent: the draft could not be read (${current.error ?? 'error'})` };
-    const message = isRecord(current.body) && isRecord(current.body.message) ? current.body.message : null;
-    const payload = message && isRecord(message.payload) ? message.payload : null;
-    const rawHeaders = payload && Array.isArray(payload.headers) ? payload.headers : null;
-    if (!rawHeaders) return { ok: false, error: 'Nothing was sent: the draft headers could not be verified' };
-    const header = (name: string): string => {
-      const found = rawHeaders.find((item) => isRecord(item) && typeof item.name === 'string' && item.name.toLowerCase() === name);
-      return isRecord(found) && typeof found.value === 'string' ? found.value : '';
-    };
-    const actualTo = addressSet(header('to'));
-    const actualCc = addressSet(header('cc'));
-    const actualBcc = addressSet(header('bcc'));
-    const actualSubject = normaliseSubject(header('subject'));
-    if (!sameSet(actualTo, expectedTo) || !sameSet(actualCc, expectedCc) || !sameSet(actualBcc, expectedBcc) || actualSubject !== expectedSubject) {
+    const draft = await this.readDraft(draftId, headers, 'Nothing was sent');
+    if (!draft.ok) return { ok: false, error: draft.error };
+    const { to: actualTo, cc: actualCc, bcc: actualBcc } = draft;
+    if (!sameSet(actualTo, expectedTo) || !sameSet(actualCc, expectedCc) || !sameSet(actualBcc, expectedBcc) || draft.subject !== expectedSubject) {
       return { ok: false, error: 'Nothing was sent: the draft no longer matches the recipients/subject the Founder approved. Review it and approve again.' };
     }
-    const text = plainTextBody(payload);
+    const text = draft.text;
     if (text === null) return { ok: false, error: 'Nothing was sent: the draft body could not be verified' };
     if (draftBodyDigest(text) !== expectedBody) {
       return { ok: false, error: 'Nothing was sent: the draft body no longer matches the text the Founder approved. Review it and approve again.' };
@@ -194,6 +237,7 @@ export class GoogleWorkspaceWriteAdapter implements ToolAdapter {
 }
 
 const DRAFT_ID = /^[A-Za-z0-9_-]{1,100}$/;
+const PREVIEW_TEXT_LIMIT = 20_000;
 
 /**
  * SHA-256 (hex) del texto de un correo tras normalizar saltos de línea y espacios finales. Quien prepare la aprobación calcula
