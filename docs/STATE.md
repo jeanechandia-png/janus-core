@@ -403,6 +403,13 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 - Historial público: `main` incluye el commit `2881129` (identificador de un enlace de compartir de Facebook, público por diseño; el fixture se sustituyó en `fdd9785`). Reescribir la historia sigue siendo decisión de Jean; recomendación vigente: dejarlo.
 - POR CONFIRMAR: que Jean ponga `JANUS_SCHOOL_KID_BIRTHDATE` en el equipo anfitrión y toque «Confirmar» en «Aprobaciones» para las herramientas nuevas.
 
+## Handoff 2026-10-23 (tarde, Claude): voz clonada del Founder lista, voz de Kendra en espera
+
+- DECISIONES DEL FOUNDER (2026-10-23, 16:10): confirma la aprobación de herramientas y la variable de la fecha de la niña; historial público «dejarlo»; **primero su voz** (con su reconocimiento facial); la de Kendra queda **en espera, ejecutable por Janus cuando él lo pida** («Janus, vamos a clonar la voz de Kendra»).
+- HECHO VERIFICADO (rama `claude/likeness-voice-clone-standby`, 611 pruebas ok, 1 omitida por la capa privada, `tsc` y `runtime-smoke` ok): PR #39 integrada sobre `main` (sus commits se conservan); consentimiento de tutor para menores (`createGuardianLikenessConsent`: tutor distinto, asentimiento de la niña, solo voz, usos privados, ≤ 180 días); guiones de lectura y comprobación de transcripción; conversión m4a→WAV con ffmpeg real; herramienta `likeness` (guías, registro con aprobación forzada, revocación, estado) conectada al runtime, a la política de acciones sensibles y al planificador; Kendra inaccesible desde perfiles restringidos. ADR-012.
+- POR CONFIRMAR / NO HECHO: no existe todavía ninguna grabación de Jean ni un equipo con Qwen3-TTS «Base» (la grabación se guarda autorizada y el registro se completa después); calidad y latencia de la voz clonada sin medir; llegada de la nota de voz del iPhone a la carpeta de entrada; comprobación por STT sin conectar a whisper.cpp; la ruta de síntesis aún no consulta `decideLikenessUse` (no hay voz clonada activa); prueba física de Face ID; licencia de pesos de InsightFace.
+- La tarjeta de aprobación es la de «Aprobaciones»; las herramientas nuevas (`likeness`) requieren de nuevo «Permitir herramientas nuevas» → «Confirmar».
+
 ## PRÓXIMO
 
 Handoff 2026-10-13 (Claude, sesión Cowork): PR #28 apilada sobre #27 (custodia del HEAD + smoke hermético), CI GitHub `success`. Siguiente acción ejecutable: (1) Founder confirma la release ChatBox vigente y se refresca su manifiesto; (2) implementar el probe automático de acknowledgement (2d); (3) verificar/crear manifiestos de Group e IBA.

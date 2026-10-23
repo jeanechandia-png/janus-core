@@ -39,6 +39,11 @@ export interface LikenessConsent {
   revokedAt?: string;
   disclosureRequired: true;
   references: LikenessReferenceAsset[];
+  /** Minor subjects (ADR-012): the legal guardian grants, the child's assent is recorded, scope is narrowed. */
+  subjectIsMinor?: boolean;
+  guardianId?: string;
+  guardianRelation?: 'parent' | 'legal_guardian';
+  childAssent?: boolean;
   auditHash: string;
 }
 
@@ -64,6 +69,7 @@ export const AI_DISCLOSURE: Record<LikenessModality, string> = {
 };
 
 export function createLikenessConsent(input: Omit<LikenessConsent, 'auditHash' | 'disclosureRequired'>): LikenessConsent {
+  if (input.subjectIsMinor) throw new Error('Use createGuardianLikenessConsent for a minor');
   if (!input.principalId.trim()) throw new Error('principalId is required');
   if (input.grantedBy !== input.principalId) throw new Error('Likeness consent can only be granted by the person themself');
   if (!input.modalities.length) throw new Error('At least one modality is required');
@@ -76,6 +82,61 @@ export function createLikenessConsent(input: Omit<LikenessConsent, 'auditHash' |
     }
   }
   const base = { ...input, disclosureRequired: true as const };
+  return { ...base, auditHash: sha256(stableJson(base)) };
+}
+
+/** A minor's likeness is voice-only, private to Janus, short-lived and never commercial or public (ADR-012). */
+export const MINOR_ALLOWED_MODALITIES: readonly LikenessModality[] = Object.freeze(['voice'] as LikenessModality[]);
+export const MINOR_ALLOWED_USES: readonly LikenessUse[] = Object.freeze(['janus_private_assistant', 'internal_lab_test'] as LikenessUse[]);
+export const MINOR_ALLOWED_PRODUCTS: readonly string[] = Object.freeze(['janus']);
+export const MINOR_MAX_CONSENT_DAYS = 180;
+
+export interface GuardianLikenessConsentInput {
+  id: string;
+  /** The child (subject of the likeness). */
+  principalId: string;
+  /** The parent or legal guardian who grants on the child's behalf. Must differ from the child. */
+  guardianId: string;
+  guardianRelation: 'parent' | 'legal_guardian';
+  /** The child's own agreement, recorded by the guardian: no assent, no consent. */
+  childAssent: boolean;
+  uses: LikenessUse[];
+  grantedAt: string;
+  expiresAt: string;
+  references: LikenessReferenceAsset[];
+}
+
+export function createGuardianLikenessConsent(input: GuardianLikenessConsentInput): LikenessConsent {
+  if (!input.principalId.trim() || !input.guardianId.trim()) throw new Error('principalId and guardianId are required');
+  if (input.guardianId === input.principalId) throw new Error('A minor cannot grant their own likeness consent; a distinct parent or guardian must');
+  if (input.childAssent !== true) throw new Error('The child\'s assent must be recorded: without it there is no consent');
+  if (!input.uses.length) throw new Error('Consent must be scoped to explicit uses');
+  const forbidden = input.uses.filter((use) => !MINOR_ALLOWED_USES.includes(use));
+  if (forbidden.length) throw new Error(`Uses not permitted for a minor: ${forbidden.join(', ')}`);
+  const grantedMs = Date.parse(input.grantedAt);
+  const expiresMs = Date.parse(input.expiresAt);
+  if (!(expiresMs > grantedMs)) throw new Error('Consent must expire after it is granted');
+  if (expiresMs - grantedMs > MINOR_MAX_CONSENT_DAYS * 86_400_000) throw new Error(`A minor's consent lasts at most ${MINOR_MAX_CONSENT_DAYS} days; renew it with the guardian`);
+  if (!input.references.length || input.references.some((reference) => reference.modality !== 'voice')) {
+    throw new Error('A minor\'s consent covers voice references only (no face or avatar)');
+  }
+  for (const reference of input.references) validateReferenceAsset(reference);
+  const base = {
+    id: input.id,
+    principalId: input.principalId,
+    grantedBy: input.guardianId,
+    modalities: [...MINOR_ALLOWED_MODALITIES],
+    uses: input.uses,
+    products: [...MINOR_ALLOWED_PRODUCTS],
+    grantedAt: input.grantedAt,
+    expiresAt: input.expiresAt,
+    disclosureRequired: true as const,
+    references: input.references,
+    subjectIsMinor: true,
+    guardianId: input.guardianId,
+    guardianRelation: input.guardianRelation,
+    childAssent: true,
+  };
   return { ...base, auditHash: sha256(stableJson(base)) };
 }
 
@@ -95,6 +156,7 @@ export function decideLikenessUse(consents: readonly LikenessConsent[], request:
     if (!consent.modalities.includes(request.modality)) continue;
     if (!consent.uses.includes(request.use)) continue;
     if (!consent.products.includes(request.product)) continue;
+    if (consent.subjectIsMinor && (!MINOR_ALLOWED_USES.includes(request.use) || !MINOR_ALLOWED_MODALITIES.includes(request.modality) || !MINOR_ALLOWED_PRODUCTS.includes(request.product))) continue;
     return { allowed: true, reason: 'Scoped, active consent', consentId: consent.id, disclosure: AI_DISCLOSURE[request.modality] };
   }
   return { allowed: false, reason: 'Consent is missing, expired, revoked or out of scope for this use' };
