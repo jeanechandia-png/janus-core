@@ -13,7 +13,7 @@ export interface JsonHttpResult {
 export async function requestJson(input: {
   fetchImpl: typeof fetch;
   url: string;
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT';
   headers: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;

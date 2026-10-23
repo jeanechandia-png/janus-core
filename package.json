@@ -11,7 +11,9 @@
     "demo": "node --import tsx examples/observable-run.ts",
     "start:local": "node scripts/start-local.mjs",
     "integrations:check": "node scripts/check-integrations.mjs",
-    "continuity": "node --import tsx scripts/continuity.ts"
+    "continuity": "node --import tsx scripts/continuity.ts",
+    "flow-editor:build": "node scripts/build-flow-editor.mjs",
+    "flow-editor:e2e": "node scripts/flow-editor-e2e.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

@@ -109,7 +109,8 @@ function roleForNode(kind: WorkNodeKind): AgentRole {
   }
 }
 
-function capabilitiesForRole(role: AgentRole): string[] {
+/** Capacidades que el Agent Swarm atribuye a cada rol (también las usa el adaptador de flujos para enrutar). */
+export function capabilitiesForRole(role: AgentRole): string[] {
   switch (role) {
     case 'researcher':
       return ['web_research', 'document_analysis', 'citation'];

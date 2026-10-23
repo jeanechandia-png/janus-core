@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-10-13
+Fecha: 2026-10-23
 
 ## AHORA
 
@@ -11,6 +11,21 @@ Integrar la nueva capa de Super-Agent en la ruta productiva completa: continuida
 La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pero no modificar silenciosamente producción. La nueva capa de automatización convierte workflows deterministas y agentic workflows en una misma arquitectura Janus.
 
 ## HECHO
+
+- **Envío de correo con aprobación exacta (2026-10-23, rama `claude/social-accounts-watch`)**: `gmail.draft.preview` (solo lectura: Para/Cc/Cco, asunto, texto y huella) + plantilla `correo-enviar-aprobado` (inicio manual; `enviar` de riesgo alto, irreversible, con aprobación) + `mail-send-approval.ts` (tarjeta de aprobación con avisos). Si el borrador cambia tras aprobar, **no se envía**. 13 pruebas nuevas y 8 mutaciones detectadas. **Sin enviar nada real** y **sin botón en la PWA** (necesita autorización de Jean para tocar `apps/pwa`; OAuth de Google pendiente). Detalle: `docs/mail-send-approval.md`.
+- **Nodo `ai.agent` ↔ Agent Swarm (2026-10-23, rama `claude/social-accounts-watch`)**: `packages/orchestrator/src/flow-agent-adapter.ts` — enrutado por capacidades del swarm, local-first (`requireLocal`/`preferLocal`), verificación independiente que **falla cerrado** con riesgo medio/alto o acción irreversible (veredicto estricto `{ ok: true }`, verificador distinto del productor), traspaso auditable con huellas (nunca contenido), tiempo y tamaño acotados; con riesgo alto, primero aprobación humana. 20 pruebas nuevas y 5 mutaciones detectadas. **Sin agentes reales conectados** (modelo con API = gasto, en reposo, norma 7). Detalle: `docs/flow-agents.md`.
+- **Despachador de disparadores de flujos (2026-10-23, rama `claude/social-accounts-watch`)**: `packages/automation/src/trigger-dispatcher.ts` + `cron.ts` — programado (cron con zona horaria y cambios de hora), webhook firmado con HMAC (anti-repetición, 401 uniforme, secreto desde la bóveda), evento y cola sin conexión con revalidación, todo idempotente y con cursor/cola en SQLite; el motor acepta `trigger.nodeId`. 35 pruebas nuevas (suite 540/541) y 6 mutaciones detectadas. **El runtime todavía no lo arranca** (en reposo, norma 7). Contrato y límites: `docs/flow-triggers.md`.
+- **Editor visual de flujos «Flujos» (2026-10-23, rama `claude/social-accounts-watch`)**: `apps/flow-editor/` — lienzo táctil de nodos sobre el motor real (catálogo, validación, plantillas), conexión en dos toques con ramas, deshacer/rehacer, problemas en español, orden previsto, importar/exportar borradores sin claves, entorno **simulado** rotulado; lo «en reposo» se cuenta aparte de los errores (norma 7). Un solo HTML sin red (`npm run flow-editor:build`); 64 comprobaciones en navegador (`npm run flow-editor:e2e`). **No publica ni ejecuta; no probado en iPhone/iPad reales.** Detalle: `apps/flow-editor/README.md` y el handoff `2026-10-23-vault-oauth-phone-watch`.
+
+- **Cuentas, buzones y teléfono del Founder — lectura, redacción y envío con confirmación (2026-10-23, rama `claude/social-accounts-watch`, PR #47)**:
+  - correo: leer, redactar, corregir y **enviar bajo instrucción del Founder con su confirmación en cada envío** (el envío relee el borrador y se niega si destinatarios/asunto difieren de lo aprobado); nada autónomo (sin respuestas automáticas, borrar, archivar ni reenviar); cuenta de menor solo lectura salvo `guardian-managed`;
+  - almacén cifrado de credenciales (AES-256-GCM) + consentimiento de Google por buzón (PKCE, cuenta verificada, lectura y escritura separadas, renovación automática); token de Threads renovable;
+  - teléfono/WhatsApp: registro, política, plan por rutas y enlaces de un toque (WhatsApp/SMS/llamada); API oficial, voz y SMS **no existen todavía** (requieren número dedicado y gasto); clientes no oficiales de WhatsApp rechazados;
+  - vigilancia periódica de redes opt-in (fotos en SQLite, alertas de caída/subida), agrupación de enlaces por cuenta;
+  - datos personales en una capa local ignorada por git; escaneo de privacidad local; **nada probado contra las API reales**; 482/482 pruebas + humo del runtime;
+  - **historial de ejecuciones de flujos en SQLite** (`packages/automation/src/flow-run-persistence.ts`): estado, salidas y eventos en orden; desduplicación del disparador que sobrevive a reinicios; reanudación de pausas por aprobación/espera (falla cerrado si la instantánea no es fiable); valores con aspecto de secreto ocultados antes de guardar; **aún sin ruta HTTP ni panel** (PENDIENTE);
+  - **norma 7, «el gasto va al final» (Founder, 2026-10-23)**: lo que cuesta dinero se construye y queda **en reposo, pendiente de activación** (`docs/dormant-capabilities.md`); el motor no se despliega ni se contrata servidor por ahora (opción C); precios siempre en euros;
+  - detalle, límites, lecciones y bloqueos: `docs/handoffs/2026-10-23-vault-oauth-phone-watch.md` (y el anterior, histórico) y `docs/founder-social-source-readiness.md`.
 
 - **Motor de flujos inspirado en n8n + respuestas con citas (2026-10-23, rama `claude/flow-engine-n8n-parity`)**:
   - ejecución real de flujos (ramas, reintentos, ramas de error, aprobación y esperas reanudables, subflujos, desduplicación, tiempo máximo), código JS aislado, nodo HTTP/REST con endpoints autorizados por nombre, nodos de IA con el texto externo acotado como dato, catálogo de nodos/conectores honesto y 5 plantillas;

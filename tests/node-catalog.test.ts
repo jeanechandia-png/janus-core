@@ -48,7 +48,12 @@ test('el registro rechaza un nodo Python aunque el flujo sea válido', () => {
 
 test('plantillas: todas validan y solo usan tipos de nodo del catálogo', () => {
   const types = new Set(builtinNodeManifests(FULL).map((m) => m.type));
-  assert.equal(FLOW_TEMPLATES.length, 5);
+  assert.deepEqual(
+    FLOW_TEMPLATES.map((t) => t.id).sort(),
+    FLOW_TEMPLATES.map((t) => t.id).sort().filter((id, i, all) => all.indexOf(id) === i),
+    'ids de plantilla únicos',
+  );
+  assert.equal(FLOW_TEMPLATES.length, 6, 'cambiar este número es una decisión: añadir/quitar una plantilla debe ser a propósito');
   for (const template of FLOW_TEMPLATES) {
     const workflow = template.build();
     assert.equal(workflow.status, 'draft');

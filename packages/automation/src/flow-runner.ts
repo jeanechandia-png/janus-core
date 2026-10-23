@@ -2,7 +2,7 @@ import type { ModelGateway, ToolExecutionAuthorization, ToolGateway } from '../.
 import type { CodeLanguage, CodeRunner } from './code-runner.js';
 import { canRetryWorkflowNode, createWorkflowExecutionState, nextRetryDelayMs, type WorkflowExecutionState } from './execution.js';
 import { resolveWorkflowValue, resolveWorkflowString, type WorkflowExpressionContext } from './expression-engine.js';
-import { validateAutomationWorkflow, workflowErrorTargets, type AutomationWorkflow, type WorkflowConnection, type WorkflowNode } from './workflow.js';
+import { validateAutomationWorkflow, workflowErrorTargets, type AutomationWorkflow, type WorkflowConnection, type WorkflowNode, type WorkflowRisk } from './workflow.js';
 
 /**
  * Ejecutor de flujos de Janus (pieza propia, inspirada en los patrones de plataformas de automatización).
@@ -57,7 +57,18 @@ export interface FlowRunResult {
   error?: string;
 }
 
-export interface AgentRunRequest { objective: string; requiredCapabilities: string[]; input: unknown; nodeId: string }
+export interface AgentRunRequest {
+  objective: string;
+  requiredCapabilities: string[];
+  input: unknown;
+  nodeId: string;
+  preferredCapabilities?: string[];
+  requireLocal?: boolean;
+  preferLocal?: boolean;
+  /** Riesgo y reversibilidad del nodo: el ejecutor decide cuánta verificación independiente exigir. */
+  risk?: WorkflowRisk;
+  reversible?: boolean;
+}
 
 export interface FlowDeps {
   tools?: ToolGateway;
@@ -79,7 +90,8 @@ export interface FlowDeps {
 
 export interface FlowRunOptions {
   runId?: string;
-  trigger?: { payload?: unknown; dedupeKey?: string };
+  /** `nodeId`: nodo de inicio que arranca esta ejecución; el resto de nodos de inicio activos se omiten (un flujo con varios disparadores no debe arrancar por todos a la vez). */
+  trigger?: { payload?: unknown; dedupeKey?: string; nodeId?: string };
   vars?: Record<string, unknown>;
   resume?: { snapshot: FlowRunSnapshot; approvals?: Record<string, ApprovalDecision> };
   depth?: number;
@@ -131,13 +143,27 @@ export async function runWorkflow(workflow: AutomationWorkflow, options: FlowRun
   }
   const state = snapshot.state;
 
+  const chosen = options.trigger?.nodeId;
+  if (!resumed && chosen !== undefined) {
+    // Se valida antes de reservar la clave de desduplicación: una petición inválida no debe «gastar» el disparo.
+    const target = workflow.nodes.find((candidate) => candidate.id === chosen);
+    if (!target || target.kind !== 'trigger' || target.disabled) throw new Error(`El nodo de inicio ${chosen} no existe, no es un disparador o está desactivado`);
+  }
   if (!resumed) {
     const key = options.trigger?.dedupeKey;
     if (key && deps.runStore && !deps.runStore.claim(`${workflow.id}:${key}`)) {
       await emit('run_deduplicated', { detail: key });
       return result('deduplicated');
     }
-    await emit('run_started', { detail: `${workflow.id}@${workflow.revision}` });
+    await emit('run_started', { detail: `${workflow.id}@${workflow.revision}${options.trigger?.nodeId ? ` ← ${options.trigger.nodeId}` : ''}` });
+    if (chosen !== undefined) {
+      for (const other of workflow.nodes) {
+        if (other.kind === 'trigger' && other.id !== chosen && state.nodeStatus[other.id] === 'pending') {
+          state.nodeStatus[other.id] = 'skipped';
+          await emit('node_skipped', { nodeId: other.id, detail: 'otro disparador inició la ejecución' });
+        }
+      }
+    }
   } else {
     for (const [id, decision] of Object.entries(options.resume?.approvals ?? {})) snapshot.approvals[id] = decision;
     for (const node of workflow.nodes) {
@@ -327,7 +353,17 @@ async function handleNode(
   if (node.executionMode === 'agentic' && node.kind !== 'action') {
     if (!deps.agent) throw new Error('Nodo agéntico sin ejecutor: Agent Swarm no está conectado');
     const op = node.agentOperation!;
-    const res = await deps.agent({ objective: String(resolveWorkflowString(op.objective, ctx)), requiredCapabilities: op.requiredCapabilities, input: ctx.input, nodeId: node.id });
+    const res = await deps.agent({
+      objective: String(resolveWorkflowString(op.objective, ctx)),
+      requiredCapabilities: op.requiredCapabilities,
+      input: ctx.input,
+      nodeId: node.id,
+      ...(op.preferredCapabilities ? { preferredCapabilities: op.preferredCapabilities } : {}),
+      ...(op.requireLocal !== undefined ? { requireLocal: op.requireLocal } : {}),
+      ...(op.preferLocal !== undefined ? { preferLocal: op.preferLocal } : {}),
+      risk: node.risk,
+      reversible: node.reversible,
+    });
     return { output: res.output };
   }
 

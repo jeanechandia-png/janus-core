@@ -50,6 +50,27 @@ export function parseFounderReferenceLibrary(value: unknown): FounderReferenceLi
   };
 }
 
+/**
+ * Combines the versioned (public) library with a LOCAL overlay that never leaves the Founder's machine
+ * (`config/founder-reference-library.local.json`, git-ignored). The overlay is where personal references live
+ * (a personal profile, family accounts); the public file keeps only what is safe to publish.
+ * Same owner is required, ids/subjects may not collide, and the newest `updatedAt` wins.
+ */
+export function mergeFounderReferenceLibraries(
+  base: FounderReferenceLibraryDocument,
+  overlay: FounderReferenceLibraryDocument,
+): FounderReferenceLibraryDocument {
+  if (base.ownerPrincipalId !== overlay.ownerPrincipalId) {
+    throw new Error('Local Founder reference overlay belongs to a different owner');
+  }
+  return parseFounderReferenceLibrary({
+    schemaVersion: 1,
+    ownerPrincipalId: base.ownerPrincipalId,
+    updatedAt: base.updatedAt >= overlay.updatedAt ? base.updatedAt : overlay.updatedAt,
+    records: [...base.records, ...overlay.records],
+  });
+}
+
 export function founderReferenceChronologyRecord(input: {
   seed: FounderReferenceSeed;
   ownerPrincipalId: string;
@@ -120,20 +141,28 @@ function validateSeed(value: unknown): FounderReferenceSeed {
   }
   const label = requiredText(value.label, 'label', 200);
   const rawValue = requiredText(value.value, 'value', 3000);
-  if (kind === 'reference') {
-    let parsed: URL;
-    try {
-      parsed = new URL(rawValue);
-    } catch {
-      throw new Error(`Founder reference ${id} must contain a valid URL`);
-    }
-    if (parsed.protocol !== 'https:') {
-      throw new Error(`Founder reference ${id} must use HTTPS`);
-    }
-  }
   const tags = Array.isArray(value.tags)
     ? [...new Set(value.tags.map((item) => requiredText(item, 'tag', 100)))].slice(0, 50)
     : undefined;
+  if (kind === 'reference') {
+    if (isMailboxTagged(tags)) {
+      // Un buzón no es una URL: se guarda la dirección tal cual. Se valida su forma, nada más.
+      if (!MAILBOX_ADDRESS.test(rawValue)) throw new Error(`Founder reference ${id} must contain a valid mail address`);
+    } else if (isPhoneTagged(tags)) {
+      // Un teléfono tampoco es una URL: formato internacional E.164 (+ prefijo de país + número).
+      if (!PHONE_E164.test(rawValue)) throw new Error(`Founder reference ${id} must contain a phone number in E.164 format (+<country><number>)`);
+    } else {
+      let parsed: URL;
+      try {
+        parsed = new URL(rawValue);
+      } catch {
+        throw new Error(`Founder reference ${id} must contain a valid URL`);
+      }
+      if (parsed.protocol !== 'https:') {
+        throw new Error(`Founder reference ${id} must use HTTPS`);
+      }
+    }
+  }
 
   return {
     id,
@@ -151,10 +180,38 @@ function referenceInstruction(seed: FounderReferenceSeed): string {
   if (seed.kind === 'policy') {
     return `VIGENTE Founder policy — ${seed.label}: ${seed.value}`;
   }
+  if (isMailboxTagged(seed.tags)) {
+    return (
+      `VIGENTE Founder mailbox — ${seed.label}: ${seed.value}. `
+      + 'Acceso bajo supervisión del Founder: lectura permitida; redactar, corregir y enviar solo por instrucción suya '
+      + 'y con su confirmación en cada envío; sin borrar, archivar, reenviar ni responder de forma automática.'
+    );
+  }
+  if (isPhoneTagged(seed.tags)) {
+    return (
+      `VIGENTE Founder phone — ${seed.label}: ${seed.value}. `
+      + 'Llamadas, SMS y WhatsApp solo por instrucción del Founder y con su confirmación en cada envío o llamada; '
+      + 'Janus se identifica como asistente de IA y no imita su voz ni escribe como si fuera él sin su aprobación.'
+    );
+  }
   return (
     `VIGENTE Founder reference — ${seed.label}. Preserve and use this exact source URL when relevant: `
     + seed.value
   );
+}
+
+/** Dirección de correo con la misma forma que acepta `founder-mail-accounts`. */
+const MAILBOX_ADDRESS = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/;
+
+function isMailboxTagged(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).includes('mail');
+}
+
+/** Número internacional E.164: «+», prefijo de país sin cero inicial y hasta 15 dígitos en total. */
+const PHONE_E164 = /^\+[1-9][0-9]{6,14}$/;
+
+function isPhoneTagged(tags: readonly string[] | undefined): boolean {
+  return (tags ?? []).includes('phone');
 }
 
 function safeId(value: unknown, label: string): string {

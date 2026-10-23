@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { extname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
@@ -44,6 +44,7 @@ import {
 } from '../../packages/core/src/published-release.js';
 import { GoogleWorkspaceAdapter } from '../../packages/adapters/src/google-workspace-adapter.js';
 import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-adapter.js';
+import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
@@ -66,9 +67,14 @@ import { classifyExplicitContinuity } from '../../packages/core/src/continuity-c
 import {
   founderReferenceChronologyRecord,
   founderReferenceNeedsUpdate,
+  mergeFounderReferenceLibraries,
   parseFounderReferenceLibrary,
 } from '../../packages/core/src/founder-reference-library.js';
-import { buildFounderSocialSourceRegistry } from '../../packages/core/src/founder-social-sources.js';
+import { buildFounderSocialSourceRegistry, groupFounderSocialAccounts } from '../../packages/core/src/founder-social-sources.js';
+import { planSocialWatch, runSocialWatch, type SocialWatchReport } from '../../packages/core/src/social-watch.js';
+import { SocialWatchScheduler, parseWatchIntervalMinutes } from '../../packages/core/src/social-watch-scheduler.js';
+import { buildFounderMailAccountRegistry, planMailAccess } from '../../packages/core/src/founder-mail-accounts.js';
+import { buildFounderPhoneChannelRegistry, planPhoneAccess } from '../../packages/core/src/founder-phone-channels.js';
 import {
   founderSocialIdentityBindingChronologyRecord,
   founderSocialIdentityBindingFromChronology,
@@ -176,6 +182,21 @@ import {
   EnvironmentCredentialProvider,
 } from '../../packages/security/src/credential-provider.js';
 import {
+  CredentialVault,
+  FileVaultStorage,
+  MemoryVaultStorage,
+  parseCredentialVaultKey,
+  type VaultCredentialDescription,
+} from '../../packages/security/src/credential-vault.js';
+import {
+  GoogleOAuthClient,
+  GoogleOAuthError,
+  VaultCredentialProvider,
+  googleCredentialService,
+  type GoogleConsentMode,
+} from '../../packages/security/src/google-oauth.js';
+import { THREADS_SERVICE, exchangeThreadsToken, storeThreadsToken, threadsRefresher } from '../../packages/security/src/threads-token.js';
+import {
   AuthorityAuthenticationError,
   LocalAuthorityAuthService,
   type AuthorityCredentialStore,
@@ -210,6 +231,10 @@ const root = fileURLToPath(new URL('../pwa/', import.meta.url));
 const founderReferenceLibraryPath = fileURLToPath(
   new URL('../../config/founder-reference-library.json', import.meta.url),
 );
+// Capa LOCAL (ignorada por git) con referencias personales del Founder; nunca se publica.
+const founderReferenceLocalOverlayPath = fileURLToPath(
+  new URL('../../config/founder-reference-library.local.json', import.meta.url),
+);
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
@@ -220,6 +245,36 @@ const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 
 const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
+
+// Buzones del Founder (capa LOCAL de la biblioteca de referencias). Un fallo al leerla no debe tumbar el runtime.
+const founderMailRegistry = (() => {
+  try {
+    if (!existsSync(founderReferenceLibraryPath)) return null;
+    return buildFounderMailAccountRegistry(loadFounderReferenceLibrary());
+  } catch (error) {
+    console.warn(`Founder mail accounts unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+})();
+const mailAccounts = founderMailRegistry?.accounts ?? [];
+// Teléfono del Founder (misma capa local). Describe y planifica; no llama ni envía nada.
+const founderPhoneRegistry = (() => {
+  try {
+    if (!existsSync(founderReferenceLibraryPath)) return null;
+    return buildFounderPhoneChannelRegistry(loadFounderReferenceLibrary());
+  } catch (error) {
+    console.warn(`Founder phone channels unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+})();
+const envSuffix = (accountId: string) => accountId.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+// Una credencial por buzón: GOOGLE_ACCESS_TOKEN__<ID> (lectura) y GOOGLE_WRITE_ACCESS_TOKEN__<ID> (borradores).
+const mailServiceVariables: Record<string, string> = Object.fromEntries(
+  mailAccounts.flatMap((account) => [
+    [`google-workspace:${account.accountId}`, `GOOGLE_ACCESS_TOKEN__${envSuffix(account.accountId)}`],
+    [`google-workspace-write:${account.accountId}`, `GOOGLE_WRITE_ACCESS_TOKEN__${envSuffix(account.accountId)}`],
+  ]),
+);
 
 // Endpoints HTTP que el Founder autoriza por nombre (JANUS_HTTP_ENDPOINTS). Cada credencial viaja en
 // JANUS_HTTP_TOKEN_<SERVICIO>; nunca en el JSON de endpoints ni en SQLite.
@@ -246,6 +301,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     perplexity: 'PERPLEXITY_API_KEY',
     kling: 'KLING_API_KEY',
     n8n: 'N8N_API_KEY',
+    threads: 'THREADS_ACCESS_TOKEN',
     'google-workspace-write': 'GOOGLE_WRITE_ACCESS_TOKEN',
     'netlify-release': 'NETLIFY_RELEASE_TOKEN',
     supabase: 'SUPABASE_ACCESS_TOKEN',
@@ -254,9 +310,74 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
     ...httpServiceVariables,
+    ...mailServiceVariables,
   },
 });
-const credentialBroker = new CredentialBroker([environmentCredentials]);
+
+// Almacén cifrado de credenciales (AES-256-GCM). Sin llave no hay almacén: Janus sigue con el puente de entorno de desarrollo.
+const credentialVault = (() => {
+  const keyText = process.env.JANUS_CREDENTIAL_VAULT_KEY;
+  if (!keyText?.trim()) return null;
+  try {
+    // Con base de datos en memoria (pruebas) el almacén también vive solo en memoria, salvo que se indique una ruta.
+    const explicitPath = process.env.JANUS_CREDENTIAL_VAULT_PATH?.trim();
+    const storage = explicitPath
+      ? new FileVaultStorage(explicitPath)
+      : dbPath === ':memory:'
+        ? new MemoryVaultStorage()
+        : new FileVaultStorage(join(dirname(dbPath), 'credentials.vault'));
+    return new CredentialVault(storage, parseCredentialVaultKey(keyText));
+  } catch (error) {
+    console.warn(`Credential vault unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+})();
+// Consentimiento de Google por buzón. La URL de retorno debe estar registrada en el cliente OAuth de Google Cloud.
+const oauthRedirectBase = (process.env.JANUS_OAUTH_REDIRECT_BASE?.trim() || `http://127.0.0.1:${port}`).replace(/\/+$/, '');
+const googleOAuth = (() => {
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID?.trim();
+  if (!clientId || !credentialVault) return null;
+  try {
+    return new GoogleOAuthClient({
+      clientId,
+      ...(process.env.GOOGLE_OAUTH_CLIENT_SECRET?.trim() ? { clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET.trim() } : {}),
+      redirectUri: `${oauthRedirectBase}/api/oauth/google/callback`,
+    });
+  } catch (error) {
+    console.warn(`Google OAuth unavailable: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+})();
+const vaultCredentialProvider = credentialVault
+  ? new VaultCredentialProvider({
+      vault: credentialVault,
+      refreshers: {
+        ...(googleOAuth ? { 'oauth-google': async (entry) => googleOAuth.refresh(entry.refreshToken!) } : {}),
+        'long-lived-token': threadsRefresher(),
+      },
+    })
+  : null;
+// El token del almacén va primero: gana sobre una variable de entorno de desarrollo.
+const credentialBroker = new CredentialBroker([...(vaultCredentialProvider ? [vaultCredentialProvider] : []), environmentCredentials]);
+
+// Metadatos del almacén (sin secretos), refrescados tras cada cambio. Sirven para los planes y las instantáneas, que son síncronos.
+const vaultCache = new Map<string, VaultCredentialDescription>();
+async function refreshVaultCache(): Promise<void> {
+  if (!credentialVault) return;
+  try {
+    const all = await credentialVault.describeAll();
+    vaultCache.clear();
+    for (const item of all) vaultCache.set(item.service, item);
+  } catch (error) {
+    vaultCache.clear();
+    console.warn(`Credential vault unreadable: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+function credentialConfigured(service: string): boolean {
+  if (environmentCredentials.configured(service)) return true;
+  const entry = vaultCache.get(service);
+  return Boolean(entry && !entry.needsReconsent && (entry.hasAccessToken || entry.hasRefreshToken));
+}
 
 const hub = new EventHub();
 const store = new SqliteStore(dbPath);
@@ -390,8 +511,16 @@ toolGateway.register(new HttpRequestAdapter({
 }));
 toolGateway.register(new GoogleWorkspaceWriteAdapter({
   tokenProvider: () => credentialBroker.accessToken('google-workspace-write', ['gmail.compose', 'calendar.events']),
+  accountTokenProvider: (accountId) => credentialBroker.accessToken(`google-workspace-write:${accountId}`, ['gmail.compose', 'calendar.events']),
+  allowedAccounts: new Set(mailAccounts.filter((account) => account.permittedWriteActions.length > 0).map((account) => account.accountId)),
 }));
 toolGateway.register(new GoogleWorkspaceAdapter({
+  accountTokenProvider: (accountId) => credentialBroker.accessToken(`google-workspace:${accountId}`, [
+    'drive.metadata.readonly',
+    'gmail.readonly',
+    'calendar.events.readonly',
+  ]),
+  allowedAccounts: new Set(mailAccounts.map((account) => account.accountId)),
   tokenProvider: async () => (
     await credentialBroker.accessToken('google-workspace', [
       'drive.metadata.readonly',
@@ -407,6 +536,10 @@ if (metaGraphApiVersion) {
     tokenProvider: () => credentialBroker.accessToken('meta'),
   }));
 }
+toolGateway.register(new ThreadsInsightsAdapter({
+  tokenProvider: () => credentialBroker.accessToken('threads'),
+  ...(process.env.THREADS_API_VERSION?.trim() ? { apiVersion: process.env.THREADS_API_VERSION.trim() } : {}),
+}));
 toolGateway.register(new YouTubeInsightsAdapter({
   tokenProvider: () => credentialBroker.accessToken('youtube'),
 }));
@@ -621,11 +754,12 @@ capabilities.register({
 });
 capabilities.register({
   tool: 'google-workspace-write',
-  actions: ['gmail.draft.create', 'calendar.event.create'],
+  actions: ['gmail.draft.create', 'gmail.draft.update', 'gmail.draft.send', 'calendar.event.create'],
   state: googleWriteConfigured ? 'available' : 'needs_auth',
   ...(!googleWriteConfigured ? { reason: 'Escribir en Google (borradores de Gmail, eventos de Calendar) necesita un token aparte con permisos gmail.compose y calendar.events.' } : {}),
 });
 const metaTokenConfigured = environmentCredentials.configured('meta');
+const threadsTokenConfigured = environmentCredentials.configured('threads');
 const youtubeConfigured = environmentCredentials.configured('youtube');
 capabilities.register({
   tool: 'github',
@@ -659,6 +793,12 @@ capabilities.register({
     : !metaTokenConfigured
       ? { reason: 'Meta necesita autorización antes de consultar insights.' }
       : {}),
+});
+capabilities.register({
+  tool: 'threads-insights',
+  actions: ['threads.account.profile', 'threads.account.insights'],
+  state: threadsTokenConfigured ? 'available' : 'needs_auth',
+  ...(!threadsTokenConfigured ? { reason: 'Threads necesita un token (THREADS_ACCESS_TOKEN) con permisos threads_basic y threads_manage_insights; solo lectura.' } : {}),
 });
 capabilities.register({
   tool: 'youtube-insights',
@@ -770,10 +910,16 @@ function continuitySnapshot(projectId?: string) {
   );
 }
 
+function loadFounderReferenceLibrary() {
+  const base = parseFounderReferenceLibrary(JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown);
+  if (!existsSync(founderReferenceLocalOverlayPath)) return base;
+  const overlay = parseFounderReferenceLibrary(JSON.parse(readFileSync(founderReferenceLocalOverlayPath, 'utf8')) as unknown);
+  return mergeFounderReferenceLibraries(base, overlay);
+}
+
 function ensureFounderReferenceLibrary(): void {
   if (!existsSync(founderReferenceLibraryPath)) return;
-  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
-  const library = parseFounderReferenceLibrary(raw);
+  const library = loadFounderReferenceLibrary();
   const current = continuitySnapshot().currentBySubject;
 
   for (const seed of library.records) {
@@ -814,8 +960,7 @@ function founderSocialSourceSnapshot() {
   if (!existsSync(founderReferenceLibraryPath)) {
     throw new HttpRequestError(503, 'Founder reference library is unavailable');
   }
-  const raw = JSON.parse(readFileSync(founderReferenceLibraryPath, 'utf8')) as unknown;
-  const library = parseFounderReferenceLibrary(raw);
+  const library = loadFounderReferenceLibrary();
   const registry = buildFounderSocialSourceRegistry(library);
   const current = continuitySnapshot().currentBySubject;
   const bindings = Object.values(current).flatMap((record) => {
@@ -834,10 +979,19 @@ function founderSocialSourceSnapshot() {
     };
   });
 
+  const watchPlan = planSocialWatch(sources, {
+    adapters: new Set([...(metaGraphApiVersion ? ['meta-insights'] : []), 'threads-insights']),
+    credentials: { meta: metaTokenConfigured, threads: credentialConfigured(THREADS_SERVICE) },
+  });
+
   return {
     ...registry,
     sources,
     bindings,
+    // Plan de seguimiento: puro, sin llamadas externas. Dice qué se puede leer ya y qué falta por cuenta.
+    watchPlan,
+    // Enlaces sumados por cuenta (etiqueta `account:`): varios enlaces de una misma cuenta no se cuentan por separado.
+    accountGroups: groupFounderSocialAccounts(registry.sources),
     metaRuntime: {
       mode: 'read_only' as const,
       graphApiVersion: metaGraphApiVersion ?? null,
@@ -857,6 +1011,124 @@ function founderSocialSourceSnapshot() {
         (source) => !source.currentBinding?.graphEntityId,
       ),
     },
+  };
+}
+
+/**
+ * Seguimiento de redes: lee cada cuenta lista a través del Tool Gateway (solo lectura), compara con la lectura anterior guardada
+ * en SQLite (`social_channel_snapshots`, origen `social-watch`) y devuelve el informe con alertas.
+ */
+const SOCIAL_WATCH_SOURCE = 'social-watch';
+let lastSocialWatchReport: SocialWatchReport | null = null;
+
+async function runFounderSocialWatch(): Promise<SocialWatchReport> {
+  await refreshVaultCache();
+  const snapshot = founderSocialSourceSnapshot();
+  const platformOf = new Map(snapshot.sources.map((source) => [source.referenceId, source.platform] as const));
+  const report = await runSocialWatch(snapshot.watchPlan, {
+    tools: toolGateway,
+    loadPrevious: (referenceId) => {
+      const platform = platformOf.get(referenceId);
+      const previous = platform ? store.latestSocialChannelSnapshot(platform, referenceId, SOCIAL_WATCH_SOURCE) : undefined;
+      if (!previous) return undefined;
+      const metrics = Object.fromEntries(Object.entries(previous.metrics).filter((entry): entry is [string, number] => typeof entry[1] === 'number'));
+      return { referenceId, at: previous.verifiedAt, metrics };
+    },
+    save: (item) => {
+      const platform = platformOf.get(item.referenceId);
+      if (!platform) return;
+      store.upsertSocialChannelSnapshot(createSocialChannelSnapshot({
+        id: `${SOCIAL_WATCH_SOURCE}:${item.referenceId}:${item.at.replace(/[^0-9]/g, '').slice(0, 17)}`,
+        platform,
+        channelId: item.referenceId,
+        verifiedAt: item.at,
+        source: SOCIAL_WATCH_SOURCE,
+        metrics: item.metrics,
+        // El seguimiento mide audiencia, no elegibilidad de monetización: no se afirma nada que no se haya comprobado.
+        monetizationState: 'unknown',
+      }));
+    },
+  });
+  lastSocialWatchReport = report;
+  return report;
+}
+
+const socialWatchIntervalMs = parseWatchIntervalMinutes(process.env.JANUS_SOCIAL_WATCH_INTERVAL_MIN);
+const socialWatchScheduler = socialWatchIntervalMs
+  ? new SocialWatchScheduler({
+      intervalMs: socialWatchIntervalMs,
+      run: runFounderSocialWatch,
+      onError: (error) => console.warn(`Social watch failed: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}`),
+    })
+  : null;
+
+/** Estado de la credencial de cada permiso del buzón (lectura / escritura), sin ningún secreto. */
+function mailCredentialStatus(accountId: string) {
+  const describe = (service: string) => {
+    const fromVault = vaultCache.get(service);
+    const fromEnvironment = environmentCredentials.configured(service);
+    return {
+      configured: credentialConfigured(service),
+      source: fromVault && !fromVault.needsReconsent ? 'credential-vault' : fromEnvironment ? 'environment-development-bridge' : null,
+      needsReconsent: fromVault?.needsReconsent === true,
+      ...(fromVault?.accountEmail ? { authorizedAs: fromVault.accountEmail } : {}),
+      ...(fromVault?.expiresAt ? { accessExpiresAt: fromVault.expiresAt } : {}),
+      missingScopes: fromVault?.missingScopes ?? [],
+    };
+  };
+  return { read: describe(googleCredentialService('read', accountId)), write: describe(googleCredentialService('write', accountId)) };
+}
+
+function syncCredentialCapabilities(): void {
+  const readOk = googleConfigured || mailAccounts.some((account) => credentialConfigured(googleCredentialService('read', account.accountId)));
+  capabilities.setState('google-workspace', readOk ? 'available' : 'needs_auth', readOk ? undefined : 'Google Workspace necesita autorización antes de ejecutar.');
+  const writeOk = googleWriteConfigured || mailAccounts.some((account) => account.permittedWriteActions.length > 0 && credentialConfigured(googleCredentialService('write', account.accountId)));
+  capabilities.setState('google-workspace-write', writeOk ? 'available' : 'needs_auth', writeOk ? undefined : 'Escribir en Google (borradores de Gmail, eventos de Calendar) necesita un token aparte con permisos gmail.compose y calendar.events.');
+  const threadsOk = credentialConfigured(THREADS_SERVICE);
+  capabilities.setState('threads-insights', threadsOk ? 'available' : 'needs_auth', threadsOk ? undefined : 'Threads necesita un token (THREADS_ACCESS_TOKEN o el almacén) con permisos threads_basic y threads_manage_insights; solo lectura.');
+}
+
+function oauthResultPage(response: ServerResponse, status: number, title: string, message: string): void {
+  // Solo texto fijo: nada de lo que llega en la URL se refleja en la página.
+  response.writeHead(status, {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store',
+    'referrer-policy': 'no-referrer',
+    'x-content-type-options': 'nosniff',
+    'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'",
+  });
+  response.end(`<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Janus</title><style>body{font:17px/1.5 system-ui,sans-serif;margin:3rem auto;max-width:34rem;padding:0 1rem;color:#1b1b1f}h1{font-size:1.4rem}</style><h1>${title}</h1><p>${message}</p><p>Ya puedes cerrar esta pestaña y volver a Janus.</p></html>`);
+}
+
+function founderMailAccountSnapshot() {
+  const registry = founderMailRegistry ?? { schemaVersion: 1 as const, ownerPrincipalId: 'founder', sourceUpdatedAt: new Date(0).toISOString(), policy: buildFounderMailAccountRegistry({ schemaVersion: 1, ownerPrincipalId: 'founder', updatedAt: new Date(0).toISOString(), records: [] }).policy, accounts: [] };
+  return {
+    ...registry,
+    // Plan puro: sin llamadas externas. Dice qué buzón puede leerse ya y qué falta en cada uno.
+    plan: planMailAccess(registry.accounts, {
+      adapters: new Set(['google-workspace']),
+      hasCredential: (accountId) => credentialConfigured(googleCredentialService('read', accountId)),
+    }),
+    // Estado de cada consentimiento (lectura / escritura) por buzón: sin secretos.
+    credentials: Object.fromEntries(registry.accounts.map((account) => [account.accountId, mailCredentialStatus(account.accountId)])),
+    credentialRuntime: {
+      vaultConfigured: Boolean(credentialVault),
+      googleOAuthConfigured: Boolean(googleOAuth),
+      // Esta dirección exacta debe figurar como URI de redirección autorizada en el cliente OAuth de Google Cloud.
+      redirectUri: googleOAuth?.redirectUri ?? `${oauthRedirectBase}/api/oauth/google/callback`,
+      threadsTokenStored: credentialConfigured(THREADS_SERVICE),
+    },
+    automaticExternalCalls: false,
+  };
+}
+
+function founderPhoneChannelSnapshot() {
+  const registry = founderPhoneRegistry ?? buildFounderPhoneChannelRegistry({ schemaVersion: 1, ownerPrincipalId: 'founder', updatedAt: new Date(0).toISOString(), records: [] });
+  return {
+    ...registry,
+    // Plan puro: sin llamadas externas. Aún no hay adaptadores de teléfono registrados en el Tool Gateway.
+    plan: planPhoneAccess(registry.channels, { adapters: new Set<string>() }),
+    automaticExternalCalls: false,
   };
 }
 
@@ -4152,6 +4424,212 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/founder/mail-accounts') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.mail_accounts.read');
+      await refreshVaultCache();
+      json(response, 200, { ok: true, registry: founderMailAccountSnapshot() });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  // Retorno de Google tras el consentimiento. No lleva sesión (es una redirección del navegador), pero solo funciona con un `state`
+  // secreto, de un solo uso y que caduca, creado antes por el Founder con prueba biométrica.
+  if (request.method === 'GET' && url.pathname === '/api/oauth/google/callback') {
+    if (!googleOAuth || !credentialVault) {
+      oauthResultPage(response, 503, 'Conexión no disponible', 'El consentimiento de Google no está configurado en este Janus.');
+      return;
+    }
+    const state = url.searchParams.get('state') ?? '';
+    if (url.searchParams.get('error')) {
+      googleOAuth.cancel(state);
+      oauthResultPage(response, 200, 'Consentimiento cancelado', 'No se guardó ningún permiso.');
+      return;
+    }
+    try {
+      const { result, credential } = await googleOAuth.completeAuthorization({ state, code: url.searchParams.get('code') ?? '' });
+      await credentialVault.put(credential, 'stored');
+      await refreshVaultCache();
+      syncCredentialCapabilities();
+      oauthResultPage(
+        response,
+        200,
+        result.missingScopes.length > 0 ? 'Conectado con permisos parciales' : 'Buzón conectado',
+        result.missingScopes.length > 0
+          ? 'Janus guardó los permisos concedidos; algunos que pidió no se otorgaron y esas funciones no estarán disponibles.'
+          : result.mode === 'read'
+            ? 'Janus ya puede leer este buzón bajo tu supervisión.'
+            : 'Janus ya puede preparar borradores en este buzón; cada envío seguirá pidiendo tu confirmación.',
+      );
+    } catch (error) {
+      const code = error instanceof GoogleOAuthError ? error.code : 'error';
+      oauthResultPage(
+        response,
+        400,
+        'No se pudo conectar',
+        code === 'account_mismatch'
+          ? 'La cuenta de Google que diste no es la del buzón registrado. No se guardó nada; vuelve a empezar eligiendo la cuenta correcta.'
+          : code === 'expired_state' || code === 'unknown_state'
+            ? 'La solicitud caducó o ya se usó. Empieza de nuevo desde Janus.'
+            : 'Google no completó la conexión. No se guardó nada.',
+      );
+    }
+    return;
+  }
+
+  const mailOAuthMatch = url.pathname.match(/^\/api\/founder\/mail-accounts\/([^/]+)\/oauth\/(start|revoke)$/);
+  if (request.method === 'POST' && mailOAuthMatch) {
+    const [, rawAccountId, operation] = mailOAuthMatch;
+    try {
+      requireFounderBiometricAuthority(request, operation === 'start' ? 'founder.private.mail_oauth.start' : 'founder.private.mail_oauth.revoke');
+      if (!credentialVault) throw new HttpRequestError(503, 'credential_vault_unconfigured: define JANUS_CREDENTIAL_VAULT_KEY (32 bytes, base64 o hex) para guardar credenciales cifradas');
+      const body = await readJson(request);
+      const accountId = decodeURIComponent(rawAccountId!);
+      const account = mailAccounts.find((item) => item.accountId === accountId);
+      if (!account) throw new HttpRequestError(404, 'Mail account not found');
+      const mode: GoogleConsentMode | null = body.mode === 'read' || body.mode === 'write' ? body.mode : null;
+      if (!mode) throw new HttpRequestError(400, 'mode must be "read" or "write"');
+      if (account.provider !== 'google') throw new HttpRequestError(409, 'needs_provider_confirmation: el consentimiento de Google solo aplica a cuentas de Google');
+      if (mode === 'write' && account.permittedWriteActions.length === 0) {
+        throw new HttpRequestError(409, 'Esta cuenta es de solo lectura (cuenta de menor sin la marca guardian-managed)');
+      }
+      if (operation === 'start') {
+        if (body.confirmAction !== 'start_google_consent') throw new HttpRequestError(409, 'confirmAction="start_google_consent" is required');
+        if (!googleOAuth) throw new HttpRequestError(503, 'google_oauth_unconfigured: define GOOGLE_OAUTH_CLIENT_ID (cliente OAuth de Google Cloud) y registra la URI de redirección');
+        const authorization = googleOAuth.createAuthorizationRequest({ accountId, mode, expectedEmail: account.address });
+        json(response, 200, {
+          ok: true,
+          accountId,
+          mode,
+          authorizationUrl: authorization.url,
+          expiresAt: authorization.expiresAt,
+          scopes: authorization.scopes,
+          redirectUri: googleOAuth.redirectUri,
+          note: 'Abre authorizationUrl, elige la cuenta del buzón y acepta. El permiso queda guardado cifrado; no se envía nada sin tu confirmación.',
+        });
+      } else {
+        if (body.confirmAction !== 'revoke_google_consent') throw new HttpRequestError(409, 'confirmAction="revoke_google_consent" is required');
+        const service = googleCredentialService(mode, accountId);
+        const entry = await credentialVault.get(service);
+        let revokedAtGoogle = false;
+        if (entry && googleOAuth) {
+          const token = entry.refreshToken ?? entry.accessToken;
+          if (token) revokedAtGoogle = await googleOAuth.revoke(token).catch(() => false);
+        }
+        const removed = await credentialVault.remove(service);
+        await refreshVaultCache();
+        syncCredentialCapabilities();
+        json(response, 200, { ok: true, accountId, mode, removedLocally: removed, revokedAtGoogle });
+      }
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  // Token de Threads: se guarda cifrado y se renueva solo. Nunca se devuelve ni se registra.
+  if (request.method === 'POST' && (url.pathname === '/api/founder/social-credentials/threads' || url.pathname === '/api/founder/social-credentials/threads/remove')) {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.social_credentials.write');
+      if (!credentialVault) throw new HttpRequestError(503, 'credential_vault_unconfigured: define JANUS_CREDENTIAL_VAULT_KEY (32 bytes, base64 o hex) para guardar credenciales cifradas');
+      const body = await readJson(request);
+      if (url.pathname.endsWith('/remove')) {
+        if (body.confirmAction !== 'remove_threads_token') throw new HttpRequestError(409, 'confirmAction="remove_threads_token" is required');
+        const removed = await credentialVault.remove(THREADS_SERVICE);
+        await refreshVaultCache();
+        syncCredentialCapabilities();
+        json(response, 200, { ok: true, removed });
+      } else {
+        if (body.confirmAction !== 'store_threads_token') throw new HttpRequestError(409, 'confirmAction="store_threads_token" is required');
+        const accessToken = typeof body.accessToken === 'string' ? body.accessToken : '';
+        if (body.tokenKind === 'short-lived') {
+          const secret = process.env.THREADS_APP_SECRET?.trim();
+          if (!secret) throw new HttpRequestError(503, 'threads_app_secret_unconfigured: un token de corta duración necesita THREADS_APP_SECRET para canjearse');
+          const exchanged = await exchangeThreadsToken({ shortLivedToken: accessToken, clientSecret: secret });
+          await storeThreadsToken(credentialVault, exchanged);
+        } else {
+          await storeThreadsToken(credentialVault, { accessToken });
+        }
+        await refreshVaultCache();
+        syncCredentialCapabilities();
+        json(response, 200, { ok: true, stored: true, status: vaultCache.get(THREADS_SERVICE) ?? null });
+      }
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/founder/social-watch') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.social_watch.read');
+      json(response, 200, {
+        ok: true,
+        scheduler: socialWatchScheduler?.status() ?? { enabled: false, reason: 'Define JANUS_SOCIAL_WATCH_INTERVAL_MIN (minutos, mínimo 15) para activar el seguimiento periódico.' },
+        lastReport: lastSocialWatchReport,
+      });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/founder/social-watch/run') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.social_watch.run');
+      const body = await readJson(request);
+      if (body.confirmAction !== 'run_social_watch') throw new HttpRequestError(409, 'confirmAction="run_social_watch" is required');
+      // Con planificador activo se comparte la ejecución en curso; sin él, una lectura puntual. Nunca dos a la vez.
+      const report = socialWatchScheduler ? await socialWatchScheduler.runNow() : await runFounderSocialWatch();
+      json(response, 200, { ok: true, report });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/founder/phone-channels') {
+    try {
+      requireFounderBiometricAuthority(request, 'founder.private.phone_channels.read');
+      json(response, 200, { ok: true, registry: founderPhoneChannelSnapshot() });
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/founder/social-sources') {
     try {
       requireFounderBiometricAuthority(request, 'founder.private.social_sources.read');
@@ -5167,6 +5645,8 @@ function shutdown(): void {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
 
 server.listen(port, '0.0.0.0', () => {
   console.log(`JANUS runtime listening on http://0.0.0.0:${port}`);

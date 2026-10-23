@@ -56,7 +56,7 @@ export interface ProductHealthSnapshot {
   metrics?: Record<string, number | string | boolean | null>;
 }
 
-export type SocialPlatform = 'facebook' | 'instagram' | 'youtube' | 'other';
+export type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'youtube' | 'other';
 export type MonetizationState =
   | 'not_configured'
   | 'building_eligibility'
@@ -303,7 +303,7 @@ function validateHealthSnapshot(input: ProductHealthSnapshot): ProductHealthSnap
 function validateChannelSnapshot(input: SocialChannelSnapshot): SocialChannelSnapshot {
   const platform = enumValue(
     input.platform,
-    ['facebook', 'instagram', 'youtube', 'other'] as const,
+    ['facebook', 'instagram', 'threads', 'youtube', 'other'] as const,
     'social platform',
   );
   const monetizationState = enumValue(
@@ -338,7 +338,7 @@ function validateRequirementSnapshot(
 
   const platform = enumValue(
     input.platform,
-    ['facebook', 'instagram', 'youtube', 'other'] as const,
+    ['facebook', 'instagram', 'threads', 'youtube', 'other'] as const,
     'requirement platform',
   );
   const state = enumValue(

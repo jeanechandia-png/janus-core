@@ -359,3 +359,41 @@ test('Founder biometric key IDs are append-only across revocation and rotation',
   assert.equal(registration.keyId, 'iphone-face-key-v2');
   assert.equal(biometrics.status().activeFaceKeys, 1);
 });
+
+test('regresión: una prueba facial es válida aunque el reloj avance entre lecturas (vigencia exacta, sin "caducada" espuria)', () => {
+  const keys = p256KeyPair();
+  // Reloj que avanza 1 ms en cada lectura: antes, verifiedAt y expiresAt se leían por separado y la vigencia salía TTL + 1 ms.
+  let tick = Date.parse('2026-10-01T00:00:00.000Z');
+  const biometrics = new FounderBiometricService(
+    new InMemoryBiometricKeyStore(),
+    { now: () => new Date((tick += 1)) },
+  );
+  biometrics.registerFaceKey({ keyId: 'iphone-face-key', publicKeyPem: keys.publicKey });
+
+  const challenge = biometrics.issueChallenge('security.secrets.read');
+  const ticket = biometrics.verifyAssertion({
+    challengeId: challenge.id,
+    keyId: 'iphone-face-key',
+    signature: signature(challenge.signingPayload, keys.privateKey),
+  });
+  const attestation = biometrics.consumeProof({
+    proofId: ticket.proofId,
+    principalId: 'founder',
+    action: 'security.secrets.read',
+    requestedAt: new Date(tick + 1).toISOString(),
+  });
+  assert.ok(attestation);
+  assert.equal(Date.parse(attestation.expiresAt) - Date.parse(attestation.verifiedAt), 2 * 60_000);
+
+  const decision = evaluateAuthority(founder, {
+    id: 'instruction-clock-1',
+    principalId: 'founder',
+    source: 'authenticated_human',
+    authenticated: true,
+    instruction: 'Read founder secret',
+    requestedAt: new Date(tick + 2).toISOString(),
+    biometricAttestation: attestation,
+  }, 'security.secrets.read');
+  assert.equal(decision.allowed, true, decision.reason);
+});
+

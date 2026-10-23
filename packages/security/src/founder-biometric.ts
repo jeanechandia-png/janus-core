@@ -407,8 +407,11 @@ export class FounderBiometricService {
       );
     }
 
-    const verifiedAt = this.now().toISOString();
-    const expiresAt = new Date(this.now().getTime() + this.proofTtlMs).toISOString();
+    // Una sola lectura del reloj: dos lecturas separadas por un milisegundo daban una vigencia de TTL+1 ms,
+    // que la política de frescura (`expiresAt - verifiedAt > biometricFreshnessMs`) rechazaba como «caducada».
+    const issuedAt = this.now();
+    const verifiedAt = issuedAt.toISOString();
+    const expiresAt = new Date(issuedAt.getTime() + this.proofTtlMs).toISOString();
     const proofId = `bio_proof_${randomBytes(32).toString('base64url')}`;
     const proofHash = createHash('sha256').update(stableJson({
       proofId,

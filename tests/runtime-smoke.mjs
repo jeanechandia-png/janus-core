@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
-import { generateKeyPairSync, sign } from 'node:crypto';
+import { generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 
 const port = await freePort();
 const base = `http://127.0.0.1:${port}`;
@@ -15,6 +15,18 @@ const founderBiometricKeys = generateKeyPairSync('ec', {
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
 });
+// Diagnóstico: guarda el motivo de cada 403 para que un fallo intermitente deje rastro (sin cuerpos de otros códigos).
+const forbiddenLog = [];
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (...args) => {
+  const response = await realFetch(...args);
+  if (response.status === 403) {
+    const body = await response.clone().text().catch(() => '');
+    forbiddenLog.push(`${new Date().toISOString()} ${String(args[1]?.method ?? 'GET')} ${String(args[0]).replace(/^https?:\/\/[^/]+/, '')} -> ${body.slice(0, 200)}`);
+  }
+  return response;
+};
+
 const child = spawn(
   process.execPath,
   ['--import', 'tsx', 'apps/runtime/server.ts'],
@@ -26,6 +38,13 @@ const child = spawn(
       JANUS_DB: ':memory:',
       JANUS_TIME_ZONE: 'Europe/Amsterdam',
       GOOGLE_ACCESS_TOKEN: '',
+      THREADS_ACCESS_TOKEN: '',
+      // Almacén cifrado en memoria y cliente OAuth de prueba: sin red, sin archivos.
+      JANUS_CREDENTIAL_VAULT_KEY: randomBytes(32).toString('base64'),
+      JANUS_CREDENTIAL_VAULT_PATH: '',
+      GOOGLE_OAUTH_CLIENT_ID: 'smoke-client.apps.googleusercontent.com',
+      GOOGLE_OAUTH_CLIENT_SECRET: '',
+      THREADS_APP_SECRET: '',
       // Hermetic: never inherit a GitHub credential from the developer/CI shell.
       GITHUB_TOKEN: '',
       NETLIFY_AUTH_TOKEN: '',
@@ -83,6 +102,9 @@ try {
   );
   assert.equal(github?.state, 'available');
   assert.equal(google?.state, 'needs_auth');
+  const threadsActions = capabilities.filter((item) => item?.tool === 'threads-insights').map((item) => item.action).sort();
+  assert.deepEqual(threadsActions, ['threads.account.insights', 'threads.account.profile']);
+  assert.ok(capabilities.filter((item) => item?.tool === 'threads-insights').every((item) => item.state === 'needs_auth'));
 
   const localRunId = await startCommand(base, 'haz una tarea local sin herramienta');
   const localRun = await waitForRun(base, localRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
@@ -435,6 +457,137 @@ try {
   });
   assert.equal(delegated.operator?.principal?.role, 'operator');
 
+  // Buzones del Founder: datos personales, solo con sesión de Founder + prueba biométrica, ; el envío exige su confirmación en cada mensaje.
+  const mailAnonymous = await fetch(`${base}/api/founder/mail-accounts`);
+  assert.ok(mailAnonymous.status === 401 || mailAnonymous.status === 403, `mail-accounts sin sesión: ${mailAnonymous.status}`);
+  const mailWithoutFace = await fetch(`${base}/api/founder/mail-accounts`, { headers: { authorization: `Bearer ${founderToken}` } });
+  assert.equal(mailWithoutFace.status, 403);
+  assert.equal((await mailWithoutFace.json()).error, 'founder_biometric_required');
+  const mailProof = await founderBiometricProof(base, founderToken, 'founder.private.mail_accounts.read', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const mailResponse = await fetch(`${base}/api/founder/mail-accounts`, {
+    headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': mailProof },
+  });
+  assert.equal(mailResponse.status, 200);
+  const mailBody = await mailResponse.json();
+  assert.equal(mailBody.registry?.policy?.supervision, 'founder');
+  for (const key of ['autonomousSendAllowed', 'deleteAllowed', 'archiveOrLabelAllowed', 'forwardAllowed', 'autoReplyAllowed']) {
+    assert.equal(mailBody.registry.policy[key], false, key);
+  }
+  assert.equal(mailBody.registry.policy.composeOnFounderInstruction, true);
+  assert.equal(mailBody.registry.policy.sendRequiresPerMessageApproval, true);
+  assert.equal(mailBody.registry.automaticExternalCalls, false);
+  assert.ok(Array.isArray(mailBody.registry.accounts));
+  assert.equal(mailBody.registry.plan.length, mailBody.registry.accounts.length);
+  // Hermético: sin credenciales, ningún buzón puede estar "ready", y la respuesta no lleva secretos.
+  assert.ok(mailBody.registry.plan.every((item) => item.readiness !== 'ready'));
+  assert.doesNotMatch(JSON.stringify(mailBody), /Bearer |access_token|refresh_token/i);
+
+  // Almacén cifrado y consentimiento de Google: se describen sin secretos; iniciar y revocar exigen Founder + biometría.
+  assert.equal(mailBody.registry.credentialRuntime?.vaultConfigured, true);
+  assert.equal(mailBody.registry.credentialRuntime?.googleOAuthConfigured, true);
+  assert.equal(mailBody.registry.credentialRuntime?.redirectUri, `${base}/api/oauth/google/callback`);
+  assert.equal(mailBody.registry.credentialRuntime?.threadsTokenStored, false);
+  const googleMailbox = mailBody.registry.accounts.find((account) => account.provider === 'google' && account.permittedWriteActions.length > 0);
+  if (googleMailbox) {
+    const startPath = `/api/founder/mail-accounts/${encodeURIComponent(googleMailbox.accountId)}/oauth/start`;
+    const anonymousStart = await fetch(`${base}${startPath}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'read', confirmAction: 'start_google_consent' }) });
+    assert.ok(anonymousStart.status === 401 || anonymousStart.status === 403, `oauth/start sin sesión: ${anonymousStart.status}`);
+    const startWithoutFace = await fetch(`${base}${startPath}`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ mode: 'read', confirmAction: 'start_google_consent' }) });
+    assert.equal(startWithoutFace.status, 403);
+    const startProof = await founderBiometricProof(base, founderToken, 'founder.private.mail_oauth.start', 'smoke-face-key', founderBiometricKeys.privateKey);
+    const started = await fetch(`${base}${startPath}`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': startProof },
+      body: JSON.stringify({ mode: 'read', confirmAction: 'start_google_consent' }),
+    });
+    assert.equal(started.status, 200);
+    const startedBody = await started.json();
+    const authUrl = new URL(startedBody.authorizationUrl);
+    assert.equal(authUrl.origin + authUrl.pathname, 'https://accounts.google.com/o/oauth2/v2/auth');
+    assert.equal(authUrl.searchParams.get('code_challenge_method'), 'S256');
+    assert.equal(authUrl.searchParams.get('redirect_uri'), `${base}/api/oauth/google/callback`);
+    assert.equal(authUrl.searchParams.get('login_hint'), googleMailbox.address);
+    assert.ok(!(authUrl.searchParams.get('scope') ?? '').includes('compose'), 'la lectura no pide permisos de escritura');
+    assert.doesNotMatch(startedBody.authorizationUrl, /client_secret/);
+    // Un modo inválido y una cuenta desconocida se rechazan (cada intento consume su propia prueba).
+    const badModeProof = await founderBiometricProof(base, founderToken, 'founder.private.mail_oauth.start', 'smoke-face-key', founderBiometricKeys.privateKey);
+    const badMode = await fetch(`${base}${startPath}`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': badModeProof }, body: JSON.stringify({ mode: 'admin', confirmAction: 'start_google_consent' }) });
+    assert.equal(badMode.status, 400);
+  }
+  const callbackBogus = await fetch(`${base}/api/oauth/google/callback?state=inventado&code=x%3Cscript%3E`);
+  assert.equal(callbackBogus.status, 400);
+  const callbackBody = await callbackBogus.text();
+  assert.doesNotMatch(callbackBody, /inventado|<script>/, 'nada de la URL se refleja en la página');
+  assert.match(callbackBogus.headers.get('content-security-policy') ?? '', /default-src 'none'/);
+  const callbackDenied = await fetch(`${base}/api/oauth/google/callback?error=access_denied&state=inventado`);
+  assert.equal(callbackDenied.status, 200);
+
+  // Token de Threads: se guarda cifrado, no se devuelve nunca y se puede retirar.
+  const threadsSecret = 'THREADS-TOKEN-DE-PRUEBA-HUMO';
+  const threadsPath = '/api/founder/social-credentials/threads';
+  const threadsNoFace = await fetch(`${base}${threadsPath}`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json' }, body: JSON.stringify({ accessToken: threadsSecret, confirmAction: 'store_threads_token' }) });
+  assert.equal(threadsNoFace.status, 403);
+  const threadsProof = await founderBiometricProof(base, founderToken, 'founder.private.social_credentials.write', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const threadsStored = await fetch(`${base}${threadsPath}`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': threadsProof }, body: JSON.stringify({ accessToken: threadsSecret, confirmAction: 'store_threads_token' }) });
+  assert.equal(threadsStored.status, 200);
+  const threadsStoredText = await threadsStored.text();
+  assert.doesNotMatch(threadsStoredText, /THREADS-TOKEN-DE-PRUEBA/);
+  assert.equal(JSON.parse(threadsStoredText).status?.hasAccessToken, true);
+  const mailProof2 = await founderBiometricProof(base, founderToken, 'founder.private.mail_accounts.read', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const mailAfter = await (await fetch(`${base}/api/founder/mail-accounts`, { headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': mailProof2 } })).json();
+  assert.equal(mailAfter.registry.credentialRuntime.threadsTokenStored, true);
+  assert.doesNotMatch(JSON.stringify(mailAfter), /THREADS-TOKEN-DE-PRUEBA/);
+  const removeProof = await founderBiometricProof(base, founderToken, 'founder.private.social_credentials.write', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const threadsRemoved = await fetch(`${base}${threadsPath}/remove`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': removeProof }, body: JSON.stringify({ confirmAction: 'remove_threads_token' }) });
+  assert.equal(threadsRemoved.status, 200);
+  assert.equal((await threadsRemoved.json()).removed, true);
+  assert.doesNotMatch(stdout + stderr, /THREADS-TOKEN-DE-PRUEBA/, 'el token no aparece en los registros del runtime');
+
+  // Seguimiento de redes: lectura bajo Founder + biometría; el planificador es opt-in (sin intervalo, desactivado).
+  const watchNoFace = await fetch(`${base}/api/founder/social-watch`, { headers: { authorization: `Bearer ${founderToken}` } });
+  assert.equal(watchNoFace.status, 403);
+  const watchProof = await founderBiometricProof(base, founderToken, 'founder.private.social_watch.read', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const watchStatus = await (await fetch(`${base}/api/founder/social-watch`, { headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': watchProof } })).json();
+  assert.equal(watchStatus.scheduler.enabled, false);
+  assert.equal(watchStatus.lastReport, null);
+  const runNoConfirm = await founderBiometricProof(base, founderToken, 'founder.private.social_watch.run', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const runRejected = await fetch(`${base}/api/founder/social-watch/run`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': runNoConfirm }, body: JSON.stringify({}) });
+  assert.equal(runRejected.status, 409);
+  const runProof = await founderBiometricProof(base, founderToken, 'founder.private.social_watch.run', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const watchRun = await fetch(`${base}/api/founder/social-watch/run`, { method: 'POST', headers: { authorization: `Bearer ${founderToken}`, 'content-type': 'application/json', 'x-janus-biometric-proof': runProof }, body: JSON.stringify({ confirmAction: 'run_social_watch' }) });
+  assert.equal(watchRun.status, 200);
+  const watchReport = (await watchRun.json()).report;
+  // Hermético: sin tokens de Meta ni Threads nada puede leerse; todo queda «omitido» con su siguiente paso, sin llamadas externas.
+  assert.equal(watchReport.summary.read, 0);
+  assert.equal(watchReport.summary.failed, 0);
+  assert.ok(watchReport.items.every((item) => item.status === 'skipped'));
+
+  // Teléfono del Founder: mismo blindaje (Founder + biometría), solo descripción y plan, nada autónomo.
+  const phoneAnonymous = await fetch(`${base}/api/founder/phone-channels`);
+  assert.ok(phoneAnonymous.status === 401 || phoneAnonymous.status === 403, `phone-channels sin sesión: ${phoneAnonymous.status}`);
+  const phoneWithoutFace = await fetch(`${base}/api/founder/phone-channels`, { headers: { authorization: `Bearer ${founderToken}` } });
+  assert.equal(phoneWithoutFace.status, 403);
+  assert.equal((await phoneWithoutFace.json()).error, 'founder_biometric_required');
+  const phoneProof = await founderBiometricProof(base, founderToken, 'founder.private.phone_channels.read', 'smoke-face-key', founderBiometricKeys.privateKey);
+  const phoneResponse = await fetch(`${base}/api/founder/phone-channels`, {
+    headers: { authorization: `Bearer ${founderToken}`, 'x-janus-biometric-proof': phoneProof },
+  });
+  assert.equal(phoneResponse.status, 200, await phoneResponse.clone().text());
+  const phoneBody = await phoneResponse.json();
+  for (const key of ['autonomousSendAllowed', 'autonomousCallAllowed', 'voiceImpersonationAllowed', 'unofficialWhatsAppClientsAllowed']) {
+    assert.equal(phoneBody.registry.policy[key], false, key);
+  }
+  assert.equal(phoneBody.registry.policy.sendRequiresPerMessageApproval, true);
+  assert.equal(phoneBody.registry.policy.callPlacementRequiresPerCallApproval, true);
+  assert.equal(phoneBody.registry.automaticExternalCalls, false);
+  assert.equal(phoneBody.registry.plan.length, phoneBody.registry.channels.length);
+  for (const channel of phoneBody.registry.plan) {
+    assert.ok(channel.routes.every((route) => route.tier !== 'L3' || route.status === 'refused'), 'ninguna ruta autónoma disponible');
+    // Sin adaptadores de teléfono registrados, ninguna ruta de API/voz puede estar disponible.
+    assert.ok(channel.routes.every((route) => route.tier === 'L1' || route.status !== 'available_now'));
+  }
+  assert.doesNotMatch(JSON.stringify(phoneBody), /Bearer |access_token|refresh_token|as-provided/i);
+
   const scopeBody = await postJson(base, '/api/coordination/scopes', {
     id: 'scope-smoke-shared',
     label: 'Smoke shared workspace',
@@ -548,6 +701,7 @@ try {
   console.log('runtime smoke ok');
 } catch (error) {
   console.error('JANUS runtime smoke failed');
+  if (forbiddenLog.length) console.error('--- respuestas 403 observadas ---\n' + forbiddenLog.join('\n'));
   if (stdout) console.error('--- runtime stdout ---\n' + stdout);
   if (stderr) console.error('--- runtime stderr ---\n' + stderr);
   throw error;

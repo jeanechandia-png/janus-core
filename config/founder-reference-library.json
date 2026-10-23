@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-21T17:00:00.000Z",
+  "updatedAt": "2026-10-22T23:10:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -30,7 +30,10 @@
         "social",
         "instagram",
         "la-tribuna-virtual",
-        "founder-provided"
+        "founder-provided",
+        "account:la-tribuna",
+        "scope:business",
+        "scope-inferred"
       ]
     },
     {
@@ -45,7 +48,8 @@
         "social",
         "instagram",
         "jean-echandia",
-        "founder-provided"
+        "founder-provided",
+        "account:jean-personal"
       ]
     },
     {
@@ -60,7 +64,9 @@
         "social",
         "instagram",
         "infinityseedgroup",
-        "founder-provided"
+        "founder-provided",
+        "account:infinity-group",
+        "scope:business"
       ]
     },
     {
@@ -91,6 +97,64 @@
         "facebook",
         "founder-provided",
         "canonical-target-unresolved"
+      ]
+    },
+    {
+      "id": "social-facebook-share-1C3ja3pvM7",
+      "subject": "founder-reference:social:facebook:1C3ja3pvM7",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook — Infinity",
+      "value": "https://www.facebook.com/share/1C3ja3pvM7/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved",
+        "scope:business",
+        "label-by-founder",
+        "label-position-inferred",
+        "account:infinity-group"
+      ]
+    },
+    {
+      "id": "social-facebook-share-19dzeLqae4",
+      "subject": "founder-reference:social:facebook:19dzeLqae4",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Facebook — La Tribuna",
+      "value": "https://www.facebook.com/share/19dzeLqae4/?mibextid=wwXIfr",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved",
+        "scope:business",
+        "la-tribuna-virtual",
+        "label-by-founder",
+        "label-position-inferred",
+        "scope-inferred",
+        "account:la-tribuna"
+      ]
+    },
+    {
+      "id": "social-threads-la-tribuna-virtual",
+      "subject": "founder-reference:social:threads:la-tribuna-virtual",
+      "kind": "reference",
+      "classification": "current",
+      "label": "Threads — La Tribuna Virtual",
+      "value": "https://www.threads.com/@la_tribuna_virtual?igshid=NTc4MTIwNjQ2YQ==",
+      "retention": "preserve",
+      "tags": [
+        "social",
+        "threads",
+        "la-tribuna-virtual",
+        "founder-provided",
+        "scope:business",
+        "scope-inferred",
+        "account:la-tribuna"
       ]
     },
     {
@@ -194,6 +258,20 @@
         "operating-norm",
         "school",
         "safety",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-spend-last",
+      "subject": "founder-policy:spend-last",
+      "kind": "policy",
+      "classification": "current",
+      "label": "El gasto va al final",
+      "value": "Janus debe poder trabajar al máximo sin comprar nada. Las herramientas nuevas, suscripciones y servidores se dejan siempre como último recurso: se construye la opción, se prueba con servicios simulados y queda en reposo, pendiente de activación, hasta que el Founder la pida. Antes de proponer un gasto se agota lo gratuito, lo local y lo ya pagado (ChatGPT, Gemini, Claude, Google Workspace). Toda propuesta de gasto va en euros, con precio de fuente primaria, IVA, plazo, condiciones de baja y uso previsto; se prefiere el pago mensual cancelable al prepago largo. El pago lo hace el Founder. Motivo: ya se pagó un mes completo de CatCut y apenas se usó.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "spend",
         "founder-provided"
       ]
     }
