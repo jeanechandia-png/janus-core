@@ -49,7 +49,9 @@ if (prsJson) {
 }
 
 console.log('\n⚠️ COLISIONES DE ADR ENTRE RAMAS:');
-const collisions = findAdrCollisions(files);
+// Branches already contained in origin/main are history: their ADR files live in main (possibly renamed), so they cannot collide.
+const merged = new Set(remotes.filter((ref) => ref !== 'origin/main' && run('git', ['merge-base', '--is-ancestor', ref, 'origin/main']) !== undefined));
+const collisions = findAdrCollisions(files.filter((file) => !merged.has(file.ref)));
 if (collisions.length === 0) console.log('  Ninguna.');
 for (const c of collisions) {
   console.log(`  ADR-${c.number}:`);
