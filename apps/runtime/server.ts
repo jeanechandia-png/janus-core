@@ -159,6 +159,7 @@ import {
 import {
   assessVerifiedRunOutcome,
   createRuntimeLearningObservation,
+  estimateExecutionConfidence,
   deriveRuntimeExecutionPrediction,
   maybeProposeRuntimeImprovement,
   runtimeLearningReport,
@@ -1357,6 +1358,7 @@ function outcomeLearningSnapshot() {
     );
   const report = runtimeLearningReport(observations);
   const executionPrediction = deriveRuntimeExecutionPrediction(observations);
+  const executionConfidence = estimateExecutionConfidence(observations);
   const proposals = store.listImprovementProposals().filter(
     (proposal) =>
       proposal.blueprintId === runtimeBlueprint.id
@@ -1367,6 +1369,7 @@ function outcomeLearningSnapshot() {
     calibration: report.calibration,
     drift: report.drift,
     executionPrediction,
+    executionConfidence,
     proposals,
   };
 }
@@ -2924,6 +2927,7 @@ const server = createServer(async (request, response) => {
           calibration: learning.calibration,
           drift: learning.drift,
           nextExecutionPrediction: learning.executionPrediction,
+          nextExecutionConfidence: learning.executionConfidence,
           openImprovementProposals: learning.proposals.filter(
             (proposal) => proposal.status === 'proposed' || proposal.status === 'approved',
           ).length,
@@ -3477,6 +3481,7 @@ const server = createServer(async (request, response) => {
       calibration: learning.calibration,
       drift: learning.drift,
       nextExecutionPrediction: learning.executionPrediction,
+      executionConfidence: learning.executionConfidence,
       improvementProposals: learning.proposals,
     });
     return;
