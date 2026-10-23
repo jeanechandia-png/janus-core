@@ -1,0 +1,21 @@
+{
+  "id": "speaker-id",
+  "version": "1.0.0",
+  "kind": "capability-module",
+  "summary": "Reconocimiento de hablante local (cerrado, con consentimiento) para personalizar y enrutar contexto. Nunca autentica.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "loopback-only",
+  "network": "loopback sidecar (embedding model)",
+  "secrets": ["vault key (32 bytes) supplied by the host secret store"],
+  "dataClassification": "biometric-special-category",
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Results always carry authorizes:false and assurance:'convenience'; a voice match is never an authentication factor.",
+    "Templates exist only inside the AES-256-GCM vault; raw recordings and per-sample vectors are not stored.",
+    "Enrolment and identification require an active consent record; minors require a parent or legal guardian.",
+    "Closed-set only: it identifies consented household members and rejects everyone else as unknown.",
+    "Consent withdrawal deletes the template; forget() erases the subject."
+  ],
+  "reuseNotes": "Provide a SpeakerEmbedder (HttpSpeakerEmbedder + sidecar/speaker_embed_server.py), a VaultStorage and a 32-byte key from your secret store. Calibrate SpeakerPolicy thresholds with the real model before relying on results. Wrap with a thin adapter per host product (Janus: packages/adapters/src/speaker-recognition-adapter.ts)."
+}

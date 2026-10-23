@@ -70,3 +70,9 @@ Janus Core manda; cada servicio es un **adaptador reemplazable**.
 - ~~Flujo de aprobación interactivo en la PWA~~ → hecho: ver `docs/founder-approvals.md`.
 - ~~Revisión del Blueprint para habilitar las nuevas herramientas~~ → hecho desde la app: ver `docs/founder-approvals.md` (el Founder debe confirmarla en su instalación).
 - Pruebas con cuentas reales (nada de lo escrito aquí se ha probado contra Supabase/Vercel reales) (todo verificado con servicios simulados; no verificado contra las APIs reales).
+
+
+## Séneca y reconocimiento de hablante (módulos LEGO)
+- Herramienta `seneca` (solo lectura, local, sin credenciales): `guidance.get`, `profile.get`, `quote.get`, `reflection.daily`. En instalaciones existentes requiere una revisión de Blueprint aprobada por el Founder. Las citas llevan estado de verificación; la frase «liberarse del miedo a un mal futuro y del recuerdo de un mal pasado» se presenta como *atribuida, sin ubicar* (no como cita literal).
+- Reconocimiento de hablante: opcional (`JANUS_SPEAKER_ID_ENABLED=true`), ver ADR-009 y `scripts/voice-enroll.ts`. `/health` expone `speakerRecognition.state`.
+- Herramienta `marcus-aurelius` (mismas acciones, solo lectura): se enruta cuando se nombra a Marco Aurelio o las Meditaciones sin nombrar a Séneca; el resto de peticiones estoicas o de estrés sigue yendo a `seneca`. Fuente de las citas: traducción inglesa de G. Long (dominio público, classics.mit.edu); el español es versión libre y el griego no se consultó. «Tienes poder sobre tu mente, no sobre los acontecimientos externos…» figura como *atribuida, sin ubicar*. Requiere aprobación de Blueprint en instalaciones existentes y está permitida en el perfil restringido del hogar.

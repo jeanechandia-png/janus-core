@@ -1,0 +1,21 @@
+{
+  "id": "marcus-aurelius-wisdom",
+  "version": "1.0.0",
+  "kind": "knowledge-module",
+  "summary": "Marco Aurelio para gestión del estrés: vida, Meditaciones, doctrina, citas con estado de verificación y ejercicios.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "public-knowledge",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Every quote carries a verification status; 'attributed-unlocated' quotes are never presented as literal.",
+    "Crisis language returns support_first guidance with no quotations.",
+    "Spanish is a free rendering of G. Long's public-domain English, not of the Greek; this is always disclosed.",
+    "Not a clinical tool: no diagnosis, no treatment claims."
+  ],
+  "reuseNotes": "Import from src/index.ts. Wrap with a thin adapter in each host product (Janus uses packages/adapters/src/marcus-aurelius-tool-adapter.ts). Sibling of seneca-wisdom with the same shape; the two stay independent."
+}
