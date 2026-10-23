@@ -12,6 +12,7 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Despachador de disparadores de flujos (2026-10-23, rama `claude/social-accounts-watch`)**: `packages/automation/src/trigger-dispatcher.ts` + `cron.ts` — programado (cron con zona horaria y cambios de hora), webhook firmado con HMAC (anti-repetición, 401 uniforme, secreto desde la bóveda), evento y cola sin conexión con revalidación, todo idempotente y con cursor/cola en SQLite; el motor acepta `trigger.nodeId`. 35 pruebas nuevas (suite 540/541) y 6 mutaciones detectadas. **El runtime todavía no lo arranca** (en reposo, norma 7). Contrato y límites: `docs/flow-triggers.md`.
 - **Editor visual de flujos «Flujos» (2026-10-23, rama `claude/social-accounts-watch`)**: `apps/flow-editor/` — lienzo táctil de nodos sobre el motor real (catálogo, validación, plantillas), conexión en dos toques con ramas, deshacer/rehacer, problemas en español, orden previsto, importar/exportar borradores sin claves, entorno **simulado** rotulado; lo «en reposo» se cuenta aparte de los errores (norma 7). Un solo HTML sin red (`npm run flow-editor:build`); 64 comprobaciones en navegador (`npm run flow-editor:e2e`). **No publica ni ejecuta; no probado en iPhone/iPad reales.** Detalle: `apps/flow-editor/README.md` y el handoff `2026-10-23-vault-oauth-phone-watch`.
 
 - **Cuentas, buzones y teléfono del Founder — lectura, redacción y envío con confirmación (2026-10-23, rama `claude/social-accounts-watch`, PR #47)**:

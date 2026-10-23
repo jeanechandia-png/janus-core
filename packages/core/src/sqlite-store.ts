@@ -89,6 +89,14 @@ export interface FlowRunEventRecord {
   detail?: string;
 }
 
+export interface TriggerQueueRecord {
+  id: string;
+  workflowId: string;
+  queuedAt: string;
+  /** Disparo pendiente (lo define el despachador de flujos). No contiene secretos. */
+  item: unknown;
+}
+
 export class SqliteStore {
   private readonly db: DatabaseSync;
 
@@ -1576,6 +1584,37 @@ export class SqliteStore {
     }));
   }
 
+  /** Último disparo programado ya procesado para un enlace flujo@revisión:nodo (sobrevive a reinicios). */
+  getTriggerCursor(bindingKey: string): string | undefined {
+    const row = this.db.prepare('SELECT last_slot FROM trigger_cursors WHERE binding_key = ?').get(bindingKey) as Record<string, unknown> | undefined;
+    return row ? String(row.last_slot) : undefined;
+  }
+
+  setTriggerCursor(bindingKey: string, lastSlot: string, at: string): void {
+    this.db.prepare(`
+      INSERT INTO trigger_cursors (binding_key, last_slot, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(binding_key) DO UPDATE SET last_slot = excluded.last_slot, updated_at = excluded.updated_at
+    `).run(bindingKey, lastSlot, at);
+  }
+
+  /** Cola de disparos pendientes por falta de conexión. `false` si ya estaba o si la cola está llena (`maxItems`). */
+  enqueueTrigger(record: TriggerQueueRecord, maxItems: number): boolean {
+    const count = Number((this.db.prepare('SELECT COUNT(*) AS n FROM trigger_queue').get() as Record<string, unknown>).n);
+    if (count >= maxItems) return false;
+    const result = this.db.prepare('INSERT OR IGNORE INTO trigger_queue (id, workflow_id, queued_at, item_json) VALUES (?, ?, ?, ?)')
+      .run(record.id, record.workflowId, record.queuedAt, JSON.stringify(record.item));
+    return Number(result.changes) === 1;
+  }
+
+  listQueuedTriggers(limit = 100): TriggerQueueRecord[] {
+    const rows = this.db.prepare('SELECT id, workflow_id, queued_at, item_json FROM trigger_queue ORDER BY queued_at ASC, id ASC LIMIT ?').all(limit) as Record<string, unknown>[];
+    return rows.map((row) => ({ id: String(row.id), workflowId: String(row.workflow_id), queuedAt: String(row.queued_at), item: JSON.parse(String(row.item_json)) as unknown }));
+  }
+
+  removeQueuedTrigger(id: string): void {
+    this.db.prepare('DELETE FROM trigger_queue WHERE id = ?').run(id);
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`
@@ -1972,6 +2011,22 @@ export class SqliteStore {
         dedupe_key TEXT PRIMARY KEY,
         claimed_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS trigger_cursors (
+        binding_key TEXT PRIMARY KEY,
+        last_slot TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS trigger_queue (
+        id TEXT PRIMARY KEY,
+        workflow_id TEXT NOT NULL,
+        queued_at TEXT NOT NULL,
+        item_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_trigger_queue_time
+      ON trigger_queue(queued_at, id);
 
       CREATE TABLE IF NOT EXISTS monetization_requirement_snapshots (
         id TEXT PRIMARY KEY,

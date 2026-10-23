@@ -44,10 +44,10 @@ const needsAuth = (reason: string) => ({ ok: false, availability: 'needs_auth', 
 const SPECS: Spec[] = [
   // Disparadores
   { type: 'trigger.manual', displayName: 'Inicio manual', kind: 'trigger', capabilities: ['trigger.manual'] },
-  { type: 'trigger.schedule', displayName: 'Programado (cron)', kind: 'trigger', capabilities: ['trigger.schedule'], needs: (e) => (e.scheduler ? yes : unavailable('El runtime todavía no tiene planificador; el disparador programado no puede activarse.')) },
-  { type: 'trigger.poll', displayName: 'Consulta periódica', kind: 'trigger', capabilities: ['trigger.poll'], needs: (e) => (e.scheduler ? yes : unavailable('Necesita el planificador del runtime.')) },
-  { type: 'trigger.webhook', displayName: 'Webhook entrante', kind: 'trigger', capabilities: ['trigger.webhook'], needs: (e) => (e.webhookServer ? yes : unavailable('Necesita un receptor de webhooks autenticado en el runtime (no existe aún).')) },
-  { type: 'trigger.event', displayName: 'Evento de Janus', kind: 'trigger', capabilities: ['trigger.event'], needs: (e) => (e.eventBus ? yes : unavailable('Necesita el bus de eventos del runtime conectado a los flujos.')) },
+  { type: 'trigger.schedule', displayName: 'Programado (cron)', kind: 'trigger', capabilities: ['trigger.schedule'], needs: (e) => (e.scheduler ? yes : unavailable('El despachador de disparadores ya existe y está probado (`FlowTriggerDispatcher`), pero el runtime todavía no lo arranca; en reposo hasta entonces.')) },
+  { type: 'trigger.poll', displayName: 'Consulta periódica', kind: 'trigger', capabilities: ['trigger.poll'], needs: () => unavailable('Aún no soportado por el despachador (no hay cursor de consulta); usa un disparador programado.') },
+  { type: 'trigger.webhook', displayName: 'Webhook entrante', kind: 'trigger', capabilities: ['trigger.webhook'], needs: (e) => (e.webhookServer ? yes : unavailable('El receptor firmado (HMAC) ya existe en el despachador, pero el runtime todavía no expone la ruta HTTP; en reposo hasta entonces.')) },
+  { type: 'trigger.event', displayName: 'Evento de Janus', kind: 'trigger', capabilities: ['trigger.event'], needs: (e) => (e.eventBus ? yes : unavailable('El despachador ya sabe recibir eventos, pero el bus de eventos del runtime aún no está conectado a los flujos; en reposo hasta entonces.')) },
   // Lógica y control
   { type: 'logic.if', displayName: 'Condición (si / si no)', kind: 'logic', capabilities: ['logic.branch'] },
   { type: 'logic.switch', displayName: 'Selector de ramas', kind: 'logic', capabilities: ['logic.branch'] },
