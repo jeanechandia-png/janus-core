@@ -1,0 +1,23 @@
+{
+  "id": "companion",
+  "version": "0.1.0",
+  "kind": "logic-module",
+  "summary": "Compañeros para niños: criaturas originales elegibles y renombrables, ánimo sutil basado en evidencia, tutor de matemáticas paso a paso, juego de habilidades sociales y capa de seguridad con aviso al tutor.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided (modelo de lenguaje, voz, almacén, notificaciones al tutor)",
+  "network": false,
+  "secrets": "ninguno; voces por referencia (voiceRef)",
+  "dataClassification": "datos de menores: solo en el almacén local del host; biometría solo en el dispositivo y con consentimiento del tutor",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Never comments on weight, size or body appearance (isBodySafe/guardReply).",
+    "Praise defaults to effort and strategy (process praise).",
+    "Spontaneous encouragement is rate-limited: no more than maxPerHour, minimum gap between spontaneous lines.",
+    "Distress, bullying or risk always produce a warm reply that points to a trusted adult plus a parentAlert.",
+    "Not a therapist: no diagnosis, no clinical advice.",
+    "Creatures are original InfinitySeed designs; no third-party characters or voice imitations."
+  ],
+  "reuseNotes": "Otro producto: elegir criaturas del catálogo (o añadir las suyas), dar media (still/idle/talk) y voiceRef, pasar cada mensaje por companionTurn() y entregar parentAlert al canal del tutor."
+}

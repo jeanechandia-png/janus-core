@@ -15,3 +15,12 @@ Fuente: instrucciones directas de Jean. Se cargan como políticas permanentes (`
 - El `DeliveryPipeline` es biblioteca con pruebas; todavía no tiene panel en la PWA ni ruta HTTP (**PENDIENTE**; la PWA aprobada no se toca sin autorización).
 - Los revisores son heurísticos y offline. No sustituyen una revisión humana ni un corrector ortográfico real (**PENDIENTE**: adaptador de modelo/diccionario).
 - La norma 3 se interpretó como «archivo directo + mismo texto en el chat»; **POR CONFIRMAR**.
+
+
+## Normas Infinity Seed 6 (hoja manuscrita de Jean, 22-10-2026) — se suman a las anteriores
+1. **Filtros → preview → aprobación → ZIP.** Al terminar se aplican los filtros estructural, arquitectónico, ortográfico, de síntesis y de coherencia visual y estructural. Después va un **preview** para que Jean lo apruebe y, como último paso, el **ZIP**. *(Corrección de Jean, 22-10.)* Amplía las normas 1 y 2 con el filtro **arquitectónico** y la **coherencia visual**.
+2. **Evitar la saturación visual.**
+3. **Prohibido empezar desde cero:** se aprovechan los recursos, activos y módulos propios. Solo si no existen se diseña un elemento nuevo. Refuerza la norma 5.
+4. **Todo activo debe ser reutilizable y monetizable** (piezas LEGO en `packages/modules/*`).
+5. **Desarrollo centralizado:** no se crean repositorios nuevos y todo agente continúa desde donde lo dejó el anterior (`npm run continuity`, `START_HERE.md`, `docs/STATE.md`).
+6. **Herramientas de pago disponibles:** ChatGPT, Gemini, Claude y Google Workspace. Si otra herramienta rinde mejor en una tarea, el agente **lo dice** y propone usarla o combinarla.
