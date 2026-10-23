@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, existsSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { dirname, extname, join } from 'node:path';
+import { dirname, extname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
 import { GitHubAdapter } from '../../packages/adapters/src/github-adapter.js';
@@ -218,6 +218,7 @@ import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
+import { JsonFileLikenessStore, JsonFileVoiceConfigStore, LikenessToolAdapter } from '../../packages/adapters/src/likeness-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
@@ -559,6 +560,22 @@ toolGateway.register(new JanusSchoolToolAdapter(
 capabilities.register({
   tool: 'janus-school',
   actions: ['lesson.next', 'lesson.get', 'lesson.complete', 'glossary.lookup', 'review.next', 'review.grade', 'quiz.get', 'quiz.answer', 'kids.session', 'kids.technique', 'kids.guide', 'progress.get'],
+  state: 'available',
+});
+// Voz clonada y rostro (ADR-012). Registrar una voz exige tu aprobación; la de Kendra está EN ESPERA hasta que la pidas.
+// La grabación llega a la carpeta de entrada del equipo; las copias de referencia viven en voices/private (fuera de Git).
+const likenessAdapter = new LikenessToolAdapter({
+  consents: new JsonFileLikenessStore(process.env.JANUS_LIKENESS_STORE_PATH ?? join(process.cwd(), 'data', 'likeness-consents.json')),
+  voices: new JsonFileVoiceConfigStore(process.env.JANUS_QWEN_VOICE_CONFIG?.trim() || join(process.cwd(), 'config', 'voices.local.json')),
+  inboxDir: resolvePath(process.env.JANUS_VOICE_INBOX?.trim() || join(process.cwd(), 'data', 'voice-inbox')),
+  privateDir: resolvePath(process.env.JANUS_VOICE_PRIVATE_DIR?.trim() || join(process.cwd(), 'voices', 'private')),
+  cloneModelPath: process.env.JANUS_TTS_CLONE_MODEL_PATH?.trim() || undefined,
+  faceStatus: () => ({ state: faceRecognitionState.state, ...(faceRecognitionState.reason ? { reason: faceRecognitionState.reason } : {}) }),
+});
+toolGateway.register(likenessAdapter);
+capabilities.register({
+  tool: 'likeness',
+  actions: [...likenessAdapter.capabilities],
   state: 'available',
 });
 toolGateway.register(new MarcusAureliusToolAdapter());
@@ -2889,6 +2906,7 @@ const server = createServer(async (request, response) => {
       voiceSessionAuthority: 'core',
       speakerRecognition: speakerRecognitionState,
       faceRecognition: { ...faceRecognitionState, householdStrict },
+      voiceClone: { founder: likenessAdapter.stageOf('founder'), kendra: likenessAdapter.stageOf('kendra'), hostReady: Boolean(process.env.JANUS_TTS_CLONE_MODEL_PATH?.trim()) },
       voice: {
         streaming: voiceGateway
           ? {
