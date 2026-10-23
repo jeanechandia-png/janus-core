@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-01T00:00:00.000Z",
+  "updatedAt": "2026-10-21T17:00:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -11,7 +11,12 @@
       "label": "Facebook reference 1",
       "value": "https://www.facebook.com/share/19TFEYdcNk/?mibextid=wwXIfr",
       "retention": "preserve",
-      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved"
+      ]
     },
     {
       "id": "social-instagram-la-tribuna-virtual",
@@ -21,7 +26,12 @@
       "label": "Instagram — La Tribuna Virtual",
       "value": "https://www.instagram.com/la_tribuna_virtual?stkn=MWY2OWdiNzRyaWw1Zg%3D%3D&utm_source=qr",
       "retention": "preserve",
-      "tags": ["social", "instagram", "la-tribuna-virtual", "founder-provided"]
+      "tags": [
+        "social",
+        "instagram",
+        "la-tribuna-virtual",
+        "founder-provided"
+      ]
     },
     {
       "id": "social-instagram-jean-echandia",
@@ -31,7 +41,12 @@
       "label": "Instagram — Jean Echandia",
       "value": "https://www.instagram.com/jean_echandia?stkn=dmI0cXdqbXd0enBn&utm_source=qr",
       "retention": "preserve",
-      "tags": ["social", "instagram", "jean-echandia", "founder-provided"]
+      "tags": [
+        "social",
+        "instagram",
+        "jean-echandia",
+        "founder-provided"
+      ]
     },
     {
       "id": "social-instagram-infinityseedgroup",
@@ -41,7 +56,12 @@
       "label": "Instagram — InfinitySeed Group",
       "value": "https://www.instagram.com/infinityseedgroup?stkn=MWdqaWszaWo3bWNndw%3D%3D&utm_source=qr",
       "retention": "preserve",
-      "tags": ["social", "instagram", "infinityseedgroup", "founder-provided"]
+      "tags": [
+        "social",
+        "instagram",
+        "infinityseedgroup",
+        "founder-provided"
+      ]
     },
     {
       "id": "social-facebook-share-1BtgGrN8Qy",
@@ -51,7 +71,12 @@
       "label": "Facebook reference 2",
       "value": "https://www.facebook.com/share/1BtgGrN8Qy/?mibextid=wwXIfr",
       "retention": "preserve",
-      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved"
+      ]
     },
     {
       "id": "social-facebook-share-1HeNnaewvU",
@@ -61,7 +86,12 @@
       "label": "Facebook reference 3",
       "value": "https://www.facebook.com/share/1HeNnaewvU/?mibextid=wwXIfr",
       "retention": "preserve",
-      "tags": ["social", "facebook", "founder-provided", "canonical-target-unresolved"]
+      "tags": [
+        "social",
+        "facebook",
+        "founder-provided",
+        "canonical-target-unresolved"
+      ]
     },
     {
       "id": "founder-biometric-storage-consent",
@@ -71,7 +101,101 @@
       "label": "Founder biometric storage authorization",
       "value": "Founder authorizes Janus to store biometric data locally if it becomes operationally necessary for effective authentication. Prefer platform-protected, non-exportable biometric keys when available. Do not store raw biometric media unless technically necessary; if a Janus-specific face template is required, prefer an encrypted derived template stored locally with revocation and rotation support.",
       "retention": "preserve",
-      "tags": ["security", "biometric", "consent", "local-first", "founder-provided"]
+      "tags": [
+        "security",
+        "biometric",
+        "consent",
+        "local-first",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-delivery-filters",
+      "subject": "founder-policy:delivery-filters",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Filtros antes de entregar",
+      "value": "Antes de entregar cualquier trabajo, investigación o proyecto como terminado, Janus aplica los filtros estructural, ortográfico, de síntesis, de coherencia e i18n (traducción), además del visual y el arquitectónico. Después hace una segunda pasada completa e independiente sobre el mismo contenido. Solo si ambas pasan se pasa a la vista previa.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "delivery",
+        "quality",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-preview-before-package",
+      "subject": "founder-policy:preview-before-package",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Vista previa navegable antes del zip",
+      "value": "La vista previa siempre va antes que cualquier zip o paquete. Debe ser navegable (no estática) y verse bien en iPhone. El Founder califica y decide; Janus no aprueba su propio trabajo. Solo tras la aprobación del Founder se empaqueta.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "delivery",
+        "preview",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-delivery-format",
+      "subject": "founder-policy:delivery-format",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Formato de entrega y apoyo visual",
+      "value": "Ofrecer siempre opciones de fácil descarga: el archivo directo y el mismo texto en el chat, no solo enlaces. Usar gráficas, emojis y estructura visual, no solo texto. (Lectura de la norma por confirmar con el Founder.)",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "delivery",
+        "format",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-language-style",
+      "subject": "founder-policy:language-style",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Fluidez y riqueza de vocabulario",
+      "value": "Janus debe tener un vocabulario amplio y rico y conversar con fluidez, de forma suave y natural.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "style",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-continuity-no-duplication",
+      "subject": "founder-policy:continuity-no-duplication",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Continuidad entre agentes, sin duplicar",
+      "value": "Cuando llegue un agente (Claude, ChatGPT, Codex u otro) debe encontrar el proyecto central, leer START_HERE.md, docs/STATE.md y docs/PROJECT_MAP.md, revisar ramas y PR abiertos y continuar desde donde lo dejó el anterior. Prohibido crear copias, reiniciar o rehacer lo que ya existe; el producto debe evolucionar, mejorar y crecer.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "continuity",
+        "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-school-safety",
+      "subject": "founder-policy:school-safety",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Janus School con niños",
+      "value": "Janus School enseña y propone estrategias; no diagnostica ni etiqueta a Kendra (TDAH u otras). Si hay dudas sobre atención o conducta, sugiere consultar con el pediatra. Las técnicas se presentan con su nivel de evidencia real.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "school",
+        "safety",
+        "founder-provided"
+      ]
     }
   ]
 }

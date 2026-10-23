@@ -21,9 +21,26 @@ export interface SpeakerRunPolicy {
 }
 
 /** Read-only, local, non-personal tools that are safe for any household member. */
-export const HOUSEHOLD_SAFE_TOOLS: readonly string[] = Object.freeze(['seneca', 'marcus-aurelius']);
+export const HOUSEHOLD_SAFE_TOOLS: readonly string[] = Object.freeze(['seneca', 'marcus-aurelius', 'janus-school']);
 
-export function policyForSpeaker(speaker: SpeakerLike | undefined): SpeakerRunPolicy {
+export interface SpeakerPolicyOptions {
+  /**
+   * Household-strict mode: when a voice/face hint exists but does NOT positively identify the owner
+   * (unknown, ambiguous, too little audio), the run is restricted too. Runs with no hint at all (typed
+   * commands from a signed-in device) are unaffected.
+   */
+  strict?: boolean;
+}
+
+export function policyForSpeaker(speaker: SpeakerLike | undefined, options: SpeakerPolicyOptions = {}): SpeakerRunPolicy {
+  if (speaker && options.strict && !(speaker.decision === 'match' && speaker.profile === 'owner')
+    && !(speaker.decision === 'match' && speaker.profile)) {
+    return {
+      restricted: true,
+      allowedTools: HOUSEHOLD_SAFE_TOOLS,
+      reason: 'Household-strict mode: the speaker was not positively identified as the owner.',
+    };
+  }
   if (!speaker || speaker.decision !== 'match' || speaker.profile === 'owner' || !speaker.profile) {
     return { restricted: false, allowedTools: [], reason: 'No restriction: owner, unknown or no speaker hint.' };
   }

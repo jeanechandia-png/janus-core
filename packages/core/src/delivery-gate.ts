@@ -4,7 +4,9 @@ export type QualityDimension =
   | 'visual'
   | 'architectural'
   | 'orthographic'
-  | 'synthesis';
+  | 'synthesis'
+  | 'i18n'
+  | 'style';
 
 export type FindingSeverity = 'info' | 'warning' | 'error';
 
@@ -50,6 +52,12 @@ const DEFAULT_DIMENSIONS: QualityDimension[] = [
   'orthographic',
   'synthesis',
 ];
+
+/**
+ * Founder operating norm (2026-10-21): structural, orthographic, synthesis, coherence and i18n filters,
+ * plus the existing visual/architectural ones, and a style review. `style` only ever warns.
+ */
+export const FOUNDER_REQUIRED_DIMENSIONS: QualityDimension[] = [...DEFAULT_DIMENSIONS, 'i18n', 'style'];
 
 export class DeliveryGate {
   private readonly reviewers = new Map<QualityDimension, QualityReviewer>();

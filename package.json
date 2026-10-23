@@ -10,7 +10,8 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "demo": "node --import tsx examples/observable-run.ts",
     "start:local": "node scripts/start-local.mjs",
-    "integrations:check": "node scripts/check-integrations.mjs"
+    "integrations:check": "node scripts/check-integrations.mjs",
+    "continuity": "node --import tsx scripts/continuity.ts"
   },
   "dependencies": {
     "ws": "^8.21.3"

@@ -1,8 +1,14 @@
 # START HERE — Janus
 
-Last verified: 2026-09-17
+Last verified: 2026-10-21
 Owner: InfinitySeed Group
 Canonical operating identity: `jean.echandia@gmail.com`
+
+## Agent entry protocol (mandatory, any agent: Claude, ChatGPT, Codex…)
+1. Run `npm run continuity` (branch, LEGO modules, open-PR stack, ADR collisions, current handoff).
+2. Read `docs/PROJECT_MAP.md`, `docs/STATE.md` and `docs/operating-norms.md`.
+3. Continue from the previous agent's last commit. Never restart, copy or rebuild what exists.
+4. Finish with branch/commit, tests, changes, pending items and a reproducible handoff in `docs/STATE.md`.
 
 ## Canonical location
 - Repository: `jeanechandia-png/janus-core`
