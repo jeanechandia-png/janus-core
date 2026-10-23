@@ -56,6 +56,39 @@ export interface StoredBiometricPublicKey {
   revokedAt?: string;
 }
 
+/** Historial de ejecuciones de flujos (motor de automatización). JSON plano: el núcleo no depende del paquete de automatización. */
+export type FlowRunStatus = 'completed' | 'failed' | 'paused' | 'deduplicated';
+
+export interface FlowRunRecord {
+  runId: string;
+  workflowId: string;
+  revision: number;
+  status: FlowRunStatus;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+  /** Instantánea para reanudar (aprobaciones y esperas). Los valores con aspecto de secreto se sustituyen por `[redacted]`. */
+  snapshot?: unknown;
+  /** Solo es reanudable si hay instantánea y no se ocultó nada en ella. */
+  resumable: boolean;
+  /** Cuántos valores con aspecto de secreto se ocultaron antes de guardar. */
+  redactions: number;
+  outputs?: unknown;
+  pendingApprovals: unknown[];
+  waiting: unknown[];
+  error?: string;
+}
+
+export interface FlowRunEventRecord {
+  runId: string;
+  seq: number;
+  type: string;
+  at: string;
+  nodeId?: string;
+  attempt?: number;
+  detail?: string;
+}
+
 export class SqliteStore {
   private readonly db: DatabaseSync;
 
@@ -1479,6 +1512,70 @@ export class SqliteStore {
     return row ? JSON.parse(String(row.snapshot_json)) as SocialChannelSnapshot : undefined;
   }
 
+  /** Reserva una clave de desduplicación de forma duradera. `false` si ya estaba reservada (también tras reiniciar). */
+  claimFlowKey(key: string, at: string): boolean {
+    const result = this.db.prepare('INSERT OR IGNORE INTO flow_dedupe (dedupe_key, claimed_at) VALUES (?, ?)').run(key, at);
+    return Number(result.changes) === 1;
+  }
+
+  saveFlowRun(record: FlowRunRecord): void {
+    this.db.prepare(`
+      INSERT INTO flow_runs (run_id, workflow_id, revision, status, started_at, updated_at, record_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(run_id) DO UPDATE SET
+        workflow_id = excluded.workflow_id,
+        revision = excluded.revision,
+        status = excluded.status,
+        started_at = excluded.started_at,
+        updated_at = excluded.updated_at,
+        record_json = excluded.record_json
+    `).run(record.runId, record.workflowId, record.revision, record.status, record.startedAt, record.updatedAt, JSON.stringify(record));
+  }
+
+  getFlowRun(runId: string): FlowRunRecord | undefined {
+    const row = this.db.prepare('SELECT record_json FROM flow_runs WHERE run_id = ?').get(runId) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.record_json)) as FlowRunRecord : undefined;
+  }
+
+  /** Más recientes primero. `limit` por defecto 50, máximo 500. */
+  listFlowRuns(filter: { workflowId?: string; status?: FlowRunStatus; limit?: number } = {}): FlowRunRecord[] {
+    const where: string[] = [];
+    const args: Array<string | number> = [];
+    if (filter.workflowId) { where.push('workflow_id = ?'); args.push(filter.workflowId); }
+    if (filter.status) { where.push('status = ?'); args.push(filter.status); }
+    const limit = Math.min(Math.max(Math.floor(filter.limit ?? 50), 1), 500);
+    const rows = this.db.prepare(`
+      SELECT record_json FROM flow_runs
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY updated_at DESC, run_id DESC
+      LIMIT ${limit}
+    `).all(...args) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.record_json)) as FlowRunRecord);
+  }
+
+  appendFlowRunEvent(event: Omit<FlowRunEventRecord, 'seq'>): void {
+    this.db.prepare(`
+      INSERT INTO flow_run_events (run_id, seq, at, type, node_id, attempt, detail)
+      VALUES (?, COALESCE((SELECT MAX(seq) FROM flow_run_events WHERE run_id = ?), 0) + 1, ?, ?, ?, ?, ?)
+    `).run(event.runId, event.runId, event.at, event.type, event.nodeId ?? null, event.attempt ?? null, event.detail ?? null);
+  }
+
+  listFlowRunEvents(runId: string): FlowRunEventRecord[] {
+    const rows = this.db.prepare(`
+      SELECT run_id, seq, at, type, node_id, attempt, detail FROM flow_run_events
+      WHERE run_id = ? ORDER BY seq ASC
+    `).all(runId) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      runId: String(row.run_id),
+      seq: Number(row.seq),
+      at: String(row.at),
+      type: String(row.type),
+      ...(row.node_id !== null && row.node_id !== undefined ? { nodeId: String(row.node_id) } : {}),
+      ...(row.attempt !== null && row.attempt !== undefined ? { attempt: Number(row.attempt) } : {}),
+      ...(row.detail !== null && row.detail !== undefined ? { detail: String(row.detail) } : {}),
+    }));
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`
@@ -1843,6 +1940,38 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_social_channel_product_time
       ON social_channel_snapshots(product_id, platform, verified_at, id);
+
+      CREATE TABLE IF NOT EXISTS flow_runs (
+        run_id TEXT PRIMARY KEY,
+        workflow_id TEXT NOT NULL,
+        revision INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        record_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_flow_runs_workflow_time
+      ON flow_runs(workflow_id, updated_at, run_id);
+
+      CREATE INDEX IF NOT EXISTS idx_flow_runs_status_time
+      ON flow_runs(status, updated_at, run_id);
+
+      CREATE TABLE IF NOT EXISTS flow_run_events (
+        run_id TEXT NOT NULL,
+        seq INTEGER NOT NULL,
+        at TEXT NOT NULL,
+        type TEXT NOT NULL,
+        node_id TEXT,
+        attempt INTEGER,
+        detail TEXT,
+        PRIMARY KEY (run_id, seq)
+      );
+
+      CREATE TABLE IF NOT EXISTS flow_dedupe (
+        dedupe_key TEXT PRIMARY KEY,
+        claimed_at TEXT NOT NULL
+      );
 
       CREATE TABLE IF NOT EXISTS monetization_requirement_snapshots (
         id TEXT PRIMARY KEY,

@@ -20,11 +20,11 @@ Janus necesita unos 110 MB de memoria en reposo (medido por el agente el 2026-10
 |---|---|---|---|---|
 | Hetzner Cloud CPX12 (Alemania/Finlandia) | 1 CPU, 2 GB, 40 GB | 11,99 | 14,51 | Facturación por horas con tope mensual; sin permanencia mencionada; se paga hasta borrar el servidor |
 | Hetzner Cloud CPX02 | 1 CPU, 1 GB, 20 GB | 6,49 | 7,85 | Ídem |
-| Hostinger KVM 1 | 1 CPU, 4 GB, 50 GB | 5,49 | 6,64 | Prepago; **la página no indica la duración del primer periodo**; renueva a 11,99 €/mes durante 2 años; reembolso 30 días |
-| Hostinger KVM 2 | 2 CPU, 8 GB, 100 GB | 7,79 | 9,43 | Ídem; renueva a 14,99 €/mes |
+| Hostinger KVM 1 | 1 CPU, 4 GB, 50 GB | 5,49 | 6,64 | **Prepago, un solo pago.** Periodos de VPS: 1, 12 o 24 meses (soporte de Hostinger). El precio bajo parece ser el de 24 meses (INFERENCIA: la página en euros no lo dice; una versión en dólares lo lista así) = 131,76 € sin IVA ≈ 159,43 € con IVA de golpe. Renueva a 11,99 €/mes durante 2 años (287,76 € sin IVA ≈ 348,19 € con IVA). Reembolso completo solo en los primeros 30 días; pasado ese plazo **POR CONFIRMAR** (la política de reembolso no se pudo leer) |
+| Hostinger KVM 2 | 2 CPU, 8 GB, 100 GB | 7,79 | 9,43 | Ídem; renueva a 14,99 €/mes. Las dos opciones de Hostinger chocan con la norma 7 (prepago largo) |
 | La laptop del Founder (cuando la compre) | — | 0 | 0 | Solo funciona con ella encendida |
 
-Fuentes: hostinger.com/nl/vps-hosting, hostinger.com/es/servidor-vps, hetzner.com/cloud/regular-performance, docs.hetzner.com/cloud/billing/faq (2026-10-23). Si InfinitySeed puede deducir el IVA, el coste real es el neto (**POR CONFIRMAR** con el gestor).
+Fuentes: hostinger.com/support/1583589 (periodos), hostinger.com/nl/vps-hosting, hostinger.com/es/servidor-vps, hostinger.com/vps-hosting.md, hetzner.com/cloud/regular-performance, docs.hetzner.com/cloud/billing/faq (2026-10-23). Si InfinitySeed puede deducir el IVA, el coste real es el neto (**POR CONFIRMAR** con el gestor).
 
 ## Cómo se activa algo (siempre a petición del Founder)
 1. El Founder lo pide con sus palabras.

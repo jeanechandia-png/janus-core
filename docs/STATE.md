@@ -17,7 +17,8 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - almacén cifrado de credenciales (AES-256-GCM) + consentimiento de Google por buzón (PKCE, cuenta verificada, lectura y escritura separadas, renovación automática); token de Threads renovable;
   - teléfono/WhatsApp: registro, política, plan por rutas y enlaces de un toque (WhatsApp/SMS/llamada); API oficial, voz y SMS **no existen todavía** (requieren número dedicado y gasto); clientes no oficiales de WhatsApp rechazados;
   - vigilancia periódica de redes opt-in (fotos en SQLite, alertas de caída/subida), agrupación de enlaces por cuenta;
-  - datos personales en una capa local ignorada por git; escaneo de privacidad local; **nada probado contra las API reales**; 474/474 pruebas + humo del runtime;
+  - datos personales en una capa local ignorada por git; escaneo de privacidad local; **nada probado contra las API reales**; 482/482 pruebas + humo del runtime;
+  - **historial de ejecuciones de flujos en SQLite** (`packages/automation/src/flow-run-persistence.ts`): estado, salidas y eventos en orden; desduplicación del disparador que sobrevive a reinicios; reanudación de pausas por aprobación/espera (falla cerrado si la instantánea no es fiable); valores con aspecto de secreto ocultados antes de guardar; **aún sin ruta HTTP ni panel** (PENDIENTE);
   - **norma 7, «el gasto va al final» (Founder, 2026-10-23)**: lo que cuesta dinero se construye y queda **en reposo, pendiente de activación** (`docs/dormant-capabilities.md`); el motor no se despliega ni se contrata servidor por ahora (opción C); precios siempre en euros;
   - detalle, límites, lecciones y bloqueos: `docs/handoffs/2026-10-23-vault-oauth-phone-watch.md` (y el anterior, histórico) y `docs/founder-social-source-readiness.md`.
 

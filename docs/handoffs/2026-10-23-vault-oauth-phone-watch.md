@@ -73,3 +73,10 @@ JANUS_SOCIAL_WATCH_INTERVAL_MIN=360     # opcional; mínimo 15
 - **CAMBIO:** `packages/security/src/founder-biometric.ts` (una sola lectura de reloj).
 - **VERIFICACIÓN:** 0 fallos en 48 ejecuciones paralelas de la prueba de humo tras el arreglo (antes, 4–5). Es evidencia, no demostración; escaneo de otros pares de lecturas de reloj en `packages/` y `apps/runtime`: sin coincidencias.
 
+## Historial de ejecuciones de flujos (2026-10-23, sin servidor ni gasto)
+- `SqliteStore`: tablas `flow_runs`, `flow_run_events`, `flow_dedupe` y métodos `claimFlowKey`, `saveFlowRun`, `getFlowRun`, `listFlowRuns`, `appendFlowRunEvent`, `listFlowRunEvents`.
+- `packages/automation/src/flow-run-persistence.ts`: `runWorkflowPersisted` y `resumeWorkflowRun` (errores `FlowResumeError`: `not_found`, `not_paused`, `not_resumable`, `workflow_mismatch`) y `redactSecrets`.
+- **Decisión de diseño (INFERENCIA, a revisar):** las claves con nombre de secreto (`token`, `password`, `apiKey`, `authorization`…) se guardan como `[redacted]`; si se ocultó algo, esa ejecución **no se reanuda** en vez de continuar con datos alterados. Los flujos deberían llevar referencias a credenciales, no secretos (ADR-004).
+- **Pendiente:** ruta HTTP bajo Founder + biometría para listar/aprobar/reanudar, disparadores programado/webhook/evento, y el editor visual (dos opciones HTML para elegir).
+- Verificación: 8 pruebas; con la ocultación desactivada fallan 2 (comprobado).
+
