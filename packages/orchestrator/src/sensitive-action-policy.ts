@@ -18,6 +18,7 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'vercel-release.deployment.redeploy': 'Redespliega un proyecto en Vercel (puede cambiar producción).',
   'hostinger-release.site.deploy': 'Publica o reemplaza el contenido de una web en Hostinger (cambia un sitio en vivo).',
   'n8n.workflow.trigger': 'Dispara un flujo de n8n (acción externa).',
+  'http.request.send': 'Envía datos a un sistema externo por HTTP (POST/PUT/PATCH/DELETE; escritura externa).',
   'google-workspace-write.gmail.draft.create': 'Crea un borrador en Gmail (escritura en tu correo; no se envía).',
   'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',
 });

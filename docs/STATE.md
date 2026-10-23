@@ -12,6 +12,12 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
 
 ## HECHO
 
+- **Motor de flujos inspirado en n8n + respuestas con citas (2026-10-23, rama `claude/flow-engine-n8n-parity`)**:
+  - ejecución real de flujos (ramas, reintentos, ramas de error, aprobación y esperas reanudables, subflujos, desduplicación, tiempo máximo), código JS aislado, nodo HTTP/REST con endpoints autorizados por nombre, nodos de IA con el texto externo acotado como dato, catálogo de nodos/conectores honesto y 5 plantillas;
+  - `cited-answer`: búsqueda → citas numeradas con enlaces → verificación automática;
+  - Python y los disparadores programado/webhook/evento **no existen todavía** y están registrados como `unavailable`;
+  - detalle, límites y pendientes: `docs/handoffs/2026-10-23-flow-engine-n8n-parity.md` y addendum de `ADR-004`.
+
 - **Coding & Agentic Engineering Expertise (2026-09-23)**:
   - `coding` y `agentic_workflow` son tipos de trabajo nativos del Work Graph;
   - Agent Swarm asigna Builder especializado a coding y Workflow Architect a agentic workflows;

@@ -12,6 +12,7 @@ import { RunwayAdapter } from '../../packages/adapters/src/runway-adapter.js';
 import { PerplexityAdapter } from '../../packages/adapters/src/perplexity-adapter.js';
 import { KlingAdapter } from '../../packages/adapters/src/kling-adapter.js';
 import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-adapter.js';
+import { HttpRequestAdapter, parseHttpEndpoints } from '../../packages/adapters/src/http-request-adapter.js';
 import { GoogleWorkspaceWriteAdapter } from '../../packages/adapters/src/google-workspace-write-adapter.js';
 import { NetlifyReleaseAdapter } from '../../packages/adapters/src/netlify-release-adapter.js';
 import { SupabaseManagementAdapter } from '../../packages/adapters/src/supabase-management-adapter.js';
@@ -220,6 +221,14 @@ const founderBiometricKeyId =
   process.env.JANUS_FOUNDER_BIOMETRIC_KEY_ID?.trim() || 'founder-face-key';
 const metaGraphApiVersion = process.env.META_GRAPH_API_VERSION?.trim() || undefined;
 
+// Endpoints HTTP que el Founder autoriza por nombre (JANUS_HTTP_ENDPOINTS). Cada credencial viaja en
+// JANUS_HTTP_TOKEN_<SERVICIO>; nunca en el JSON de endpoints ni en SQLite.
+const httpEndpoints = parseHttpEndpoints(process.env.JANUS_HTTP_ENDPOINTS);
+const httpServiceVariables: Record<string, string> = Object.fromEntries(
+  Object.values(httpEndpoints)
+    .filter((endpoint) => endpoint.credentialService)
+    .map((endpoint) => [endpoint.credentialService!, `JANUS_HTTP_TOKEN_${endpoint.credentialService!.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]),
+);
 const environmentCredentials = new EnvironmentCredentialProvider({
   serviceVariables: {
     github: 'GITHUB_TOKEN',
@@ -244,6 +253,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     'vercel-release': 'VERCEL_RELEASE_TOKEN',
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
+    ...httpServiceVariables,
   },
 });
 const credentialBroker = new CredentialBroker([environmentCredentials]);
@@ -373,6 +383,10 @@ toolGateway.register(new N8nAdapter({
   ...(process.env.N8N_BASE_URL?.trim() ? { baseUrl: process.env.N8N_BASE_URL.trim() } : {}),
   tokenProvider: () => credentialBroker.accessToken('n8n'),
   webhooks: n8nWebhooks,
+}));
+toolGateway.register(new HttpRequestAdapter({
+  endpoints: httpEndpoints,
+  tokenProvider: (service) => credentialBroker.accessToken(service),
 }));
 toolGateway.register(new GoogleWorkspaceWriteAdapter({
   tokenProvider: () => credentialBroker.accessToken('google-workspace-write', ['gmail.compose', 'calendar.events']),
@@ -591,6 +605,19 @@ capabilities.register({
   actions: ['workflow.trigger'],
   state: Object.keys(n8nWebhooks).length > 0 ? 'available' : 'needs_auth',
   ...(Object.keys(n8nWebhooks).length === 0 ? { reason: 'Para disparar flujos, el Founder debe autorizar sus webhooks por nombre en JANUS_N8N_WEBHOOKS.' } : {}),
+});
+const httpEndpointNames = Object.keys(httpEndpoints);
+capabilities.register({
+  tool: 'http',
+  actions: ['request.read'],
+  state: httpEndpointNames.length > 0 ? 'available' : 'needs_auth',
+  ...(httpEndpointNames.length === 0 ? { reason: 'Peticiones HTTP/REST: el Founder debe autorizar endpoints por nombre en JANUS_HTTP_ENDPOINTS (solo https; los flujos nunca escriben URLs libres).' } : {}),
+});
+capabilities.register({
+  tool: 'http',
+  actions: ['request.send'],
+  state: httpEndpointNames.length > 0 ? 'available' : 'needs_auth',
+  ...(httpEndpointNames.length === 0 ? { reason: 'Enviar datos por HTTP escribe en un sistema externo: necesita endpoints autorizados y siempre pide aprobación.' } : {}),
 });
 capabilities.register({
   tool: 'google-workspace-write',
