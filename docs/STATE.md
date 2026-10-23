@@ -256,6 +256,10 @@ La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pe
   - capability map de automatización con subflows, code isolation, dry-run/replay y visual editor como siguientes fases.
 - Pruebas unitarias para schema/validation, expressions, execution/concurrency, compiler y Node Registry.
 
+2s. **Nodo de Janus en la tablet Samsung (2026-10-23, rama `claude/tablet-nodo-janus`)**: piloto temporal y **solo para Janus** (ChatBox e IBA no cambian), 0 €, en reposo hasta que Jean lo ejecute en la tablet. Ver `docs/tablet-node.md` y `docs/handoffs/2026-10-23-tablet-nodo-janus.md`.
+   - `scripts/tablet/` (instalador Termux idempotente, supervisor con reinicio y una sola instancia, copia diaria verificada de SQLite con rotación, estado en lenguaje llano); sin secretos; envío a Drive inactivo hasta autorización.
+   - HECHO VERIFICADO: núcleo en Node 24.22.1 → 573/574 pruebas (1 omitida), `runtime-smoke` ok, `tests/tablet-kit.test.ts` 5/5; Termux trae Node 24 LTS con `--shared-sqlite`. POR CONFIRMAR: Android real de la tablet, tsx/esbuild allí, autonomía de batería. BLOQUEADO (no urgente): acceso desde el iPhone requiere HTTPS para el inicio de sesión.
+
 ## PENDIENTE
 
 ### P0
