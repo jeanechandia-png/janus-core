@@ -1,0 +1,24 @@
+{
+  "id": "stoicism-knowledge",
+  "version": "1.0.0",
+  "kind": "knowledge-module",
+  "summary": "Estoicismo a fondo para Janus: los doce libros de las Meditaciones completos (Long, 1862) con resúmenes y búsqueda, historia de la escuela, orígenes grecorromanos, doctrina, psicología actual y ejercicios; cada dato con su base (verificado / consenso / inferencia / no verificado).",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "public-knowledge",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "The Meditations has twelve BOOKS (never 'tomos'). Paragraph numbers are positions inside the Standard Ebooks edition, not necessarily the standard book.section numbers.",
+    "The full English text of Long's translation is kept byte-checked: the tests recompute a SHA-256 per book against MEDITATIONS_TEXT_SHA256.",
+    "Every digest excerpt is an exact substring of the paragraph it points to (checked by the tests). Spanish summaries and glosses are interpretation, never presented as translation.",
+    "Every statement carries a basis: verified-source, consensus-unverified, inference or unverified. Dates of people are consensus unless marked otherwise.",
+    "Crisis language returns support_first with no quotations or philosophy.",
+    "Psychology answers always say: philosophy of life, not a therapy; not the same as or the origin of CBT; not a therapist; see a professional for real difficulties.",
+    "Not a clinical tool: no diagnosis, no treatment claims. Evidence for Stoic-based programmes is reported as preliminary (NO VERIFICADO as clinical efficacy)."
+  ],
+  "reuseNotes": "Import from src/index.ts. Wrap with a thin adapter in each host product (Janus uses packages/adapters/src/stoicism-tool-adapter.ts). Sibling of seneca-wisdom and marcus-aurelius-wisdom, which stay independent and keep their curated quotes. To refresh the text: regenerate meditations-text.ts and meditations-digests.ts from the source commit named in src/provenance.ts and update the hashes."
+}

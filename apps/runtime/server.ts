@@ -219,6 +219,7 @@ import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js'
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
+import { StoicismToolAdapter } from '../../packages/adapters/src/stoicism-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
@@ -565,6 +566,13 @@ toolGateway.register(new MarcusAureliusToolAdapter());
 capabilities.register({
   tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
+  state: 'available',
+});
+// Deep Stoicism knowledge for the founder's personal/work use (not in the household-safe list).
+toolGateway.register(new StoicismToolAdapter());
+capabilities.register({
+  tool: 'stoicism',
+  actions: ['ask', 'overview.get', 'book.get', 'passage.get', 'search.run', 'figure.get', 'history.get', 'timeline.get', 'origins.get', 'doctrine.get', 'psychology.get', 'practice.get', 'glossary.get', 'limits.get'],
   state: 'available',
 });
 
