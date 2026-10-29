@@ -1,0 +1,303 @@
+import type { Figure, Phase, TimelineEntry } from './types.js';
+
+/**
+ * Stoic figures and phases. Bases:
+ *  - verified-source: confirmed on the Stanford Encyclopedia of Philosophy page «Stoicism» (see provenance.ts).
+ *  - consensus-unverified: standard in the literature (mostly via Diogenes Laertius, Stobaeus, Epictetus’s pupil Arrian), NOT re-checked here.
+ * Dates marked «c.» are approximate. Anecdotes from Diogenes Laertius are flagged as tradition.
+ */
+export const FIGURES: readonly Figure[] = [
+  {
+    id: 'socrates',
+    name: 'Sócrates',
+    dates: '470/469–399 a. C.',
+    phase: 'precursor',
+    role: 'Filósofo ateniense que giró la filosofía hacia la ética; no escribió nada. Condenado a muerte en 399 a. C.',
+    works: 'Sin obra propia; lo conocemos por Platón, Jenofonte y otros.',
+    ideas: 'La virtud como conocimiento; examinar la propia vida; nadie obra mal a sabiendas. Es la raíz de la que beben cínicos y estoicos.',
+    basis: 'consensus-unverified',
+    aliases: ['socrates'],
+  },
+  {
+    id: 'diogenes-sinope',
+    name: 'Diógenes de Sinope (el cínico)',
+    dates: 'c. 412–323 a. C.',
+    phase: 'precursor',
+    role: 'Cínico famoso por vivir con lo mínimo y por su libertad de palabra.',
+    works: 'Se le atribuyen escritos que no se conservan; anécdotas en Diógenes Laercio.',
+    ideas: 'Vivir según la naturaleza, indiferencia hacia riqueza y fama. Marco Aurelio recuerda que Diógenes solía tomar de los autores de la comedia antigua, por su franqueza, recordatorios contra la insolencia (Meditaciones, libro 11, párrafo 13 de la edición).',
+    basis: 'consensus-unverified',
+    aliases: ['diogenes', 'cinicos', 'cynics'],
+  },
+  {
+    id: 'crates',
+    name: 'Crates de Tebas (el cínico)',
+    dates: 'c. 365–285 a. C.',
+    phase: 'precursor',
+    role: 'Cínico, maestro de Zenón de Citio (esto último confirmado por la Stanford Encyclopedia of Philosophy).',
+    works: 'Fragmentos.',
+    ideas: 'Ascetismo práctico y buen humor; puente entre el cinismo y la Estoa.',
+    basis: 'verified-source',
+    aliases: ['crates', 'cratetes'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'zeno',
+    name: 'Zenón de Citio',
+    dates: 'c. 334–262 a. C.',
+    phase: 'old-stoa',
+    role: 'Fundador del estoicismo en Atenas hacia el 300 a. C., tras estudiar con el cínico Crates (verificado en la SEP). Enseñaba en la Stoa Poikilê, el «pórtico pintado» del ágora, de donde viene el nombre «estoicos».',
+    works: 'No se conserva ninguna obra completa; solo fragmentos y testimonios. La tradición (Diógenes Laercio) cuenta que llegó a Atenas tras un naufragio: es anécdota, no dato comprobado.',
+    ideas: 'División de la filosofía en lógica, física y ética; vivir de acuerdo con la naturaleza y la razón; la virtud como único bien.',
+    basis: 'verified-source',
+    aliases: ['zenon', 'zeno', 'zenon de citio', 'zeno of citium', 'fundador'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'cleanthes',
+    name: 'Cleantes de Asos',
+    dates: 'c. 330–230 a. C.',
+    phase: 'old-stoa',
+    role: 'Segundo director de la escuela (verificado en la SEP). La tradición dice que trabajaba de noche para costearse los estudios.',
+    works: 'Se conserva casi entero el «Himno a Zeus» (por cita de Estobeo); del resto, fragmentos.',
+    ideas: 'Acento religioso y físico: el cosmos regido por un Logos providente.',
+    basis: 'verified-source',
+    aliases: ['cleantes', 'cleanthes'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'chrysippus',
+    name: 'Crisipo de Solos',
+    dates: 'c. 279–206 a. C.',
+    phase: 'old-stoa',
+    role: 'Director de la escuela hacia 230–206 a. C. (SEP); «el mayor teórico y sistematizador» del estoicismo antiguo. Se le atribuye una producción enorme (más de 150 obras según la SEP), de la que solo quedan fragmentos.',
+    works: 'Solo fragmentos, reunidos por von Arnim en los Stoicorum Veterum Fragmenta (1903–1905).',
+    ideas: 'Lógica proposicional, teoría de las pasiones como juicios, compatibilismo (la analogía del cilindro y el cono para explicar que el asentimiento depende de nosotros).',
+    basis: 'verified-source',
+    aliases: ['crisipo', 'chrysippus'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'diogenes-babylon',
+    name: 'Diógenes de Babilonia',
+    dates: 'siglo II a. C. (mediados)',
+    phase: 'middle-stoa',
+    role: 'Director de la escuela a mediados del siglo II a. C. (SEP). Según la tradición formó parte de la embajada de filósofos atenienses a Roma en el 155 a. C. (dato de consenso, no recomprobado).',
+    works: 'Fragmentos.',
+    ideas: 'Continuador de Crisipo; puente entre la Estoa griega y Roma.',
+    basis: 'verified-source',
+    aliases: ['diogenes de babilonia', 'diogenes of babylon'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'panaetius',
+    name: 'Panecio de Rodas',
+    dates: 'c. 185–109 a. C.',
+    phase: 'middle-stoa',
+    role: 'Figura central del estoicismo medio (segunda mitad del siglo II a. C., SEP). Vinculado al círculo romano de los Escipiones (consenso).',
+    works: 'Su tratado Sobre los deberes no se conserva; Cicerón lo tomó como modelo de De officiis (verificado en la SEP).',
+    ideas: 'Ética práctica de los deberes según el papel de cada uno; un estoicismo más abierto a Platón y Aristóteles.',
+    basis: 'verified-source',
+    aliases: ['panecio', 'panaetius'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'posidonius',
+    name: 'Posidonio de Apamea',
+    dates: 'c. 135–51 a. C.',
+    phase: 'middle-stoa',
+    role: 'Polímata del estoicismo medio (siglo I a. C., SEP): historia, geografía, física y ética. La tradición lo conecta con Cicerón y Pompeyo.',
+    works: 'Obras perdidas; fragmentos y testimonios.',
+    ideas: 'Interés por la psicología de las pasiones y por la simpatía cósmica.',
+    basis: 'verified-source',
+    aliases: ['posidonio', 'posidonius'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'cicero',
+    name: 'Cicerón',
+    dates: '106–43 a. C.',
+    phase: 'later',
+    role: 'Orador y político romano que no se llamaba estoico, pero discutió ampliamente la teoría estoica (SEP) y la trasladó al latín.',
+    works: 'De officiis (modelado sobre Panecio), De finibus, Tusculanae disputationes, De natura deorum, De legibus.',
+    ideas: 'Transmisor decisivo de la filosofía griega a Roma; ley natural (la SEP la presenta como tradición de raíz estoica).',
+    basis: 'verified-source',
+    aliases: ['ciceron', 'cicero'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'cato',
+    name: 'Catón el Joven (Catón de Útica)',
+    dates: '95–46 a. C.',
+    phase: 'roman-stoa',
+    role: 'Político romano que la tradición presenta como ejemplo vivo de integridad estoica; se quitó la vida en Útica antes que rendirse a César.',
+    works: 'Sin obra filosófica propia.',
+    ideas: 'Modelo ético para los estoicos romanos posteriores (Séneca lo cita a menudo).',
+    basis: 'consensus-unverified',
+    aliases: ['caton', 'cato'],
+  },
+  {
+    id: 'seneca',
+    name: 'Séneca (Lucio Anneo Séneca)',
+    dates: 'c. 4 a. C.–65 d. C.',
+    phase: 'roman-stoa',
+    role: 'Nacido en Córdoba (Hispania); consejero de Nerón (SEP). Obligado a quitarse la vida en el 65 d. C. tras la conspiración de Pisón (consenso).',
+    works: 'Cartas a Lucilio (124 cartas), De la ira, De la brevedad de la vida, De la tranquilidad del ánimo, De la vida bienaventurada, consolaciones, Cuestiones naturales y tragedias. Buena parte de su obra se conserva (la SEP lo cuenta entre los estoicos cuyos textos sobreviven).',
+    ideas: 'Estoicismo práctico: examen de la tarde, anticipación de males, uso del tiempo, la ira. Marco Aurelio y la tradición posterior lo leen mucho.',
+    basis: 'verified-source',
+    aliases: ['seneca', 'lucio anneo seneca'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'musonius',
+    name: 'Musonio Rufo',
+    dates: 'c. 30–100 d. C.',
+    phase: 'roman-stoa',
+    role: 'Maestro estoico romano de origen etrusco; tuvo como discípulo a Epicteto; desterrado en tiempos de Nerón y de Vespasiano (consenso).',
+    works: 'Conservados en forma de disertaciones recogidas por discípulos.',
+    ideas: 'Filosofía como práctica diaria: austeridad voluntaria, igualdad educativa de mujeres y hombres, ejercicio (askesis).',
+    basis: 'consensus-unverified',
+    aliases: ['musonio', 'musonius rufus', 'musonio rufo'],
+  },
+  {
+    id: 'epictetus',
+    name: 'Epicteto',
+    dates: 'c. 50–c. 135 d. C.',
+    phase: 'roman-stoa',
+    role: 'Antiguo esclavo, expulsado de Roma por Domiciano en el 93 d. C. (SEP). Su enseñanza oral fue puesta por escrito por su discípulo Arriano.',
+    works: 'Disertaciones (Diatribai, conservadas en cuatro libros) y Manual (Enquiridión), ambos recogidos por Arriano.',
+    ideas: 'La distinción entre lo que depende de nosotros y lo que no; la facultad de elegir (prohairesis); los roles; «no nos perturban las cosas sino los juicios sobre ellas» (Manual 5, versión libre y numeración de consenso, no recomprobadas aquí). Marco Aurelio agradece a Rústico haberle dado a conocer los escritos de Epicteto (Meditaciones, libro 1).',
+    basis: 'verified-source',
+    aliases: ['epicteto', 'epictetus', 'manual', 'enquiridion', 'enchiridion', 'arriano', 'arrian'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'hierocles',
+    name: 'Hierocles',
+    dates: 'siglo II d. C.',
+    phase: 'roman-stoa',
+    role: 'Moralista estoico del siglo II d. C. (SEP). Sus Elementos de ética se conservan solo en parte.',
+    works: 'Elementos de ética (parcial); fragmentos conservados por Estobeo (consenso).',
+    ideas: 'Los círculos concéntricos de la afinidad (yo, familia, comunidad, humanidad), que ilustran la oikeiosis.',
+    basis: 'verified-source',
+    aliases: ['hierocles'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'marcus',
+    name: 'Marco Aurelio',
+    dates: '121–180 d. C.',
+    phase: 'roman-stoa',
+    role: 'Emperador romano de 161 a 180 d. C. (SEP). Escribió en griego notas privadas para sí mismo, sin intención de publicarlas.',
+    works: 'Meditaciones (Ta eis heauton, «A sí mismo»), doce libros.',
+    ideas: 'Ejercicios de atención y juicio, deber hacia la comunidad, brevedad de la vida, la vista desde arriba. Es la voz estoica más leída hoy.',
+    basis: 'verified-source',
+    aliases: ['marco aurelio', 'marcus aurelius', 'meditaciones', 'meditations'],
+    sourceIds: ['sep-stoicism', 'long-meditations'],
+  },
+  {
+    id: 'lipsius',
+    name: 'Justo Lipsio',
+    dates: '1547–1606',
+    phase: 'later',
+    role: 'Humanista flamenco; la SEP lo señala como la figura más importante del movimiento neoestoico, que buscó una síntesis entre cristianismo y estoicismo a finales del siglo XVI y principios del XVII.',
+    works: 'De constantia (1584) y ediciones de Séneca (fechas de consenso, no recomprobadas).',
+    ideas: 'Constancia ante las guerras de religión; estoicismo compatible con la fe cristiana.',
+    basis: 'verified-source',
+    aliases: ['lipsio', 'lipsius', 'neoestoicismo', 'neostoicism'],
+    sourceIds: ['sep-stoicism'],
+  },
+  {
+    id: 'hadot',
+    name: 'Pierre Hadot',
+    dates: '1922–2010',
+    phase: 'later',
+    role: 'Historiador francés de la filosofía antigua.',
+    works: 'La citadelle intérieure (sobre Marco Aurelio) y Qu’est-ce que la philosophie antique? (consenso).',
+    ideas: 'La filosofía antigua como forma de vida y conjunto de ejercicios espirituales, no solo teoría. Su lectura de Marco Aurelio sigue influyendo.',
+    basis: 'consensus-unverified',
+    aliases: ['hadot'],
+  },
+];
+
+export const PHASES: readonly Phase[] = [
+  {
+    id: 'precursor',
+    title: 'Raíces: Sócrates y los cínicos',
+    period: 'siglos V–IV a. C.',
+    summary: 'Sócrates pone la ética en el centro; los cínicos, como Diógenes y Crates, la llevan a la práctica de la vida sencilla. Zenón estudió con Crates (verificado en la SEP).',
+    figureIds: ['socrates', 'diogenes-sinope', 'crates'],
+    basis: 'verified-source',
+  },
+  {
+    id: 'old-stoa',
+    title: 'Estoa antigua',
+    period: 'c. 300 a 2.º siglo a. C.',
+    summary: 'Zenón funda la escuela hacia el 300 a. C.; Cleantes la dirige después; Crisipo la sistematiza hacia 230–206 a. C. Ninguna obra completa de estos autores se conserva: solo fragmentos.',
+    figureIds: ['zeno', 'cleanthes', 'chrysippus', 'diogenes-babylon'],
+    basis: 'verified-source',
+  },
+  {
+    id: 'middle-stoa',
+    title: 'Estoa media',
+    period: 'siglos II–I a. C.',
+    summary: 'Antípatro de Tarso, Panecio y Posidonio adaptan la doctrina y la acercan al mundo romano. Sus tratados no se conservan.',
+    figureIds: ['panaetius', 'posidonius', 'cicero'],
+    basis: 'verified-source',
+  },
+  {
+    id: 'roman-stoa',
+    title: 'Estoa imperial (romana)',
+    period: 'siglos I–II d. C.',
+    summary: 'Séneca, Musonio Rufo, Epicteto y Marco Aurelio, entre otros. Son los textos estoicos que sí nos han llegado en forma sustancial, con énfasis práctico y ético.',
+    figureIds: ['cato', 'seneca', 'musonius', 'epictetus', 'hierocles', 'marcus'],
+    basis: 'verified-source',
+  },
+  {
+    id: 'later',
+    title: 'Herencia: del cristianismo antiguo a hoy',
+    period: 'siglo II d. C. en adelante',
+    summary:
+      'Autores cristianos acogieron elementos estoicos (SEP); la ley natural se presenta como tradición de raíz estoica; el neoestoicismo de Lipsio (finales del XVI) busca la síntesis con el cristianismo; ' +
+      'en el siglo XIX la lógica estoica reaparece en las historias de la lógica (Prantl, 1855), y Bobzien (2021) sostiene que pudo llegar a Frege; en el siglo XX Hadot la revaloriza como forma de vida. ' +
+      'La psicología moderna se trata aparte.',
+    figureIds: ['lipsius', 'hadot'],
+    basis: 'verified-source',
+  },
+];
+
+export const TIMELINE: readonly TimelineEntry[] = [
+  { year: -399, approx: false, label: 'Muerte de Sócrates en Atenas', basis: 'consensus-unverified' },
+  { year: -323, approx: false, label: 'Muerte de Alejandro Magno (según la tradición, el mismo año que la de Diógenes de Sinope); comienza la era helenística', basis: 'consensus-unverified' },
+  { year: -300, approx: true, label: 'Zenón de Citio funda la escuela estoica en Atenas, en la Stoa Poikilê', basis: 'verified-source' },
+  { year: -230, approx: true, label: 'Crisipo dirige la escuela (c. 230–206 a. C.) y la sistematiza', basis: 'verified-source' },
+  { year: -155, approx: false, label: 'Embajada de filósofos atenienses a Roma (la tradición incluye a Diógenes de Babilonia)', basis: 'consensus-unverified' },
+  { year: -45, approx: true, label: 'Cicerón escribe sus obras filosóficas, que trasladan la filosofía griega al latín', basis: 'consensus-unverified' },
+  { year: -4, approx: true, label: 'Nace Séneca en Córdoba', basis: 'verified-source' },
+  { year: 65, approx: false, label: 'Muerte de Séneca', basis: 'consensus-unverified' },
+  { year: 93, approx: false, label: 'Domiciano expulsa a Epicteto de Roma', basis: 'verified-source' },
+  { year: 121, approx: false, label: 'Nace Marco Aurelio', basis: 'verified-source' },
+  { year: 161, approx: false, label: 'Marco Aurelio, emperador', basis: 'verified-source' },
+  { year: 180, approx: false, label: 'Muerte de Marco Aurelio', basis: 'verified-source' },
+  { year: 1584, approx: false, label: 'Lipsio publica De constantia (neoestoicismo)', basis: 'consensus-unverified' },
+  { year: 1855, approx: false, label: 'Prantl: historia de la lógica con un capítulo largo sobre la lógica estoica', basis: 'verified-source' },
+  { year: 1953, approx: false, label: 'Albert Ellis escribe su primer artículo sobre la «terapia racional» (publicado en 1955); versión de su viuda', basis: 'unverified' },
+  { year: 2012, approx: true, label: 'Hacia esta fecha empiezan los datos de la Semana Estoica (Stoic Week), iniciativa del estoicismo moderno (según Robertson)', basis: 'verified-source' },
+];
+
+export function findFigure(query: string): Figure | undefined {
+  const needle = fold(query);
+  return FIGURES.find((figure) => figure.aliases.some((alias) => hasWord(needle, alias)) || hasWord(needle, fold(figure.name)));
+}
+
+export function listFigures(phase?: Figure['phase']): Figure[] {
+  return FIGURES.filter((figure) => !phase || figure.phase === phase);
+}
+
+function hasWord(needle: string, keyword: string): boolean {
+  return new RegExp(`(^|[^a-z0-9])${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(needle);
+}
+
+function fold(value: string): string {
+  return value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+}

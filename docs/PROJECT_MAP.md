@@ -18,11 +18,11 @@ Snapshot: 2026-10-21. Regenera lo variable con `npm run continuity` (módulos, P
 
 ## Qué existe (no lo dupliques)
 **Módulos LEGO** (`packages/modules/*`, cada uno con `module.json`; Janus los consume solo por adaptadores en `packages/adapters/`):
-`seneca-wisdom`, `marcus-aurelius-wisdom`, `janus-school`, `speaker-id`, `face-id`.
+`seneca-wisdom`, `marcus-aurelius-wisdom`, `stoicism-knowledge`, `janus-school`, `speaker-id`, `face-id`.
 
 **Núcleo reutilizable** (`packages/core/src/`): `delivery-gate` + `quality-reviewers` + `delivery-pipeline` (filtros → repaso → vista previa → Founder → paquete), `identity-presence` (ADR-008), `speaker-policy` + `identity-fusion` (perfil restringido del hogar), `founder-reference-library`, `continuity-scan`.
 
-**Herramientas de Janus** (Tool Gateway): GitHub, Google Workspace, Asana, Vercel (+release), Netlify (+release), Supabase (+write), Hostinger (+release), n8n, Perplexity, Runway, Kling, Meta/YouTube insights, `seneca`, `marcus-aurelius`, `janus-school`.
+**Herramientas de Janus** (Tool Gateway): GitHub, Google Workspace, Asana, Vercel (+release), Netlify (+release), Supabase (+write), Hostinger (+release), n8n, Perplexity, Runway, Kling, Meta/YouTube insights, `seneca`, `marcus-aurelius`, `stoicism`, `janus-school`.
 
 **Sin duplicar con ramas de otros agentes** (abiertas, no fusionadas): PR #39 (consentimiento de imagen y clonación de voz, ADR-009/010), PR #36 (panel del Founder y reels de Meta), PR #35/#13 (confianza de ejecución), rama `candidate/voice-identity-module` (verificación de voz 1:1).
 

@@ -1,6 +1,6 @@
 # JANUS — Estado vigente
 
-Fecha: 2026-10-23
+Fecha: 2026-10-28
 
 ## AHORA
 
@@ -11,6 +11,15 @@ Integrar la nueva capa de Super-Agent en la ruta productiva completa: continuida
 La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pero no modificar silenciosamente producción. La nueva capa de automatización convierte workflows deterministas y agentic workflows en una misma arquitectura Janus.
 
 ## HECHO
+
+- **Conocimiento profundo de estoicismo para Janus (2026-10-28, rama `claude/stoicism-knowledge-20261028`; instrucción del Founder: «debe conocer los 12 libros en su totalidad… la relación entre la psicología actual y el estoicismo… el origen de la filosofía grecorromana»)**:
+  - módulo LEGO nuevo `packages/modules/stoicism-knowledge` + adaptador fino `stoicism-tool-adapter.ts` → herramienta `stoicism` (solo lectura, local, sin red ni secretos), registrada en `apps/runtime/server.ts`, ruta determinista en `deterministic-planner.ts` solo para peticiones de conocimiento profundo; **no** está en `HOUSEHOLD_SAFE_TOOLS` (uso personal). Los módulos `seneca-wisdom` y `marcus-aurelius-wisdom` no se tocaron;
+  - HECHO VERIFICADO: texto completo de las Meditaciones (12 libros, 525 párrafos; traducción inglesa de G. Long, edición Standard Ebooks, commit `3a47d37d9f1df94de235d53839f4b254ce2953d5`), con SHA-256 por libro recomprobado por las pruebas; 142 pasajes clave cuyos extractos en inglés son subcadenas exactas del párrafo (prueba); los 15 números de libro de las fórmulas de Melanie y del chat escrito se contrastaron con ese texto;
+  - HECHO VERIFICADO (fuentes públicas leídas hoy): Stanford Encyclopedia of Philosophy «Stoicism» (fundador, fases, doctrina, qué se conserva, neoestoicismo), resumen de Corrêa (2023) sobre Ellis y Beck, entrevista a Debbie Joffe Ellis (segunda mano), página de Robertson sobre SMRT (evidencia preliminar, sin grupo de control, autor vinculado). Lo no recomprobado se etiqueta CONSENSO; los paralelos con la psicología, INFERENCIA; la eficacia clínica, NO VERIFICADO;
+  - reglas heredadas de Melanie y del chat escrito: «sí, hay un vínculo de inspiración», nunca «directo»/«profundo», no es lo mismo que la TCC ni su origen; siempre filosofía de vida (no terapia), Janus no es terapeuta, ante dificultades reales un profesional; lenguaje de riesgo → `support_first` sin filosofía;
+  - 19 pruebas nuevas (`tests/lego-stoicism-knowledge.test.ts`); suite 599 ok + 1 omitida (la del escaneo de privacidad, necesita la capa privada), `tsc` limpio, `npm run continuity` en verde;
+  - límites: la numeración de párrafos es la de la edición (no necesariamente libro.sección estándar); griego no consultado; resúmenes y glosas en español son interpretación, no traducción; la herramienta es de búsqueda por palabras clave, no un modelo de lenguaje; **sin probar en el equipo anfitrión de Janus**;
+  - POR CONFIRMAR: aprobación del Blueprint para la herramienta `stoicism` («Aprobaciones» → «Permitir herramientas nuevas» → «Confirmar»); si el Founder quiere ampliar el enrutado (por ejemplo, que «Háblame del estoicismo» pase a `stoicism`), hoy sigue yendo a `seneca`; revisión de fechas de personas contra fuentes primarias.
 
 - **Envío de correo con aprobación exacta (2026-10-23, rama `claude/social-accounts-watch`)**: `gmail.draft.preview` (solo lectura: Para/Cc/Cco, asunto, texto y huella) + plantilla `correo-enviar-aprobado` (inicio manual; `enviar` de riesgo alto, irreversible, con aprobación) + `mail-send-approval.ts` (tarjeta de aprobación con avisos). Si el borrador cambia tras aprobar, **no se envía**. 13 pruebas nuevas y 8 mutaciones detectadas. **Sin enviar nada real** y **sin botón en la PWA** (necesita autorización de Jean para tocar `apps/pwa`; OAuth de Google pendiente). Detalle: `docs/mail-send-approval.md`.
 - **Nodo `ai.agent` ↔ Agent Swarm (2026-10-23, rama `claude/social-accounts-watch`)**: `packages/orchestrator/src/flow-agent-adapter.ts` — enrutado por capacidades del swarm, local-first (`requireLocal`/`preferLocal`), verificación independiente que **falla cerrado** con riesgo medio/alto o acción irreversible (veredicto estricto `{ ok: true }`, verificador distinto del productor), traspaso auditable con huellas (nunca contenido), tiempo y tamaño acotados; con riesgo alto, primero aprobación humana. 20 pruebas nuevas y 5 mutaciones detectadas. **Sin agentes reales conectados** (modelo con API = gasto, en reposo, norma 7). Detalle: `docs/flow-agents.md`.

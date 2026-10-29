@@ -29,9 +29,56 @@ export function deterministicPlan(
   const school = parseSchoolRequest(command);
   if (school) return schoolPlan(command, school);
 
+  // Deep, personal-use Stoicism knowledge (books of the Meditations, history, Greco-Roman origins, doctrine, psychology).
+  // Runs before the Seneca route; generic or stress-oriented requests keep going to `seneca` / `marcus-aurelius`.
+  if (parseStoicismKnowledgeRequest(command)) return stoicismPlan(command);
+
   const seneca = parseSenecaRequest(command);
   if (seneca) return senecaPlan(command, seneca);
   return null;
+}
+
+/**
+ * Routes deep Stoicism knowledge requests to the read-only `stoicism` tool: a given book or passage of the Meditations,
+ * a search in the text, the history of the school, the Greco-Roman origins of philosophy, doctrine, the link with modern
+ * psychology, a figure card, a practice or a glossary term. Quotes, biographies of Marcus Aurelius / Seneca and stress
+ * guidance keep their existing routes.
+ */
+function parseStoicismKnowledgeRequest(command: string): boolean {
+  const text = foldText(command);
+  const stoic = /estoic|stoic|\bestoa\b/.test(text);
+  const meditations = /meditacion|marco aurelio|marcus aurelius|meditations/.test(text);
+  const stress = /estres|ansied|angusti|agobi|abrum|burnout|quemad|preocupad|rumi|stress|anxi|overwhelm/.test(text);
+
+  if (/\b(libro|book)\s*(\d{1,2}|[ivx]{1,4})\b/.test(text) && (meditations || stoic)) return true;
+  if (/\b\d{1,2}\.\d{1,3}\b/.test(text) && meditations && /pasaje|parrafo|libro/.test(text)) return true;
+  if (/\b(busca|buscar|donde dice|donde habla|search)\b/.test(text) && meditations) return true;
+  if (/grecorroman|greco-roman|presocrat|helenist|hellenistic|origenes de la filosofia|filosofia griega|filosofia romana/.test(text)) return true;
+  if (/quien (fue|es|era)\s+(epicteto|zenon|crisipo|cleantes|panecio|posidonio|musonio|hierocles|ciceron|lipsio|hadot|caton)\b/.test(text)) return true;
+  if (/\b(ellis|beck)\b/.test(text) && /estoic|epicteto|marco aurelio|terapia|cognitiv/.test(text)) return true;
+  if (stoic) {
+    if (/historia|fundad|fundacion|fases|etapas|cronolog|origen|escuela|doctrina|dicotomia|asentimiento|oikeiosis|providencia|cosmopol|pasion|psicolog|terapia|\btcc\b|cognitiv|rebt|evidencia|glosario|fuentes|que es\b|explicame|resumen|history|origins|psychology/.test(text)) return true;
+    if (!stress && /ejercicio|practica|rutina/.test(text)) return true;
+  }
+  return false;
+}
+
+function stoicismPlan(command: string): JanusPlan {
+  const steps: PlannedToolStep[] = [
+    {
+      id: 'stoicism-answer',
+      kind: 'tool',
+      label: 'Consultar el conocimiento estoico',
+      tool: 'stoicism',
+      action: 'ask',
+      input: { text: command },
+      risk: 'none',
+      reversible: true,
+      requiresApproval: false,
+      resultMode: 'full',
+    },
+  ];
+  return createPlan(command, steps, 'deterministic');
 }
 
 type SenecaRequest =
