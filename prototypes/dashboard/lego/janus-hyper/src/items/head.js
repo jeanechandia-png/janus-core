@@ -16,7 +16,9 @@ export function gorra({ A, S, C }) {
   const bg = new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.012, bevelSegments: 3, curveSegments: 36 }); bg.rotateX(PI / 2); bend(bg, (v) => { v.y -= v.z * v.z * 0.34; });
   const brim = mk(bg, brimM); brim.position.set(0, -0.36, 0.1); g.add(brim);
   for (let r = 0; r < 3; r++) { const pts = []; for (let k = 0; k <= 20; k++) { const a = (k / 20) * PI; const x = Math.cos(a) * (0.5 - r * 0.07), z = Math.sin(a) * (0.7 - r * 0.07) + 0.1; pts.push(V(x, -0.36 + 0.021 - z * z * 0.34, z)); } g.add(mk(tube(pts, 0.004, 30, 4), M.gloss(C.accent, { roughness: 0.6 }))); }
-  return { parts: headTop(A, S, g), hides: [] };
+  // gorra echada hacia atrás: la visera sube y no tapa los ojos ni las gafas
+  const pv = grp(), o = grp(); pv.position.set(0, -0.3, 0); g.position.set(0, 0.3, 0); pv.add(g); pv.rotation.x = -0.3; o.add(pv);
+  return { parts: headTop(A, S, o), hides: [] };
 }
 export function gorro({ A, S, C }) {
   const g = grp(), knit = M.fabric('knit', C.main, { rough: 0.95 });
