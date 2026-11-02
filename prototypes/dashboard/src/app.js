@@ -15,6 +15,8 @@ function render() {
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
   if (window.Janus3D) Janus3D.hydrate(document);
+  if (window.JanusStage3D) JanusStage3D.hydrate(document);
+  if (typeof cpAfterRender === 'function') cpAfterRender();
 }
 function rerender() { render(); }
 function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
