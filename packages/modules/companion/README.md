@@ -11,7 +11,11 @@ Pieza LEGO comercial: criaturas originales que acompañan a un niño o niña. Ca
 
 Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son diseños originales de InfinitySeed.
 
-## Qué hace
+## Qué hace (v0.2)
+- **Aspecto propio** (`look.ts`): la niña elige color de pelo y detalles, ojos, ropa y accesorios de un catálogo cerrado. Cada criatura guarda su aspecto. **Vestirla no cambia su carácter**: cada una conserva su movimiento propio, su voz y su forma de enseñar (`Creature.style`).
+- **Mundo y tienda** (`world.ts`): estrellas ganadas por esfuerzo (tope diario, sin castigos, sin dinero real), tienda de ropa, accesorios, casa, vehículos y decoración, compra idempotente.
+- **Escena compartida** (`scene.ts`): la escena son datos (`SceneState`); la criatura la manipula con comandos y la niña con `userMove`, `userAdjust` y `userExchange`. Los comandos externos pasan por `validateCommands` (lista blanca).
+- **Lecciones** (`lesson.ts`): `buildLesson()` convierte un ejercicio en pasos que la criatura muestra con galletas, platos, tartas y fichas de valor posicional, y termina con "tu turno" para que la niña lo construya con sus manos.
 - `companionTurn()`: primero la seguridad, después la respuesta del modelo filtrada y, como mucho, una frase de ánimo.
 - `pickEncouragement()`: ánimo **sutil y con límite de frecuencia** (por defecto ≤4 por hora y ≥25 min entre frases espontáneas).
 - `makeExercise()` / `checkAnswer()` / `adaptLevel()`: matemáticas con pistas graduales.
@@ -25,7 +29,16 @@ Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son dis
 - Revisión: *Peer functioning in children with AD/HD: current understanding and intervention options*. https://cie.asu.edu/ojs/index.php/cieatasu/article/view/16
 - RGPD: la biometría es categoría especial (art. 9). El uso puramente doméstico queda fuera del RGPD (art. 2.2.c), pero un uso comercial exige consentimiento explícito del tutor. Por eso: procesamiento en el dispositivo y `enableBiometrics()` solo con consentimiento.
 
+### Base de las lecciones y de la economía (verificada en esta versión)
+- **HECHO VERIFICADO** · Fuchs, L. S. et al. (2021). *Assisting Students Struggling with Mathematics: Intervention in the Elementary Grades* (WWC 2021006, IES). Rec. 1 instrucción sistemática y explícita; Rec. 2 lenguaje matemático; **Rec. 3 representaciones** (evidencia sólida, 28 estudios): objetos concretos y semiconcretos conectados con la notación, y retirada gradual; Rec. 4 rectas numéricas (evidencia sólida). https://ies.ed.gov/ncee/WWC/Docs/PracticeGuide/WWC2021006-Math-PG.pdf
+- **HECHO VERIFICADO** · AAP (2019). *Clinical Practice Guideline for the Diagnosis, Evaluation, and Treatment of ADHD in Children and Adolescents*. Pediatrics 144(4):e20192528 (resumen: Wetterer, Am Fam Physician 2020;102(1):58-60, https://www.aafp.org/pubs/afp/issues/2020/0701/p58.html). Recomienda entrenamiento de los padres en manejo de conducta, apoyos escolares (sistemas de puntos, informes diarios) y refuerzo positivo.
+- **INFERENCIA** · Que un sistema de estrellas por esfuerzo dentro de una app funcione como los sistemas de puntos de la guía AAP no está demostrado. No se verificó evidencia primaria sobre economías de fichas en apps. **POR CONFIRMAR.**
+- **RECOMENDACIÓN** (pendiente de revisión profesional) · Las estrellas premian esfuerzo y aprendizaje, no velocidad ni perfección; tope diario; sin castigos, sin temporizadores y sin dinero real (coherente con Mueller & Dweck 1998: elogiar proceso, no resultado).
+- Pendiente de aplicar la Rec. 4 (rectas numéricas) en la escena.
+- **POR CONFIRMAR:** revisión de las lecciones y de la economía por un profesional de la educación o de la psicología infantil antes de usarlas con Kendra de forma continuada. Este módulo **no sustituye a un profesional**.
+
 ## Límites (Protocolo de la Verdad)
+- El render 3D es procedural y estilizado (no fotorrealista); su rendimiento en iPhone/Safari no está medido (ver el handoff).
 - No es terapia ni diagnóstico. Ante señales serias, avisa al adulto.
 - Los filtros por palabras clave son una primera capa. **POR CONFIRMAR:** añadir un clasificador del modelo como segunda capa.
 - Los textos v0.1 están en español y algunos en femenino; la localización por género e idioma queda pendiente.

@@ -4,6 +4,10 @@ export * from './tutor.js';
 export * from './social.js';
 export * from './safety.js';
 export * from './profile.js';
+export * from './look.js';
+export * from './world.js';
+export * from './scene.js';
+export * from './lesson.js';
 
 import { checkMessage, type SafetyCheck } from './safety.js';
 import { guardReply, pickEncouragement, type Moment } from './encourage.js';

@@ -1,6 +1,8 @@
 /** Perfil del niño/a: criatura elegida, nombres puestos por él/ella, nivel y estado. Vive en el almacén local del host. */
 import { CREATURES, getCreature, type Creature } from './personas.js';
 import type { EncourageState } from './encourage.js';
+import { applyLookChange, defaultLook, reactionTo, sanitizeLook, type Look, type LookChange } from './look.js';
+import { canWear, newWorld, sanitizeWorld, type World } from './world.js';
 
 export interface CompanionProfile {
   childId: string;
@@ -10,13 +12,17 @@ export interface CompanionProfile {
   names: Record<string, string>;
   mathLevel: 1 | 2 | 3;
   encourage: EncourageState;
+  /** Aspecto que la niña le puso a cada criatura (opcional: los perfiles antiguos no lo traen). */
+  looks?: Record<string, Look>;
+  /** Estrellas, inventario, casa, vehículo y decoración (opcional por la misma razón). */
+  world?: World;
   /** Biometría (voz/rostro): solo en el dispositivo y con consentimiento explícito del padre/tutor. */
   biometrics: { consentByGuardian: boolean; onDeviceOnly: true; voice: boolean; face: boolean };
 }
 
 export function newProfile(childId: string, childName: string, creatureId = CREATURES[0]!.id): CompanionProfile {
   getCreature(creatureId);
-  return { childId, childName, creatureId, names: {}, mathLevel: 1, encourage: { said: [], recent: [] }, biometrics: { consentByGuardian: false, onDeviceOnly: true, voice: false, face: false } };
+  return { childId, childName, creatureId, names: {}, mathLevel: 1, encourage: { said: [], recent: [] }, looks: {}, world: newWorld(), biometrics: { consentByGuardian: false, onDeviceOnly: true, voice: false, face: false } };
 }
 
 /** Puede cambiar de criatura cuando quiera; no se limita a una. */
@@ -45,4 +51,33 @@ export function enableBiometrics(p: CompanionProfile, kinds: { voice?: boolean; 
 export function stageSize(device: 'phone' | 'tablet' | 'desktop', expanded = false): { fraction: number; position: 'bottom' | 'side' } {
   if (device === 'phone') return { fraction: 0.5, position: 'bottom' };
   return { fraction: expanded ? 0.5 : 0.25, position: 'side' };
+}
+
+/** Aspecto actual de la criatura (siempre válido, aunque el perfil sea antiguo o esté dañado). */
+export function lookOf(p: CompanionProfile, creatureId = p.creatureId): Look {
+  getCreature(creatureId);
+  return sanitizeLook(p.looks?.[creatureId], creatureId);
+}
+
+export function worldOf(p: CompanionProfile): World {
+  p.world = sanitizeWorld(p.world); return p.world;
+}
+
+export interface WearResult { ok: boolean; look: Look; say: string; why?: 'no-es-tuyo' }
+
+/**
+ * Aplica un cambio de aspecto a la criatura. Vestirla es de la niña (estético); su carácter no cambia.
+ * Si la prenda o el accesorio aún no son suyos, no se pone y se explica con amabilidad.
+ */
+export function wear(p: CompanionProfile, change: LookChange, creatureId = p.creatureId): WearResult {
+  const cur = lookOf(p, creatureId), w = worldOf(p);
+  if (!canWear(w, change)) return { ok: false, look: cur, say: 'Eso todavía no es mío. ¡Con tus estrellas lo podemos conseguir en la tienda!', why: 'no-es-tuyo' };
+  const next = applyLookChange(cur, change);
+  p.looks = { ...(p.looks ?? {}), [creatureId]: next };
+  return { ok: true, look: next, say: reactionTo(change, next) };
+}
+
+/** Vuelve al aspecto original de la criatura (no quita nada de lo comprado). */
+export function resetLook(p: CompanionProfile, creatureId = p.creatureId): Look {
+  const d = defaultLook(creatureId); p.looks = { ...(p.looks ?? {}), [creatureId]: d }; return d;
 }
