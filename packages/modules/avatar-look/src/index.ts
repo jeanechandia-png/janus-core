@@ -53,7 +53,7 @@ export const ACCESSORIES: Record<Slot, CatalogItem[]> = {
   ],
   cuello: [
     { id: 'bufanda', label: 'Bufanda', poss: 'mi bufanda', icon: '🧣', price: 0, tintable: true },
-    { id: 'pajarita', label: 'Pajarita', poss: 'mi pajarita', icon: '🎀', price: 5, tintable: true },
+    { id: 'pajarita', label: 'Pajarita', poss: 'mi pajarita', icon: '👔', price: 5, tintable: true },
     { id: 'perlas', label: 'Collar de perlas', poss: 'mi collar de perlas', icon: '📿', price: 8, tintable: false },
     { id: 'medalla', label: 'Medalla', poss: 'mi medalla', icon: '🏅', price: 10, tintable: true }
   ],
