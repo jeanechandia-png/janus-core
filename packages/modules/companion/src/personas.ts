@@ -30,10 +30,15 @@ export interface CreatureStyle {
   closers: string[];
 }
 
+/** Colores del diseño original de la criatura (ids de la paleta del módulo avatar-look; aquí son solo texto). */
+export interface CreatureLookBase { fur: string; accent: string; eyes: string }
+
 export interface Creature {
   id: string;
   /** Carácter propio y fijo. */
   style: CreatureStyle;
+  /** Aspecto de fábrica: lo que ve la niña antes de personalizar. */
+  look: CreatureLookBase;
   /** Nombre por defecto; el niño puede ponerle otro (ver CompanionProfile.names). */
   defaultName: string;
   planet: string;
@@ -49,7 +54,7 @@ export interface Creature {
 
 export const CREATURES: Creature[] = [
   {
-    id: 'lumi', defaultName: 'Lumi', planet: 'Luna Lucerna, donde los bosques brillan de noche', species: 'zorrita-polilla',
+    id: 'lumi', look: { fur: 'crema', accent: 'lila', eyes: 'ambar' }, defaultName: 'Lumi', planet: 'Luna Lucerna, donde los bosques brillan de noche', species: 'zorrita-polilla',
     personality: ['curiosa', 'traviesa', 'tierna'], palette: { primary: '#C9B6E8', glow: '#FFD27A' },
     gestures: ['saludo', 'risa', 'cara-graciosa', 'celebrar', 'pensar'],
     catchphrases: ['¡Mis antenitas brillan cuando aprendes algo nuevo!', '¡Uy, uy, uy! Eso estuvo genial.'],
@@ -60,7 +65,7 @@ export const CREATURES: Creature[] = [
     media: {}
   },
   {
-    id: 'bombo', defaultName: 'Bombo', planet: 'Marea Coral, un planeta de océanos tibios', species: 'ajolote-nutria',
+    id: 'bombo', look: { fur: 'coral', accent: 'menta', eyes: 'chocolate' }, defaultName: 'Bombo', planet: 'Marea Coral, un planeta de océanos tibios', species: 'ajolote-nutria',
     personality: ['payaso', 'cariñoso', 'valiente'], palette: { primary: '#FF9E8A', glow: '#6FF2E0' },
     gestures: ['risa', 'baile', 'cara-graciosa', 'celebrar', 'abrazo'],
     catchphrases: ['¡Burbujas de alegría!', 'Si te caes, rebotas como yo. ¡Boing!'],
@@ -71,7 +76,7 @@ export const CREATURES: Creature[] = [
     media: {}
   },
   {
-    id: 'musgo', defaultName: 'Musgo', planet: 'Jardín Verde, donde las piedras florecen', species: 'piedrita de musgo',
+    id: 'musgo', look: { fur: 'verde', accent: 'piedra', eyes: 'ambar' }, defaultName: 'Musgo', planet: 'Jardín Verde, donde las piedras florecen', species: 'piedrita de musgo',
     personality: ['tranquilo', 'sabio', 'bromista'], palette: { primary: '#8FBF5A', glow: '#FFE07A' },
     gestures: ['guiño', 'saludo', 'risa', 'pensar', 'abrazo'],
     catchphrases: ['Despacito y con calma, las flores también crecen.', '¡Mi luciérnaga dice que eres increíble!'],
@@ -82,7 +87,7 @@ export const CREATURES: Creature[] = [
     media: {}
   },
   {
-    id: 'nimbo', defaultName: 'Nimbo', planet: 'Cielo Aurora, un planeta hecho de nubes', species: 'nubecita',
+    id: 'nimbo', look: { fur: 'crema', accent: 'dorado', eyes: 'azul' }, defaultName: 'Nimbo', planet: 'Cielo Aurora, un planeta hecho de nubes', species: 'nubecita',
     personality: ['elegante', 'soñadora', 'alegre'], palette: { primary: '#FFD9B8', glow: '#FFF1A8' },
     gestures: ['baile', 'saludo', 'risa', 'celebrar', 'cara-graciosa'],
     catchphrases: ['¡Hoy el cielo tiene tu color favorito!', 'Con elegancia y con alegría, como un arcoíris.'],

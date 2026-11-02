@@ -1,5 +1,5 @@
 /**
- * Lecciones con la escena: convierte un ejercicio del tutor en pasos que la criatura "enseña" manipulando la escena
+ * scene-stage · Lecciones con la escena: convierte un ejercicio del tutor en pasos que la criatura "enseña" manipulando la escena
  * y que la niña puede repetir con sus manos ("tu turno").
  *
  * Base pedagógica (HECHO VERIFICADO: IES/WWC 2021006, Fuchs et al., 2021):
@@ -8,9 +8,17 @@
  *  - Rec. 3  Representaciones → objetos concretos (galletas, platos, fichas) conectados con la notación (cartel), y retirada gradual.
  * Las lecciones NO sustituyen a un profesional: apoyan el estudio y la práctica guiada.
  */
-import { getCreature } from './personas.js';
-import { PLACE_NAME, cleanText, type BuildGoal, type SceneCommand } from './scene.js';
-import type { Exercise } from './tutor.js';
+import { PLACE_NAME, cleanText, type BuildGoal, type SceneCommand, type TextGuard } from './scene.js';
+
+export type LessonTopic = 'suma' | 'resta' | 'multiplicacion' | 'division' | 'fracciones' | 'problema';
+/** Lo mínimo que necesita una lección de un ejercicio (cualquier tutor que lo cumpla sirve). */
+export interface LessonInput {
+  id: string; topic: LessonTopic;
+  /** suma/resta/multiplicacion: [a, b] · division: [divisor, cociente] · fracciones: [n1, n2, d] · problema: [cajas, galletas por caja]. */
+  params: readonly number[];
+}
+/** La "voz" con la que el guía abre y cierra la lección (cada personaje aporta la suya). */
+export interface LessonVoice { id: string; openers: readonly string[]; closers: readonly string[] }
 
 export interface LessonStep {
   id: string;
@@ -23,7 +31,7 @@ export interface LessonStep {
   build?: BuildGoal;
 }
 
-export interface Lesson { exerciseId: string; topic: Exercise['topic']; creatureId: string; steps: LessonStep[]; basis: string[] }
+export interface Lesson { exerciseId: string; topic: LessonTopic; voiceId: string; steps: LessonStep[]; basis: string[] }
 
 export const LESSON_BASIS: readonly string[] = [
   'IES/WWC 2021006 · Rec. 1 · instrucción sistemática y explícita (pasos cortos y "tu turno")',
@@ -65,9 +73,10 @@ const sideSpot = (P: number): [number, number] => [r2(Math.max(-5, colX(P - 1, P
 const lightAll = (P: number, on: boolean): SceneCommand[] => Array.from({ length: P }, (_, p) => ({ op: 'light', id: colId(p), on }) as SceneCommand);
 
 /** Texto de lección: nunca se recorta en silencio (si es demasiado largo o no es aceptable, falla en las pruebas). */
+let GUARD: TextGuard | undefined;
 function safe(text: string, max: number, where: string): string {
   if (text.length > max) throw new Error('Texto demasiado largo (' + text.length + ' > ' + max + ') en ' + where);
-  const clean = cleanText(text, max);
+  const clean = cleanText(text, max, GUARD);
   if (clean === null) throw new Error('Texto de lección no aceptable en ' + where);
   return clean;
 }
@@ -91,7 +100,7 @@ function normalizeUp(cur: number[], P: number, idPrefix: string, intro: (p: numb
   return out;
 }
 
-function suma(ex: Exercise): LessonStep[] {
+function suma(ex: LessonInput): LessonStep[] {
   const [a = 0, b = 0] = ex.params, sum = a + b, P = Math.min(5, nd(sum)), da = digits(a, P), db = digits(b, P);
   const here = sideSpot(P);
   const steps: LessonStep[] = [
@@ -107,7 +116,7 @@ function suma(ex: Exercise): LessonStep[] {
   return steps;
 }
 
-function resta(ex: Exercise): LessonStep[] {
+function resta(ex: LessonInput): LessonStep[] {
   const [a = 0, b = 0] = ex.params, ans = a - b, P = Math.min(5, nd(a)), da = digits(a, P), db = digits(b, P);
   const here = sideSpot(P);
   const steps: LessonStep[] = [
@@ -135,7 +144,7 @@ function resta(ex: Exercise): LessonStep[] {
 
 const grid = (i: number, total: number): [number, number] => { const perRow = Math.min(6, total), row = Math.floor(i / perRow), inRow = Math.min(perRow, total - row * perRow), col = i % perRow; return [r2(CX + (col - (inRow - 1) / 2) * 1.7), r2(-0.6 + row * 1.7)]; };
 
-function multiplicacion(ex: Exercise): LessonStep[] {
+function multiplicacion(ex: LessonInput): LessonStep[] {
   const [a = 0, b = 0] = ex.params, prod = a * b;
   if (a <= 12 && b <= 12) {
     const plates = Array.from({ length: b }, (_, i) => 'p' + i);
@@ -160,7 +169,7 @@ function multiplicacion(ex: Exercise): LessonStep[] {
   return steps;
 }
 
-function division(ex: Exercise): LessonStep[] {
+function division(ex: LessonInput): LessonStep[] {
   const [b = 1, q = 0] = ex.params, total = b * q;
   if (total <= 60) {
     const plates = Array.from({ length: b }, (_, i) => 'p' + i);
@@ -183,7 +192,7 @@ function division(ex: Exercise): LessonStep[] {
   return steps;
 }
 
-function fracciones(ex: Exercise): LessonStep[] {
+function fracciones(ex: LessonInput): LessonStep[] {
   const [n1 = 1, n2 = 1, d = 2] = ex.params, n = n1 + n2;
   const gcd = (x: number, y: number): number => (y ? gcd(y, x % y) : x), g = gcd(n, d);
   const steps: LessonStep[] = [
@@ -203,7 +212,7 @@ function fracciones(ex: Exercise): LessonStep[] {
   return steps;
 }
 
-function problema(ex: Exercise): LessonStep[] {
+function problema(ex: LessonInput): LessonStep[] {
   const [c = 2, p = 3] = ex.params, total = c * p, ans = total - c;
   const boxes = Array.from({ length: c }, (_, i) => 'b' + i);
   return [
@@ -213,14 +222,21 @@ function problema(ex: Exercise): LessonStep[] {
   ];
 }
 
-/** Construye la lección de un ejercicio con la voz de la criatura (su carácter no cambia aunque la niña la vista). */
-export function buildLesson(ex: Exercise, creatureId: string): Lesson {
-  const cr = getCreature(creatureId);
+const BUILDERS: Record<LessonTopic, (e: LessonInput) => LessonStep[]> = { suma, resta, multiplicacion, division, fracciones, problema };
+
+/** Construye la lección de un ejercicio con la voz del guía (su carácter no cambia aunque quien juega lo vista). */
+export function buildLesson(ex: LessonInput, voice: LessonVoice, opts: { textGuard?: TextGuard } = {}): Lesson {
   if (!Array.isArray(ex.params) || ex.params.length < 2) throw new Error('El ejercicio no trae parámetros para la escena');
-  const steps = ({ suma, resta, multiplicacion, division, fracciones, problema } as Record<string, (e: Exercise) => LessonStep[]>)[ex.topic]!(ex);
-  const first = steps[0], last = steps[steps.length - 1];
-  const opener = pick(cr.style.openers, ex.id), closer = pick(cr.style.closers, ex.id + 'x');
-  if (first) first.say = safe(opener + ' ' + first.say, 2 * SAY_MAX, 'apertura de ' + ex.id);
-  if (last && last !== first) last.say = safe(last.say + ' ' + closer, 2 * SAY_MAX, 'cierre de ' + ex.id);
-  return { exerciseId: ex.id, topic: ex.topic, creatureId: cr.id, steps, basis: [...LESSON_BASIS] };
+  const build = BUILDERS[ex.topic];
+  if (!build) throw new Error('Tema sin lección: ' + String(ex.topic));
+  if (!voice.openers.length || !voice.closers.length) throw new Error('La voz del guía necesita al menos una apertura y un cierre');
+  GUARD = opts.textGuard;
+  try {
+    const steps = build(ex);
+    const first = steps[0], last = steps[steps.length - 1];
+    const opener = pick([...voice.openers], ex.id), closer = pick([...voice.closers], ex.id + 'x');
+    if (first) first.say = safe(opener + ' ' + first.say, 2 * SAY_MAX, 'apertura de ' + ex.id);
+    if (last && last !== first) last.say = safe(last.say + ' ' + closer, 2 * SAY_MAX, 'cierre de ' + ex.id);
+    return { exerciseId: ex.id, topic: ex.topic, voiceId: voice.id, steps, basis: [...LESSON_BASIS] };
+  } finally { GUARD = undefined; }
 }

@@ -1,14 +1,18 @@
 /**
- * Escena compartida entre la criatura y la niña.
+ * scene-stage · Escena compartida entre un guía (criatura, tutor, asistente) y quien aprende.
  *  - La escena es DATOS (SceneState). El render 3D es una función de ese estado: así la criatura y la niña
  *    manipulan exactamente lo mismo, y todo se puede probar sin navegador.
  *  - La criatura "explica" emitiendo comandos; la niña manipula con userMove / userAdjust / userExchange.
  *  - Los comandos que vengan de fuera (modelo de lenguaje, documentos, web) son DATOS NO CONFIABLES:
  *    pasan por validateCommands (lista blanca estricta) antes de tocar la escena.
  * Representaciones: concreto → semiconcreto → notación (IES/WWC 2021006, Rec. 3). Ver README.
+ * Módulo autocontenido: no conoce criaturas ni tienda. El texto que se muestra pasa por un `TextGuard` que aporta el producto.
  */
-import { isBodySafe } from './encourage.js';
-import { SWATCHES, type SwatchId } from './look.js';
+/** Filtro de texto del producto (p. ej. «no hablar de cuerpos»). Devuelve false para rechazar el texto. */
+export type TextGuard = (text: string) => boolean;
+/** Identificador de color de la paleta del anfitrión (p. ej. 'dorado'); el módulo no sabe de colores reales. */
+export type TintId = string;
+const TINT_RE = /^[a-z][a-z-]{0,15}$/;
 
 export const STAGE = { x: 6, z: 4 } as const;
 export const MAX_PROPS = 80;
@@ -33,7 +37,7 @@ export interface Prop {
   n: number;
   /** columna: lugar (0 = U) · tarta: porciones totales. */
   of: number;
-  label: string; tint: SwatchId | null; lit: boolean;
+  label: string; tint: TintId | null; lit: boolean;
 }
 
 export interface CreatureState { at: [number, number]; pose: Pose; point: string | null }
@@ -41,8 +45,8 @@ export interface SceneState { props: Prop[]; creature: CreatureState; camera: Vi
 
 export type SceneCommand =
   | { op: 'reset' }
-  | { op: 'spawn'; id: string; kind: PropKind; at: [number, number]; n?: number; of?: number; label?: string; tint?: SwatchId }
-  | { op: 'set'; id: string; n?: number; of?: number; label?: string; tint?: SwatchId }
+  | { op: 'spawn'; id: string; kind: PropKind; at: [number, number]; n?: number; of?: number; label?: string; tint?: TintId }
+  | { op: 'set'; id: string; n?: number; of?: number; label?: string; tint?: TintId }
   | { op: 'move'; id: string; to: [number, number] }
   | { op: 'remove'; id: string }
   | { op: 'light'; id: string; on: boolean }
@@ -75,12 +79,12 @@ const ID_RE = /^[a-z][a-z0-9_-]{0,23}$/;
 const clampStage = (p: [number, number]): [number, number] => [Math.max(-STAGE.x, Math.min(STAGE.x, p[0])), Math.max(-STAGE.z, Math.min(STAGE.z, p[1]))];
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
-/** Texto seguro para mostrar: sin marcas HTML, sin controles, corto y sin hablar de cuerpos. Devuelve null si no es aceptable. */
-export function cleanText(raw: unknown, max: number): string | null {
+/** Texto seguro para mostrar: sin marcas HTML, sin controles, corto y aceptado por el filtro del producto. Devuelve null si no es aceptable. */
+export function cleanText(raw: unknown, max: number, guard?: TextGuard): string | null {
   if (typeof raw !== 'string') return null;
   // eslint-disable-next-line no-control-regex
   const t = raw.replace(/[\u0000-\u001f\u007f<>]/g, '').trim().slice(0, max);
-  if (!t || !isBodySafe(t)) return null;
+  if (!t || (guard && !guard(t))) return null;
   return t;
 }
 
@@ -97,7 +101,9 @@ function pos(v: unknown): [number, number] | null {
   return [r2(x), r2(z)];
 }
 
-function validateOne(c: unknown): SceneCommand | string {
+export interface ValidateOptions { textGuard?: TextGuard }
+
+function validateOne(c: unknown, guard?: TextGuard): SceneCommand | string {
   if (!isObj(c) || typeof c.op !== 'string') return 'no es un comando';
   const idOf = (k: string): string | null => (typeof c[k] === 'string' && ID_RE.test(c[k] as string) ? (c[k] as string) : null);
   switch (c.op) {
@@ -109,8 +115,8 @@ function validateOne(c: unknown): SceneCommand | string {
       const out: SceneCommand = { op: 'spawn', id, kind, at };
       if (c.n !== undefined) { if (!isInt(c.n, 0, lim.n)) return 'cantidad fuera de rango'; out.n = c.n; }
       if (c.of !== undefined) { if (!isInt(c.of, lim.of[0], lim.of[1])) return 'valor "of" fuera de rango'; out.of = c.of; }
-      if (c.label !== undefined) { const l = cleanText(c.label, 24); if (l === null) return 'etiqueta no aceptable'; out.label = l; }
-      if (c.tint !== undefined) { if (typeof c.tint !== 'string' || !Object.prototype.hasOwnProperty.call(SWATCHES, c.tint)) return 'color desconocido'; out.tint = c.tint as SwatchId; }
+      if (c.label !== undefined) { const l = cleanText(c.label, 24, guard); if (l === null) return 'etiqueta no aceptable'; out.label = l; }
+      if (c.tint !== undefined) { if (typeof c.tint !== 'string' || !TINT_RE.test(c.tint)) return 'color no válido'; out.tint = c.tint; }
       return out;
     }
     case 'set': {
@@ -118,8 +124,8 @@ function validateOne(c: unknown): SceneCommand | string {
       const out: SceneCommand = { op: 'set', id };
       if (c.n !== undefined) { if (!isInt(c.n, 0, 120)) return 'cantidad fuera de rango'; out.n = c.n; }
       if (c.of !== undefined) { if (!isInt(c.of, 0, 12)) return 'valor "of" fuera de rango'; out.of = c.of; }
-      if (c.label !== undefined) { const l = cleanText(c.label, 24); if (l === null) return 'etiqueta no aceptable'; out.label = l; }
-      if (c.tint !== undefined) { if (typeof c.tint !== 'string' || !Object.prototype.hasOwnProperty.call(SWATCHES, c.tint)) return 'color desconocido'; out.tint = c.tint as SwatchId; }
+      if (c.label !== undefined) { const l = cleanText(c.label, 24, guard); if (l === null) return 'etiqueta no aceptable'; out.label = l; }
+      if (c.tint !== undefined) { if (typeof c.tint !== 'string' || !TINT_RE.test(c.tint)) return 'color no válido'; out.tint = c.tint; }
       return out;
     }
     case 'move': { const id = idOf('id'), to = pos(c.to); if (!id) return 'id inválido'; if (!to) return 'destino fuera del escenario'; return { op: 'move', id, to }; }
@@ -140,18 +146,18 @@ function validateOne(c: unknown): SceneCommand | string {
       return out;
     }
     case 'camera': return typeof c.view === 'string' && VIEWS.includes(c.view as View) ? { op: 'camera', view: c.view as View } : 'vista desconocida';
-    case 'say': { const t = cleanText(c.text, 160); return t === null ? 'texto no aceptable' : { op: 'say', text: t }; }
+    case 'say': { const t = cleanText(c.text, 160, guard); return t === null ? 'texto no aceptable' : { op: 'say', text: t }; }
     default: return 'operación no permitida';
   }
 }
 
 /** Filtra una lista de comandos NO CONFIABLE: reconstruye cada uno con solo los campos permitidos y descarta el resto. */
-export function validateCommands(raw: unknown): { commands: SceneCommand[]; rejected: Rejected[] } {
+export function validateCommands(raw: unknown, opts: ValidateOptions = {}): { commands: SceneCommand[]; rejected: Rejected[] } {
   const commands: SceneCommand[] = [], rejected: Rejected[] = [];
   if (!Array.isArray(raw)) return { commands, rejected: [{ index: -1, reason: 'se esperaba una lista de comandos' }] };
   raw.forEach((c, index) => {
     if (index >= MAX_COMMANDS) { rejected.push({ index, reason: 'demasiados comandos' }); return; }
-    const v = validateOne(c);
+    const v = validateOne(c, opts.textGuard);
     if (typeof v === 'string') rejected.push({ index, reason: v }); else commands.push(v);
   });
   return { commands, rejected };

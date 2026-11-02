@@ -1,9 +1,9 @@
 /**
- * Personalización de la criatura: color de pelo, detalles, ojos, prendas y accesorios.
- * Catálogo CERRADO: el niño solo elige entre opciones; no hay texto libre ni subida de imágenes.
- * Personalizar es SOLO estético: no cambia el carácter, la voz ni la forma de enseñar de la criatura (ver personas.ts).
+ * avatar-look · Personalización estética de un personaje: color de pelo, detalles, ojos, prendas y accesorios.
+ * Catálogo CERRADO: quien juega solo elige entre opciones; no hay texto libre ni subida de imágenes.
+ * Personalizar es SOLO estético: no toca el carácter, la voz ni el comportamiento del personaje.
+ * Módulo autocontenido: no conoce a las criaturas, a la tienda ni a la escena (eso lo une un adaptador).
  */
-import { getCreature } from './personas.js';
 
 export type SwatchId = 'nieve' | 'crema' | 'dorado' | 'melocoton' | 'coral' | 'rosa' | 'lila' | 'violeta' | 'cielo' | 'azul' | 'menta' | 'verde' | 'piedra' | 'chocolate' | 'carbon';
 export const SWATCHES: Record<SwatchId, { label: string; hex: string }> = {
@@ -70,17 +70,12 @@ export interface Look {
   accessories: Partial<Record<Slot, string>>;
 }
 
-/** Aspecto de fábrica: el del diseño original de cada criatura. */
-const DEFAULTS: Record<string, Pick<Look, 'fur' | 'accent' | 'eyes'>> = {
-  lumi: { fur: 'crema', accent: 'lila', eyes: 'ambar' },
-  bombo: { fur: 'coral', accent: 'menta', eyes: 'chocolate' },
-  musgo: { fur: 'verde', accent: 'piedra', eyes: 'ambar' },
-  nimbo: { fur: 'crema', accent: 'dorado', eyes: 'azul' }
-};
-export function defaultLook(creatureId: string): Look {
-  getCreature(creatureId);
-  const d = DEFAULTS[creatureId] ?? DEFAULTS.lumi!;
-  return { fur: d.fur, accent: d.accent, eyes: d.eyes, outfit: 'ninguna', outfitColor: 'cielo', accessoryColor: 'dorado', accessories: {} };
+/** Colores de base de un personaje (su diseño original); lo demás parte vacío. Cada producto aporta los suyos. */
+export interface LookBase { fur: SwatchId; accent: SwatchId; eyes: EyeId }
+export const NEUTRAL_BASE: LookBase = { fur: 'crema', accent: 'lila', eyes: 'ambar' };
+export function defaultLook(base: Partial<LookBase> = {}): Look {
+  const b = { ...NEUTRAL_BASE, ...base };
+  return { fur: b.fur, accent: b.accent, eyes: b.eyes, outfit: 'ninguna', outfitColor: 'cielo', accessoryColor: 'dorado', accessories: {} };
 }
 
 const isSwatch = (v: unknown): v is SwatchId => typeof v === 'string' && Object.prototype.hasOwnProperty.call(SWATCHES, v);
@@ -89,8 +84,8 @@ const isOutfit = (v: unknown): v is OutfitId => typeof v === 'string' && OUTFITS
 export const isAccessory = (slot: unknown, id: unknown): boolean => typeof slot === 'string' && (SLOTS as string[]).includes(slot) && typeof id === 'string' && ACCESSORIES[slot as Slot].some((a) => a.id === id);
 
 /** Repara un aspecto guardado o recibido de fuera: cada campo desconocido vuelve a su valor de fábrica. */
-export function sanitizeLook(raw: unknown, creatureId: string): Look {
-  const base = defaultLook(creatureId), r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+export function sanitizeLook(raw: unknown, base: Look = defaultLook()): Look {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const acc: Partial<Record<Slot, string>> = {};
   const ra = (r.accessories && typeof r.accessories === 'object' ? r.accessories : {}) as Record<string, unknown>;
   for (const s of SLOTS) if (isAccessory(s, ra[s])) acc[s] = ra[s] as string;
@@ -144,10 +139,10 @@ export function reactionTo(change: LookChange, look: Look): string {
   }
 }
 
-/** "Sorpréndeme": un aspecto al azar dentro del catálogo (solo con lo gratuito o lo que ya se tiene, lo decide world.ts). */
-export function randomLook(creatureId: string, rnd: () => number = Math.random, allow: (id: string) => boolean = () => true): Look {
+/** "Sorpréndeme": un aspecto al azar dentro del catálogo; `allow` filtra por clave (ver outfitKey/accessoryKey) lo que ya se tiene. */
+export function randomLook(base: Look = defaultLook(), rnd: () => number = Math.random, allow: (id: string) => boolean = () => true): Look {
   const pick = <T>(xs: T[]): T => xs[Math.min(xs.length - 1, Math.floor(rnd() * xs.length))]!;
-  let look = defaultLook(creatureId);
+  let look = base;
   look = applyLookChange(look, { part: 'fur', value: pick(SWATCH_IDS) });
   look = applyLookChange(look, { part: 'accent', value: pick(SWATCH_IDS) });
   look = applyLookChange(look, { part: 'eyes', value: pick(EYE_IDS) });
@@ -156,4 +151,16 @@ export function randomLook(creatureId: string, rnd: () => number = Math.random, 
   const outs = OUTFITS.filter((o) => allow('out:' + o.id)); if (outs.length) look = applyLookChange(look, { part: 'outfit', value: pick(outs).id });
   for (const s of SLOTS) { const opts = ACCESSORIES[s].filter((a) => allow('acc:' + s + ':' + a.id)); if (opts.length && rnd() < 0.55) look = applyLookChange(look, { part: 'accessory', slot: s, value: pick(opts).id }); }
   return look;
+}
+
+/* ───────────── claves de catálogo (las usan la tienda y `allow`) ───────────── */
+export const outfitKey = (id: string): string => 'out:' + id;
+export const accessoryKey = (slot: string, id: string): string => 'acc:' + slot + ':' + id;
+
+export interface LookItem { key: string; kind: 'out' | 'acc'; slot?: Slot; label: string; icon: string; price: number }
+/** Todo lo que se puede poner, con su precio en estrellas (0 = gratis desde el principio). */
+export function lookItems(): LookItem[] {
+  const out: LookItem[] = OUTFITS.map((o) => ({ key: outfitKey(o.id), kind: 'out', label: o.label, icon: o.icon, price: o.price }));
+  for (const s of SLOTS) for (const a of ACCESSORIES[s]) out.push({ key: accessoryKey(s, a.id), kind: 'acc', slot: s, label: a.label, icon: a.icon, price: a.price });
+  return out;
 }
