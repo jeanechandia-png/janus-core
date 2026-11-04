@@ -16,9 +16,9 @@ const Janus3D = (() => {
   const inst = {};
   let raf = 0, t0 = performance.now();
   /* ---------- formas y emociones (compartidas por todas las instancias del robot) ---------- */
-  const FORMS = ['robot', 'nexo-masculino', 'nexo-femenino', 'cabeza', 'cara', 'lumi', 'bombo', 'musgo', 'nimbo'], CREATURES = ['lumi', 'bombo', 'musgo', 'nimbo'];
+  const FORMS = (window.JanusAvatarCatalog ? [...JanusAvatarCatalog.ids] : ['nexo-masculino', 'nexo-femenino', 'robot', 'cabeza', 'cara', 'lumi', 'bombo', 'musgo', 'nimbo']), CREATURES = (window.JanusAvatarCatalog ? [...JanusAvatarCatalog.creatureIds] : ['lumi', 'bombo', 'musgo', 'nimbo']);
   const MOODS = ['alegre', 'contento', 'triste', 'enojado', 'sorprendido', 'pensativo'];
-  const FORM = { key: 'nexo-masculino', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
+  const FORM = { key: (window.JanusAvatarCatalog && JanusAvatarCatalog.defaultId) || 'nexo-masculino', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
   const MOOD = { base: null, flash: null, until: 0 };
   const TINT = { alegre: '#FFE48A', contento: '#FFD36A', triste: '#6FA8FF', enojado: '#FF4A3D', sorprendido: '#FFFFFF', pensativo: '#B79CFF' };
   const nowMs = () => performance.now();
@@ -170,7 +170,7 @@ const Janus3D = (() => {
       // el robot legacy. Si existe un GLB riggeado y válido tiene prioridad sobre el
       // prototipo procedural 3D; no se colocan fotografías planas sobre el canvas.
       if (f === 'nexo-masculino' || f === 'nexo-femenino') {
-        const variant = f === 'nexo-femenino' ? 'femenino' : 'masculino';
+        const variant = (window.JanusAvatarCatalog && JanusAvatarCatalog.get(f) && JanusAvatarCatalog.get(f).variant) || (f === 'nexo-femenino' ? 'femenino' : 'masculino');
         const loaded = slot && slot.has && slot.has(f) && slot.rigFor(f);
         const rig = loaded || (window.JanusNexo3D && window.JanusNexo3D.build(variant));
         if (!rig) throw new Error('módulo NEXO 3D no disponible');
