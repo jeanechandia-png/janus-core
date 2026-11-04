@@ -194,7 +194,7 @@ function tabHablar(p, name) {
     '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
 }
-const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Robot clásico', 'nexo-masculino': 'NEXO masculino aprobado', 'nexo-femenino': 'NEXO femenino aprobado' };
+const SLOT_NAMES = Object.fromEntries((window.JanusAvatarCatalog ? JanusAvatarCatalog.riggableIds : ['lumi', 'bombo', 'musgo', 'nimbo', 'robot', 'nexo-masculino', 'nexo-femenino']).map(id => [id, (window.JanusAvatarCatalog && JanusAvatarCatalog.label(id)) || id]));
 function slotPanel() {
   const S = window.JanusCreatureSlot; if (!S || !S.supported()) return '';
   const row = (id) => {
