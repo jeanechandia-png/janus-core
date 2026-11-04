@@ -1,9 +1,9 @@
 'use strict';
 /**
- * janus-nexo-3d · versión masculina aprobada (4 noviembre 2026).
+ * janus-nexo-3d · versiones masculina y femenina aprobadas (4 noviembre 2026).
  * Modelo tridimensional PROCEDURAL en Three.js; no es la fotografía 2D pegada al canvas.
  * La lámina cinematográfica aprobada es la REFERENCIA VISUAL, no un GLB fotorrealista.
- * Este módulo jamás modifica la variante femenina ni el robot legacy (oro).
+ * Ambas identidades son independientes y no alteran el robot legacy (oro).
  *
  * Contrato del escenario Janus3D: build() -> { id, root, update(t,dt,ctl), setLook() }.
  * El modelo se monta en el MISMO canvas WebGL manipulable (giro táctil, animación).
@@ -28,6 +28,21 @@ const JanusNexo3D = (() => {
     noseDepth: 0.17
   });
 
+  const FEMALE = Object.freeze({
+    id: 'nexo-femenino',
+    version: '1.0.0',
+    approvedOn: '2026-11-04',
+    status: 'approved-reference',
+    description: 'Versión femenina original: cabeza amable y redondeada, ojos azules grandes, labios definidos, metal plateado y silueta ligera',
+    eyes: '#2385cb',
+    metal: '#bfc7d1',
+    mouthHalfWidth: 0.16,
+    upperLipRadius: 0.039,
+    lowerLipRadius: 0.048,
+    noseDepth: 0.14
+  });
+  const PRESETS = Object.freeze({ masculino: APPROVED, femenino: FEMALE });
+
   const MOODS = Object.freeze({
     contento:    { brow: 0,     tilt: 0,     lid: 1,    width: 1,    open: 0.012, corner: 0.01 },
     alegre:      { brow: 0.025, tilt: -0.08, lid: 0.88, width: 1.04, open: 0.06, corner: 0.03 },
@@ -43,11 +58,15 @@ const JanusNexo3D = (() => {
       color, metalness, roughness, clearcoat: 0.65, clearcoatRoughness: 0.13
     }, extra || {}));
 
-  function build() {
+  function build(variant = 'masculino') {
+    if (!Object.prototype.hasOwnProperty.call(PRESETS, variant)) throw new Error('Variante NEXO desconocida');
+    const female = variant === 'femenino';
+    const spec = PRESETS[variant];
     const root = new T.Group();
-    root.name = 'JANUS NEXO masculino · geometría 3D';
-    root.userData.approvedIdentity = APPROVED.id;
-    const silver = material(APPROVED.metal, 0.83, 0.22);
+    root.name = 'JANUS NEXO ' + variant + ' · geometría 3D';
+    root.userData.approvedIdentity = spec.id;
+    root.userData.referenceStatus = spec.status;
+    const silver = material(spec.metal, 0.83, 0.22);
     const bright = material('#e3e7eb', 0.72, 0.24);
     const shadow = material('#171b23', 0.47, 0.3);
     const seam = material('#4b515c', 0.72, 0.28);
@@ -78,7 +97,7 @@ const JanusNexo3D = (() => {
     // paneles metálicos separados por articulaciones oscuras (sin ropa ni accesorios).
     sphere(root, 'núcleo-pélvico', shadow, [0, 2.04, 0], [0.43, 0.31, 0.31]);
     sphere(root, 'placa-pélvica', silver, [0, 2.11, 0.21], [0.35, 0.27, 0.14]);
-    sphere(root, 'torso', shadow, [0, 2.61, 0], [0.56, 0.66, 0.32]);
+    sphere(root, 'torso', shadow, [0, 2.61, 0], [female ? 0.51 : 0.56, 0.66, 0.32]);
     sphere(root, 'pecho-metal-izquierdo', silver, [-0.285, 2.77, 0.22], [0.31, 0.43, 0.20]);
     sphere(root, 'pecho-metal-derecho', silver, [0.285, 2.77, 0.22], [0.31, 0.43, 0.20]);
     sphere(root, 'abdomen-metal', bright, [0, 2.34, 0.27], [0.31, 0.34, 0.12]);
@@ -93,7 +112,7 @@ const JanusNexo3D = (() => {
     const arms = [];
     for (const sign of [-1, 1]) {
       const shoulder = new T.Group();
-      shoulder.position.set(sign * 0.65, 2.94, 0);
+      shoulder.position.set(sign * (female ? 0.60 : 0.65), 2.94, 0);
       root.add(shoulder);
       sphere(shoulder, 'hombro-' + sign, silver, [0, 0, 0], [0.27, 0.28, 0.3]);
       sphere(shoulder, 'articulación-hombro-' + sign, shadow, [sign * 0.035, -0.25, 0], [0.16, 0.18, 0.16]);
@@ -127,9 +146,9 @@ const JanusNexo3D = (() => {
     }
 
     // Cabeza completamente volumétrica; la cara no es una textura plana.
-    const head = new T.Group(); head.position.set(0, 3.67, 0); root.add(head);
+    const head = new T.Group(); head.position.set(0, 3.67, 0); head.scale.setScalar(female ? 1.08 : 1); root.add(head);
     sphere(head, 'cráneo-metálico', silver, [0, 0, 0], [0.53, 0.62, 0.47], 40);
-    sphere(head, 'mandíbula-masculina', silver, [0, -0.31, 0.12], [0.42, 0.29, 0.35]);
+    sphere(head, female ? 'mandíbula-femenina' : 'mandíbula-masculina', silver, [0, -0.31, 0.12], [female ? 0.395 : 0.42, female ? 0.265 : 0.29, 0.35]);
     sphere(head, 'máscara-facial', bright, [0, -0.035, 0.37], [0.455, 0.48, 0.13], 40);
     [-1, 1].forEach(sign => {
       sphere(head, 'oreja-mecánica-' + sign, silver, [sign * 0.535, -0.01, 0], [0.13, 0.22, 0.17]);
@@ -144,7 +163,7 @@ const JanusNexo3D = (() => {
     for (const sign of [-1, 1]) {
       const eye = new T.Group(); eye.position.set(sign * 0.215, 0.155, 0.51); head.add(eye);
       sphere(eye, 'esclerótica-' + sign, sclera, [0, 0, 0], [0.166, 0.196, 0.077], 36);
-      const iris = sphere(eye, 'iris-azul-' + sign, irisMat, [sign * -0.009, -0.005, 0.073], [0.102, 0.13, 0.025], 32);
+      const iris = sphere(eye, 'iris-azul-' + sign, irisMat, [sign * -0.009, -0.005, 0.073], [female ? 0.112 : 0.102, female ? 0.141 : 0.13, 0.025], 32);
       const pupil = sphere(eye, 'pupila-' + sign, pupilMat, [sign * -0.009, -0.005, 0.096], [0.057, 0.076, 0.015], 28);
       sphere(eye, 'brillo-ocular-' + sign, glintMat, [-0.028, 0.04, 0.111], [0.022, 0.026, 0.012], 20);
       const eyebrow = new T.Group(); eyebrow.position.set(sign * 0.215, 0.375, 0.535); head.add(eyebrow);
@@ -156,28 +175,28 @@ const JanusNexo3D = (() => {
 
     // NARIZ: volumen real algo mayor que en los bocetos previos.
     const nose = sphere(head, 'nariz-nexo', bright, [0, -0.083, 0.548],
-      [0.10, 0.143, APPROVED.noseDepth], 36);
+      [0.10, 0.143, spec.noseDepth], 36);
     sphere(head, 'punta-nasal', silver, [0, -0.15, 0.667], [0.12, 0.065, 0.085]);
 
     // BOCA: menor anchura que la sonrisa descartada, pero labios voluminosos
     // tanto en el arco superior como el inferior; piezas 3D independientes.
     const mouth = new T.Group(); mouth.position.set(0, -0.31, 0.594); head.add(mouth);
     const opening = sphere(mouth, 'apertura-bucal', shadow, [0, -0.022, 0.015],
-      [APPROVED.mouthHalfWidth * 0.88, 0.013, 0.029], 28);
+      [spec.mouthHalfWidth * 0.88, 0.013, 0.029], 28);
     const upper = tube(mouth, 'labio-superior-voluminoso', lipMat, [
-      [-APPROVED.mouthHalfWidth, 0.012, 0.033],
+      [-spec.mouthHalfWidth, 0.012, 0.033],
       [-0.08, -0.010, 0.045], [0, -0.021, 0.054],
-      [0.08, -0.010, 0.045], [APPROVED.mouthHalfWidth, 0.012, 0.033]
-    ], APPROVED.upperLipRadius);
+      [0.08, -0.010, 0.045], [spec.mouthHalfWidth, 0.012, 0.033]
+    ], spec.upperLipRadius);
     const lower = new T.Group(); mouth.add(lower);
     tube(lower, 'labio-inferior-voluminoso', lipMat, [
-      [-APPROVED.mouthHalfWidth, -0.047, 0.033],
+      [-spec.mouthHalfWidth, -0.047, 0.033],
       [-0.08, -0.064, 0.050], [0, -0.075, 0.058],
-      [0.08, -0.064, 0.050], [APPROVED.mouthHalfWidth, -0.047, 0.033]
-    ], APPROVED.lowerLipRadius);
+      [0.08, -0.064, 0.050], [spec.mouthHalfWidth, -0.047, 0.033]
+    ], spec.lowerLipRadius);
     mouth.userData.upperLip = upper.name; mouth.userData.lowerLip = lower.children[0].name;
-    mouth.userData.relativeWidth = APPROVED.mouthHalfWidth / 0.53;
-    nose.userData.relativeDepth = APPROVED.noseDepth;
+    mouth.userData.relativeWidth = spec.mouthHalfWidth / 0.53;
+    nose.userData.relativeDepth = spec.noseDepth;
 
     // Animación independiente de la fuente de voz. La sincronía fonémica exacta
     // depende de disponer de visemas/audio timings o de un GLB final con morphs.
@@ -208,12 +227,17 @@ const JanusNexo3D = (() => {
       mouth.position.y = -0.31 + corner;
       mouth.rotation.z = mood === MOODS.triste ? -0.02 : 0;
       head.rotation.z = Math.sin(t * 1.15) * 0.028 + (pose === 'piensa' ? 0.06 : 0);
-      head.rotation.x = Math.sin(t * 0.85) * 0.022 + (ctl.mood === 'triste' ? 0.08 : 0);
+      head.rotation.x = Math.sin(t * 0.85) * 0.022 + (ctl.mood === 'triste' ? 0.08 : 0) + (ctl.listening ? -0.06 : 0);
+      head.rotation.y = Math.sin(t * 0.65) * (talking ? 0.09 : 0.03);
+      head.position.y = 3.67 + (talking ? Math.sin(t * 7) * 0.006 : 0);
       arms.forEach(({ shoulder, elbow, sign }) => {
         const waving = pose === 'saluda' || pose === 'celebra';
         shoulder.rotation.z = approach(shoulder.rotation.z,
           waving && sign === 1 ? -2.3 : (sign === -1 ? -0.10 : 0.10), 7, delta);
-        elbow.rotation.x = approach(elbow.rotation.x, talking ? -0.25 : 0, 7, delta);
+        elbow.rotation.x = approach(elbow.rotation.x,
+          talking ? (-0.25 - Math.sin(t * 3.5 + sign) * 0.18) : ctl.listening ? -0.09 : 0, 7, delta);
+        shoulder.rotation.x = approach(shoulder.rotation.x,
+          talking ? Math.sin(t * 2.7 + sign * 0.9) * 0.12 : 0, 6, delta);
       });
       legs.forEach(({ hip, sign }) => { hip.rotation.x = approach(hip.rotation.x,
         ctl.walk ? Math.sin(t * 7 + sign) * 0.18 * ctl.walk : 0, 8, delta); });
@@ -221,13 +245,13 @@ const JanusNexo3D = (() => {
     };
     update(0, 0.016, {});
     return {
-      id: 'nexo', root, glb: false, face: false, approved: APPROVED,
+      id: spec.id, root, glb: false, face: false, approved: spec,
       update,
       // La identidad aprobada no se recolorea por el vestidor de criaturas.
       setLook() {},
       setVoiceState(talking, now = 0) { update(now, 0.016, { talk: !!talking }); }
     };
   }
-  return { build, APPROVED, MOODS: Object.keys(MOODS) };
+  return { build, APPROVED, FEMALE, PRESETS, MOODS: Object.keys(MOODS) };
 })();
 window.JanusNexo3D = JanusNexo3D;
