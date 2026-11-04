@@ -3070,13 +3070,16 @@ const server = createServer(async (request, response) => {
       response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
     }
     const skin = url.pathname === '/dashboard/b' ? 'b' : 'a';
+    // Nombre distinto al HTML personal local: nunca reutilizar por accidente
+    // un archivo previamente compilado con local/names.json o local/real.js.
     const dashboardFile = join(dashboardRoot, 'dist',
-      skin === 'a' ? 'Janus-A-Obsidiana-interactivo.html' : 'Janus-B-Platino-interactivo.html');
+      skin === 'a' ? 'Janus-Core-A-public-safe.html' : 'Janus-Core-B-public-safe.html');
     try {
       if (!existsSync(dashboardFile)) {
         if (!existsSync(dashboardBuild)) throw new Error('Módulo de dashboard no instalado');
-        execFileSync(process.execPath, [dashboardBuild, '--skin', skin], {
+        execFileSync(process.execPath, [dashboardBuild, '--skin', skin, '--out', dashboardFile], {
           cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
+          env: { ...process.env, JANUS_DASH_PUBLIC_SAFE: '1' },
         });
       }
       if (!existsSync(dashboardFile)) throw new Error('No se generó la vista ' + skin);
