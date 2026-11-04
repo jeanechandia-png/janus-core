@@ -25,4 +25,13 @@ El módulo no posee red, dinero, secretos ni memoria propia. El runtime de JANUS
 
 Cadencia recomendada como **política versionada**, no como servicio contratado: señales locales con cada build, revisión de proveedores y vulnerabilidades semanal, simulación de sustitución de proveedor mensual, prueba de restauración trimestral, análisis de valor cada trimestre y revisión estratégica de 24 meses continuamente actualizada. La cadencia y ventanas de evidencia del código son configurables; cada observación tiene timestamp.
 
-**No alcanzado todavía:** no hay monitor autónomo conectado a producción, consulta automática a fuentes oficiales ni ejecución del ciclo con equipo real. Las funciones son puras y probables offline, pero todavía deben ser integradas al runtime y sus tests.
+## Runtime operativo (endpoints protegidos)
+
+La rama integra el módulo con el SQLite existente, sin inventar un almacén paralelo:
+
+- `GET /api/evolution` — Founder autenticado; muestra 12 riesgos, evidencia, vencimiento y reincidencias. Sin evidencias verificadas no presenta salud falsa.
+- `POST /api/evolution/evidence` — aporta una observación local con referencia y sello temporal. Se guarda como **no verificada** hasta pasar revisión independiente; nunca convierte automáticamente el resultado en verde.
+- `POST /api/evolution/postmortem` — guarda causa/impacto/lección/control/cambio/verificación + evidencias; `fingerprint` en `error_lessons` y registro cronológico en SQLite. El mismo ID repetido es idempotente; otra incidencia con igual huella aumenta prioridad.
+- `/health` anuncia la capacidad. Todas las escrituras requieren sesión del Founder y ninguna ejecuta herramientas externas.
+
+**Pendiente explícito:** alimentar automáticamente las 12 pruebas desde CI, comprobaciones oficiales y el dispositivo físico; programar una cadencia local con revalidación después de offline y revisar los resultados en un panel. Los endpoints están conectados al runtime, pero no se ha desplegado ni verificado en el Samsung/iPhone real.
