@@ -1,5 +1,7 @@
 # Handoff — voz propia, conocimiento del negocio, «+» y dashboard de Kendra (2026-11-04)
 
+> **CORRECCIÓN VIGENTE 2026-11-04:** la clonación de la voz del Founder **está pendiente** en ElevenLabs y JANUS local. Donde este handoff histórico diga «clonada» debe leerse como **voz objetivo todavía no creada/verificada**. El adaptador no acredita existencia del clon. Rama correctiva: `chatgpt/janus-voice-cloning-pending-and-independent-20261104`.
+
 Rama: `claude/elevenlabs-voice-provider` (sobre `main` @ 9b38f41). Cuatro entregas apiladas, una por commit (ver `git log`):
 `feat(voice)` ElevenLabs temporal + independencia · `feat(knowledge)` conocimiento por voz con Face ID · `feat(attachments)` botón «+» · `feat(kid)` dashboard de Kendra.
 
