@@ -18,7 +18,7 @@ const Janus3D = (() => {
   /* ---------- formas y emociones (compartidas por todas las instancias del robot) ---------- */
   const FORMS = ['robot', 'nexo-masculino', 'nexo-femenino', 'cabeza', 'cara', 'lumi', 'bombo', 'musgo', 'nimbo'], CREATURES = ['lumi', 'bombo', 'musgo', 'nimbo'];
   const MOODS = ['alegre', 'contento', 'triste', 'enojado', 'sorprendido', 'pensativo'];
-  const FORM = { key: 'robot', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
+  const FORM = { key: 'nexo-masculino', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
   const MOOD = { base: null, flash: null, until: 0 };
   const TINT = { alegre: '#FFE48A', contento: '#FFD36A', triste: '#6FA8FF', enojado: '#FF4A3D', sorprendido: '#FFFFFF', pensativo: '#B79CFF' };
   const nowMs = () => performance.now();
