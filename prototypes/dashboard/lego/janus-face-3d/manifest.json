@@ -1,0 +1,27 @@
+{
+  "piece": "janus-face-3d",
+  "name": "Cara con expresiones: ojos y sonrisa flotantes (o montados en el visor del robot)",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (2 nov 2026). Dibuja con canvas 2D sobre planos 3D; sin modelos externos.",
+  "dependencies": [
+    "three.js r160 (MIT) en vendor/three-r160.min.js"
+  ],
+  "api": "JanusFace3D.build(id, hexOjos, {mount, scale}) → rig {root, update(t,dt,ctl), setLook({eyes}), face:true, mood} · ctl.mood: alegre|contento|triste|enojado|sorprendido|pensativo · opts.mount=true: se monta sobre el visor del robot (sin placa ni sombra)",
+  "behaviour": "Seis emociones con transición suave, parpadeo, mirada y boca al hablar. Distinguir de las criaturas procedurales: solo este rig marca face === true (las criaturas también tienen una propiedad face con su kit de cara).",
+  "mounts": [
+    {
+      "product": "Janus · dashboard A (prototipo) — teléfono, Sala y Compañero",
+      "file": "prototypes/dashboard/lego/janus-3d/janus-3d.js (formas «cabeza» y «cara») · lego/janus-stage-3d (aspecto «Cara con expresiones» del compañero)",
+      "version": "1.0.0"
+    }
+  ],
+  "plannedMounts": [
+    "Robot hiperrealista de ChatGPT: la cara se sustituirá por los morph targets del GLB (contrato v1.0)"
+  ],
+  "commercial": "Reutilizable: color de ojos y boca por cliente.",
+  "knownLimits": [
+    "Es 2D dibujado sobre planos, no un modelado hiperrealista.",
+    "Los matices de color por emoción convergen más despacio con fotogramas lentos (SwiftShader).",
+    "Rendimiento en dispositivos reales sin medir."
+  ]
+}

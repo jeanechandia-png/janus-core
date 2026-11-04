@@ -1,0 +1,58 @@
+/* ===== Compañero 3D: la criatura vive dentro de la escena (lego/janus-stage-3d + lego/janus-creatures-3d) ===== */
+.vb-companero{display:grid!important;display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:14px;min-height:0;height:100%}
+.cpst3{position:relative;min-height:0;border-radius:22px;overflow:clip;isolation:isolate;
+  border:1px solid rgba(255,222,160,.55);box-shadow:0 24px 40px -24px #000,inset 0 1px 0 rgba(255,255,255,.18),0 0 0 4px rgba(10,8,6,.7),0 0 0 5px rgba(232,195,122,.35);
+  background:radial-gradient(90% 60% at 50% 55%,color-mix(in srgb,var(--cg) 26%,transparent),transparent 70%),linear-gradient(180deg,#14100c,#070605)}
+.cpgl{position:absolute;inset:0;touch-action:none}
+.cpfb{position:absolute;inset:0;display:grid;place-items:center;align-content:center;gap:8px;padding:16px;text-align:center}
+.cpfb img{width:46%;max-height:55%;object-fit:cover;border-radius:18px}
+.cpfb p{margin:0;font-size:11px;color:var(--mute);max-width:36ch}
+
+/* Panel de pestañas */
+.cptabs{min-height:0;display:flex;flex-direction:column;gap:8px;border-radius:22px;padding:10px;background:linear-gradient(180deg,rgba(24,19,13,.92),rgba(10,8,6,.96));box-shadow:inset 0 0 0 1px rgba(232,195,122,.35),0 24px 40px -28px #000}
+.cptb{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;flex:none}
+.cptab{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 2px;border-radius:12px;cursor:pointer;color:var(--mute);box-shadow:inset 0 0 0 1px rgba(232,195,122,.2)}
+.cptab i{font-style:normal;font-size:17px;line-height:1.1}.cptab em{font-style:normal;font-size:9px;letter-spacing:.02em;white-space:nowrap}
+.cptab.on{color:#FFE2A0;box-shadow:inset 0 0 0 1.5px #FFE2A0,0 0 12px rgba(255,214,140,.35);background:rgba(232,195,122,.2)}
+.cptc{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;padding:2px 2px 6px;display:flex;flex-direction:column;gap:8px}
+.cptp{display:flex;gap:6px;flex-wrap:wrap}
+.cptp .pill2{cursor:pointer;min-width:44px;padding:7px 12px;font-size:16px;line-height:1;text-align:center}
+.cptp .pill2.on{box-shadow:inset 0 0 0 1.5px #FFE2A0;color:#FFE2A0}
+.cpq{font-size:30px;line-height:1.15;margin:2px 0 2px;color:#FFF1CC;text-shadow:0 2px 0 #000}
+.cptc .note.ok{color:#5FD39A}
+.cpbtns{display:flex;gap:6px;flex-wrap:wrap}.cpbtns .btn2{cursor:pointer}
+.cpmini{font-size:11px;line-height:1.35;margin:0}
+.cpgr h4{margin:0 0 5px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:500}
+.cpgr{display:block}
+.cpsw{display:flex;flex-wrap:wrap;gap:7px}
+.cpdot{width:30px;height:30px;border-radius:50%;cursor:pointer;background:var(--c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35),inset 0 -4px 6px rgba(0,0,0,.28),0 3px 6px -3px #000;transition:transform .12s}
+.cpdot:hover{transform:scale(1.1)}
+.cpdot.on{box-shadow:0 0 0 2px #0a0806,0 0 0 4px #FFE2A0,0 0 12px rgba(255,214,140,.6)}
+.cpchips{display:flex;flex-wrap:wrap;gap:6px}
+.cpc{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;min-width:62px;max-width:96px;padding:6px 6px 5px;border-radius:12px;cursor:pointer;text-align:center;background:rgba(255,236,190,.06);box-shadow:inset 0 0 0 1px rgba(232,195,122,.3)}
+.cpc i{font-style:normal;font-size:20px;line-height:1.1}
+.cpc em{font-style:normal;font-size:10px;line-height:1.15;color:var(--ivory)}
+.cpc b{font-size:9.5px;font-weight:500;color:#FFE2A0}
+.cpc.on{box-shadow:inset 0 0 0 1.5px #FFE2A0,0 0 10px rgba(255,214,140,.4);background:rgba(232,195,122,.2)}
+.cpc.lock{opacity:.82}.cpc.lock i{filter:grayscale(.55)}
+.cpc.dim2{opacity:.5}
+.cpwal{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;font-size:20px;color:#FFF1CC}.cpwal b{color:#FFE2A0}.cpwal small{font-size:10px;color:var(--mute)}
+.cpstory{margin:0 0 8px;font-size:14px;line-height:1.4}
+.cplights{display:flex;gap:8px;flex-wrap:wrap}.cplights .btn2{cursor:pointer}
+.cpul{margin:0;padding-left:16px;font-size:12px;line-height:1.4;display:grid;gap:4px}
+.cpbasis summary{cursor:pointer;font-size:11px;color:#FFE2A0;margin-bottom:6px}
+
+@media (max-width:47.5em),(max-height:31.25em){
+  .vb-companero{grid-template-columns:1fr;grid-template-rows:none;height:auto}
+  .cpst3{height:58svh;min-height:360px}
+  .cptabs{overflow:visible}
+  .cptc{overflow:visible}
+  .cpq{font-size:26px}
+}
+@media (prefers-reduced-motion:reduce){.cpstars em{animation:none}}
+/* Módulo de criaturas (GLB) */
+.cpslot{display:flex;flex-direction:column;gap:6px;padding:8px 9px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(232,195,122,.25)}
+.cpslh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cpslh b{color:var(--ivory)}
+.cpfile{position:relative;overflow:hidden;cursor:pointer}
+.cpfile input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}

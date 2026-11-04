@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v12';
+const CACHE = 'janus-shell-v13';
 const SHELL = [
   '/',
   '/index.html',
@@ -8,6 +8,9 @@ const SHELL = [
   '/app-install.js',
   '/glow-emblem.js',
   '/founder-session.js',
+  '/knowledge-review.js',
+  '/dashboard-access.js',
+  '/dashboard-access.css',
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',
@@ -43,6 +46,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (
     request.method !== 'GET'
+    || url.origin !== self.location.origin
     || url.pathname.startsWith('/api/')
     || url.pathname === '/health'
   ) return;
@@ -50,10 +54,17 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
+        if (response.ok && !/no-store/i.test(response.headers.get('cache-control') || '')) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))),
+      .catch(() => caches.match(request).then(async (cached) => {
+        if (cached) return cached;
+        if (request.mode !== 'navigate') return Response.error();
+        const shell = await caches.match(url.pathname === '/kendra' || url.pathname.startsWith('/kendra/') ? '/kendra' : '/');
+        return shell || new Response('JANUS está sin conexión. Vuelve a abrir la app cuando el servidor esté disponible.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      })),
   );
 });

@@ -220,6 +220,9 @@ export class BusinessKnowledgeToolAdapter implements ToolAdapter {
       return { ok: false, error: 'No hay un cambio pendiente de aplicar (puede haber caducado). Pídemelo de nuevo y te lo vuelvo a leer.' };
     }
 
+    if (typeof request.input.expectedProposalId === 'string' && pending.id !== request.input.expectedProposalId) {
+      return { ok: false, error: 'La propuesta cambió desde que la revisaste; pide una nueva revisión.' };
+    }
     const state = this.currentState();
     const applied = applyProposal({
       state,

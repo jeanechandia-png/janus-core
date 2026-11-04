@@ -15,6 +15,9 @@ export interface VoiceStreamServerOptions {
   maxAudioFrameBytes?: number;
   /** Optional per-session speaker recognition (convenience only). */
   speakerResolverFactory?: (sessionId: string) => SpeakerResolver | undefined;
+  /** Runtime authorization; absent only for standalone/local library consumers. */
+  authorize?: (sessionId: string, ticket: string, request: IncomingMessage) => void | (() => void);
+  revalidate?: (sessionId: string) => void;
 }
 
 interface StreamConnection {
@@ -23,6 +26,7 @@ interface StreamConnection {
   engine: DuplexVoiceEngine;
   mimeType: string;
   sequence: number;
+  validate?: () => void;
 }
 
 type ClientControl =
@@ -31,6 +35,7 @@ type ClientControl =
       version: 1;
       sessionId: string;
       voiceId?: string;
+      ticket?: string;
       audio: {
         mimeType: string;
       };
@@ -47,6 +52,8 @@ export class VoiceStreamServer {
   private readonly defaultVoiceId: string;
   private readonly maxAudioFrameBytes: number;
   private readonly speakerResolverFactory?: VoiceStreamServerOptions['speakerResolverFactory'];
+  private readonly authorize?: VoiceStreamServerOptions['authorize'];
+  private readonly revalidate?: VoiceStreamServerOptions['revalidate'];
   private readonly wss = new WebSocketServer({ noServer: true, perMessageDeflate: false });
   private readonly connections = new Map<string, StreamConnection>();
   private readonly onUpgradeBound: (request: IncomingMessage, socket: Socket, head: Buffer) => void;
@@ -59,15 +66,18 @@ export class VoiceStreamServer {
     this.defaultVoiceId = options.defaultVoiceId ?? 'janus-default';
     this.maxAudioFrameBytes = options.maxAudioFrameBytes ?? 128 * 1024;
     this.speakerResolverFactory = options.speakerResolverFactory;
+    this.authorize = options.authorize;
+    this.revalidate = options.revalidate;
     this.onUpgradeBound = (request, socket, head) => this.onUpgrade(request, socket, head);
 
     this.server.on('upgrade', this.onUpgradeBound);
-    this.wss.on('connection', (ws) => this.onConnection(ws));
+    this.wss.on('connection', (ws, request) => this.onConnection(ws, request));
   }
 
   async speak(sessionId: string, text: string, voiceId?: string): Promise<boolean> {
     const connection = this.connections.get(sessionId.trim());
     if (!connection || connection.ws.readyState !== WebSocket.OPEN) return false;
+    try { connection.validate?.(); this.revalidate?.(sessionId); } catch { connection.ws.close(4003, 'authority expired'); return false; }
     await connection.engine.speak(text, voiceId);
     return true;
   }
@@ -102,12 +112,16 @@ export class VoiceStreamServer {
     });
   }
 
-  private onConnection(ws: WebSocket): void {
+  private onConnection(ws: WebSocket, request: IncomingMessage): void {
     let connection: StreamConnection | undefined;
     let initializing = false;
 
     ws.on('message', (data, isBinary) => {
       void (async () => {
+        if (connection) {
+          try { connection.validate?.(); this.revalidate?.(connection.sessionId); }
+          catch { ws.close(4003, 'authority expired'); return; }
+        }
         if (isBinary) {
           if (!connection) {
             this.sendJson(ws, { type: 'error', code: 'not_ready', message: 'Send hello before audio.' });
@@ -148,6 +162,7 @@ export class VoiceStreamServer {
             const sessionId = control.sessionId.trim();
             const mimeType = control.audio.mimeType.trim();
             if (!sessionId || !mimeType) throw new Error('sessionId and audio.mimeType are required');
+            const validate = this.authorize?.(sessionId, control.ticket ?? '', request);
 
             const existing = this.connections.get(sessionId);
             if (existing && existing.ws !== ws) {
@@ -162,6 +177,7 @@ export class VoiceStreamServer {
               session: this.sessions.get(sessionId),
               voiceId: control.voiceId?.trim() || this.defaultVoiceId,
               onEvent: async (event) => this.forwardEngineEvent(ws, event),
+              ...(validate ? { beforeTranscript: validate } : {}),
               ...(this.speakerResolverFactory ? (() => { const speakerResolver = this.speakerResolverFactory!(sessionId); return speakerResolver ? { speakerResolver } : {}; })() : {}),
             });
             connection = {
@@ -170,6 +186,7 @@ export class VoiceStreamServer {
               engine,
               mimeType,
               sequence: 0,
+              ...(validate ? { validate } : {}),
             };
             this.connections.set(sessionId, connection);
             engine.start();
@@ -261,6 +278,7 @@ function parseControl(data: RawData): ClientControl | null {
         version: 1,
         sessionId: value.sessionId,
         ...(typeof value.voiceId === 'string' ? { voiceId: value.voiceId } : {}),
+        ...(typeof value.ticket === 'string' ? { ticket: value.ticket } : {}),
         audio: { mimeType: value.audio.mimeType },
       };
     }

@@ -15,7 +15,10 @@
     "build:attach": "node scripts/build-attach.mjs",
     "flow-editor:build": "node scripts/build-flow-editor.mjs",
     "flow-editor:e2e": "node scripts/flow-editor-e2e.mjs",
-    "voice:independence": "node --import tsx scripts/voice-independence-check.ts"
+    "voice:independence": "node --import tsx scripts/voice-independence-check.ts",
+    "dashboard:build": "node scripts/build-janus-dashboards.mjs",
+    "start:dashboards": "npm run dashboard:build && npm run start:local",
+    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs"
   },
   "dependencies": {
     "ws": "^8.21.3"

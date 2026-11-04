@@ -2,6 +2,16 @@
 
 Fecha: 2026-11-04
 
+## Integración en revisión — dashboards A/B + JANUS CORE + evolución (04-11-2026)
+
+**Rama vigente de validación:** `chatgpt/janus-integrated-review-20261104` (PR #59), basada en la rama más reciente de Claude `claude/elevenlabs-voice-provider` y PR #58 de Evolution Guard. El código A/B procede de la rama visual de PR #56. **No fusionada ni publicada en producción.**
+
+**HECHO EN CÓDIGO:** runtime sirve `/dashboard/a` (Obsidiana) y `/dashboard/b` (Platino) en el mismo origen PWA, `npm run start:dashboards` usa `.env.local` del servicio, `JanusGateway` envía `/api/command` y sigue `/api/events` desde Core sin filtrar mensajes privados a proveedores alternativos si Core rechaza sesión. Catálogo LEGO: JANUS masculino (con el rol de voz clonada del Founder, no es Jean), Melanie femenina, Lumi/Bombo/Musgo/Nimbo, slots GLB independientes, expresiones 3D. Premortem/postmortem: 12 checks y memoria SQLite autenticada, sin upgrades silenciosos.
+
+**EVIDENCIA:** CI del Core y módulo de evolución superadas; contrato Core/dashboard/servidor y E2E de robots superados en rama visual. Suite total y E2E de integración PR #59 se validan por GitHub Actions. El arte conceptual **no** constituye GLB hiperrealista ni voz real validada; falta rig facial, prueba GPU iPhone/Samsung, dispositivos y credenciales privadas. No se alteraron landings públicas.
+
+**Reanudar:** `docs/handoffs/2026-11-04-integracion-dashboards-evolution.md`; ejecutar `npm run typecheck && npm test && npm run dashboard:test && npm run dashboard:build && node tests/runtime-smoke.mjs`.
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
@@ -417,3 +427,57 @@ No considerar una landing actualizada solo porque el bundle llegó al repositori
 ## Regla de continuidad
 
 Este documento representa el VIGENTE de esta rama. Git y la cronología local preservan el HISTÓRICO. Antes de ejecutar trabajo nuevo, Janus sincroniza código/pruebas + cronología + Error Ledger + Blueprints + outcomes + estado vigente. Si existe contradicción, PRESENTE gobierna ejecución y PASADO se conserva para aprendizaje y previsión.
+
+
+## Handoff 2026-11-04 — Continuidad verificada, apps y cambios por voz
+
+Fecha de comprobación: 4-nov-2026, 20:09 Europe/Amsterdam.
+Estado: TRASPASO DOCUMENTAL SOBRE LA LÍNEA INTEGRADA; sin cambio funcional ni despliegue por esta intervención.
+
+### Punto de reanudación y cronología verificados
+
+- Repositorio único: `jeanechandia-png/janus-core`. `main@9b38f41fd284e5923102d0faa783c81c4eac532e` conserva la base del 23-oct; no representa por sí sola los avances posteriores.
+- PR #57: `claude/elevenlabs-voice-provider@5e91d376f96da26aa753f1941e4db8f01efe400f`: voz, conocimiento, adjuntos y dashboard infantil.
+- PR #58: `chatgpt/janus-evolution-premortem-postmortem-20261104@6ce02736c4a390041b5c4365e37bda35624bae24`, sobre #57: evolución y premortem/postmortem.
+- PR #59: `chatgpt/janus-integrated-review-20261104@0c42f1b90612818e45947ec04b4f1b6299b4a2a3`, sobre #58: integración de dashboards A/B y subárbol del trabajo de #56. **Esta es la línea integrada comprobada para este traspaso**, no una promoción a producción ni una orden para sustituir otras ramas sin comparar.
+- Leer primero `START_HERE.md`, este último handoff y `docs/handoffs/2026-11-04-integracion-dashboards-evolution.md`; después `docs/handoffs/2026-11-04-voz-conocimiento-adjuntos-kendra.md`, `docs/business-knowledge.md`, `docs/voice-elevenlabs-provider.md` y `docs/ios-founder-faceid-bridge.md`.
+- Antes de editar, refrescar HEAD remoto de #57/#58/#59 y comparar cambios concurrentes. Mantener esta secuencia y los cambios posteriores; no restaurar una base antigua ni reemplazar archivos completos desde otra rama.
+
+### Última instrucción del Founder en esta sesión
+
+El producto está en la fase final de dejar funcionales las dashboards con sus características y accesos correspondientes **tipo app**: dashboard del Founder y dashboard de Kendra, con permisos separados. Esto expresa la meta y el estado comunicado por el propietario; no sustituye una prueba de instalación y funcionamiento en sus dispositivos.
+
+El Founder debe poder identificarse y dar instrucciones por voz a JANUS para que ejecute los cambios solicitados desde el producto, **sin que el Founder edite código**. Registrar el alcance concreto de cada tipo de cambio y su herramienta ejecutora; no reducir esta meta a conversación o a texto dictado. Los cambios de voz/configuración solicitados deben evaluarse dentro de este mismo recorrido. Para cambios que exigen aprobación, JANUS presenta qué entendió y obtiene la confirmación correspondiente.
+
+Sobre clonación: el Founder declara que **ya existe una clonación rápida en ElevenLabs**; lo pendiente es perfeccionarla. Mantener separados: calidad del clon, uso E2E desde JANUS y autonomía del motor. Reutilizar el adaptador y `voice-independence` existentes; el clon propio parte de grabaciones originales autorizadas. No reiniciar el desarrollo ni confundir clonación con conexión.
+
+### Evidencia y brechas de cierre
+
+- Código revisado en #59: rutas `/dashboard/a`, `/dashboard/b` y `/kendra`; manifiestos PWA general e infantil presentes. **Instalación y accesos físicos por perfil: NO VERIFICADOS en esta intervención.**
+- `business-knowledge` ya ofrece propuesta, lectura de confirmación, aplicación privilegiada, historial y publicación opcional. El destino de publicación, alta de herramientas y disponibilidad del puente de Face ID siguen sujetos a activación/verificación según sus guías. No presentar «aplicado localmente» como «publicado y cargado por los consumidores».
+- `apps/runtime/server.ts` declara en `/health`: `voicePrivilegedActions: blocked-until-authenticated-voice-transport`. La creación de runs de `VoiceSessionRegistry` pasa autoridad indefinida a `startRun`. **Brecha específica a revisar y cerrar:** vincular la petición de voz a la sesión autorizada y a la prueba requerida para la acción, o verificar una ruta equivalente ya existente. No desactivar el control de autoridad para que una orden pase.
+- `docs/ios-founder-faceid-bridge.md` distingue código implementado de aceptación en dispositivo físico pendiente. Una voz parecida al Founder o la identificación doméstica no equivalen a sesión administrativa.
+- La herramienta actual de conocimiento admite tipos concretos de cambio. **No está acreditado que pueda modificar cualquier función, interfaz o voz por una petición genérica.** Inventariar los cambios soportados y ampliar las herramientas existentes cuando falte una capacidad, conservando trazabilidad.
+- Consulta de checks del SHA base: `test` completado con `success`; `dashboard` figuraba `in_progress`. Son estados puntuales de esa consulta, no certificación final ni prueba física.
+- `npm run continuity` se ejecutó en el árbol local preexistente: confirmó `main@9b38f41`, cambios sin guardar y handoff local del 2-nov; no tenía `gh` disponible para dibujar PR. Se contrastó después con los datos remotos y los handoffs de #59. No se cambió la rama ni se sobrescribió el trabajo local pendiente.
+- El control de servicio del 2-nov permanece documentado como delta local no publicado en ese traspaso. **Su integración en #59 no está acreditada aquí**; comparar e incorporar solo lo que falte, sin reponer el servidor/dashboard antiguos.
+
+### Siguiente acción y prueba de aceptación
+
+1. Continuar sobre el HEAD vigente de la línea integrada, después de comprobar cambios concurrentes y el estado de CI.
+2. Cerrar el recorrido: acceso tipo app → sesión Founder e identificación requerida → voz → interpretación visible → confirmación cuando corresponda → herramienta autorizada → persistencia → respuesta y efecto observable en el mismo producto.
+3. Probar un cambio representativo realmente soportado y otro de configuración/voz solicitado; declarar los tipos todavía no soportados. Verificar persistencia tras reinicio y rechazo sin sesión, con sesión caducada, replay y perfil infantil.
+4. Verificar por separado la instalación/acceso de Founder y Kendra en sus dispositivos, las funciones del dashboard y el aislamiento de permisos. Conservar A/B, avatares, criaturas, adjuntos, conocimiento, evolución e historial ya existentes.
+5. Registrar archivos y delta exactos, SHA final, pruebas ejecutadas/no ejecutadas, evidencia, bloqueos y siguiente paso **en este mismo `docs/STATE.md`**, enlazando el handoff específico. El siguiente agente repite la lectura cronológica y la comprobación de HEAD.
+6. No declarar lista la app, el cambio por voz ni el clon perfeccionado solo por pruebas simuladas, un botón o un commit. Mantener las restricciones vigentes de producción y gasto; esta actualización no publica ni activa servicios.
+
+**Cambio de esta intervención:** solo se añade este handoff al archivo vigente de #59, preservando su contenido previo. No se repitió la suite funcional porque no se modificó código; las pruebas históricas de otros agentes siguen atribuidas a sus respectivos handoffs.
+
+## Handoff 2026-11-04 — Código: voz autenticada, propuestas aprobables y apps
+
+- Continuación de PR #59 desde `2f6ddb4` en `chatgpt/janus-integrated-review-20261104`, mismo repositorio. Este handoff es posterior al traspaso documental anterior: **ahora sí hay cambios de código**.
+- Implementado: sesión Founder en dictado/controles, tickets PCM de un uso y revocación, autoridad completa de acciones compiladas, revisión y aplicación de la propuesta exacta con prueba biométrica, persistencia/historial existente, acceso instalable del Founder al dashboard, Kendra en su propia ruta, identificación/retorno A/B y puente Swift web/nativo.
+- Verificado: TypeScript; 653 pruebas (652 pasan, 1 omisión privada); 10/10 contratos de dashboards; build A/B y variantes Core; runtime smoke; sintaxis y diff. La prueba nueva recorre HTTP → propuesta → bloqueo sin prueba → firma de fixture → aplicación → SQLite → reinicio, con rechazo de token infantil y replay.
+- **Pendiente real:** instalación en tablet/host HTTPS; compilación e instalación del host iOS y Face ID físico; micrófono/voz real; instalación y pruebas en dispositivos. Chromium local no ejecutado por descarga de binario truncada. No confundir estas pruebas con aceptación física ni con producción.
+- No hay ejecutor universal de cualquier cambio por voz: se conectaron las acciones de conocimiento soportadas. Voz/configuración arbitrarias y cambios de código siguen requiriendo herramientas concretas. PR #60 sigue como rama hermana no integrada; contrastar su estado de clon con la evidencia privada.
+- Relevo y pasos exactos: `docs/handoffs/2026-11-04-authenticated-voice-apps.md`. El siguiente agente refresca HEAD, lee este último handoff y continúa aquí; no restaura `main` ni copia servidores completos desde otra base.

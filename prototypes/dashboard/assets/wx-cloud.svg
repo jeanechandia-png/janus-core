@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+<linearGradient id="back" gradientUnits="userSpaceOnUse" x1="0" y1="26" x2="0" y2="84">
+<stop offset="0" stop-color="#B9C6DA"/>
+<stop offset="1" stop-color="#6F809C"/>
+</linearGradient>
+<linearGradient id="cl" gradientUnits="userSpaceOnUse" x1="0" y1="46" x2="0" y2="110">
+<stop offset="0" stop-color="#FFFFFF"/>
+<stop offset=".5" stop-color="#DCE4F0"/>
+<stop offset="1" stop-color="#9AABC4"/>
+</linearGradient>
+<filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+<filter id="shd"><feGaussianBlur stdDeviation="4"/></filter>
+</defs>
+<ellipse cx="66" cy="114" rx="42" ry="6" fill="#0A1A33" opacity=".4" filter="url(#shd)"/>
+<g fill="url(#back)">
+<circle cx="78" cy="48" r="20"/>
+<circle cx="98" cy="58" r="14"/>
+<rect x="60" y="56" width="52" height="16" rx="8"/>
+</g>
+<g fill="url(#cl)">
+<circle cx="44" cy="86" r="19"/>
+<circle cx="66" cy="73" r="25"/>
+<circle cx="90" cy="86" r="19"/>
+<rect x="26" y="86" width="82" height="24" rx="12"/>
+</g>
+<ellipse cx="60" cy="58" rx="13" ry="6" fill="#FFFFFF" opacity=".75" filter="url(#soft)"/>
+</svg>

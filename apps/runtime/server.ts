@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -222,6 +223,7 @@ import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
 import { BusinessKnowledgeToolAdapter } from '../../packages/adapters/src/business-knowledge-tool-adapter.js';
+import { buildReadback, type KnowledgeProposal } from '../../packages/modules/business-knowledge/src/index.js';
 import {
   ATTACHMENT_PROFILES,
   FileAttachmentStore,
@@ -243,9 +245,19 @@ import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
 import { createFaceRecognition, type FaceHint, type FaceRecognitionRuntime } from '../../packages/adapters/src/face-recognition-adapter.js';
 import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
 import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.js';
+import { VoiceAuthority, VoiceAuthorityError } from '../../packages/security/src/voice-authority.js';
 
 const port = Number(process.env.PORT ?? 8787);
+// Política local-first: el servicio contiene datos y trazas privados; escuchando
+// en 0.0.0.0 expondría endpoints de lectura antiguos sin autenticación.
+// Acceso desde otros dispositivos: SOLO mediante un proxy HTTPS autenticado hacia loopback.
+const bindHost = process.env.JANUS_BIND_HOST?.trim() || '127.0.0.1';
+if (!['127.0.0.1', '::1', 'localhost'].includes(bindHost)) {
+  throw new Error('JANUS_BIND_HOST remoto rechazado: use loopback y un proxy HTTPS autenticado; no exponga SQLite/Janus directamente.');
+}
 const root = fileURLToPath(new URL('../pwa/', import.meta.url));
+const dashboardRoot = fileURLToPath(new URL('../../prototypes/dashboard/', import.meta.url));
+const dashboardBuild = join(dashboardRoot, 'build.cjs');
 const founderReferenceLibraryPath = fileURLToPath(
   new URL('../../config/founder-reference-library.json', import.meta.url),
 );
@@ -610,7 +622,7 @@ capabilities.register({
 // Conocimiento del negocio (precios, IVA, productos, equipo, instrucciones): se propone por voz/chat, se lee de vuelta
 // y SOLO se aplica con aprobación del Founder (autoridad + Face ID). Publicar fuera de Janus es opt-in por entorno.
 const knowledgePublishUrl = process.env.JANUS_KNOWLEDGE_PUBLISH_URL?.trim() || undefined;
-toolGateway.register(new BusinessKnowledgeToolAdapter({
+const knowledgeAdapter = new BusinessKnowledgeToolAdapter({
   store: {
     appendRevision: (record) => store.appendBusinessKnowledgeRevision(record),
     listRevisions: () => store.listBusinessKnowledgeRevisions(),
@@ -624,7 +636,8 @@ toolGateway.register(new BusinessKnowledgeToolAdapter({
     ? { publish: { url: knowledgePublishUrl, tokenProvider: () => credentialBroker.accessToken('knowledge-publish') } }
     : {}),
   statusUrls: parseKnowledgeStatusUrls(process.env.JANUS_KNOWLEDGE_STATUS_URLS),
-}));
+});
+toolGateway.register(knowledgeAdapter);
 capabilities.register({
   tool: 'knowledge',
   actions: ['entries.list', 'snapshot.get', 'change.propose', 'change.apply', 'sync.check'],
@@ -960,11 +973,19 @@ let runtimeBlueprint = resolveActiveRuntimeBlueprint(
 const modelGateway = createConfiguredModelGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
+const voiceAuthority = new VoiceAuthority((token) => authorityAuth.authenticateSession(token) ?? undefined);
 const voiceSessions = new VoiceSessionRegistry((sessionId) => ({
-  start: async (text, context) => startRun(text, 'voice', sessionId, undefined, undefined, undefined, undefined, context?.speaker),
-  pause: async (runId) => controlActiveRun(runId, 'pause'),
-  resume: async (runId) => controlActiveRun(runId, 'resume'),
-  cancel: async (runId) => controlActiveRun(runId, 'cancel'),
+  start: async (text, context) => {
+    const principal = voiceAuthority.principal(sessionId);
+    return startRun(text, 'voice', sessionId, {
+      principal,
+      instruction: { id: `voice_instruction_${randomUUID()}`, principalId: principal.id,
+        source: 'authenticated_human', authenticated: true, instruction: text, requestedAt: new Date().toISOString() },
+    }, undefined, undefined, undefined, context?.speaker);
+  },
+  pause: async (runId) => { voiceAuthority.principal(sessionId); await controlActiveRun(runId, 'pause'); },
+  resume: async (runId) => { voiceAuthority.principal(sessionId); await controlActiveRun(runId, 'resume'); },
+  cancel: async (runId) => { voiceAuthority.principal(sessionId); await controlActiveRun(runId, 'cancel'); },
 }));
 
 const interruptedRuns = store.markInterruptedRuns();
@@ -1716,6 +1737,7 @@ function requireFounderBiometricAuthority(
 ): {
   token: string;
   principal: NonNullable<ReturnType<typeof authorityAuth.authenticateSession>>;
+  authorityDecisionHash: string;
 } {
   const session = requireFounderAuthority(request);
   const requestedAt = new Date().toISOString();
@@ -1742,7 +1764,7 @@ function requireFounderBiometricAuthority(
     action,
   );
   if (!decision.allowed) throw new HttpRequestError(403, decision.reason);
-  return session;
+  return { ...session, authorityDecisionHash: decision.auditHash };
 }
 
 function authorityContextForCommand(
@@ -1774,6 +1796,7 @@ function authorityContextForCommand(
 }
 
 function authErrorStatus(error: unknown): number {
+  if (error instanceof VoiceAuthorityError) return error.status;
   if (error instanceof HttpRequestError) return error.status;
   if (error instanceof FounderBiometricError) {
     switch (error.code) {
@@ -2403,7 +2426,8 @@ function startRun(
     approvalHandler: async (action) => {
       if (action.risk !== 'none' && action.risk !== 'low' && decisionRunId) {
         // Sensitive/medium/high-risk action: wait for an explicit, authenticated Founder decision.
-        const operation = action.tool && action.operation ? `${action.tool}.${action.operation}` : undefined;
+        const operation = action.tool && action.operation
+          ? (action.operation.startsWith(action.tool + '.') ? action.operation : `${action.tool}.${action.operation}`) : undefined;
         const { outcome } = approvalQueue.request({
           runId: decisionRunId,
           actionId: action.id,
@@ -3059,6 +3083,49 @@ const handleKidRoute = createKidRoutes({
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
 
+  // ÚNICO ORIGEN: PWA oficial y dashboards A/B comparten autenticación
+  // de Founder, /api/command, SSE, aprobaciones y memoria SQLite.
+  // No se envían tokens a una landing ni a un Artifact ajenos al Núcleo.
+  if (url.pathname === '/dashboard' || url.pathname === '/dashboard/a' || url.pathname === '/dashboard/b') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
+    }
+    const skin = url.pathname === '/dashboard/b' ? 'b' : 'a';
+    // Nombre distinto al HTML personal local: nunca reutilizar por accidente
+    // un archivo previamente compilado con local/names.json o local/real.js.
+    const dashboardFile = join(dashboardRoot, 'dist',
+      skin === 'a' ? 'Janus-Core-A-public-safe.html' : 'Janus-Core-B-public-safe.html');
+    try {
+      if (!existsSync(dashboardFile)) {
+        if (!existsSync(dashboardBuild)) throw new Error('Módulo de dashboard no instalado');
+        execFileSync(process.execPath, [dashboardBuild, '--skin', skin, '--out', dashboardFile], {
+          cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
+          env: { ...process.env, JANUS_DASH_PUBLIC_SAFE: '1' },
+        });
+      }
+      if (!existsSync(dashboardFile)) throw new Error('No se generó la vista ' + skin);
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      });
+      if (request.method === 'HEAD') response.end();
+      else {
+        const html = readFileSync(dashboardFile, 'utf8')
+          .replace('</head>', '<meta name="janus-runtime" content="core"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/janus-icon-180.png"><link rel="stylesheet" href="/dashboard-access.css"></head>')
+          .replace('</body>', '<script type="module" src="/dashboard-access.js"></script></body>');
+        response.end(html);
+      }
+    } catch (error) {
+      json(response, 503, { ok: false, error: 'Dashboard local no disponible',
+        detail: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+
+
+
   if (request.method === 'GET' && url.pathname === '/health') {
     json(response, 200, {
       ok: true,
@@ -3130,7 +3197,7 @@ const server = createServer(async (request, response) => {
         privateKeyStorage: 'external-to-janus',
         sessionStorage: 'memory-only-hashed-token',
         unauthenticatedMutations: 'blocked',
-        voicePrivilegedActions: 'blocked-until-authenticated-voice-transport',
+        voicePrivilegedActions: 'authenticated-session-with-per-action-authority-and-biometric-guards',
         audit: 'event-log+sha256-decision-hash',
         ...authorityAuth.status(),
       },
@@ -5786,6 +5853,44 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  const knowledgeProposalMatch = url.pathname.match(/^\/api\/knowledge\/proposals\/(kp_[A-Za-z0-9_-]{1,100})$/);
+  if (knowledgeProposalMatch && (request.method === 'GET' || request.method === 'POST')) {
+    try {
+      requireFounderAuthority(request);
+      const id = knowledgeProposalMatch[1]!;
+      const record = store.getBusinessKnowledgeProposal(id);
+      if (!record) throw new HttpRequestError(404, 'Propuesta no encontrada');
+      if (record.status !== 'pending' || Date.parse(record.expiresAt) <= Date.now()) {
+        throw new HttpRequestError(409, 'La propuesta ya no está pendiente o ha caducado; vuelve a pedir el cambio.');
+      }
+      const proposal = record.payload as KnowledgeProposal;
+      const state = knowledgeAdapter.currentState();
+      if (state.revision !== proposal.baseRevision) throw new HttpRequestError(409, 'El estado cambió; pide una nueva propuesta antes de aprobar.');
+      if (request.method === 'GET') {
+        json(response, 200, { ok: true, proposalId: id, baseRevision: proposal.baseRevision,
+          expiresAt: proposal.expiresAt, readback: buildReadback(state, proposal.changes),
+          biometricAction: 'knowledge.change.apply' });
+      } else {
+        const body = await readJson(request);
+        if (body.confirmProposalId !== id || body.expectedRevision !== proposal.baseRevision) {
+          throw new HttpRequestError(409, 'Confirma exactamente la propuesta y la revisión que acabas de leer.');
+        }
+        const permit = requireFounderBiometricAuthority(request, 'knowledge.change.apply');
+        const result = await toolGateway.execute({ tool: 'knowledge', action: 'change.apply',
+          input: { proposalKey: record.key, expectedProposalId: id }, idempotencyKey: `knowledge:approved:${id}`,
+          authorization: { privileged: true, principalId: permit.principal.id, authorityDecisionHash: permit.authorityDecisionHash },
+        }, () => {});
+        if (!result.ok) throw new HttpRequestError(409, result.error ?? 'No se pudo aplicar la propuesta');
+        appendGovernanceDecision({ subject: 'knowledge-change-approved', principalId: permit.principal.id,
+          content: 'Founder approved the exact reviewed knowledge proposal with a fresh biometric proof.',
+          metadata: { proposalId: id, baseRevision: proposal.baseRevision, revision: result.output?.revision,
+            authorityDecisionHash: permit.authorityDecisionHash } });
+        json(response, 200, { ok: true, ...result.output });
+      }
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/command') {
     try {
       const body = await readJson(request);
@@ -5878,16 +5983,29 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === 'POST' && url.pathname === '/api/voice/utterance') {
-    const body = await readJson(request);
-    const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
-    const text = typeof body.text === 'string' ? body.text.trim() : '';
-    if (!sessionId || !text) {
-      json(response, 400, { ok: false, error: 'sessionId and text are required' });
-      return;
-    }
-
+  if (request.method === 'POST' && url.pathname === '/api/voice/ticket') {
     try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+      const ticket = voiceAuthority.ticket(sessionId, token);
+      json(response, 200, { ok: true, ticket, expiresInSeconds: 30 });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/voice/utterance') {
+    try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+      const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (!sessionId || !text) {
+        json(response, 400, { ok: false, error: 'sessionId and text are required' });
+        return;
+      }
+
+      voiceAuthority.bind(sessionId, token);
       const session = voiceSessions.get(sessionId);
       const result = await session.transcript({
         text,
@@ -5896,34 +6014,42 @@ const server = createServer(async (request, response) => {
       });
       json(response, 200, { ok: true, result, session: session.snapshot() });
     } catch (error) {
-      json(response, 409, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      json(response, authErrorStatus(error), authErrorBody(error));
     }
     return;
   }
 
   if (request.method === 'POST' && url.pathname === '/api/voice/microphone') {
-    const body = await readJson(request);
-    const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
-    const state = body.state === 'connected' ? 'connected' : body.state === 'disconnected' ? 'disconnected' : null;
-    if (!sessionId || !state) {
-      json(response, 400, { ok: false, error: 'sessionId and valid state are required' });
-      return;
-    }
-    const session = voiceSessions.get(sessionId);
-    json(response, 200, { ok: true, session: session.microphone(state) });
+    try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+      const state = body.state === 'connected' ? 'connected' : body.state === 'disconnected' ? 'disconnected' : null;
+      if (!sessionId || !state) {
+        json(response, 400, { ok: false, error: 'sessionId and valid state are required' });
+        return;
+      }
+      voiceAuthority.bind(sessionId, token);
+      const session = voiceSessions.get(sessionId);
+      json(response, 200, { ok: true, session: session.microphone(state) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
     return;
   }
 
   if (request.method === 'POST' && url.pathname === '/api/voice/tts') {
-    const body = await readJson(request);
-    const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
-    const state = body.state === 'started' ? 'started' : body.state === 'completed' ? 'completed' : null;
-    if (!sessionId || !state) {
-      json(response, 400, { ok: false, error: 'sessionId and valid state are required' });
-      return;
-    }
-    const session = voiceSessions.get(sessionId);
-    json(response, 200, { ok: true, session: session.tts(state) });
+    try {
+      const { token } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const sessionId = typeof body.sessionId === 'string' ? body.sessionId.trim() : '';
+      const state = body.state === 'started' ? 'started' : body.state === 'completed' ? 'completed' : null;
+      if (!sessionId || !state) {
+        json(response, 400, { ok: false, error: 'sessionId and valid state are required' });
+        return;
+      }
+      voiceAuthority.bind(sessionId, token);
+      const session = voiceSessions.get(sessionId);
+      json(response, 200, { ok: true, session: session.tts(state) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
     return;
   }
 
@@ -5931,12 +6057,14 @@ const server = createServer(async (request, response) => {
   const voiceSessionId = voiceSessionMatch?.[1];
   if (request.method === 'GET' && voiceSessionId) {
     try {
+      const { token } = requireFounderAuthority(request);
+      voiceAuthority.bind(decodeURIComponent(voiceSessionId), token);
       json(response, 200, {
         ok: true,
         session: voiceSessions.get(decodeURIComponent(voiceSessionId)).snapshot(),
       });
     } catch (error) {
-      json(response, 400, { ok: false, error: error instanceof Error ? error.message : String(error) });
+      json(response, authErrorStatus(error), authErrorBody(error));
     }
     return;
   }
@@ -6008,6 +6136,13 @@ const voiceStream = voiceGateway
       sessions: voiceSessions,
       gatewayFactory: async () => voiceGateway,
       defaultVoiceId,
+      authorize: (sessionId, ticket, request) => {
+        requireSecureAuthorityTransport(request);
+        const origin = request.headers.origin;
+        if (origin && new URL(origin).host !== request.headers.host) throw new Error('Voice origin is not allowed');
+        return voiceAuthority.consume(ticket, sessionId);
+      },
+      revalidate: (sessionId) => { voiceAuthority.principal(sessionId); },
       ...(speakerRecognition ? { speakerResolverFactory: speakerRecognition.resolverFactory } : {}),
     })
   : undefined;
@@ -6046,6 +6181,6 @@ process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`JANUS runtime listening on http://0.0.0.0:${port}`);
+server.listen(port, bindHost, () => {
+  console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);
 });
