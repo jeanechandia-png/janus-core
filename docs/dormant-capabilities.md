@@ -11,6 +11,7 @@ Decisión del Founder (2026-10-23): de momento **no** necesita que Janus lea o e
 | Correo: leer, corregir borradores y enviar con aprobación | Código y pruebas listos (PR #47) | Servidor (ver abajo). Cliente OAuth de Google: coste **POR CONFIRMAR** (no verificado) | Cliente OAuth + URI de retorno pública; llave de la bóveda; consentimiento por buzón (lectura, luego escritura) |
 | Vigilancia periódica de redes (Instagram, Facebook, Threads) | Planificador y registros en SQLite listos | Servidor. APIs de Meta/Threads: coste **POR CONFIRMAR** | App de Meta y token; Threads como tester y token |
 | WhatsApp, SMS y llamadas | Nivel 1 **ya activo y gratis**: Janus prepara el mensaje y un enlace; envías tú con un toque. Niveles 2–3 en reposo | Nivel 1: 0 €. Nivel 2 (API) y línea de voz con agente: **gasto, importe no verificado** | Decidir ruta; número dedicado solo si se quiere envío por API |
+| Voz en la nube (ElevenLabs): la voz clonada de Jean como voz de Janus | Adaptador, respaldo a voz local y pruebas listos (2026-11-04) | Créditos del plan de ElevenLabs que el Founder ya tiene; precio del plan en euros **POR CONFIRMAR** (no verificado). El Founder autorizó el gasto de pruebas el 2026-11-04 | `ELEVENLABS_API_KEY` + `JANUS_ELEVENLABS_VOICE_ID` + `JANUS_TTS_PROVIDER=elevenlabs`; host con whisper.cpp para la conversación completa |
 | Motor (runtime) siempre encendido | Sin desplegar | **Sí** (ver abajo) | Servidor con dirección pública HTTPS; o la laptop cuando exista |
 
 ## Opciones de servidor (solo cuando se active algo de lo anterior)

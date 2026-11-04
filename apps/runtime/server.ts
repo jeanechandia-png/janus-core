@@ -47,6 +47,7 @@ import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-a
 import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
+import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -214,6 +215,7 @@ import {
   type BiometricKeyStore,
 } from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
+import { FallbackTextToSpeechGateway } from '../../packages/voice/src/fallback-tts-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
@@ -240,6 +242,15 @@ const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
+// Proveedor de voz: 'local' (por defecto) o 'elevenlabs' (temporal y opcional; ver docs/voice-elevenlabs-provider.md).
+const ttsProviderSetting = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() === 'elevenlabs' ? 'elevenlabs' : 'local';
+// Solo este identificador de Janus puede salir a la nube; el resto se atiende siempre en local.
+const elevenLabsVoiceId = process.env.JANUS_ELEVENLABS_VOICE_ID?.trim() || undefined;
+let voiceTtsRouting: {
+  provider: 'qwen3-tts-adapter' | 'elevenlabs-with-fallback' | 'elevenlabs-only';
+  router?: FallbackTextToSpeechGateway;
+  elevenlabs?: ElevenLabsTtsAdapter;
+} = { provider: 'qwen3-tts-adapter' };
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
 const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 'true';
 const founderBiometricKeyId =
@@ -309,6 +320,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     'vercel-release': 'VERCEL_RELEASE_TOKEN',
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
+    elevenlabs: 'ELEVENLABS_API_KEY',
     ...httpServiceVariables,
     ...mailServiceVariables,
   },
@@ -1485,7 +1497,9 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
 }
 
 function createConfiguredVoiceGateway(): VoiceGateway | undefined {
-  if (!sttBaseUrl || !ttsBaseUrl) return undefined;
+  const wantsElevenLabs = ttsProviderSetting === 'elevenlabs';
+  if (!sttBaseUrl) return undefined;
+  if (wantsElevenLabs ? !elevenLabsVoiceId : !ttsBaseUrl) return undefined;
 
   const stt = new WhisperCppSttAdapter({
     baseUrl: sttBaseUrl,
@@ -1493,14 +1507,46 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
     vocabularyPrompt: transcriptionVocabularyPrompt(),
   });
-  const tts = new Qwen3TtsHttpAdapter({
-    baseUrl: ttsBaseUrl,
-    language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
-    instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+  const local = ttsBaseUrl
+    ? new Qwen3TtsHttpAdapter({
+        baseUrl: ttsBaseUrl,
+        language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
+        instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+        chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
+        allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+      })
+    : undefined;
+
+  if (!wantsElevenLabs) {
+    voiceTtsRouting = { provider: 'qwen3-tts-adapter' };
+    return new CompositeVoiceGateway(stt, local!);
+  }
+
+  const elevenlabs = new ElevenLabsTtsAdapter({
+    apiKeyProvider: () => credentialBroker.accessToken('elevenlabs'),
+    voiceMap: { [defaultVoiceId]: elevenLabsVoiceId! },
+    modelId: process.env.JANUS_ELEVENLABS_MODEL?.trim() || undefined,
+    languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
-    allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+    maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
+    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'),
   });
-  return new CompositeVoiceGateway(stt, tts);
+  const router = new FallbackTextToSpeechGateway({
+    primary: elevenlabs,
+    fallback: local,
+    cooldownMs: numericEnv('JANUS_TTS_FALLBACK_COOLDOWN_MS'),
+    // Solo el motivo técnico; nunca el texto hablado ni la credencial.
+    onEvent: (event) => console.warn(`Voice provider ${event.type}: ${event.reason}`),
+  });
+  voiceTtsRouting = {
+    provider: local ? 'elevenlabs-with-fallback' : 'elevenlabs-only',
+    router,
+    elevenlabs,
+  };
+  if (!local) {
+    console.warn('Voice: ElevenLabs sin respaldo local (JANUS_TTS_BASE_URL ausente); si el proveedor falla, no habrá voz.');
+  }
+  return new CompositeVoiceGateway(stt, router);
 }
 
 function numericEnv(name: string): number | undefined {
@@ -2896,7 +2942,13 @@ const server = createServer(async (request, response) => {
               transport: 'websocket',
               input: 'audio/pcm;rate=16000;channels=1;format=s16le',
               stt: 'whisper.cpp-adapter',
-              tts: 'qwen3-tts-adapter',
+              tts: voiceTtsRouting.provider,
+              ...(voiceTtsRouting.router
+                ? {
+                    ttsRouting: voiceTtsRouting.router.status(),
+                    ttsCloudUsage: voiceTtsRouting.elevenlabs?.usage(),
+                  }
+                : {}),
             }
           : {
               state: 'unavailable',
@@ -2904,7 +2956,9 @@ const server = createServer(async (request, response) => {
                 ? 'STT y TTS locales no están configurados.'
                 : !sttBaseUrl
                   ? 'STT local no está configurado.'
-                  : 'TTS local no está configurado.',
+                  : ttsProviderSetting === 'elevenlabs' && !elevenLabsVoiceId
+                    ? 'JANUS_TTS_PROVIDER=elevenlabs requiere JANUS_ELEVENLABS_VOICE_ID.'
+                    : 'TTS local no está configurado.',
             },
       },
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
