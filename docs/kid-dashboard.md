@@ -13,6 +13,7 @@ Un acceso independiente para su hija (menor): su propio dashboard/app, personali
 | Persistencia | `packages/core/src/sqlite-store.ts` | Tablas `kid_*` en SQLite local. Solo se guarda el **hash** del token y del PIN |
 | Tiempo | `packages/adapters/src/open-meteo-adapter.ts` | Open-Meteo, sin clave; atribución CC BY 4.0 mostrada |
 | App de ella | `apps/pwa/kendra.html`, `kendra.js`, `kendra.css`, `kendra.webmanifest` | Instalable; CSP propia (solo lo propio + `youtube-nocookie.com`) |
+| Su criatura | `apps/pwa/kendra-creatures.js` | **Criatura, no robot** (el robot es del dashboard del Founder): Lumi (zorrita-polilla), Bombo (ajolote-nutria), Musgo (piedrita de musgo con luciérnaga), Nimbo (nubecita con arcoíris). Ilustraciones propias en SVG (sin `innerHTML`), animadas (parpadeo, flotar, antenas, branquias, chispas); al tocarla salta, pone cara de fiesta y dice otra de sus frases con la voz **local**; sale también junto a sus mensajes del chat. Respeta «reducir movimiento» |
 | Panel de padres | `apps/pwa/kendra-parent.js` | **Un solo código, dos sitios**: tarjeta en tu dashboard (sesión de Founder) y área con PIN en la app de ella |
 | «+» | módulo `chat-attachments`, perfil `kid` | 8 MB, 3 archivos, enlaces escaneados **nunca** pulsables |
 

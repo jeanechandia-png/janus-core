@@ -10,6 +10,7 @@
  */
 import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
+import { creatureSvg } from './kendra-creatures.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
 const PREF_KEY = 'kendra.prefs.v1';
@@ -207,9 +208,11 @@ function showLock(message) {
 function tabInicio() {
   const pet = creature();
   const out = [];
-  out.push(h('section', { class: 'card hero' },
-    h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon),
-    h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), h('p', { class: 'muted' }, pet ? `${pet.name}: «${pet.catchphrase}»` : ''))));
+  const say = h('p', { class: 'muted' }, pet ? `${pet.name}: «${pet.catchphrase}»` : '');
+  const stage = pet
+    ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, creatureSvg(pet.id, { primary: pet.primary, glow: pet.glow }))
+    : h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon);
+  out.push(h('section', { class: 'card hero' }, stage, h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), say)));
 
   if (view.reminders.length > 0) {
     out.push(h('section', { class: 'card' },
@@ -237,6 +240,18 @@ function tabInicio() {
   return out;
 }
 
+// Al tocar a la criatura: salta, pone cara de fiesta, dice una de sus frases y la lee con la voz LOCAL (si ella lo tiene activado).
+function cheer(button, pet, say) {
+  const lines = Array.isArray(pet.catchphrases) && pet.catchphrases.length > 0 ? pet.catchphrases : [pet.catchphrase];
+  const next = (Number(say.dataset.i ?? 0) + 1) % lines.length; // la portada muestra la frase 0; cada toque pasa a la siguiente
+  say.dataset.i = String(next);
+  const line = lines[next];
+  say.textContent = `${pet.name}: «${line}»`;
+  button.classList.add('is-cheer');
+  setTimeout(() => button.classList.remove('is-cheer'), 1400);
+  speak(line);
+}
+
 function outfitCard() {
   const outfit = view.outfit;
   if (!outfit.configured) return h('section', { class: 'card' }, h('h3', {}, '🌤️ El tiempo'), h('p', { class: 'muted' }, 'Pídele a papá que ponga dónde vives y te digo qué ropa llevar.'));
@@ -259,8 +274,12 @@ function tabChat() {
 
 function buildChat() {
   const msgs = h('div', { class: 'msgs', role: 'log', 'aria-live': 'polite' });
-  const add = (who, text) => { msgs.append(h('div', { class: `msg ${who}` }, text)); msgs.scrollTop = msgs.scrollHeight; };
   const pet = creature();
+  const add = (who, text) => {
+    const bubble = h('div', { class: `msg ${who}` }, text);
+    msgs.append(who === 'pet' && pet ? h('div', { class: 'petrow' }, h('span', { class: 'mini', 'aria-hidden': 'true' }, creatureSvg(pet.id, { primary: pet.primary, glow: pet.glow })), bubble) : bubble);
+    msgs.scrollTop = msgs.scrollHeight;
+  };
   add('pet', `¡Hola, ${view.profile.displayName}! Soy ${pet ? pet.name : 'tu compañero'}. ¿De qué hablamos?`);
   const attachHost = h('div');
   const input = h('input', { type: 'text', placeholder: 'Escribe o dicta…', maxlength: '500', autocomplete: 'off', 'aria-label': 'Mensaje' });

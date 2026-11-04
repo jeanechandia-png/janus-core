@@ -26,11 +26,11 @@ Rama: `claude/elevenlabs-voice-provider` (sobre `main` @ 9b38f41). Cuatro entreg
 - Interfaz de Kendra en neerlandés; notificaciones push de recordatorios; copia de seguridad de `attachments/`.
 
 ## BLOQUEADO
-- **Empuje a `janus-core`**: el proxy de git rechazó los empujes en esta sesión. Entrega por `git bundle` (ver mensaje final) para aplicar con `git pull <bundle> claude/elevenlabs-voice-provider`.
+- Nada bloquea el código: el empuje de la rama a `janus-core` **ya está hecho** (se resolvió autorizando el repositorio en la sesión). Falta solo la decisión de Jean sobre el PR.
 - Prueba en iPhone/tablet reales: no disponible desde aquí (Chromium solamente).
 
 ## PRÓXIMO (sugerido)
-1. Jean: aplicar el bundle y abrir el PR; crear el PIN y emparejar la tablet de Kendra desde su tarjeta.
+1. Jean: decidir el PR de la rama; crear el PIN y emparejar la tablet de Kendra desde su tarjeta.
 2. Fijar su zona y aprobar los primeros vídeos.
 3. Slots de fotos + modo administrador de Melanie (con tu aprobación para la web en vivo).
 4. «+» en el dashboard de IBA.

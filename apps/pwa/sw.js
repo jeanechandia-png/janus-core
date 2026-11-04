@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v11';
+const CACHE = 'janus-shell-v12';
 const SHELL = [
   '/',
   '/index.html',
@@ -16,6 +16,7 @@ const SHELL = [
   '/kendra.css',
   '/kendra.js',
   '/kendra-parent.js',
+  '/kendra-creatures.js',
   '/kendra.webmanifest',
   '/icons/kendra-180.png',
   '/icons/kendra-192.png',

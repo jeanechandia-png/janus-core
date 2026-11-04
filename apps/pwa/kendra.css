@@ -58,6 +58,40 @@ main{padding:6px 14px 100px;display:grid;gap:14px;align-content:start}
 .check input{inline-size:24px;block-size:24px;accent-color:var(--accent)}
 .done{text-decoration:line-through;opacity:.6}
 
+/* Criaturas (no robots): ilustraciones propias de kendra-creatures.js */
+.hero .creature-btn{inline-size:116px;block-size:116px;min-block-size:116px;padding:0;border:0;border-radius:50%;box-shadow:none;animation:none;background:radial-gradient(circle,var(--soft) 0,transparent 70%);display:grid;place-items:center;font-size:inherit}
+.creature-svg{inline-size:100%;block-size:100%;overflow:visible;animation:float 4s ease-in-out infinite}
+.creature-svg .eye{transform-box:fill-box;transform-origin:center;animation:blink 5.5s infinite}
+.creature-svg .mouth-cheer{display:none}
+.is-cheer .creature-svg .mouth-cheer{display:inline}
+.is-cheer .creature-svg .mouth-happy{display:none}
+.is-cheer .creature-svg{animation:hop .9s ease-out}
+.creature-svg .antenna{transform-box:fill-box;animation:wiggle 3.2s ease-in-out infinite}
+.creature-svg .antenna-l{transform-origin:100% 100%}
+.creature-svg .antenna-r{transform-origin:0 100%;animation-delay:-1.4s}
+.creature-svg .wag{transform-box:fill-box;transform-origin:0 100%;animation:wag 3s ease-in-out infinite}
+.creature-svg .gills{transform-box:fill-box;animation:wiggle 2.6s ease-in-out infinite}
+.creature-svg .gills-l{transform-origin:100% 50%}
+.creature-svg .gills-r{transform-origin:0 50%;animation-delay:-1.1s}
+.creature-svg .firefly{animation:drift 6s ease-in-out infinite}
+.creature-svg .halo{transform-box:fill-box;transform-origin:center;animation:pulse 2s ease-in-out infinite}
+.creature-svg .spark{transform-box:fill-box;transform-origin:center;animation:twinkle 2.6s ease-in-out infinite}
+.creature-svg .spark-b{animation-delay:-.9s}
+.creature-svg .spark-c{animation-delay:-1.7s}
+.creature-svg .cloud{transform-box:fill-box;transform-origin:center;animation:puff 4s ease-in-out infinite}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
+@keyframes hop{0%{transform:translateY(0) scale(1)}30%{transform:translateY(-14px) scale(1.05,.97)}55%{transform:translateY(0) scale(.97,1.04)}75%{transform:translateY(-5px)}100%{transform:translateY(0) scale(1)}}
+@keyframes wiggle{50%{transform:rotate(6deg)}}
+@keyframes wag{50%{transform:rotate(-7deg)}}
+@keyframes drift{50%{transform:translate(-4px,5px)}}
+@keyframes pulse{50%{transform:scale(1.2);opacity:.2}}
+@keyframes twinkle{0%,100%{transform:scale(.6);opacity:.5}50%{transform:scale(1.15);opacity:1}}
+@keyframes puff{50%{transform:scale(1.03)}}
+@media (prefers-reduced-motion:reduce){.creature-svg,.creature-svg *{animation:none!important}}
+.petrow{display:flex;gap:8px;align-items:flex-end;justify-self:start;max-inline-size:94%}
+.petrow .msg{max-inline-size:none}
+.petrow .mini{flex:none;inline-size:42px;block-size:42px}
+
 /* Navegación inferior */
 nav.tabs{position:fixed;inset-inline:0;inset-block-end:0;z-index:6;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;max-inline-size:760px;margin-inline:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-block-start:2px solid var(--border)}
 nav.tabs button{min-block-size:56px;padding:4px 2px;border:0;border-radius:14px;background:transparent;display:grid;gap:0;justify-items:center;font-size:.72rem;line-height:1.1}

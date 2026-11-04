@@ -87,7 +87,7 @@ export interface KidRoutesDeps {
   homeExecutor?: HomeExecutor;
   weather?: (input: { lat: number; lon: number; timeZone: string }) => Promise<Record<string, HourForecast[]>>;
   /** Criaturas disponibles (módulo companion): el anfitrión las inyecta; este archivo no importa el módulo. */
-  companions?: Array<{ id: string; name: string; primary: string; glow: string; catchphrase: string }>;
+  companions?: Array<{ id: string; name: string; primary: string; glow: string; catchphrase: string; catchphrases?: string[] }>;
   defaultTimeZone?: string;
   maxModelCallsPerDay?: number;
 }

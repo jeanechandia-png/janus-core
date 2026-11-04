@@ -3050,7 +3050,7 @@ const handleKidRoute = createKidRoutes({
   homeInventory: loadHomeInventory,
   // homeExecutor: pendiente (necesita credenciales Tuya y el inventario real) → las órdenes de la casa quedan en modo latente.
   ...(kidWeatherOff ? {} : { weather: (input) => fetchHourlyForecast(input) }),
-  companions: CREATURES.map((creature) => ({ id: creature.id, name: creature.defaultName, primary: creature.palette.primary, glow: creature.palette.glow, catchphrase: creature.catchphrases[0] ?? '' })),
+  companions: CREATURES.map((creature) => ({ id: creature.id, name: creature.defaultName, primary: creature.palette.primary, glow: creature.palette.glow, catchphrase: creature.catchphrases[0] ?? '', catchphrases: creature.catchphrases })),
   ...(timeZone ? { defaultTimeZone: timeZone } : {}),
   ...(Number.isFinite(kidDailyModelCalls) && kidDailyModelCalls > 0 ? { maxModelCallsPerDay: Math.floor(kidDailyModelCalls) } : {}),
 });

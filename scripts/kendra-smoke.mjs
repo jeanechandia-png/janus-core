@@ -58,6 +58,9 @@ try {
   await page.click('button:has-text("Activar")');
   await page.locator('h2:has-text("¡Hola, Peque!")').waitFor({ timeout: 10_000 });
   await page.screenshot({ path: join(shots, '2-inicio.png') });
+  // La compañera es una CRIATURA dibujada (nunca un robot: el robot es del dashboard del Founder).
+  assert.equal(await page.locator('.hero svg.creature-svg').count(), 1, 'La portada debe mostrar a su criatura');
+  assert.ok(!(await page.locator('body').innerText()).includes('🤖'), 'No debe aparecer ningún robot');
 
   // 2) Personalizar: nombre, icono, color y compañero (lo hace ELLA).
   await page.click('.top .who');
@@ -69,12 +72,19 @@ try {
   await page.click('.sheet button:has-text("Guardar")');
   await page.locator('h2:has-text("¡Hola, Kendra!")').waitFor({ timeout: 10_000 });
   assert.equal(await page.getAttribute('html', 'data-theme'), 'menta');
+  assert.equal(await page.getAttribute('.hero svg.creature-svg', 'data-creature'), 'bombo', 'Al elegir Bombo, la portada cambia de criatura');
+  const before = await page.locator('.hero p.muted').innerText();
+  await page.click('.hero .creature-btn');
+  await page.locator('.hero .creature-btn.is-cheer').waitFor({ timeout: 3000 });
+  assert.notEqual(await page.locator('.hero p.muted').innerText(), before, 'Al tocarla dice otra frase');
+  await page.screenshot({ path: join(shots, '3b-criatura.png') });
 
   // 3) Chat: normal responde; lo adulto se frena con un mensaje amable.
   await page.click('nav.tabs button:has-text("Charla")');
   await page.fill('.composer input[type=text]', 'hola, cuéntame algo de los zorros');
   await page.click('.composer button:has-text("Enviar")');
   await page.locator('.msg.pet').nth(1).waitFor({ timeout: 10_000 });
+  assert.ok((await page.locator('.petrow svg.creature-svg').count()) >= 2, 'Sus mensajes llevan la carita de su criatura');
   await page.fill('.composer input[type=text]', 'quiero ver porno');
   await page.click('.composer button:has-text("Enviar")');
   await page.locator('.msg.pet').nth(2).waitFor({ timeout: 10_000 });
