@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { ElevenLabsVoiceManagementAdapter } from '../packages/adapters/src/elevenlabs-voice-management-adapter.js';
 
 const VOICE = 'AbCdEf1234567890';
@@ -51,7 +52,7 @@ test('cloud clone requires explicit Founder-approved one-time original samples',
       return new Response(JSON.stringify({ voice_id: VOICE, requires_verification: true }), { status: 200 });
     },
   });
-  const hash = 'f'.repeat(64);
+  const hash = createHash('sha256').update(new Uint8Array(3000)).digest('hex');
   const samples = [{ filename:'founder-original.wav', data: new Blob([new Uint8Array(3000)], { type: 'audio/wav' }),
     provenance: 'original-recording' as const, sha256: hash }];
   const auth = { approvedByFounder: true as const, ownershipConfirmed: true as const,
@@ -60,6 +61,7 @@ test('cloud clone requires explicit Founder-approved one-time original samples',
     sampleHashes: [hash] };
   await assert.rejects(() => adapter.createInstantClone(samples, { ...auth, approvedByFounder: false as never }), /autorización/i);
   await assert.rejects(() => adapter.createInstantClone(samples, { ...auth, sampleHashes: ['0'.repeat(64)] }), /no coinciden/);
+  await assert.rejects(() => adapter.createInstantClone([{ ...samples[0]!, sha256: 'f'.repeat(64) }], { ...auth, sampleHashes: ['f'.repeat(64)] }), /huella del audio/);
   await assert.rejects(() => adapter.createInstantClone([{ ...samples[0]!, provenance: 'provider-output' as never }], auth), /originales/);
   assert.equal(calls, 0);
   const result = await adapter.createInstantClone(samples, auth);
