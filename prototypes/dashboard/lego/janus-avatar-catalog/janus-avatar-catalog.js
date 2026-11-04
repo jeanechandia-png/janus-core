@@ -6,13 +6,16 @@
  * Importable en cualquier interfaz: solo requiere JavaScript, sin servicios externos.
  * Los aliases son configurables por producto/instalación; ninguna autorización depende
  * del nombre, de la apariencia del robot o de la voz que representa.
+ * El masculino ES Janus; su voiceRole solicita la voz clonada del Founder
+ * al Voice Gateway (adaptador reemplazable). Esto NO es autenticación de Jean
+ * ni un voice_id de proveedor, y no acredita que la voz esté conectada.
  */
 const JanusAvatarCatalog = (() => {
   const EXPRESSIONS = Object.freeze(['contento', 'alegre', 'sorprendido', 'triste', 'pensativo', 'enojado']);
   const POSES = Object.freeze(['idle', 'saluda', 'celebra', 'piensa', 'camina', 'habla']);
   const entries = [
-    { id: 'nexo-masculino', label: 'NEXO masculino', casting: 'Jean', kind: 'robot', variant: 'masculino', status: 'visual-approved', rigSlot: 'nexo-masculino', fallback: 'janus-nexo-3d', immutableDesign: true },
-    { id: 'nexo-femenino', label: 'NEXO femenino', casting: 'Melanie', kind: 'robot', variant: 'femenino', status: 'visual-approved', rigSlot: 'nexo-femenino', fallback: 'janus-nexo-3d', immutableDesign: true },
+    { id: 'nexo-masculino', label: 'NEXO masculino', casting: 'Janus', voiceRole: 'founder-cloned-voice', kind: 'robot', variant: 'masculino', status: 'visual-approved', rigSlot: 'nexo-masculino', fallback: 'janus-nexo-3d', immutableDesign: true },
+    { id: 'nexo-femenino', label: 'NEXO femenino', casting: 'Melanie', voiceRole: null, kind: 'robot', variant: 'femenino', status: 'visual-approved', rigSlot: 'nexo-femenino', fallback: 'janus-nexo-3d', immutableDesign: true },
     { id: 'robot', label: 'Robot clásico', casting: null, kind: 'legacy', variant: null, status: 'existing', rigSlot: 'robot', fallback: 'janus-3d', immutableDesign: false },
     { id: 'cabeza', label: 'Cabeza', casting: null, kind: 'view', variant: null, status: 'existing', rigSlot: null, fallback: 'janus-face-3d', immutableDesign: false },
     { id: 'cara', label: 'Cara', casting: null, kind: 'view', variant: null, status: 'existing', rigSlot: null, fallback: 'janus-face-3d', immutableDesign: false },
@@ -46,7 +49,7 @@ const JanusAvatarCatalog = (() => {
   // Casting is a visual/UX role, NOT verification of who is speaking or a trust grant.
   function casting(id, aliases = {}) {
     const e = get(id);
-    return e ? Object.freeze({ id: e.id, display: label(id, aliases), model: e.variant, role: 'presentation-only', authority: 'none' }) : null;
+    return e ? Object.freeze({ id: e.id, display: label(id, aliases), model: e.variant, voiceRole: e.voiceRole || null, role: 'presentation-only', authority: 'none' }) : null;
   }
   return Object.freeze({ version: '1.0.0', defaultId, ids, creatureIds, nexoIds, riggableIds, EXPRESSIONS, POSES, get, label, options, casting, validateRig });
 })();
