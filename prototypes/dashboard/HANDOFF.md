@@ -1,10 +1,10 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
-## ACTUALIZACIÓN (2026-11-04) — NEXO masculino=Jean, NEXO femenino=Melanie · módulos LEGO
+## ACTUALIZACIÓN (2026-11-04) — NEXO masculino=Janus, NEXO femenino=Melanie · módulos LEGO
 
 **Rama de trabajo:** `chatgpt/janus-nexo-masculino-aprobado-20261104`, nacida de `claude/companion-escena-3d` y sin modificar producción.
 
-**AHORA / HECHO:** ambos personajes aprobados están disponibles como `nexo-masculino` y `nexo-femenino` en el selector del mismo robot interactivo; están ligados al catálogo reutilizable `lego/janus-avatar-catalog`. El casting inicial es **Jean** (masculino) y **Melanie** (femenino); los alias son cambiables en `ST.settings.avatarAliases` sin modificar diseños. Se conservaron las cuatro criaturas Lumi/Bombo/Musgo/Nimbo y el robot clásico. Los dos NEXO tienen un fallback 3D procedural real (no imagen plana) con ojos grandes azules, cejas, labios superior e inferior, nariz, gestos corporales y expresión conectada a conversación/escucha.
+**AHORA / HECHO:** ambos personajes aprobados están disponibles como `nexo-masculino` y `nexo-femenino` en el selector del mismo robot interactivo; están ligados al catálogo reutilizable `lego/janus-avatar-catalog`. Las identidades son **Janus** (masculino, voz clonada del Founder a través del Voice Gateway) y **Melanie** (femenino); los alias son cambiables en `ST.settings.avatarAliases` sin modificar diseños. Se conservaron las cuatro criaturas Lumi/Bombo/Musgo/Nimbo y el robot clásico. Los dos NEXO tienen un fallback 3D procedural real (no imagen plana) con ojos grandes azules, cejas, labios superior e inferior, nariz, gestos corporales y expresión conectada a conversación/escucha.
 
 **Código integrado:** `lego/janus-avatar-catalog/`, `lego/janus-nexo-3d/`, `lego/janus-3d/`, `lego/janus-creature-slot/`, `src/avatar.js`, `src/companero.js`, `build.cjs`, `tests/avatar-catalog.test.cjs`, `tests/e2e-avatar.cjs`. Es el contrato LEGO `{root,update(t,dt,ctl),setLook}` común para mascotas/robots y GLB intercambiables, con persistencia IndexedDB de GLB **local** y slots separados por personaje.
 
