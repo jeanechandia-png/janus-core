@@ -5,11 +5,11 @@
  *   Si hay un GLB importado (robot hiperrealista o criaturas) en JanusCreatureSlot, se usa en lugar del procedural.
  * Persistencia: ST.settings.form / ST.settings.eyes. Lo dibuja lego/janus-3d; aquí solo está el estado, los controles y las reacciones.
  */
-const AV_FORMS = [['nexo-masculino', 'NEXO masculino'], ['nexo-femenino', 'NEXO femenino'], ['robot', 'Robot clásico'], ['cabeza', 'Cabeza'], ['cara', 'Cara'], ['lumi', 'Lumi'], ['bombo', 'Bombo'], ['musgo', 'Musgo'], ['nimbo', 'Nimbo']];
+const AV_FORMS = window.JanusAvatarCatalog ? JanusAvatarCatalog.options() : [['nexo-masculino', 'Jean · NEXO masculino'], ['nexo-femenino', 'Melanie · NEXO femenino'], ['robot', 'Robot clásico'], ['cabeza', 'Cabeza'], ['cara', 'Cara'], ['lumi', 'Lumi'], ['bombo', 'Bombo'], ['musgo', 'Musgo'], ['nimbo', 'Nimbo']];
 const AV_MOODS = [['alegre', 'Alegre'], ['contento', 'Contento'], ['triste', 'Triste'], ['enojado', 'Enojado'], ['sorprendido', 'Sorprendido'], ['pensativo', 'Pensativo']];
 const AV_EYES = [['#FFD36A', 'Dorado'], ['#59E4D4', 'Turquesa'], ['#8EC8FF', 'Cielo'], ['#FF8FB6', 'Rosa'], ['#B79CFF', 'Lila'], ['#9BE564', 'Lima']];
-const AV_CREAT = ['lumi', 'bombo', 'musgo', 'nimbo'];
-const avForm = () => (window.Janus3D && Janus3D.FORMS && Janus3D.FORMS.includes(ST.settings.form) ? ST.settings.form : 'nexo-masculino');
+const AV_CREAT = window.JanusAvatarCatalog ? [...JanusAvatarCatalog.creatureIds] : ['lumi', 'bombo', 'musgo', 'nimbo'];
+const avForm = () => (window.Janus3D && Janus3D.FORMS && Janus3D.FORMS.includes(ST.settings.form) ? ST.settings.form : (window.JanusAvatarCatalog ? JanusAvatarCatalog.defaultId : 'nexo-masculino'));
 const avFormName = (f) => (AV_FORMS.find((x) => x[0] === f) || [0, 'Robot'])[1];
 
 /** Aspecto (pelo, ropa, accesorios) de la criatura elegida: el mismo que se configura en el Vestidor. */
@@ -33,8 +33,8 @@ function avatarPanel() {
   const chip = (a, arg, label, on, extra) => '<span class="avchip' + (on ? ' on' : '') + '"' + act(a, arg, label) + (extra || '') + '>' + esc(label) + '</span>';
   const live = window.Janus3D && Janus3D.mood ? Janus3D.mood() : 'contento';
   const approvedNexo = cur === 'nexo-masculino' || cur === 'nexo-femenino';
-  const nexoImports = ['nexo-masculino', 'nexo-femenino'].map((id) => {
-    const label = id === 'nexo-masculino' ? 'Masculino aprobado' : 'Femenino aprobado';
+  const nexoImports = (window.JanusAvatarCatalog ? JanusAvatarCatalog.nexoIds : ['nexo-masculino', 'nexo-femenino']).map((id) => {
+    const label = (window.JanusAvatarCatalog && JanusAvatarCatalog.label(id)) || (id === 'nexo-masculino' ? 'Jean · NEXO masculino' : 'Melanie · NEXO femenino');
     const existing = sl && sl.info ? sl.info(id) : null;
     return '<div class="avr"><span class="mono dim">' + label + ' · ' + (existing ? 'GLB real: ' + esc(existing.name) : '3D procedural hasta importar GLB esculpido') + '</span>' +
       (sl ? '<label class="avchip cpfile">Importar GLB · ' + label + '<input type="file" accept=".glb,model/gltf-binary" data-slotfile="' + id + '" aria-label="Importar GLB de NEXO ' + label + '"></label>' +
