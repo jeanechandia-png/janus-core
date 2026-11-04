@@ -1,0 +1,19 @@
+{
+  "name": "Mi compañero",
+  "short_name": "Compañero",
+  "start_url": "/kendra",
+  "scope": "/kendra",
+  "id": "/kendra",
+  "display": "standalone",
+  "background_color": "#f6f1ff",
+  "theme_color": "#7b5cff",
+  "description": "Tu compañero: charla, agenda, tareas, planes y la casa.",
+  "lang": "es",
+  "dir": "ltr",
+  "orientation": "any",
+  "categories": ["kids", "education"],
+  "icons": [
+    { "src": "/icons/kendra-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/kendra-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

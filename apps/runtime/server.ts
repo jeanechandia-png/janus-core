@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
@@ -47,6 +48,7 @@ import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-a
 import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
+import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -214,10 +216,25 @@ import {
   type BiometricKeyStore,
 } from '../../packages/security/src/founder-biometric.js';
 import { CompositeVoiceGateway } from '../../packages/voice/src/composite-gateway.js';
+import { FallbackTextToSpeechGateway } from '../../packages/voice/src/fallback-tts-gateway.js';
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
+import { BusinessKnowledgeToolAdapter } from '../../packages/adapters/src/business-knowledge-tool-adapter.js';
+import {
+  ATTACHMENT_PROFILES,
+  FileAttachmentStore,
+  classifyScan,
+  describeAttachmentsForMessage,
+  isAttachmentId,
+  stripAttachmentMarkers,
+  type AttachmentSource,
+} from '../../packages/modules/chat-attachments/src/index.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
+import { fetchHourlyForecast } from '../../packages/adapters/src/open-meteo-adapter.js';
+import { CREATURES } from '../../packages/modules/companion/src/index.js';
+import type { HomeDevice, HomeDeviceKind } from '../../packages/modules/kid-dashboard/src/index.js';
+import { createKidRoutes } from './kid-routes.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
@@ -236,10 +253,29 @@ const founderReferenceLocalOverlayPath = fileURLToPath(
   new URL('../../config/founder-reference-library.local.json', import.meta.url),
 );
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
+// Adjuntos del chat («+»): junto a la base de datos (en la tablet: ~/janus-data/attachments). Tope total de espacio configurable.
+const attachmentsDir = process.env.JANUS_ATTACHMENTS_DIR?.trim()
+  || (dbPath === ':memory:' || dbPath === ''
+    ? mkdtempSync(join(tmpdir(), 'janus-attachments-')) // base en memoria (pruebas): adjuntos efímeros, nunca en el repositorio
+    : join(dirname(dbPath), 'attachments'));
+const attachmentsMaxMb = Number(process.env.JANUS_ATTACHMENTS_MAX_MB);
+const attachmentStore = new FileAttachmentStore({
+  dir: attachmentsDir,
+  ...(Number.isFinite(attachmentsMaxMb) && attachmentsMaxMb > 0 ? { maxTotalBytes: Math.floor(attachmentsMaxMb * 1024 * 1024) } : {}),
+});
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
+// Proveedor de voz: 'local' (por defecto) o 'elevenlabs' (temporal y opcional; ver docs/voice-elevenlabs-provider.md).
+const ttsProviderSetting = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() === 'elevenlabs' ? 'elevenlabs' : 'local';
+// Solo este identificador de Janus puede salir a la nube; el resto se atiende siempre en local.
+const elevenLabsVoiceId = process.env.JANUS_ELEVENLABS_VOICE_ID?.trim() || undefined;
+let voiceTtsRouting: {
+  provider: 'qwen3-tts-adapter' | 'elevenlabs-with-fallback' | 'elevenlabs-only';
+  router?: FallbackTextToSpeechGateway;
+  elevenlabs?: ElevenLabsTtsAdapter;
+} = { provider: 'qwen3-tts-adapter' };
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
 const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 'true';
 const founderBiometricKeyId =
@@ -309,6 +345,8 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     'vercel-release': 'VERCEL_RELEASE_TOKEN',
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
+    elevenlabs: 'ELEVENLABS_API_KEY',
+    'knowledge-publish': 'JANUS_KNOWLEDGE_PUBLISH_TOKEN',
     ...httpServiceVariables,
     ...mailServiceVariables,
   },
@@ -566,6 +604,36 @@ capabilities.register({
   tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
+});
+
+// Conocimiento del negocio (precios, IVA, productos, equipo, instrucciones): se propone por voz/chat, se lee de vuelta
+// y SOLO se aplica con aprobación del Founder (autoridad + Face ID). Publicar fuera de Janus es opt-in por entorno.
+const knowledgePublishUrl = process.env.JANUS_KNOWLEDGE_PUBLISH_URL?.trim() || undefined;
+toolGateway.register(new BusinessKnowledgeToolAdapter({
+  store: {
+    appendRevision: (record) => store.appendBusinessKnowledgeRevision(record),
+    listRevisions: () => store.listBusinessKnowledgeRevisions(),
+    putProposal: (record) => store.putBusinessKnowledgeProposal(record),
+    findPendingProposal: (key, nowIso) => store.findPendingBusinessKnowledgeProposal(key, nowIso),
+    setProposalStatus: (id, status) => store.setBusinessKnowledgeProposalStatus(id, status),
+    upsertConsumerReport: (report) => store.upsertBusinessKnowledgeConsumerReport(report),
+    listConsumerReports: () => store.listBusinessKnowledgeConsumerReports(),
+  },
+  ...(knowledgePublishUrl
+    ? { publish: { url: knowledgePublishUrl, tokenProvider: () => credentialBroker.accessToken('knowledge-publish') } }
+    : {}),
+  statusUrls: parseKnowledgeStatusUrls(process.env.JANUS_KNOWLEDGE_STATUS_URLS),
+}));
+capabilities.register({
+  tool: 'knowledge',
+  actions: ['entries.list', 'snapshot.get', 'change.propose', 'change.apply', 'sync.check'],
+  state: 'available',
+});
+capabilities.register({
+  tool: 'knowledge',
+  actions: ['snapshot.publish'],
+  state: knowledgePublishUrl ? 'available' : 'disabled',
+  ...(knowledgePublishUrl ? {} : { reason: 'Sin destino de publicación (JANUS_KNOWLEDGE_PUBLISH_URL): el conocimiento queda solo en Janus.' }),
 });
 
 // Optional speaker recognition (convenience only; never an authority). Needs explicit configuration.
@@ -1485,7 +1553,9 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
 }
 
 function createConfiguredVoiceGateway(): VoiceGateway | undefined {
-  if (!sttBaseUrl || !ttsBaseUrl) return undefined;
+  const wantsElevenLabs = ttsProviderSetting === 'elevenlabs';
+  if (!sttBaseUrl) return undefined;
+  if (wantsElevenLabs ? !elevenLabsVoiceId : !ttsBaseUrl) return undefined;
 
   const stt = new WhisperCppSttAdapter({
     baseUrl: sttBaseUrl,
@@ -1493,14 +1563,61 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
     vocabularyPrompt: transcriptionVocabularyPrompt(),
   });
-  const tts = new Qwen3TtsHttpAdapter({
-    baseUrl: ttsBaseUrl,
-    language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
-    instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+  const local = ttsBaseUrl
+    ? new Qwen3TtsHttpAdapter({
+        baseUrl: ttsBaseUrl,
+        language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
+        instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+        chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
+        allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+      })
+    : undefined;
+
+  if (!wantsElevenLabs) {
+    voiceTtsRouting = { provider: 'qwen3-tts-adapter' };
+    return new CompositeVoiceGateway(stt, local!);
+  }
+
+  const elevenlabs = new ElevenLabsTtsAdapter({
+    apiKeyProvider: () => credentialBroker.accessToken('elevenlabs'),
+    voiceMap: { [defaultVoiceId]: elevenLabsVoiceId! },
+    modelId: process.env.JANUS_ELEVENLABS_MODEL?.trim() || undefined,
+    languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
-    allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+    maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
+    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'),
   });
-  return new CompositeVoiceGateway(stt, tts);
+  const router = new FallbackTextToSpeechGateway({
+    primary: elevenlabs,
+    fallback: local,
+    cooldownMs: numericEnv('JANUS_TTS_FALLBACK_COOLDOWN_MS'),
+    // Solo el motivo técnico; nunca el texto hablado ni la credencial.
+    onEvent: (event) => console.warn(`Voice provider ${event.type}: ${event.reason}`),
+  });
+  voiceTtsRouting = {
+    provider: local ? 'elevenlabs-with-fallback' : 'elevenlabs-only',
+    router,
+    elevenlabs,
+  };
+  if (!local) {
+    console.warn('Voice: ElevenLabs sin respaldo local (JANUS_TTS_BASE_URL ausente); si el proveedor falla, no habrá voz.');
+  }
+  return new CompositeVoiceGateway(stt, router);
+}
+
+function parseKnowledgeStatusUrls(raw: string | undefined): Record<string, string> {
+  if (!raw?.trim()) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('JANUS_KNOWLEDGE_STATUS_URLS must be a JSON object {"consumidor":"https://…"}');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || !Object.values(parsed as Record<string, unknown>).every((url) => typeof url === 'string' && url.startsWith('https://'))) {
+    throw new Error('JANUS_KNOWLEDGE_STATUS_URLS entries must be https URLs');
+  }
+  return parsed as Record<string, string>;
 }
 
 function numericEnv(name: string): number | undefined {
@@ -1712,6 +1829,26 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   }
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+}
+
+/** Lee el cuerpo con tope duro: corta en cuanto se supera `limit` (sin acumular en memoria sin límite). */
+async function readBodyBytes(request: IncomingMessage, limit: number): Promise<Buffer> {
+  const declared = Number(request.headers['content-length']);
+  if (Number.isFinite(declared) && declared > limit) throw new HttpRequestError(413, 'El archivo supera el tamaño permitido.');
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const piece = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += piece.length;
+    if (total > limit) throw new HttpRequestError(413, 'El archivo supera el tamaño permitido.');
+    chunks.push(piece);
+  }
+  return Buffer.concat(chunks);
+}
+
+function headerValue(request: IncomingMessage, name: string): string {
+  const value = request.headers[name];
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
 }
 
 function json(response: ServerResponse, status: number, body: unknown): void {
@@ -2865,7 +3002,7 @@ function contentType(path: string): string {
 }
 
 function serveStatic(pathname: string, response: ServerResponse): void {
-  const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const requested = pathname === '/' ? 'index.html' : pathname === '/kendra' ? 'kendra.html' : pathname.replace(/^\/+/, '');
   const path = join(root, requested);
   if (!path.startsWith(root) || !existsSync(path)) {
     response.writeHead(404);
@@ -2875,6 +3012,48 @@ function serveStatic(pathname: string, response: ServerResponse): void {
   response.writeHead(200, { 'content-type': contentType(path) });
   createReadStream(path).pipe(response);
 }
+
+// ── Dashboard de la niña (módulo kid-dashboard) ───────────────────────────────────────────────────────────────────
+// Inventario doméstico: archivo local fuera de Git (config/home-devices.local.json). Sin archivo → sin dispositivos.
+const HOME_KINDS: readonly HomeDeviceKind[] = ['light', 'plug', 'fan', 'heater', 'thermostat'];
+function loadHomeInventory(): HomeDevice[] {
+  const path = process.env.JANUS_HOME_DEVICES_PATH?.trim() || join(process.cwd(), 'config', 'home-devices.local.json');
+  try {
+    if (!existsSync(path)) return [];
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    const list = Array.isArray(parsed) ? parsed : (parsed as { devices?: unknown })?.devices;
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((item): HomeDevice[] => {
+      const raw = item as Partial<HomeDevice> | null;
+      if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || typeof raw.room !== 'string') return [];
+      if (!HOME_KINDS.includes(raw.kind as HomeDeviceKind)) return [];
+      return [{ id: raw.id, name: raw.name, room: raw.room, kind: raw.kind as HomeDeviceKind, ...(Array.isArray(raw.tags) ? { tags: raw.tags.filter((tag): tag is string => typeof tag === 'string') } : {}) }];
+    });
+  } catch {
+    return [];
+  }
+}
+const kidChatModelOff = process.env.JANUS_KID_CHAT_MODEL?.trim().toLowerCase() === 'off';
+const kidWeatherOff = process.env.JANUS_KID_WEATHER?.trim().toLowerCase() === 'off';
+const kidDailyModelCalls = Number(process.env.JANUS_KID_MAX_MODEL_CALLS_PER_DAY);
+const handleKidRoute = createKidRoutes({
+  store,
+  json,
+  readJson,
+  readBodyBytes,
+  headerValue,
+  requireFounder: requireFounderAuthority,
+  errorStatus: authErrorStatus,
+  errorBody: authErrorBody,
+  attachmentStore,
+  ...(modelGateway && !kidChatModelOff ? { model: modelGateway } : {}),
+  homeInventory: loadHomeInventory,
+  // homeExecutor: pendiente (necesita credenciales Tuya y el inventario real) → las órdenes de la casa quedan en modo latente.
+  ...(kidWeatherOff ? {} : { weather: (input) => fetchHourlyForecast(input) }),
+  companions: CREATURES.map((creature) => ({ id: creature.id, name: creature.defaultName, primary: creature.palette.primary, glow: creature.palette.glow, catchphrase: creature.catchphrases[0] ?? '', catchphrases: creature.catchphrases })),
+  ...(timeZone ? { defaultTimeZone: timeZone } : {}),
+  ...(Number.isFinite(kidDailyModelCalls) && kidDailyModelCalls > 0 ? { maxModelCallsPerDay: Math.floor(kidDailyModelCalls) } : {}),
+});
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -2896,7 +3075,13 @@ const server = createServer(async (request, response) => {
               transport: 'websocket',
               input: 'audio/pcm;rate=16000;channels=1;format=s16le',
               stt: 'whisper.cpp-adapter',
-              tts: 'qwen3-tts-adapter',
+              tts: voiceTtsRouting.provider,
+              ...(voiceTtsRouting.router
+                ? {
+                    ttsRouting: voiceTtsRouting.router.status(),
+                    ttsCloudUsage: voiceTtsRouting.elevenlabs?.usage(),
+                  }
+                : {}),
             }
           : {
               state: 'unavailable',
@@ -2904,7 +3089,9 @@ const server = createServer(async (request, response) => {
                 ? 'STT y TTS locales no están configurados.'
                 : !sttBaseUrl
                   ? 'STT local no está configurado.'
-                  : 'TTS local no está configurado.',
+                  : ttsProviderSetting === 'elevenlabs' && !elevenLabsVoiceId
+                    ? 'JANUS_TTS_PROVIDER=elevenlabs requiere JANUS_ELEVENLABS_VOICE_ID.'
+                    : 'TTS local no está configurado.',
             },
       },
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
@@ -5407,13 +5594,93 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (await handleKidRoute(request, response, url)) return;
+
+  if (request.method === 'POST' && url.pathname === '/api/attachments') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const profileId = headerValue(request, 'x-attachment-profile') || 'founder-admin';
+      // Este endpoint solo atiende al Founder. Otros perfiles (niña, panel de negocio) tendrán su propia puerta y su propia credencial.
+      if (profileId !== 'founder-admin') throw new HttpRequestError(403, 'Perfil de adjuntos no permitido en esta puerta.');
+      const source = headerValue(request, 'x-attachment-source') as AttachmentSource;
+      if (!ATTACHMENT_PROFILES['founder-admin'].sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, ATTACHMENT_PROFILES['founder-admin'].maxFileBytes);
+      const result = attachmentStore.put({
+        bytes,
+        claimedName,
+        claimedType: headerValue(request, 'content-type'),
+        source,
+        profile: 'founder-admin',
+        principalId: principal.id,
+      });
+      if (!result.ok) {
+        json(response, result.status, { ok: false, code: result.code, error: result.message });
+        return;
+      }
+      const { attachment } = result;
+      json(response, 201, {
+        ok: true,
+        id: attachment.id,
+        sha256: attachment.sha256,
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+        deduplicated: result.deduplicated,
+        ...(attachment.width ? { width: attachment.width, height: attachment.height } : {}),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const attachmentMatch = url.pathname.match(/^\/api\/attachments\/(att_[0-9a-f-]{36})$/);
+  if (request.method === 'GET' && attachmentMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const id = attachmentMatch[1]!;
+      const meta = isAttachmentId(id) ? attachmentStore.get(id, principal.id) : undefined;
+      const bytes = meta ? attachmentStore.readBytes(meta) : undefined;
+      if (!meta || !bytes) throw new HttpRequestError(404, 'Adjunto no encontrado.');
+      response.writeHead(200, {
+        'content-type': meta.type,
+        'content-length': String(bytes.byteLength),
+        'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(meta.name)}`,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'content-security-policy': "default-src 'none'; sandbox",
+      });
+      response.end(Buffer.from(bytes));
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/command') {
     try {
       const body = await readJson(request);
-      const text = typeof body.text === 'string' ? body.text.trim() : '';
-      if (!text) {
+      const typedText = typeof body.text === 'string' ? stripAttachmentMarkers(body.text).trim() : '';
+      if (!typedText) {
         json(response, 400, { ok: false, error: 'text is required' });
         return;
+      }
+      // Adjuntos y códigos escaneados (botón «+»): se describen con datos del SERVIDOR, solo si hay sesión de Founder,
+      // y viajan tras un marcador: el planificador decide únicamente con las palabras del usuario.
+      let text = typedText;
+      const attachmentIds = Array.isArray(body.attachments) ? body.attachments.filter(isAttachmentId).slice(0, ATTACHMENT_PROFILES['founder-admin'].maxFiles) : [];
+      const scanInputs = Array.isArray(body.scans) ? body.scans.slice(0, 4) : [];
+      if (attachmentIds.length > 0 || scanInputs.length > 0) {
+        const { principal } = requireFounderAuthority(request);
+        const { refs, missing } = attachmentStore.refsFor(attachmentIds, principal.id);
+        if (missing.length > 0) throw new HttpRequestError(400, 'Algún adjunto ya no existe o no es tuyo.');
+        const scans = scanInputs
+          .filter((item): item is { raw: string; format?: string } => !!item && typeof (item as { raw?: unknown }).raw === 'string')
+          .map((item) => classifyScan(item.raw.slice(0, 2000), typeof item.format === 'string' ? item.format : undefined));
+        const block = describeAttachmentsForMessage(refs, scans);
+        if (block) text = `${typedText}\n\n${block}`;
       }
       const authorityContext = authorityContextForCommand(request, text, body);
       const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';

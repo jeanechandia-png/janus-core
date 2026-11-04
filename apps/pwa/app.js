@@ -2,6 +2,7 @@ import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
+import { mountAttachMenu } from './attach.js';
 
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
@@ -15,6 +16,14 @@ const sendButton = document.querySelector('#sendButton');
 const pauseButton = document.querySelector('#pauseButton');
 const stopButton = document.querySelector('#stopButton');
 const clearButton = document.querySelector('#clearButton');
+
+// Botón «+»: archivos, foto, escáner QR/códigos y documentos. Solo para Janus (sesión de Founder); lo adjunto son datos, no órdenes.
+const attach = mountAttachMenu({
+  host: document.querySelector('#attachHost'),
+  profile: 'founder-admin',
+  uploadUrl: '/api/attachments',
+  headers: () => authHeaders(),
+});
 
 const storedVoiceSessionId = localStorage.getItem('janus.voiceSessionId');
 const voiceSessionId = storedVoiceSessionId || `iphone_${crypto.randomUUID()}`;
@@ -328,7 +337,10 @@ function showEffort(effort) {
 }
 
 async function submit(text) {
-  const clean = text.trim();
+  const attachments = attach.getAttachments();
+  const scans = attach.getScans();
+  const hasExtras = attachments.length > 0 || scans.length > 0;
+  const clean = text.trim() || (hasExtras ? 'Revisa lo que te adjunto.' : '');
   if (!clean) return;
 
   activity.classList.remove('empty');
@@ -340,7 +352,12 @@ async function submit(text) {
     const response = await fetch('/api/command', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ text: clean, inputMode: 'text', effort: effortSelect.value }),
+      body: JSON.stringify({
+        text: clean,
+        inputMode: 'text',
+        effort: effortSelect.value,
+        ...(hasExtras ? { attachments: attachments.map((item) => item.id), scans: scans.map((item) => ({ raw: item.raw, ...(item.format ? { format: item.format } : {}) })) } : {}),
+      }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? 'No se pudo iniciar');
@@ -348,6 +365,7 @@ async function submit(text) {
     showEffort(data.effort);
     showInterpretation(data.interpretation);
     command.value = '';
+    attach.clear();
   } catch (error) {
     setPresence('Error', error?.message ?? String(error));
   } finally {
@@ -963,3 +981,54 @@ mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ── Tarjeta de Kendra (módulo kid-dashboard): resumen + panel de padres con la sesión de Founder ─────────────────────
+const kendraSummary = document.querySelector('#kendraSummary');
+const kendraBadge = document.querySelector('#kendraBadge');
+const kendraPanel = document.querySelector('#kendraPanel');
+const kendraOpenPanel = document.querySelector('#kendraOpenPanel');
+let kendraPanelHandle = null;
+
+async function kendraRequest(method, path, body) {
+  try {
+    const response = await fetch(path, {
+      method,
+      cache: 'no-store',
+      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...authHeaders() },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    let data = {};
+    try { data = await response.json(); } catch { data = {}; }
+    return { status: response.status, body: data };
+  } catch {
+    return { status: 0, body: { error: 'Sin conexión con Janus.' } };
+  }
+}
+
+async function refreshKendraSummary() {
+  if (!kendraSummary || !sessionToken()) return;
+  const result = await kendraRequest('GET', '/api/parent/kid/overview?kidId=kendra');
+  if (result.status !== 200) {
+    kendraSummary.textContent = result.status === 401 || result.status === 403 ? 'Entra como Founder para ver su actividad, sus avisos y sus ajustes.' : (result.body.error || 'No pude cargar el resumen de Kendra.');
+    return;
+  }
+  const overview = result.body;
+  const unseen = overview.flags.filter((flag) => !flag.seen).length;
+  const requests = overview.mediaRequests.length + overview.pendingFeed.length;
+  kendraSummary.textContent = overview.devices.filter((device) => !device.revokedAt).length === 0
+    ? 'Todavía no hay ningún dispositivo emparejado. Abre su panel para crear un código.'
+    : `Hoy: ${Math.round(overview.today.totalMinutes)} min de actividad · ${unseen} aviso(s) sin ver · ${requests} petición(es) por revisar.`;
+  if (kendraBadge) { kendraBadge.hidden = unseen + requests === 0; kendraBadge.textContent = String(unseen + requests); }
+}
+
+kendraOpenPanel?.addEventListener('click', async () => {
+  if (kendraPanelHandle) { kendraPanelHandle.destroy(); kendraPanelHandle = null; kendraPanel.hidden = true; kendraOpenPanel.textContent = 'Abrir su panel'; refreshKendraSummary(); return; }
+  if (!sessionToken()) { kendraSummary.textContent = 'Primero entra como Founder (arriba, en «Tu visto bueno»).'; return; }
+  const { mountKidParentPanel } = await import('./kendra-parent.js');
+  kendraPanel.hidden = false;
+  kendraOpenPanel.textContent = 'Cerrar su panel';
+  kendraPanelHandle = mountKidParentPanel(kendraPanel, { mode: 'founder', kidId: 'kendra', request: kendraRequest, onClose: () => kendraOpenPanel.click() });
+});
+
+refreshKendraSummary();
+setInterval(() => { if (document.visibilityState === 'visible' && !kendraPanelHandle) refreshKendraSummary(); }, 60_000);

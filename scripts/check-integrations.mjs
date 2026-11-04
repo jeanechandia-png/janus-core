@@ -40,6 +40,8 @@ const groups = [
   ['Almacén cifrado de credenciales', ['JANUS_CREDENTIAL_VAULT_KEY'], ['JANUS_CREDENTIAL_VAULT_PATH']],
   ['Consentimiento de Google por buzón', ['JANUS_CREDENTIAL_VAULT_KEY', 'GOOGLE_OAUTH_CLIENT_ID'], ['GOOGLE_OAUTH_CLIENT_SECRET', 'JANUS_OAUTH_REDIRECT_BASE']],
   ['Seguimiento periódico de redes', ['JANUS_SOCIAL_WATCH_INTERVAL_MIN'], []],
+  ['Conocimiento del negocio: publicar a Melanie y chats (con aprobación)', ['JANUS_KNOWLEDGE_PUBLISH_URL', 'JANUS_KNOWLEDGE_PUBLISH_TOKEN'], ['JANUS_KNOWLEDGE_STATUS_URLS']],
+  ['Voz en la nube (ElevenLabs, temporal y opcional)', ['ELEVENLABS_API_KEY', 'JANUS_ELEVENLABS_VOICE_ID'], ['JANUS_ELEVENLABS_MODEL', 'JANUS_ELEVENLABS_DAILY_CHARS']],
 ];
 
 const problems = [];
@@ -76,6 +78,12 @@ if (has('JANUS_OAUTH_REDIRECT_BASE')) {
   } catch { problems.push('JANUS_OAUTH_REDIRECT_BASE no es una URL válida'); }
 }
 if (has('JANUS_SOCIAL_WATCH_INTERVAL_MIN') && !(Number(process.env.JANUS_SOCIAL_WATCH_INTERVAL_MIN) > 0)) problems.push('JANUS_SOCIAL_WATCH_INTERVAL_MIN debe ser un número de minutos mayor que 0 (mínimo efectivo 15)');
+if (process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() === 'elevenlabs') {
+  if (!has('JANUS_ELEVENLABS_VOICE_ID')) problems.push('JANUS_TTS_PROVIDER=elevenlabs necesita JANUS_ELEVENLABS_VOICE_ID');
+  if (!has('JANUS_TTS_BASE_URL')) problems.push('JANUS_TTS_PROVIDER=elevenlabs sin JANUS_TTS_BASE_URL: no habrá respaldo local si el proveedor falla (política de independencia de voz)');
+}
+if (has('JANUS_ELEVENLABS_DAILY_CHARS') && !(Number(process.env.JANUS_ELEVENLABS_DAILY_CHARS) > 0)) problems.push('JANUS_ELEVENLABS_DAILY_CHARS debe ser un número de caracteres mayor que 0');
+if (has('JANUS_ELEVENLABS_VOICE_ID') && !/^[A-Za-z0-9_-]{6,64}$/.test(process.env.JANUS_ELEVENLABS_VOICE_ID.trim())) problems.push('JANUS_ELEVENLABS_VOICE_ID no parece un voice_id válido');
 if (has('THREADS_API_VERSION') && !/^v\d+\.\d+$/.test(process.env.THREADS_API_VERSION.trim())) problems.push('THREADS_API_VERSION debe tener la forma v1.0');
 if (has('JANUS_FOUNDER_PUBLIC_KEY_PEM') && !/-----BEGIN PUBLIC KEY-----[\s\S]+-----END PUBLIC KEY-----/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM)) problems.push('JANUS_FOUNDER_PUBLIC_KEY_PEM no parece una llave pública PEM');
 if (/PRIVATE KEY/.test(process.env.JANUS_FOUNDER_PUBLIC_KEY_PEM ?? '')) problems.push('¡JANUS_FOUNDER_PUBLIC_KEY_PEM contiene una llave PRIVADA! Bórrala: solo va la pública.');
