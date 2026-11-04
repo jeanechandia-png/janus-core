@@ -9,7 +9,7 @@
   "api": "JanusNexo3D.build('masculino'|'femenino') → {id,root,update(t,dt,{pose,mood,talk,listening,walk}),setLook,approved}",
   "behavior": "Two independent 3D metallic humanoids with volumetric geometry, blue eyes, animated brows/lids/lips/head/arms. The same stage can use separately imported, rigged GLBs in nexo-masculino and nexo-femenino slots.",
   "identityNames": {
-    "masculino": "Jean (initial casting; configurable)",
+    "masculino": "Janus (assistant identity; Founder cloned voice via Voice Gateway)",
     "femenino": "Melanie (initial casting; configurable)"
   },
   "security": "Appearance and display name are presentation only; never grant identity or administrative authority.",
