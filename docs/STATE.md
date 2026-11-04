@@ -2,6 +2,16 @@
 
 Fecha: 2026-11-04
 
+## Integración en revisión — dashboards A/B + JANUS CORE + evolución (04-11-2026)
+
+**Rama vigente de validación:** `chatgpt/janus-integrated-review-20261104` (PR #59), basada en la rama más reciente de Claude `claude/elevenlabs-voice-provider` y PR #58 de Evolution Guard. El código A/B procede de la rama visual de PR #56. **No fusionada ni publicada en producción.**
+
+**HECHO EN CÓDIGO:** runtime sirve `/dashboard/a` (Obsidiana) y `/dashboard/b` (Platino) en el mismo origen PWA, `npm run start:dashboards` usa `.env.local` del servicio, `JanusGateway` envía `/api/command` y sigue `/api/events` desde Core sin filtrar mensajes privados a proveedores alternativos si Core rechaza sesión. Catálogo LEGO: JANUS masculino (con el rol de voz clonada del Founder, no es Jean), Melanie femenina, Lumi/Bombo/Musgo/Nimbo, slots GLB independientes, expresiones 3D. Premortem/postmortem: 12 checks y memoria SQLite autenticada, sin upgrades silenciosos.
+
+**EVIDENCIA:** CI del Core y módulo de evolución superadas; contrato Core/dashboard/servidor y E2E de robots superados en rama visual. Suite total y E2E de integración PR #59 se validan por GitHub Actions. El arte conceptual **no** constituye GLB hiperrealista ni voz real validada; falta rig facial, prueba GPU iPhone/Samsung, dispositivos y credenciales privadas. No se alteraron landings públicas.
+
+**Reanudar:** `docs/handoffs/2026-11-04-integracion-dashboards-evolution.md`; ejecutar `npm run typecheck && npm test && npm run dashboard:test && npm run dashboard:build && node tests/runtime-smoke.mjs`.
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
