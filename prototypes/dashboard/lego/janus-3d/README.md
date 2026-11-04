@@ -14,6 +14,20 @@ Ambos **giran con el dedo** (inercia y vuelta suave a la pose inicial) y reaccio
 ```
 Después de cada render: `Janus3D.hydrate(document)`. El lienzo se conserva por `data-id`, así que re-renderizar no reinicia la animación.
 
+## Formas (v1.1) · el MISMO robot se transforma
+El robot del chat no se sustituye por otra sección: cambia de forma, con la misma escena, el mismo arrastre y el mismo toque.
+| Forma | Qué es |
+|---|---|
+| `robot` | El robot original. Si hay un GLB en `JanusCreatureSlot` con id `robot`, se usa ese (el hiperrealista). Con ánimo: ojos, sonrisa y color cambian. |
+| `cabeza` | Solo la cabeza del robot (visor oscuro) con ojos y boca expresivos montados en el cristal (`JanusFace3D` en modo `mount`). |
+| `cara` | Ojos y sonrisa flotantes, sin cuerpo ni visor. |
+| `lumi` `bombo` `musgo` `nimbo` | Las criaturas (procedurales o GLB importados), con el aspecto del Vestidor. |
+
+API: `Janus3D.setForm(f)` · `form()` · `setMood(m, secs)` (`alegre|contento|triste|enojado|sorprendido|pensativo`; con `secs` es temporal, sin `secs` fija) · `mood()` · `setLook(look)` · `setEyes('#hex')` · `refresh()` (tras importar o quitar un GLB) · `react(secs, mood)` · `state.still = true` (pose neutra fija, para capturas).
+Automático: pensando → pensativo; hablando → boca animada; tocar → alegre y celebra 2 s.
+Los controles (`src/avatar.js`) están en la Sala y en el botón ✦ del robot del dashboard del teléfono. La forma y el color de ojos se guardan en `ST.settings.form` / `ST.settings.eyes`.
+En la piel B (Platino), la cara flotante y las criaturas conservan sus colores (el giro de tono solo afecta al robot dorado).
+
 ## Estado (lo activa el anfitrión)
 `Janus3D.state.talking` (voz de Janus) · `.listening` (dictado) · `.thinking`.
 

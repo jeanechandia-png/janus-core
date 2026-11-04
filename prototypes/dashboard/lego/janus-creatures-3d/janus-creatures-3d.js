@@ -5,7 +5,8 @@
  * Aspecto: pelo, detalles, ojos, prenda y accesorios (catálogo cerrado; los ids los valida el módulo `companion`).
  * API:  const c = JanusCreatures3D.build('lumi', glowHex);  c.setLook(look);  c.update(t, dt, ctl);  c.root (THREE.Group)
  *   look = { fur, accent, eyes, outfitColor, accessoryColor: '#rrggbb', outfit: 'camiseta'…, accessories: { cabeza, cara, cuello, espalda } }
- *   ctl  = { pose: idle|habla|piensa|celebra|senala|saluda, walk: 0..1, excite: 0..1, pointYaw: rad|null }
+ *   ctl  = { pose: idle|habla|piensa|celebra|senala|saluda, walk: 0..1, excite: 0..1, pointYaw: rad|null,
+ *            mood: alegre|contento|triste|enojado|sorprendido|pensativo (opcional; por defecto contento) }
  */
 const JanusCreatures3D = (() => {
   const T = window.THREE; if (!T) return null;
@@ -52,8 +53,28 @@ const JanusCreatures3D = (() => {
     const mouth = ell(o.mw * 0.78, 1, 0.1, 0.12, M.mouth, 18, 12); mouth.position.set(0, o.my - o.mw * 0.34, o.mz - 0.004); mouth.scale.y = 0.001; head.add(mouth);
     const tongue = ell(o.mw * 0.4, 1, 0.5, 0.2, M.tongue, 12, 8); tongue.position.set(0, o.my - o.mw * 0.6, o.mz + 0.002); tongue.visible = false; head.add(tongue);
     const cheeks = [-1, 1].map((s) => { const c = new T.Mesh(new T.CircleGeometry(o.er * 0.8, 20), M.blush); c.position.set(s * (o.ex + o.er * 0.9), o.my + o.er * 0.1, o.ez - 0.03); c.rotation.y = s * 0.55; head.add(c); return c; });
-    return { eyes, smile, mouth, tongue, cheeks, mouthW: o.mw, mouthY: o.my };
+    // expresiones: cejas (aparecen solo cuando la emoción las pide) y boca de pena/enfado (arco invertido)
+    const brows = [-1, 1].map((s) => {
+      const b = new T.Mesh(new T.CapsuleGeometry(o.er * 0.11, o.er * 1.05, 4, 8), M.dark); b.rotation.z = Math.PI / 2;
+      const bg = new T.Group(); bg.position.set(s * o.ex, o.ey + o.er * 1.5, o.ez + o.er * 0.1); bg.rotation.y = s * (o.spread || 0.18); bg.scale.set(1, 0.001, 1);
+      bg.userData = { s, y0: o.ey + o.er * 1.5, er: o.er }; bg.add(b); head.add(bg); return bg;
+    });
+    const frown = new T.Mesh(new T.TorusGeometry(o.mw * 0.9, o.mt || 0.03, 8, 28, Math.PI), M.dark); frown.position.set(0, o.my - o.mw * 0.55, o.mz); frown.visible = false; head.add(frown);
+    return { eyes, smile, mouth, tongue, cheeks, brows, frown, mouthW: o.mw, mouthY: o.my, mood: null };
   }
+
+  /* Emociones: alegre · contento · triste · enojado · sorprendido · pensativo. Solo cambian la cara, nunca el carácter.
+     eyeY/eyeS: alto/tamaño del ojo · brow: ceja visible · browA: inclinación (+ enfado, − pena) · browY: altura de la ceja (× radio del ojo)
+     smile/frown: arco visible · smW/smH, fW/fH: tamaño del arco · open/openW: boca abierta (alto/ancho) · blush: opacidad de los mofletes */
+  const MOODS = {
+    contento: { eyeY: 1, eyeS: 1, brow: 0, browA: 0, browY: 0, smile: 1, smW: 1, smH: 1, frown: 0, fW: 1, fH: 1, open: 0, openW: 1, blush: 0.42 },
+    alegre: { eyeY: 0.78, eyeS: 1, brow: 1, browA: 0, browY: 0.25, smile: 1, smW: 1.32, smH: 1.7, frown: 0, fW: 1, fH: 1, open: 0.2, openW: 1.15, blush: 0.75 },
+    triste: { eyeY: 0.86, eyeS: 1, brow: 1, browA: -0.42, browY: 0.1, smile: 0, smW: 1, smH: 1, frown: 1, fW: 0.78, fH: 0.8, open: 0, openW: 1, blush: 0.12 },
+    enojado: { eyeY: 0.68, eyeS: 1, brow: 1, browA: 0.5, browY: -0.1, smile: 0, smW: 1, smH: 1, frown: 1, fW: 0.85, fH: 0.5, open: 0, openW: 1, blush: 0.08 },
+    sorprendido: { eyeY: 1.12, eyeS: 1.18, brow: 1, browA: 0, browY: 0.55, smile: 0, smW: 1, smH: 1, frown: 0, fW: 1, fH: 1, open: 0.9, openW: 0.5, blush: 0.42 },
+    pensativo: { eyeY: 1, eyeS: 1, brow: 1, browA: -0.16, browY: 0.2, smile: 1, smW: 0.6, smH: 0.8, frown: 0, fW: 1, fH: 1, open: 0, openW: 1, blush: 0.3 }
+  };
+  const MOOD_IDS = Object.keys(MOODS);
 
   function armKit(sx, x, y, z, len, r, mat, handMat) {
     const sh = new T.Group(); sh.position.set(x, y, z);
@@ -370,12 +391,16 @@ const JanusCreatures3D = (() => {
     // ojos y parpadeo
     R.blinkT -= dt; let bl = 1; if (R.blinkT < 0.12) bl = 0.1; if (R.blinkT < 0) R.blinkT = 2.2 + Math.random() * 3.2;
     const F = R.face;
-    F.eyes.forEach((e, i) => { const wk = R.id === 'musgo' && i === 0 && R.wink > 0 ? 0.08 : 1; e.scale.y = damp(e.scale.y, Math.min(bl, wk), 40, dt); });
+    const mk = MOODS[ctl.mood] ? ctl.mood : think ? 'pensativo' : 'contento', MD = MOODS[mk]; F.mood = mk;
+    F.eyes.forEach((e, i) => { const wk = R.id === 'musgo' && i === 0 && R.wink > 0 ? 0.08 : 1; e.scale.y = damp(e.scale.y, Math.min(bl, wk) * MD.eyeY * MD.eyeS, 40, dt); e.scale.x = damp(e.scale.x, MD.eyeS, 14, dt); });
     if (R.id === 'musgo') { R.wink = Math.max(0, R.wink - dt); if (R.wink <= 0 && Math.sin(ph * 0.31) > 0.995) R.wink = 0.45; if (cel && R.wink <= 0) R.wink = 0.6; }
-    // boca
-    const open = talking ? 0.35 + Math.abs(Math.sin(ph * 13)) * 0.6 : cel ? 0.85 : think ? 0.0 : 0.0;
-    F.mouth.scale.y = damp(F.mouth.scale.y, Math.max(0.001, open * F.mouthW * 1.4), 22, dt); F.tongue.visible = open > 0.5;
-    F.smile.visible = open < 0.25; F.smile.scale.set(think ? 0.6 : 1, 1, 1);
+    // cejas, mofletes y boca según la emoción
+    F.brows.forEach((b) => { const u = b.userData; b.scale.y = damp(b.scale.y, MD.brow ? 1 : 0.001, 18, dt); b.rotation.z = damp(b.rotation.z, u.s * MD.browA, 14, dt); b.position.y = damp(b.position.y, u.y0 + MD.browY * u.er, 14, dt); });
+    R.M.blush.opacity = damp(R.M.blush.opacity, MD.blush, 8, dt);
+    const open = talking ? 0.35 + Math.abs(Math.sin(ph * 13)) * 0.6 : cel ? 0.85 : MD.open;
+    F.mouth.scale.y = damp(F.mouth.scale.y, Math.max(0.001, open * F.mouthW * 1.4), 22, dt); F.mouth.scale.x = damp(F.mouth.scale.x, talking ? 1 : MD.openW, 14, dt); F.tongue.visible = open > 0.5 && mk !== 'sorprendido';
+    F.smile.visible = open < 0.25 || (mk === 'alegre' && !talking && !cel); F.smile.scale.x = damp(F.smile.scale.x, MD.smW, 14, dt); F.smile.scale.y = damp(F.smile.scale.y, MD.smH, 14, dt);
+    F.frown.visible = MD.frown > 0 && open < 0.25; F.frown.scale.x = damp(F.frown.scale.x, MD.fW, 14, dt); F.frown.scale.y = damp(F.frown.scale.y, MD.fH, 14, dt);
 
     // brazos
     const aL = S.armL, aR = S.armR; let rz = 0.14 + Math.sin(ph * 1.7) * 0.05, rx = Math.sin(ph * 1.7) * 0.1, lz = -0.14 - Math.sin(ph * 1.7 + 1) * 0.05, lx = -Math.sin(ph * 1.7) * 0.1, rEl = 0;
@@ -410,6 +435,6 @@ const JanusCreatures3D = (() => {
     if (R.backAcc) { const ud = R.backAcc.userData; if (ud.wings) ud.wings.forEach((w) => { w.rotation.y = w.userData.s * (0.35 + Math.sin(ph * (cel ? 16 : 5)) * (cel ? 0.5 : 0.22)); }); if (ud.orbit) ud.orbit.rotation.y = ph * 1.2; }
   }
 
-  return { build, SPECIES, starGeo, glowSprite };
+  return { build, SPECIES, starGeo, glowSprite, MOODS: MOOD_IDS };
 })();
 window.JanusCreatures3D = JanusCreatures3D;

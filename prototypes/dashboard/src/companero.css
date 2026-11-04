@@ -50,3 +50,9 @@
   .cpq{font-size:26px}
 }
 @media (prefers-reduced-motion:reduce){.cpstars em{animation:none}}
+/* Módulo de criaturas (GLB) */
+.cpslot{display:flex;flex-direction:column;gap:6px;padding:8px 9px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(232,195,122,.25)}
+.cpslh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.cpslh b{color:var(--ivory)}
+.cpfile{position:relative;overflow:hidden;cursor:pointer}
+.cpfile input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}

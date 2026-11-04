@@ -12,7 +12,7 @@ const CP_STAGE = 'kendra';
 const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
-  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.tab) C.tab = 'aprender'; return C;
+  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
 function compProfile() {
@@ -46,9 +46,9 @@ function cpEarn(reason, eventId) {
 }
 
 /* ───────────── habla de la criatura ───────────── */
-function cpSay(text, pose, quiet) {
+function cpSay(text, pose, quiet, mood) {
   COMP_UI.say = text; const st = cpStage();
-  if (st) st.react(pose || 'habla', Math.min(8, Math.max(2, text.length * 0.055 + 1.2)));
+  if (st) st.react(pose || 'habla', Math.min(8, Math.max(2, text.length * 0.055 + 1.2)), mood);
   if (!quiet) speak(text);
   cpRefreshOv();
 }
@@ -57,6 +57,7 @@ function cpSay(text, pose, quiet) {
 function cpSyncStage(st) {
   const C = compState(), p = compProfile(), w = Companion.worldOf(p);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
+  if (st.setAspect) st.setAspect(C.aspect);
   st.setCreature(C.creatureId, hexLook(Companion.lookOf(p)));
   st.setWorld({ home: w.home, vehicle: w.vehicle, decor: w.decor });
   st.setMode(C.tab === 'mundo' ? 'mundo' : 'escena');
@@ -161,7 +162,9 @@ function tabVestidor(p, name) {
   const sw = (part, cur) => '<div class="cpsw">' + Companion.SWATCH_IDS.map((id) => dot('cpWear', part + '|' + id, S[id].hex, S[id].label, cur === id)).join('') + '</div>';
   const price = (k) => (Companion.kitShop.item(k) || { price: 0 }).price;
   const slotRow = (slot) => '<div class="cpgr"><h4 class="mono">' + esc(Companion.SLOT_LABEL[slot]) + '</h4><div class="cpchips">' + chip('cpWear', 'accessory|' + slot + '|', '∅', 'Ninguno', !look.accessories[slot] ? 'on' : '') + Companion.ACCESSORIES[slot].map((a) => { const k = Companion.accessoryKey(slot, a.id); return chip('cpWear', 'accessory|' + slot + '|' + a.id, a.icon, a.label, look.accessories[slot] === a.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div></div>';
-  return '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
+  const asp = compState().aspect, canFace = !!window.JanusFace3D;
+  return (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
+    '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
     '<div class="cpgr"><h4 class="mono">Color del pelo</h4>' + sw('fur', look.fur) + '</div><div class="cpgr"><h4 class="mono">Detalles</h4>' + sw('accent', look.accent) + '</div>' +
     '<div class="cpgr"><h4 class="mono">Ojos</h4><div class="cpsw">' + Companion.EYE_IDS.map((id) => dot('cpWear', 'eyes|' + id, Companion.EYES[id].hex, Companion.EYES[id].label, look.eyes === id)).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Ropa</h4><div class="cpchips">' + Companion.OUTFITS.map((o) => { const k = Companion.outfitKey(o.id); return chip('cpWear', 'outfit|' + o.id, o.icon, o.label, look.outfit === o.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div>' + (look.outfit !== 'ninguna' ? '<h4 class="mono">Color de la ropa</h4>' + sw('outfitColor', look.outfitColor) : '') + '</div>' +
@@ -183,15 +186,28 @@ function tabMundo(p, name) {
     '<div class="cpgr"><h4 class="mono">Decoración (hasta ' + Companion.MAX_DECOR + ')</h4><div class="cpchips">' + (ownedOf(Companion.DECOR_KEYS).map((k) => chip('cpDecor', k, it(k).icon, it(k).label, w.decor.includes(k) ? 'on' : '')).join('') || '<span class="dim">Todavía no tienes. ¡Mira la Tienda!</span>') + '</div></div>' +
     '<div class="cpbtns"><span class="btn2 mono"' + act('cpTab', 'tienda', 'Ir a la tienda') + '>⭐ Ir a la tienda</span></div>';
 }
+const CP_MOODS = [['alegre', '😄', 'Alegre'], ['contento', '🙂', 'Contento'], ['triste', '😢', 'Triste'], ['enojado', '😠', 'Enojado'], ['sorprendido', '😮', 'Sorprendido'], ['pensativo', '🤔', 'Pensativo']];
 function tabHablar(p, name) {
   const sc = Companion.SCENARIOS[compState().sc % Companion.SCENARIOS.length];
-  return '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
+  return '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4><div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
+    '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
 }
+const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Robot de Janus' };
+function slotPanel() {
+  const S = window.JanusCreatureSlot; if (!S || !S.supported()) return '';
+  const row = (id) => {
+    const i = S.info(id), rep = S.report(id);
+    return '<div class="cpslot"><div class="cpslh"><b>' + SLOT_NAMES[id] + '</b><span class="mono dim">' + (i ? 'GLB · ' + esc(i.name) + ' · ' + esc(i.summary) : 'Procedural (el de ahora)') + '</span></div>' +
+      '<div class="cpbtns"><label class="btn2 mono cpfile">⬆ Importar GLB<input type="file" accept=".glb,model/gltf-binary" data-slotfile="' + id + '" aria-label="Importar modelo GLB de ' + SLOT_NAMES[id] + '"></label>' + (i ? '<span class="btn2 mono"' + act('cpSlotDel', id, 'Quitar el modelo de ' + SLOT_NAMES[id]) + '>✕ Quitar</span>' : '') + '</div>' +
+      (rep ? '<details class="cpbasis"><summary class="mono">Informe del contrato</summary><ul class="cpul">' + rep.checks.map((c) => '<li>' + (c.ok ? '✔' : c.level === 'error' ? '✖' : '⚠') + ' ' + esc(c.label) + ': ' + esc(c.detail) + '</li>').join('') + '</ul></details>' : '') + '</div>';
+  };
+  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
+}
 function tabPapa(p, name) {
   const C = compState();
-  return '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos si detecta tristeza, burlas o algo serio.</div>') + '</div>' +
+  return slotPanel() + '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos si detecta tristeza, burlas o algo serio.</div>') + '</div>' +
     '<div class="cpgr"><h4 class="mono">Qué hace y qué no hace</h4><ul class="cpul"><li>Practica con representaciones concretas (fichas, platos, tartas) y pasos cortos con «tu turno».</li><li><b>No sustituye a un profesional</b> (docente, psicopedagogo, terapeuta): sigue las mismas bases que ellos usan.</li><li>Las estrellas premian el esfuerzo, con tope diario; no hay castigos, temporizadores ni dinero real.</li><li>Nunca comenta el cuerpo ni el peso de la niña.</li></ul></div>' +
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
     '<div class="dim mono cpmini">Voz y rostro: desactivados (solo en el dispositivo y con tu consentimiento). Voz actual: la del navegador, hasta diseñar la de ElevenLabs.</div>';
@@ -225,6 +241,13 @@ const COMP_ACTS = {
     try { const C = compState(), p = compProfile(); Companion.renameCreature(p, C.creatureId, field('cpName')); compSave(p); COMP_UI.renaming = false; cpSay('¡Me encanta mi nombre nuevo! Gracias, ' + CHILD + '.', 'celebra'); }
     catch (e) { if (/mejor no/.test(String(e && e.message))) { cpSay('Mmm, ese nombre mejor no. ¿Probamos con otro que nos guste a todos?', 'piensa'); } else COMP_UI.renaming = false; }
   },
+  cpAspect: (a) => { const C = compState(); C.aspect = a === 'cara' ? 'cara' : 'criatura'; saveState(); const st = cpStage(); if (st && st.setAspect) { st.setAspect(C.aspect); st.sparkle(-1.6, 1.8, '#FFE9A0'); } cpSay(C.aspect === 'cara' ? '¡Ahora me ves la cara! Mira cómo cambian mis ojos.' : '¡Vuelvo a ser yo, con cuerpo y todo!', 'saluda', true, 'alegre'); },
+  cpMood: (m) => {
+    if (!CP_MOODS.some((x) => x[0] === m)) return; const st = cpStage(); if (!st) return;
+    const line = { alegre: '¡Qué alegría!', contento: 'Aquí estoy, contento.', triste: 'Mmm… me da un poquito de pena.', enojado: '¡Grrr! Es un enfado de mentira, ¿eh?', sorprendido: '¡Oooh! ¡No me lo esperaba!', pensativo: 'Mmm… déjame pensar.' }[m];
+    st.setMood(m, 7); cpSay(line, m === 'pensativo' ? 'piensa' : 'idle', true, m);
+  },
+  cpSlotDel: (id) => { if (window.JanusCreatureSlot) { JanusCreatureSlot.remove(id); COMP_UI.slotMsg = SLOT_NAMES[id] + ': vuelve la criatura procedural.'; } },
   cpGesture: (g) => { const t = { saludo: '¡Holaaa, ' + CHILD + '!', cara: '¡Bluuu! ¿Me salió graciosa la cara?', baile: '¡A bailar! Un pasito para aquí, otro para allá.', risa: '¡Jajaja! Me haces cosquillas.' }[g]; if (t) cpSay(t, { saludo: 'saluda', cara: 'piensa', baile: 'celebra', risa: 'habla' }[g]); },
   cpSpeak: () => { speak(COMP_UI.say || Companion.getCreature(compState().creatureId).catchphrases[0]); },
   cpView: (v) => { COMP_UI.view = ['amplia', 'mesa', 'primer-plano'].includes(v) ? v : null; const st = cpStage(); if (st) { st.resetView(); st.setView(COMP_UI.view); } },
@@ -265,13 +288,13 @@ const COMP_ACTS = {
       C.streak++; C.misses = 0; C.level = Companion.adaptLevel(C.level, C.streak, 0); const racha = C.streak >= 3; if (racha) C.streak = 0; COMP_UI.ok = true;
       const e = Companion.pickEncouragement('acierto', CHILD, p.encourage, now); COMP_UI.hint = '✔ ¡Correcto! ' + (e || ''); C.enc = p.encourage; saveState();
       cpEarn('acierto', 'acierto:' + ev); if (racha) cpEarn('racha', 'racha:' + ev);
-      const st = cpStage(); if (st) st.celebrate(); cpSay(e || '¡Correcto!', 'celebra');
+      const st = cpStage(); if (st) st.celebrate(); cpSay(e || '¡Correcto!', 'celebra', false, 'alegre');
       C.seed++; C.fails = 0; cpReset(); saveState();
     } else {
       C.fails++; COMP_UI.ok = false; if (C.fails === 1) cpEarn('esfuerzo', 'esfuerzo:' + ev);
       if (r.next === 'mostrar-pasos') { C.misses++; C.level = Companion.adaptLevel(C.level, 0, C.misses); }
       const e = C.fails === 1 ? Companion.pickEncouragement('error', CHILD, p.encourage, now) : null; COMP_UI.hint = '💡 ' + r.hint + (r.next === 'mostrar-pasos' ? ' · Respuesta: ' + ex.answer : '');
-      C.enc = p.encourage; saveState(); cpSay(e || r.hint, 'piensa');
+      C.enc = p.encourage; saveState(); cpSay(e || r.hint, 'piensa', false, 'pensativo');
       if (r.next === 'mostrar-pasos' && !COMP_UI.lesson) cpLessonStart(true);
     }
   },
@@ -285,3 +308,21 @@ const COMP_ACTS = {
   }
 };
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } } });
+
+/* ---- Módulo de criaturas (GLB): importar, refrescar la escena y recuperar lo guardado en este dispositivo ---- */
+document.addEventListener('change', async (ev) => {
+  const el = ev.target; if (!el.matches || !el.matches('input[data-slotfile]') || !window.JanusCreatureSlot) return;
+  const id = el.getAttribute('data-slotfile'), f = el.files && el.files[0]; if (!f) return;
+  COMP_UI.slotMsg = 'Leyendo ' + f.name + '…'; rerender();
+  try { const rep = await JanusCreatureSlot.load(id, await f.arrayBuffer(), { name: f.name }); COMP_UI.slotMsg = SLOT_NAMES[id] + ': ' + (rep.level === 'error' ? 'no se pudo usar ' + f.name + ' · ' + rep.summary : rep.summary + ' · ya está en la escena'); }
+  catch (e) { COMP_UI.slotMsg = 'Error al importar: ' + String((e && e.message) || e).slice(0, 140); }
+  rerender();
+});
+/* El módulo de criaturas se carga DESPUÉS de este archivo (orden de build.cjs), así que se conecta desde app.js al arrancar:
+   antes estaba aquí a nivel de archivo, JanusCreatureSlot aún no existía y ni el refresco al importar ni la recuperación al recargar se registraban. */
+let SLOT_WIRED = false;
+function slotWire() {
+  if (SLOT_WIRED || !window.JanusCreatureSlot || !JanusCreatureSlot.supported()) return; SLOT_WIRED = true;
+  JanusCreatureSlot.onChange((id) => { if (window.Janus3D && Janus3D.refresh) Janus3D.refresh(); const I = (window.JanusStage3D && JanusStage3D._inst) || {}; Object.keys(I).forEach((k) => { try { I[k].refreshRig(id); } catch (e) { /* escena aún sin criatura */ } }); });
+  JanusCreatureSlot.restore().then((n) => { if (n && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender(); });
+}

@@ -274,3 +274,6 @@ background:radial-gradient(800px 460px at 0% 0%,rgba(47,107,255,.22),transparent
 .stage.b .pl-mt img.ji3.ji3{filter:none!important;margin:0 .06em 0 0;vertical-align:-.26em}
 .stage.b .pl-dy img.ji3{width:15px;height:15px;margin:0}
 .stage.b .band img.ji3,.stage.b .pill2 img.ji3{width:15px;height:15px;margin:0 .12em 0 0}
+
+/* El robot transformado en cara flotante o criatura conserva sus colores (no se tiñe de platino). */
+.stage.b [data-3d][data-form="cara"] canvas,.stage.b [data-3d][data-form="lumi"] canvas,.stage.b [data-3d][data-form="bombo"] canvas,.stage.b [data-3d][data-form="musgo"] canvas,.stage.b [data-3d][data-form="nimbo"] canvas{filter:none!important}

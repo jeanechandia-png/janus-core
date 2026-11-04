@@ -440,7 +440,8 @@ const JanusStage3D = (() => {
     const cb = {}; // callbacks del anfitrión
     const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null };
     const wp = { home: null, homeKey: null, vehicle: null, vehKey: null, decor: new Map(), vehLap: null };
-    const cre = { id: null, rig: null, rigs: {}, pos: [-4, 1.5], target: [-4, 1.5], pose: 'idle', point: null, yaw: 0, walk: 0, reactUntil: 0, reactPose: null, hop: 0, look: null };
+    const cre = { id: null, rig: null, rigs: {}, pos: [-4, 1.5], target: [-4, 1.5], pose: 'idle', point: null, yaw: 0, walk: 0, reactUntil: 0, reactPose: null, hop: 0, look: null, mood: null, moodUntil: 0, aspect: 'criatura', key: null };
+    const FACE_COL = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
     const view = { tx: 0, ty: 0.6, tz: 0, d: 18, yaw: 0, pitch: 0.5 }, goal = Object.assign({}, view), user = { yaw: 0, pitch: 0, zoom: 1 };
     const flights = []; let curHost = null, ro = null, tNow = 0, frames = 0, fpsAcc = 0, fps = 60, disposed = false, snapCam = true, drag = null, pinch = null;
     const selRing = haloMesh(1.0); selRing.material.color.set(0xFFFFFF); scene.add(selRing);
@@ -476,10 +477,11 @@ const JanusStage3D = (() => {
     /* ----- criatura ----- */
     function setCreature(id, look) {
       if (!window.JanusCreatures3D) return;
-      if (id && id !== cre.id) {
+      const key = cre.aspect === 'cara' && window.JanusFace3D ? id + '#cara' : id;
+      if (id && (id !== cre.id || key !== cre.key)) {
         if (cre.rig) scene.remove(cre.rig.root);
-        let rig = cre.rigs[id]; if (!rig) { rig = cre.rigs[id] = window.JanusCreatures3D.build(id, '#FFD27A'); const hit = new T.Mesh(new T.CylinderGeometry(0.95, 0.95, 2.6, 10), new T.MeshBasicMaterial({ visible: false })); hit.position.y = 1.3; hit.userData.pickKind = 'creature'; rig.root.add(hit); }
-        cre.id = id; cre.rig = rig; scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
+        let rig = cre.rigs[key]; if (!rig) { rig = cre.rigs[key] = (key !== id ? window.JanusFace3D.build(id, FACE_COL[id]) : null) || (window.JanusCreatureSlot && window.JanusCreatureSlot.rigFor(id)) || window.JanusCreatures3D.build(id, '#FFD27A'); const hit = new T.Mesh(new T.CylinderGeometry(0.95, 0.95, 2.6, 10), new T.MeshBasicMaterial({ visible: false })); hit.position.y = 1.3; hit.userData.pickKind = 'creature'; rig.root.add(hit); }
+        cre.id = id; cre.key = key; cre.rig = rig; scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
       }
       if (look && cre.rig) { cre.look = look; cre.rig.setLook(look); }
     }
@@ -630,7 +632,7 @@ const JanusStage3D = (() => {
         const react = t < cre.reactUntil, pose = react ? cre.reactPose : cre.pose;
         const hopY = Math.max(0, Math.sin(clamp((t - cre.hop) / 0.5, 0, 1) * Math.PI)) * 0.35;
         cre.rig.root.position.set(cre.pos[0], DECK_Y + hopY, cre.pos[1]); cre.rig.root.rotation.y = cre.yaw;
-        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0 });
+        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0, mood: t < cre.moodUntil ? cre.mood : null, camPos: cam.position });
       }
       // vuelos de fichas (canje)
       for (let i = flights.length - 1; i >= 0; i--) {
@@ -659,7 +661,14 @@ const JanusStage3D = (() => {
       setMode(m) { state.mode = m === 'mundo' ? 'mundo' : 'escena'; state.viewOverride = state.mode === 'mundo' ? 'mundo' : null; computeGoal(); },
       select(id) { select(id); },
       on(c) { Object.assign(cb, c || {}); },
-      react(pose, secs) { cre.reactPose = pose || 'saluda'; cre.reactUntil = tNow + (secs || 1.6); if (pose === 'celebra') { fx.confetti(cre.pos[0], 2.4, cre.pos[1], 70); } },
+      react(pose, secs, mood) { cre.reactPose = pose || 'saluda'; cre.reactUntil = tNow + (secs || 1.6); if (mood) { const hasta = cre.reactUntil + 0.4; if (mood === cre.mood) cre.moodUntil = Math.max(cre.moodUntil, hasta); else { cre.mood = mood; cre.moodUntil = hasta; } } /* no acorta un ánimo elegido a propósito (setMood) con el de un gesto */ if (pose === 'celebra') { fx.confetti(cre.pos[0], 2.4, cre.pos[1], 70); } },
+      /** Emoción de la cara durante `secs` segundos (alegre|contento|triste|enojado|sorprendido|pensativo). null = vuelve a contento. */
+      setMood(mood, secs) { cre.mood = mood || null; cre.moodUntil = mood ? tNow + (secs || 5) : 0; },
+      /** Vuelve a crear la criatura `id` (p. ej. al importar o quitar un modelo GLB en el módulo JanusCreatureSlot). */
+      refreshRig(id) { const old = cre.rigs[id]; if (!old) return; if (cre.rig === old) scene.remove(old.root); delete cre.rigs[id]; if (cre.id === id) { cre.id = null; cre.key = null; setCreature(id, cre.look); } },
+      /** Aspecto del compañero: 'criatura' (cuerpo 3D) o 'cara' (ojos y sonrisa flotantes, la cara del robot de Janus). */
+      setAspect(a) { const n = a === 'cara' && window.JanusFace3D ? 'cara' : 'criatura'; if (n === cre.aspect) return; cre.aspect = n; if (cre.id) { const id = cre.id; setCreature(id, cre.look); } },
+      aspect() { return cre.aspect; },
       celebrate() { fx.confetti(0, 5, 0, 110); fx.burst(cre.pos[0], 2.2, cre.pos[1], 24, '#FFE9A0', 3.6); cre.hop = tNow; cre.reactPose = 'celebra'; cre.reactUntil = tNow + 2.4; },
       sparkle(x, z, color) { fx.burst(x, 1.0, z, 14, color || '#FFE9A0', 2.6); },
       resetView() { user.yaw = 0; user.pitch = 0; user.zoom = 1; },
@@ -671,7 +680,7 @@ const JanusStage3D = (() => {
       },
       propIds() { return [...props.keys()]; },
       worldInfo() { return { home: wp.homeKey, vehicle: wp.vehKey, decor: [...wp.decor.keys()] }; },
-      stats() { return { fps: Math.round(fps), calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, props: props.size, creature: cre.id, view: state.viewOverride || state.view, mode: state.mode, camera: { d: +view.d.toFixed(2), yaw: +view.yaw.toFixed(2), pitch: +view.pitch.toFixed(2) }, size: [el.width, el.height] }; },
+      stats() { return { fps: Math.round(fps), calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, props: props.size, creature: cre.id, kind: cre.rig ? (cre.rig.glb ? 'glb' : cre.rig.face === true ? 'cara' : 'procedural') : null, mood: cre.rig && cre.rig.face === true ? cre.rig.mood : undefined, view: state.viewOverride || state.view, mode: state.mode, camera: { d: +view.d.toFixed(2), yaw: +view.yaw.toFixed(2), pitch: +view.pitch.toFixed(2) }, size: [el.width, el.height] }; },
       _tick: tick, _visible: visible,
       _render() { renderer.render(scene, cam); frames++; },
       dispose() { disposed = true; if (ro) ro.disconnect(); renderer.dispose(); if (wrap.parentElement) wrap.parentElement.removeChild(wrap); }

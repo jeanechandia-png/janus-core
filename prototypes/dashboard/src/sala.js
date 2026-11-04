@@ -16,7 +16,7 @@ function stateBlock(big) {
 }
 
 const meMsg = (m) => '<div class="msg me"><div class="bub">' + esc(m.t) + '</div><small class="mono">' + m.at + (m.v ? ' · 🎙' : '') + '</small></div>';
-const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + (citedOk(m.cited) ? citedBlock(m.cited) : esc(m.t)) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · simulado</small></div>';
+const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + (citedOk(m.cited) ? citedBlock(m.cited) : esc(m.t)) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · ' + esc(m.via || 'simulado') + '</small></div>';
 
 /* ---- Respuesta con fuentes citadas (EJEMPLO) ----
  * El verificador es el REAL del núcleo (packages/orchestrator/src/cited-answer.ts, empaquetado en vendor/cited-answer.js):
@@ -74,9 +74,9 @@ function vTrabajo(M, X, sub) {
     '<span class="mic m3' + (UI.listening ? ' on' : '') + '" data-3d="mic" data-id="mic-cmp" data-tapact="mic" role="button" aria-label="' + (UI.listening ? 'Detener dictado' : 'Hablar') + '"><img class="j3d-fb" src="' + IMG.mic + '" alt=""></span>' +
     '<span class="gsend"' + act('send', '', 'Enviar') + '><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 5 5l4 7-4 7Z" fill="#1c1003" stroke="#FFF3C4" stroke-width=".6" stroke-linejoin="round"/></svg></span></div>';
   const center = '<section class="cd chat"><div class="chd"><span class="bb m">' + P.e + '</span><div><b class="serif gld">' + esc(P.n) + '</b><div class="mono dim">' + (P.amb === 'p' ? '🏠 personal' : '🏢 empresa') + ' · ' + PGRP_TXT[P.grp] + '</div></div>' + stateBlock(false) + '</div>' + thread + composer +
-    '<div class="note mono">Vista previa: Janus responde de forma simulada aquí. En la app real, cada mensaje va al núcleo de Janus con este proyecto como contexto.</div></section>';
+    '<div class="note mono">' + (modelLive() ? 'Janus responde con Claude mediante la pasarela de modelo (adaptador intercambiable). Aquí no tiene internet, correo ni calendario, y no ejecuta acciones externas sin tu aprobación. El núcleo real de Janus (memoria, auditoría, aprobaciones) se conecta después.' : 'Vista previa: Janus responde de forma simulada aquí. En la app real, cada mensaje va al núcleo de Janus con este proyecto como contexto.') + '</div></section>';
   const prs = P.real === 'prs' ? '<div class="sb mono">PR abiertos · real</div>' + REAL.prs.slice(0, 4).map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') : '';
-  const right = '<div class="col3">' + panel('jsp', '⚙', 'Estado de Janus', 'gíralo con el dedo', '<div class="j3bot" data-3d="bot" data-id="bot-sala" role="img" aria-label="Robot de Janus"><img class="j3d-fb" src="' + GOLD.o.bot + '" alt=""></div>' + stateBlock(true) +
+  const right = '<div class="col3">' + panel('jsp', '⚙', 'Estado de Janus', 'gíralo con el dedo', '<div class="j3bot" data-3d="bot" data-id="bot-sala" role="img" aria-label="Robot de Janus"><img class="j3d-fb" src="' + GOLD.o.bot + '" alt="">' + (typeof avatarGear === 'function' ? avatarGear() : '') + '</div>' + stateBlock(true) + (typeof avatarPanel === 'function' ? avatarPanel() : '') +
     '<div class="sts">' + Object.keys(JSTATE).map((k) => '<span class="stt' + (k === UI.js ? ' on' : '') + '" data-k="' + k + '"' + act('jsDemo', k, JSTATE[k][0]) + '><i></i>' + JSTATE[k][0] + '</span>').join('') + '</div>' +
     '<label class="tgl mono"><input type="checkbox" data-set="robot"' + (robotOn() ? ' checked' : '') + '> Mini-Jano al generar la respuesta</label>') +
     panel('pjc', P.e, 'Proyecto', PGRP_TXT[P.grp], '<div class="kv">' + [['🏷', 'Estado declarado', P.decl ? P.decl + ' · Jean 13-oct' : 'Por confirmar'], ['📌', 'Grupo', PGRP_TXT[P.grp] + ' · propuesta'], ['⏭', 'Siguiente paso', P.next], ['🐙', 'Repositorio', P.repo || '—']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + esc(r[2]) + '</b></div>').join('') + '</div>' + prs) + '</div>';
@@ -100,6 +100,23 @@ let SIM = [];
 const clearSim = () => { SIM.forEach(clearTimeout); SIM = []; };
 const later = (ms, fn) => SIM.push(setTimeout(() => { fn(); if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio' || !ROUTE.v) { rerender(); scrollThread(); } }, ms));
 function scrollThread() { const t = document.getElementById('thr'); if (t) t.scrollTop = t.scrollHeight; }
+const modelLive = () => typeof JanusGateway !== 'undefined' && JanusGateway.live();
+/** Instrucciones de Janus para el modelo: el modelo es un adaptador, la identidad y las reglas son de Janus. */
+function janusSystem(P) {
+  return 'Eres Janus, el asistente personal de Jean (Patrón), CEO de InfinitySeed Group. Estás en la vista previa del dashboard de Janus, conectado a un modelo de lenguaje; todavía NO estás conectado al núcleo de Janus ni a sus datos reales.\n' +
+    'Reglas: responde en español latinoamericano, breve y operativo (unas 120 palabras como máximo, salvo que Jean pida más). Protocolo de la Verdad: distingue HECHO VERIFICADO, INFERENCIA, RECOMENDACIÓN y POR CONFIRMAR; no inventes datos, cifras, fuentes ni resultados. En esta vista no tienes internet, correo, calendario ni archivos: si te los piden, dilo y explica cómo lo haría el núcleo (fuentes primarias, comprobando la fiabilidad de cada fuente). No ejecutas acciones externas (publicar, enviar, pagar, borrar, desplegar): las propones y esperas la aprobación de Jean. Separa lo personal y familiar de lo laboral. Moneda: euros.\n' +
+    'Proyecto abierto: ' + P.n + ' (' + (P.amb === 'p' ? 'personal' : 'empresa') + '); siguiente paso declarado: ' + P.next + '.';
+}
+const refreshSala = () => { if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio' || !ROUTE.v) { rerender(); scrollThread(); } };
+function askModel(P, list) {
+  const req = { system: janusSystem(P), messages: list.slice(-14).filter((m) => m.t).map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: m.t })) };
+  UI.js = 'pensando'; saveState();
+  JanusGateway.ask(req).then((r) => {
+    if (r.via === 'local' || !r.text) { list.push({ who: 'ja', t: 'No pude consultar al modelo' + (r.skipped && r.skipped[0] ? ' (' + r.skipped[0].error + ')' : '') + '. Esta es una respuesta de la vista previa: en la app real trabajaría sobre ' + P.n + ' (siguiente paso: ' + P.next + ').', at: hhmm(), via: 'simulado' }); }
+    else list.push({ who: 'ja', t: r.text, at: hhmm(), via: r.label });
+    UI.js = 'listo'; saveState(); refreshSala();
+  }).catch((e) => { list.push({ who: 'ja', t: 'No pude consultar al modelo: ' + String((e && e.message) || e).slice(0, 120), at: hhmm(), via: 'error' }); UI.js = 'listo'; saveState(); refreshSala(); });
+}
 function reply(pid, text, voice) {
   const P = projById(pid), list = chatsOf(pid), id = 'm' + Date.now();
   list.push({ who: 'me', t: text, at: hhmm(), v: !!voice });
@@ -109,6 +126,8 @@ function reply(pid, text, voice) {
   if (hi && hi.temp) { later(700, () => { const H = homeSt(); H.state = HomeScenes.applyActions(H.state, [{ deviceId: 'calefaccion', cmd: 'setTemp', value: hi.temp }]); saveState(); list.push({ who: 'ja', t: 'Calefacción a ' + String(hi.temp).replace('.', ',') + '° (ejemplo hasta conectar tu termostato).', at: hhmm() }); UI.js = 'listo'; rerender(); }); return; }
   if (SENSITIVE.test(text)) {
     later(1200, () => { UI.js = 'aprobacion'; list.push({ who: 'ja', id, appr: true, t: 'Entendido. «' + text.slice(0, 80) + '» actúa fuera (publica, envía, borra o gasta). Necesito tu visto bueno antes de hacerlo en ' + P.n + '.', at: hhmm() }); saveState(); });
+  } else if (modelLive()) {
+    askModel(P, list);
   } else if (RESEARCH.test(text) && typeof CitedAnswer !== 'undefined') {
     later(1200, () => { UI.js = 'ejecutando'; });
     later(3000, () => { UI.js = 'listo'; const a = exampleCited(text); list.push({ who: 'ja', cited: a, t: citedPlain(a), at: hhmm() }); saveState(); });

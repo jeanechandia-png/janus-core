@@ -1,0 +1,31 @@
+{
+  "piece": "janus-model-gateway",
+  "name": "Pasarela de modelo: Janus manda, los modelos son adaptadores intercambiables",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (2 nov 2026). Implementa en el prototipo el principio «JANUS CORE manda; Claude y otros modelos son adaptadores reemplazables».",
+  "dependencies": [],
+  "api": "JanusGateway.{register(id,{label,available(),ask({system,messages,onText,signal})}), ask(req) → {text,via,label,skipped[]}, live(), status(), setCoreUrl(url), toSampleInput(system,messages)} · orden por defecto: core → claude → local",
+  "adapters": {
+    "claude": "Claude mediante la capacidad `sample` de un Artifact publicado (sin claves en la página; pide permiso al primer uso). Disponible solo dentro del Artifact.",
+    "core": "Núcleo Janus real (POST /api/command con sesión del Fundador). PENDIENTE: no verificado ni activo; se activa con setCoreUrl(url) cuando exista el servidor y la sesión.",
+    "local": "Respuesta simulada del anfitrión; siempre disponible."
+  },
+  "behaviour": "Si un adaptador falla pasa al siguiente y lo anota en skipped; la conversación enviada empieza y termina en «user»; las acciones que actúan fuera (publicar, enviar, pagar…) piden aprobación y no llegan al modelo.",
+  "mounts": [
+    {
+      "product": "Janus · dashboard A (prototipo) — chat de la Sala y del teléfono",
+      "file": "prototypes/dashboard/src/sala.js (askModel)",
+      "version": "1.0.0"
+    }
+  ],
+  "plannedMounts": [
+    "Adaptador `core` hacia JANUS CORE (memoria SQLite, aprobaciones, auditoría)",
+    "Adaptadores de otros modelos"
+  ],
+  "commercial": "Reutilizable en cualquier asistente: cambiar de modelo no cambia la interfaz.",
+  "knownLimits": [
+    "Hoy el chat NO es Janus Core: es Claude detrás de la página, sin memoria propia, sin SQLite y sin las aprobaciones reales del núcleo.",
+    "Cada pregunta es independiente (sample no tiene memoria): el historial viaja en cada petición.",
+    "Solo se probó con un Claude simulado; la primera respuesta real y el permiso del primer uso están POR CONFIRMAR en el dispositivo de Jean."
+  ]
+}

@@ -6,6 +6,7 @@ Fecha: 2026-10-13
 
 - Prototipo **A · Obsidiana** interactivo en `prototypes/dashboard/` (rama `claude/dashboard-obsidiana`), fuera de `apps/pwa`.
 - Traspaso completo: `prototypes/dashboard/HANDOFF.md`.
+- **2026-11-04:** el mismo robot del chat se transforma (cabeza, cara, Lumi, Bombo, Musgo, Nimbo) con hueco GLB; chat escrito con Claude detrás por pasarela de modelo (el adaptador `core` sigue pendiente); Artifact privado publicado para el móvil de Jean. Rama `claude/companion-escena-3d`, sin fusionar. Detalle, lecciones y pendientes (incl. los 4 ZIP de concepto aún no recibidos): `prototypes/dashboard/HANDOFF.md`.
 - Pendiente pedido por Jean: **dos dashboards (A y B Platino) en Janus** y **sección Proyectos** en ambos.
 
 ## AHORA
