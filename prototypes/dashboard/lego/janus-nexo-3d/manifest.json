@@ -1,0 +1,25 @@
+{
+  "piece": "janus-nexo-3d",
+  "moduleVersion": "1.0.0",
+  "interface": "janus-rig-v1",
+  "dependencies": [
+    "three.js r160",
+    "janus-avatar-catalog (catalog/casting; optional in isolated consumer)"
+  ],
+  "api": "JanusNexo3D.build('masculino'|'femenino') → {id,root,update(t,dt,{pose,mood,talk,listening,walk}),setLook,approved}",
+  "behavior": "Two independent 3D metallic humanoids with volumetric geometry, blue eyes, animated brows/lids/lips/head/arms. The same stage can use separately imported, rigged GLBs in nexo-masculino and nexo-femenino slots.",
+  "identityNames": {
+    "masculino": "Janus (assistant identity; Founder cloned voice via Voice Gateway)",
+    "femenino": "Melanie (initial casting; configurable)"
+  },
+  "security": "Appearance and display name are presentation only; never grant identity or administrative authority.",
+  "designLock": "Approved references: NEXO female original and NEXO male final corrected mouth/nose 2026-11-04. Do not alter either without approval.",
+  "quality": "Current fallback is volumetric procedural 3D and remains below full cinematic hyperrealism. To match approved renders, import original 3D GLB meshes with PBR textures, morph targets and visemes.",
+  "budget": "Use existing GLB contract: ≤80k tris recommended, 300k hard max, 2048 textures, 15MB.",
+  "mounts": [
+    "Janus 3D dashboard (existing canvas and gestures)"
+  ],
+  "plannedMounts": [
+    "Other InfinitySeed products via same rig API; no vendor dependencies"
+  ]
+}

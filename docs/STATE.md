@@ -1,5 +1,20 @@
 # JANUS — Estado vigente
 
+## ACTUALIZACIÓN VIGENTE — 2026-11-04 · Casting visual Janus/InfinitySeed
+
+**Decisión del Founder:** la versión **masculina NEXO es Janus (voz clonada del Founder mediante Voice Gateway)** y la **femenina original representa inicialmente a Melanie**; ambas son referencias de diseño aprobadas. Lumi, Bombo, Musgo y Nimbo siguen formando parte del mismo ecosistema de personajes reutilizables.
+
+**HECHO (rama de revisión `chatgpt/janus-nexo-masculino-aprobado-20261104`, basada en `claude/companion-escena-3d`):**
+- LEGO genérico `prototypes/dashboard/lego/janus-avatar-catalog/`: nueve identidades visuales registradas, IDs estables, casting inicial renombrable por instalación, distinción robot/criatura y contrato uniforme `janus-rig-v1`. El nombre es solo presentación: **no confiere permisos ni autenticación**.
+- `janus-nexo-3d/`: versiones masculina y femenina en Three.js, geometría 3D volumétrica independiente, metal PBR plateado, ojos azules, labios, nariz, gesticulación facial/corporal, emociones y conversación reactiva al estado de voz; el diseño 2D de referencia no se estampa como textura.
+- `janus-3d/` y `src/avatar.js`: se incorporan ambas como dos formas independientes en la MISMA escena manipulable del dashboard, con identidades visibles Janus/Melanie. Se conservan las cuatro criaturas y el robot anterior. El modo predeterminado de sesiones nuevas es NEXO masculino; selección y alias existentes pueden persistir.
+- `janus-creature-slot/`: slots GLB independientes para NEXO masculino y femenino, además de los anteriores, con carga/validación/IndexedDB offline ya existentes. Build integrando el catálogo antes de UI y escenas.
+- **Prueba ejecutada en V8 con mocks de Three.js:** ambas variantes se instancian, tienen mallas y rasgos separados y procesan estados de hablar/saludar/escuchar. **Añadidas** pruebas offline en `prototypes/dashboard/tests/avatar-catalog.test.cjs` y E2E ampliado; las suites Node/Chromium completas no se ejecutaron por falta de clon local/conectividad GitHub desde contenedor.
+
+**PENDIENTE / por confirmar:** la apariencia hiperrealista cinematográfica exacta **no se logra todavía con el fallback procedural**. Hacen falta **dos GLB finales esculpidos y riggeados** ajustados a las dos imágenes aprobadas (PBR, visemas, expresiones, LOD y huesos), seguidos de validación visual y prueba GPU en iPhone/iPad. **No se ha fusionado, publicado ni modificado** `apps/pwa` o landings productivas. Mantener independiente el módulo LEGO para futuras integraciones.
+
+---
+
 Fecha: 2026-10-13
 
 ## DASHBOARD (2026-10-22)

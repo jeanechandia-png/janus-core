@@ -1,5 +1,21 @@
 # HANDOFF — Dashboard Janus (A Obsidiana + B Platino)
 
+## ACTUALIZACIÓN (2026-11-04) — NEXO masculino=Janus, NEXO femenino=Melanie · módulos LEGO
+
+**Rama de trabajo:** `chatgpt/janus-nexo-masculino-aprobado-20261104`, nacida de `claude/companion-escena-3d` y sin modificar producción.
+
+**AHORA / HECHO:** ambos personajes aprobados están disponibles como `nexo-masculino` y `nexo-femenino` en el selector del mismo robot interactivo; están ligados al catálogo reutilizable `lego/janus-avatar-catalog`. Las identidades son **Janus** (masculino, voz clonada del Founder a través del Voice Gateway) y **Melanie** (femenino); los alias son cambiables en `ST.settings.avatarAliases` sin modificar diseños. Se conservaron las cuatro criaturas Lumi/Bombo/Musgo/Nimbo y el robot clásico. Los dos NEXO tienen un fallback 3D procedural real (no imagen plana) con ojos grandes azules, cejas, labios superior e inferior, nariz, gestos corporales y expresión conectada a conversación/escucha.
+
+**Código integrado:** `lego/janus-avatar-catalog/`, `lego/janus-nexo-3d/`, `lego/janus-3d/`, `lego/janus-creature-slot/`, `src/avatar.js`, `src/companero.js`, `build.cjs`, `tests/avatar-catalog.test.cjs`, `tests/e2e-avatar.cjs`. Es el contrato LEGO `{root,update(t,dt,ctl),setLook}` común para mascotas/robots y GLB intercambiables, con persistencia IndexedDB de GLB **local** y slots separados por personaje.
+
+**VERIFICACIÓN:** comprobación V8 en la sesión: 9 entradas de catálogo, 4 criaturas, dos mallas independientes de 92 nodos, rasgos faciales 3D y actualizaciones de ánimo/habla/saludo sin excepción; sintaxis JS de módulos revalidados. Las pruebas automatizadas Node/Chromium **están codificadas pero no ejecutadas** en un checkout completo; no declarar E2E aprobada. Ejecutar: `node --test prototypes/dashboard/tests/avatar-catalog.test.cjs`, `cd prototypes/dashboard && node build.cjs && node tests/e2e-avatar.cjs`, con Playwright/Chromium disponible.
+
+**BLOQUEADO para calidad cinematográfica:** la ilustración aprobada no es un GLB riggeado. Se necesitan dos activos 3D finales hiperrealistas aprobados contra sus referencias (uno masculino, uno femenino), con PBR/morph targets/visemas/LOD conforme a `lego/janus-creature-slot/CONTRATO.md`; el código permite importar cada uno sin cambiar el motor. Falta prueba en iPhone real. No sustituir fotos por supuestos modelos 3D ni afirmar fidelidad exacta.
+
+**PRÓXIMO:** hacer los GLB de calidad cinematográfica, importarlos de forma local por slot, evaluar parecido frente a referencias, animación facial/lip-sync y rendimiento; después pedir autorización separada para cualquier publicación de PWA/landing. Sin modificar ni borrar el diseño femenino aprobado.
+
+---
+
 Actualizado: 2026-11-04 16:45 (Europe/Amsterdam) · Rama: `claude/companion-escena-3d` (trabajo del Compañero y del robot transformable) · Autor: sesión Claude.
 Rama anterior del dashboard: `claude/dashboard-obsidiana` (pieles A/B, iconos, Sala con fuentes).
 Leer antes: `START_HERE.md`, `docs/STATE.md`, `prototypes/dashboard/README.md`.

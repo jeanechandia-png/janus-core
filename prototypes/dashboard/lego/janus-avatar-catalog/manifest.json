@@ -1,0 +1,60 @@
+{
+  "piece": "janus-avatar-catalog",
+  "moduleVersion": "1.0.0",
+  "license": "Internal reusable Infinity Seed Group asset",
+  "origin": "Approved NEXO male/female visual cast and existing creature modules, 2026-11-04",
+  "dependencies": [],
+  "interface": "janus-rig-v1",
+  "api": [
+    "JanusAvatarCatalog.ids",
+    "get(id)",
+    "label(id,aliases)",
+    "options(aliases)",
+    "casting(id,aliases)",
+    "validateRig(id,rig)",
+    "creatureIds",
+    "nexoIds",
+    "riggableIds",
+    "EXPRESSIONS",
+    "POSES"
+  ],
+  "behavior": "Defines visual character IDs, local-overridable display casting, variant, GLB slot and procedural fallback. Does not own biometrics, permissions, voice provider, keys, animations or user accounts.",
+  "characters": [
+    {
+      "id": "nexo-masculino",
+      "initialCasting": "Janus",
+      "rig": "janus-nexo-3d",
+      "slot": "nexo-masculino",
+      "design": "approved"
+    },
+    {
+      "id": "nexo-femenino",
+      "initialCasting": "Melanie",
+      "rig": "janus-nexo-3d",
+      "slot": "nexo-femenino",
+      "design": "approved"
+    },
+    {
+      "ids": [
+        "lumi",
+        "bombo",
+        "musgo",
+        "nimbo"
+      ],
+      "rig": "janus-creatures-3d",
+      "slots": "per-id",
+      "design": "existing"
+    }
+  ],
+  "rule": "No identity verification from visual casting. Display alias can change per product without changing core character design. Never replace approved female artwork.",
+  "plannedMounts": [
+    "Janus Dashboard A/B",
+    "Janus PWA with explicit separate approval",
+    "Infinity Seed Group products through reusable rig adapter"
+  ],
+  "knownLimits": [
+    "Concept-sheet raster images are not skinned 3D meshes; hyperrealistic matching needs modeled/rigged GLB assets",
+    "No live iPhone/iPad GPU performance test on this branch",
+    "No cross-product deployment from this change"
+  ]
+}

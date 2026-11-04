@@ -16,7 +16,7 @@
  */
 const JanusCreatureSlot = (() => {
   const T = window.THREE, G = window.JanusGLTF;
-  const IDS = ['lumi', 'bombo', 'musgo', 'nimbo', 'robot']; // 'robot' = el robot de Janus (hueco para el GLB hiperrealista)
+  const IDS = (window.JanusAvatarCatalog ? [...JanusAvatarCatalog.riggableIds] : ['lumi', 'bombo', 'musgo', 'nimbo', 'robot', 'nexo-masculino', 'nexo-femenino']); // Un contrato GLB compartido, slots independientes por identidad
   if (!T) return { supported: () => false, ids: IDS, has: () => false, rigFor: () => null, report: () => null, info: () => null, remove: () => false, restore: async () => 0, onChange() {}, guessId: () => null, load: async () => ({ level: 'error', checks: [], summary: 'three.js no está cargado' }), inspect: async () => ({ level: 'error', checks: [], summary: 'three.js no está cargado' }), CONTRACT: {} };
   const VISEMES = ['v_aa', 'v_ee', 'v_ih', 'v_oh', 'v_ou', 'v_pp', 'v_ff', 'v_th', 'v_dd', 'v_kk', 'v_ch', 'v_ss', 'v_nn', 'v_rr'];
   const CONTRACT = {
