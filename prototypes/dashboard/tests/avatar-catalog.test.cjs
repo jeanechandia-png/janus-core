@@ -40,7 +40,9 @@ test('reusable catalog preserves one identity per NEXO and four creatures', () =
   assert.equal(catalog.ids.length, 9);
   assert.equal(catalog.creatureIds.join(','), 'lumi,bombo,musgo,nimbo');
   assert.equal(catalog.nexoIds.join(','), 'nexo-masculino,nexo-femenino');
-  assert.match(catalog.label('nexo-masculino'), /Jean/);
+  assert.match(catalog.label('nexo-masculino'), /Janus/);
+  assert.equal(catalog.casting('nexo-masculino').voiceRole, 'founder-cloned-voice');
+  assert.equal(catalog.casting('nexo-masculino').authority, 'none');
   assert.match(catalog.label('nexo-femenino'), /Melanie/);
   assert.equal(catalog.get('not-an-avatar'), null);
   assert.ok(Object.isFrozen(catalog.get('nexo-masculino')));
