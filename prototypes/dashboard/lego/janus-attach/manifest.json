@@ -1,0 +1,32 @@
+{
+  "piece": "janus-attach",
+  "name": "Adjuntos del teclado: hacer foto, subir foto, subir archivo y escáner de códigos QR",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (4 nov 2026), a petición de Jean: «en el teclado debe haber la opción de hacer foto, subir archivos, subir fotos, como en ChatGPT o Gemini… y la cámara debe poder leer códigos QR».",
+  "dependencies": ["vendor/jsqr.js (jsQR 1.4.0, Apache-2.0; licencia en vendor/jsqr.LICENSE)"],
+  "optionalDependencies": ["BarcodeDetector nativo del navegador (camino rápido si existe)", "janus-model-gateway (opts.images y imageLimits) para que el modelo VEA las fotos"],
+  "api": "JanusAttach.{menu(anchor), pick('cam'|'photo'|'file'), scan() → resultado|null, showResult(res), decodeQR(blob|canvas|bitmap) → {text,format,via}|null, classifyQR(texto) → {type,label,warns[],…}, items(), addFile(file), addQR(res), remove(id), clear(), take(), images(items) → Blob[], textFor(items,{imagesSent,past}) → texto para el modelo, meta(item) → {k,n,s,th}, onChange(fn), notice(), supported(), limits()}",
+  "behaviour": "Menú «+» con 4 opciones; selectores nativos permanentes fuera del escenario (iOS no pierde el archivo al redibujar); fotos reducidas a ≤1600 px, recomprimidas a JPEG (sin metadatos; HEIC de iPhone se convierte al decodificarlo); archivos de texto hasta 12.000 caracteres; otros formatos solo nombre y tamaño; máximo 5 adjuntos y 20 MB cada uno. Escáner: cámara en vivo (BarcodeDetector o jsQR, ~9 lecturas/s); si el navegador o la vista no da cámara, cae a «hacer foto del código» y lo lee igualmente. La hoja de resultado clasifica el QR (enlace, wifi, correo, teléfono, SMS, ubicación, contacto, texto), avisa de http, enlaces acortados, punycode y credenciales incrustadas, oculta la contraseña del wifi y NO abre ni visita nada por su cuenta.",
+  "security": "Los adjuntos son DATOS: textFor() los marca así y el anfitrión ordena al modelo no obedecer instrucciones de dentro; la puerta de acciones sensibles del anfitrión mira solo lo que Jean escribe. Nada sale de la página hasta pulsar enviar; después va solo al modelo mediante la pasarela. En el historial solo se guardan miniatura y nombre.",
+  "mounts": [
+    {
+      "product": "Janus · dashboard A y B (prototipo) — teclado del teléfono (A2), de la Sala y de la tablet",
+      "file": "prototypes/dashboard/src/adjuntos.js (anfitrión) + sala.js (reply/askModel) + phonea2.js + dash.js + dash-b.js",
+      "version": "1.0.0"
+    }
+  ],
+  "plannedMounts": [
+    "App real de Janus (PWA): cámara en vivo sobre https, y archivos al núcleo con permisos y auditoría",
+    "Lectura de PDF y de hojas de cálculo en el núcleo (aquí solo nombre y tamaño)",
+    "Otros formatos de código (códigos de barras de producto) si Jean lo pide"
+  ],
+  "commercial": "Reutilizable en cualquier chat o formulario (ChatBox, asistentes de clientes): adjuntos + lector de QR sin servidor y sin claves.",
+  "knownLimits": [
+    "Dentro del Artifact de claude.ai la cámara en vivo está bloqueada por el marco: el escáner cae a «hacer foto del código» (selector nativo con cámara). El comportamiento del atributo capture dentro de ese marco en iPhone está POR CONFIRMAR.",
+    "Fuera del Artifact, abrir el HTML como archivo (file://) en iOS Safari probablemente NO da cámara en vivo (requiere https); hace falta alojarlo con https (GitHub Pages o la PWA) y eso solo se hace con aprobación de Jean.",
+    "Para que el modelo vea las fotos, el Artifact debe declarar capabilities {sample:{images:true}} y el primer envío con imagen pide un permiso nuevo a Jean; sin eso, el modelo recibe aviso de que no ve la foto.",
+    "Solo se probó en Chromium con cámara simulada y un Claude simulado: lectura real en iPhone/iPad, HEIC y rendimiento en dispositivo son POR CONFIRMAR.",
+    "PDF, Word y hojas de cálculo: solo nombre y tamaño; no se extrae su contenido en esta vista.",
+    "Los iconos «+», cámara, imagen, archivo y QR son trazos sencillos dibujados en código porque el juego dorado existente no los tiene; si Jean prefiere otros, se sustituyen en un solo sitio."
+  ]
+}

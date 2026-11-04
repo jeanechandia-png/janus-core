@@ -1,0 +1,14 @@
+{
+  "piece": "janus-creatures-3d",
+  "name": "Criaturas 3D procedurales y personalizables (Lumi, Bombo, Musgo, Nimbo): pelo, ojos, ropa y accesorios",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (2 nov 2026). Reutiliza los diseños aprobados de las cuatro criaturas de InfinitySeed (personas del módulo companion) llevados a geometría three.js r160; sin imágenes planas ni superposiciones. Sin tocar apps/pwa.",
+  "dependencies": ["three.js r160 (MIT) en vendor/three-r160.min.js (global THREE)"],
+  "api": "JanusCreatures3D.build(id, glowHex) → rig { root, setLook(look), update(t, dt, ctl), dispose() } · JanusCreatures3D.SPECIES · look = { fur, accent, eyes, outfitColor, accessoryColor (hex), outfit, accessories: { cabeza, cara, cuello, espalda } } · ctl = { pose: idle|habla|piensa|celebra|senala|saluda, walk: 0..1, excite: 0..1, pointYaw }",
+  "behaviour": "Cada criatura conserva su movimiento propio (revolotea / rebota / guiña / flota) y su silueta al cambiar de aspecto: personalizar es solo estético. Los ids de prendas y accesorios son un catálogo cerrado (los valida el módulo avatar-look de janus-core); un id desconocido se ignora.",
+  "mounts": [{ "product": "Janus · dashboard A (prototipo) — vista Compañero, dentro del escenario 3D", "file": "prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js", "version": "1.0.0" }],
+  "plannedMounts": ["landing.infinity-chatbox (mascota del asistente de cada cliente)", "otras apps infantiles de InfinitySeed", "Janus PWA (apps/pwa) — requiere autorización de Jean"],
+  "commercial": "Reutilizable: los colores y el catálogo de accesorios se parametrizan por producto; una especie nueva exige una entrada en SPECIES y sus rasgos en build (no es solo datos).",
+  "knownLimits": ["Geometría procedural estilizada con material físico; no es un modelo glTF esculpido.", "Rendimiento en iPad/iPhone reales sin medir (verificado solo con renderizado por software en Chromium sin cabeza).", "Las criaturas no tienen animación esqueletal: el movimiento es procedural."],
+  "distribution": "Registrar en la Reusable LEGO Library. La lógica (carácter, catálogo, seguridad) vive en packages/modules/{companion,avatar-look}; esta pieza solo dibuja."
+}

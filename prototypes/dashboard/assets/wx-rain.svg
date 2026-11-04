@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+<linearGradient id="cl" gradientUnits="userSpaceOnUse" x1="0" y1="28" x2="0" y2="92">
+<stop offset="0" stop-color="#C5D0E2"/>
+<stop offset=".5" stop-color="#8393AE"/>
+<stop offset="1" stop-color="#4C5A74"/>
+</linearGradient>
+<linearGradient id="drop" x1="0" y1="0" x2="1" y2="1">
+<stop offset="0" stop-color="#D6EEFF"/>
+<stop offset=".5" stop-color="#4FA3FF"/>
+<stop offset="1" stop-color="#1F5FD6"/>
+</linearGradient>
+<filter id="soft"><feGaussianBlur stdDeviation="2"/></filter>
+</defs>
+<g fill="url(#cl)">
+<circle cx="44" cy="66" r="19"/>
+<circle cx="66" cy="53" r="25"/>
+<circle cx="90" cy="66" r="19"/>
+<rect x="26" y="66" width="82" height="24" rx="12"/>
+</g>
+<ellipse cx="60" cy="38" rx="13" ry="6" fill="#FFFFFF" opacity=".6" filter="url(#soft)"/>
+<g fill="url(#drop)">
+<path d="M0 -9 C4 -3 7 2 7 5 A7 7 0 0 1 -7 5 C-7 2 -4 -3 0 -9Z" transform="translate(40 105) rotate(14) scale(.9)"/>
+<path d="M0 -9 C4 -3 7 2 7 5 A7 7 0 0 1 -7 5 C-7 2 -4 -3 0 -9Z" transform="translate(62 116) rotate(14) scale(.9)"/>
+<path d="M0 -9 C4 -3 7 2 7 5 A7 7 0 0 1 -7 5 C-7 2 -4 -3 0 -9Z" transform="translate(84 105) rotate(14) scale(.9)"/>
+<path d="M0 -9 C4 -3 7 2 7 5 A7 7 0 0 1 -7 5 C-7 2 -4 -3 0 -9Z" transform="translate(104 116) rotate(14) scale(.75)"/>
+</g>
+<g fill="#FFFFFF" opacity=".7">
+<ellipse cx="38" cy="103" rx="1.6" ry="3" transform="rotate(14 38 103)"/>
+<ellipse cx="60" cy="114" rx="1.6" ry="3" transform="rotate(14 60 114)"/>
+<ellipse cx="82" cy="103" rx="1.6" ry="3" transform="rotate(14 82 103)"/>
+</g>
+</svg>
