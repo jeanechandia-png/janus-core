@@ -1,0 +1,30 @@
+name: Integrar dashboard LEGO a JANUS CORE (rama de revisión)
+
+on:
+  push:
+    branches: [chatgpt/janus-integrated-review-20261104]
+    paths:
+      - '.github/workflows/janus-graft-dashboard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Incorporar SOLO dashboard a rama aislada de revisión
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/chatgpt/janus-nexo-masculino-aprobado-20261104:refs/remotes/origin/janus-nexo-integration-source
+          git checkout refs/remotes/origin/janus-nexo-integration-source -- prototypes/dashboard
+          git diff --cached --quiet && exit 0
+          git config user.name 'janus-ci-integration'
+          git config user.email 'janus-ci-integration@users.noreply.github.com'
+          git commit -m 'feat(integration): reuse complete A/B LEGO dashboard source with latest Janus Core'
+          git push origin HEAD:chatgpt/janus-integrated-review-20261104
