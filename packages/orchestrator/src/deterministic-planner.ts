@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { userTextOutsideAttachmentBlock } from './attachment-block.js';
 import { createPlan, type JanusPlan, type PlannedToolStep } from './plan.js';
 
 interface GitHubTarget {
@@ -13,9 +14,12 @@ export interface DeterministicPlannerContext {
 }
 
 export function deterministicPlan(
-  command: string,
+  rawCommand: string,
   context: DeterministicPlannerContext = {},
 ): JanusPlan | null {
+  // Lo adjunto (archivos, códigos QR) son datos: nunca deciden la ruta. Solo cuentan las palabras del usuario.
+  const command = userTextOutsideAttachmentBlock(rawCommand);
+  if (!command) return null;
   // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
   // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
   if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);

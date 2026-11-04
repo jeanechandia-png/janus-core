@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ChatCompletionsModelAdapter } from '../../packages/adapters/src/chat-completions-model-adapter.js';
@@ -220,6 +221,15 @@ import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
 import { BusinessKnowledgeToolAdapter } from '../../packages/adapters/src/business-knowledge-tool-adapter.js';
+import {
+  ATTACHMENT_PROFILES,
+  FileAttachmentStore,
+  classifyScan,
+  describeAttachmentsForMessage,
+  isAttachmentId,
+  stripAttachmentMarkers,
+  type AttachmentSource,
+} from '../../packages/modules/chat-attachments/src/index.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
@@ -239,6 +249,16 @@ const founderReferenceLocalOverlayPath = fileURLToPath(
   new URL('../../config/founder-reference-library.local.json', import.meta.url),
 );
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
+// Adjuntos del chat («+»): junto a la base de datos (en la tablet: ~/janus-data/attachments). Tope total de espacio configurable.
+const attachmentsDir = process.env.JANUS_ATTACHMENTS_DIR?.trim()
+  || (dbPath === ':memory:' || dbPath === ''
+    ? mkdtempSync(join(tmpdir(), 'janus-attachments-')) // base en memoria (pruebas): adjuntos efímeros, nunca en el repositorio
+    : join(dirname(dbPath), 'attachments'));
+const attachmentsMaxMb = Number(process.env.JANUS_ATTACHMENTS_MAX_MB);
+const attachmentStore = new FileAttachmentStore({
+  dir: attachmentsDir,
+  ...(Number.isFinite(attachmentsMaxMb) && attachmentsMaxMb > 0 ? { maxTotalBytes: Math.floor(attachmentsMaxMb * 1024 * 1024) } : {}),
+});
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
@@ -1805,6 +1825,26 @@ async function readJson(request: IncomingMessage): Promise<Record<string, unknow
   }
   if (chunks.length === 0) return {};
   return JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown>;
+}
+
+/** Lee el cuerpo con tope duro: corta en cuanto se supera `limit` (sin acumular en memoria sin límite). */
+async function readBodyBytes(request: IncomingMessage, limit: number): Promise<Buffer> {
+  const declared = Number(request.headers['content-length']);
+  if (Number.isFinite(declared) && declared > limit) throw new HttpRequestError(413, 'El archivo supera el tamaño permitido.');
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const piece = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += piece.length;
+    if (total > limit) throw new HttpRequestError(413, 'El archivo supera el tamaño permitido.');
+    chunks.push(piece);
+  }
+  return Buffer.concat(chunks);
+}
+
+function headerValue(request: IncomingMessage, name: string): string {
+  const value = request.headers[name];
+  return (Array.isArray(value) ? value[0] : value)?.trim() ?? '';
 }
 
 function json(response: ServerResponse, status: number, body: unknown): void {
@@ -5508,13 +5548,91 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'POST' && url.pathname === '/api/attachments') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const profileId = headerValue(request, 'x-attachment-profile') || 'founder-admin';
+      // Este endpoint solo atiende al Founder. Otros perfiles (niña, panel de negocio) tendrán su propia puerta y su propia credencial.
+      if (profileId !== 'founder-admin') throw new HttpRequestError(403, 'Perfil de adjuntos no permitido en esta puerta.');
+      const source = headerValue(request, 'x-attachment-source') as AttachmentSource;
+      if (!ATTACHMENT_PROFILES['founder-admin'].sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, ATTACHMENT_PROFILES['founder-admin'].maxFileBytes);
+      const result = attachmentStore.put({
+        bytes,
+        claimedName,
+        claimedType: headerValue(request, 'content-type'),
+        source,
+        profile: 'founder-admin',
+        principalId: principal.id,
+      });
+      if (!result.ok) {
+        json(response, result.status, { ok: false, code: result.code, error: result.message });
+        return;
+      }
+      const { attachment } = result;
+      json(response, 201, {
+        ok: true,
+        id: attachment.id,
+        sha256: attachment.sha256,
+        name: attachment.name,
+        type: attachment.type,
+        size: attachment.size,
+        deduplicated: result.deduplicated,
+        ...(attachment.width ? { width: attachment.width, height: attachment.height } : {}),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const attachmentMatch = url.pathname.match(/^\/api\/attachments\/(att_[0-9a-f-]{36})$/);
+  if (request.method === 'GET' && attachmentMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const id = attachmentMatch[1]!;
+      const meta = isAttachmentId(id) ? attachmentStore.get(id, principal.id) : undefined;
+      const bytes = meta ? attachmentStore.readBytes(meta) : undefined;
+      if (!meta || !bytes) throw new HttpRequestError(404, 'Adjunto no encontrado.');
+      response.writeHead(200, {
+        'content-type': meta.type,
+        'content-length': String(bytes.byteLength),
+        'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(meta.name)}`,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'content-security-policy': "default-src 'none'; sandbox",
+      });
+      response.end(Buffer.from(bytes));
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/command') {
     try {
       const body = await readJson(request);
-      const text = typeof body.text === 'string' ? body.text.trim() : '';
-      if (!text) {
+      const typedText = typeof body.text === 'string' ? stripAttachmentMarkers(body.text).trim() : '';
+      if (!typedText) {
         json(response, 400, { ok: false, error: 'text is required' });
         return;
+      }
+      // Adjuntos y códigos escaneados (botón «+»): se describen con datos del SERVIDOR, solo si hay sesión de Founder,
+      // y viajan tras un marcador: el planificador decide únicamente con las palabras del usuario.
+      let text = typedText;
+      const attachmentIds = Array.isArray(body.attachments) ? body.attachments.filter(isAttachmentId).slice(0, ATTACHMENT_PROFILES['founder-admin'].maxFiles) : [];
+      const scanInputs = Array.isArray(body.scans) ? body.scans.slice(0, 4) : [];
+      if (attachmentIds.length > 0 || scanInputs.length > 0) {
+        const { principal } = requireFounderAuthority(request);
+        const { refs, missing } = attachmentStore.refsFor(attachmentIds, principal.id);
+        if (missing.length > 0) throw new HttpRequestError(400, 'Algún adjunto ya no existe o no es tuyo.');
+        const scans = scanInputs
+          .filter((item): item is { raw: string; format?: string } => !!item && typeof (item as { raw?: unknown }).raw === 'string')
+          .map((item) => classifyScan(item.raw.slice(0, 2000), typeof item.format === 'string' ? item.format : undefined));
+        const block = describeAttachmentsForMessage(refs, scans);
+        if (block) text = `${typedText}\n\n${block}`;
       }
       const authorityContext = authorityContextForCommand(request, text, body);
       const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
