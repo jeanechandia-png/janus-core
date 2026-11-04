@@ -81,7 +81,7 @@ Atributo de vértice **`COLOR_1`, canal R** = flexibilidad (0 anclado, 1 libre).
 
 El contrato GLB existente también se utiliza para los dos robots aprobados; **no se crea otro importador ni se duplican los visemas**.
 
-- `nexo-masculino`: identidad visual inicial **Jean**.
+- `nexo-masculino`: identidad visual de **Janus** (voz clonada del Founder por adaptador de voz separado).
 - `nexo-femenino`: identidad visual inicial **Melanie**.
 - Cada uno tiene un slot independiente y privado en IndexedDB local. `robot` sigue siendo el robot clásico y no se sustituye.
 - Importar un GLB riggeado válido en cualquiera de estos slots sustituye únicamente la **malla procedural 3D de ese personaje**, manteniendo la misma cámara, controles táctiles, estados de escucha/conversación y expresiones.
