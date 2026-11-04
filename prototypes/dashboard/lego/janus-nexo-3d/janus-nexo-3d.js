@@ -7,15 +7,16 @@
  *
  * Contrato del escenario Janus3D: build() -> { id, root, update(t,dt,ctl), setLook() }.
  * El modelo se monta en el MISMO canvas WebGL manipulable (giro táctil, animación).
- * El look aprobado es fijo: ojos grandes azules, labios carnosos y boca corta,
- * nariz ligeramente más grande, metal plateado, identidad masculina.
+ * Ambas referencias visuales son independientes; no se modifica el diseño femenino.
+ * La geometría procedural es un fallback 3D mientras los GLB cinematográficos
+ * aprobados se modelan y riggean (una imagen sola no es un activo 3D).
  */
 const JanusNexo3D = (() => {
   const T = window.THREE;
   if (!T) return null;
 
   const APPROVED = Object.freeze({
-    id: 'nexo',
+    id: 'nexo-masculino',
     version: '1.0.0',
     approvedOn: '2026-11-04',
     status: 'approved-reference',
@@ -72,7 +73,7 @@ const JanusNexo3D = (() => {
     const seam = material('#4b515c', 0.72, 0.28);
     const lipMat = material('#a8a7b2', 0.55, 0.3);
     const sclera = material('#e7f3ff', 0.18, 0.15);
-    const irisMat = material(APPROVED.eyes, 0.25, 0.19, { clearcoat: 1 });
+    const irisMat = material(spec.eyes, 0.25, 0.19, { clearcoat: 1 });
     const pupilMat = material('#091522', 0.1, 0.09, { clearcoat: 1 });
     const glintMat = new T.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
 
