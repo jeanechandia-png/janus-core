@@ -58,3 +58,16 @@ node tests/clicks.cjs
 6. Cada módulo indica **REAL** o **EJEMPLO** (Protocolo de la Verdad). Euros, enfoque europeo.
 7. Entrega: cada diseño en un HTML independiente y descargable (no previsualización Artifact).
 8. **Preview SIEMPRE**: al terminar cada actividad, enviar a Jean capturas (tablet 1194x834 y teléfono) + los HTML. Sin preview la entrega se considera incumplida.
+
+## Arranque conjunto con JANUS CORE (rama de integración, 2026-11-04)
+
+La fuente de verdad es JANUS CORE. En el checkout de `chatgpt/janus-integrated-review-20261104`:
+
+```sh
+npm install
+npm run start:dashboards
+```
+
+En ese mismo equipo: `http://127.0.0.1:8787/` abre la PWA oficial; `http://127.0.0.1:8787/dashboard/a` abre Obsidiana y `/dashboard/b` abre Platino. **Usar el mismo origen/pestaña** después de la autenticación Founder para aprovechar la sesión P-256. La pasarela del dashboard comprueba `/health` y solo consulta `/api/command` con sesión; un rechazo del Core no se convierte en llamada oculta a Claude. `file://` y los HTML autónomos son vistas previas sin la autoridad real del núcleo.
+
+La voz clonada de Jean está prevista para **JANUS**, no es la identidad del robot; su reproducción requiere configuración autorizada del Voice Gateway. Los dos 3D usan fallbacks procedurales; el hiperrealismo final requiere GLB riggeados aparte. No abrir el servicio sin HTTPS confiable a otros dispositivos.
