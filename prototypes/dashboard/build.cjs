@@ -16,8 +16,12 @@ const SKIN = skinArg > 0 && process.argv[skinArg + 1] === 'b' ? 'b' : 'a';
 const outArg = process.argv.indexOf('--out');
 const OUT = outArg > 0 ? process.argv[outArg + 1] : path.join(D, 'dist', SKIN === 'b' ? 'Janus-B-Platino-interactivo.html' : 'Janus-A-Obsidiana-interactivo.html');
 
-const NAMES = Object.assign({ __HIJA__: 'Hija', __CLIENTE_IBA__: 'Cliente', __CONTACTO_FIRMA__: 'Proveedor', __EDAD_HIJA__: '8', __CIUDAD__: 'Ciudad', __CLIMA_LUGAR__: 'Ámsterdam', __LAT__: '52.37', __LON__: '4.90' }, has('local/names.json') ? JSON.parse(rd('local/names.json')) : {});
-const realFile = has('local/real.js') ? 'local/real.js' : 'src/real.example.js';
+// Un dashboard servido por Core no puede incluir datos del Founder dentro
+// de HTML estático accesible sin bearer; el generador es solo una capa visual.
+const PUBLIC_SAFE = process.env.JANUS_DASH_PUBLIC_SAFE === '1';
+const NAMES = Object.assign({ __HIJA__: 'Hija', __CLIENTE_IBA__: 'Cliente', __CONTACTO_FIRMA__: 'Proveedor', __EDAD_HIJA__: '8', __CIUDAD__: 'Ciudad', __CLIMA_LUGAR__: 'Ámsterdam', __LAT__: '52.37', __LON__: '4.90' },
+  !PUBLIC_SAFE && has('local/names.json') ? JSON.parse(rd('local/names.json')) : {});
+const realFile = !PUBLIC_SAFE && has('local/real.js') ? 'local/real.js' : 'src/real.example.js';
 
 const svg = (f) => 'data:image/svg+xml;base64,' + b64('assets/' + f);
 const moon = 'data:image/svg+xml;base64,' + Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><radialGradient id="m" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#FFF7DC"/><stop offset=".6" stop-color="#E9D9A8"/><stop offset="1" stop-color="#9C8650"/></radialGradient><mask id="k"><rect width="64" height="64" fill="#fff"/><circle cx="42" cy="22" r="20" fill="#000"/></mask></defs><circle cx="30" cy="34" r="22" fill="url(#m)" mask="url(#k)"/><circle cx="48" cy="44" r="1.6" fill="#FFF3C4"/><circle cx="52" cy="30" r="1.1" fill="#FFF3C4"/></svg>').toString('base64');
@@ -60,7 +64,7 @@ const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\
   px2rem(css) + '\n</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n';
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
-console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', has('local/names.json') ? 'local' : 'genéricos');
+console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', PUBLIC_SAFE ? 'genéricos-seguros' : (has('local/names.json') ? 'local' : 'genéricos'));
 // Variante para vista previa navegable alojada (Artifact): sin esqueleto propio.
 const artArg = process.argv.indexOf('--artifact');
 if (artArg > 0) {
