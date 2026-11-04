@@ -19,6 +19,8 @@ export const dashboardProfiles: Readonly<Record<DashboardRole, DashboardProfile>
     role: "founder",
     modules: ["activity", "tasks", "agents", "voice", "approvals", "automation"],
     defaultVoice: "masculine",
+    supportedLocales: ["nl", "es"],
+    defaultLocale: "es",
     avatarAssetStatus: "approved-reference-required",
     avatarEmotions: emotions,
   },
