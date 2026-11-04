@@ -65,6 +65,7 @@ import {
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
   founderReferenceChronologyRecord,
@@ -3062,6 +3063,7 @@ const server = createServer(async (request, response) => {
     json(response, 200, {
       ok: true,
       service: 'janus-runtime',
+      evolutionGuard: { state: 'available', endpoint: '/api/evolution', riskChecks: EVOLUTION_CHECKS.length, policy: 'never-auto-deploy' },
       durable: true,
       db: dbPath === ':memory:' ? 'memory' : 'sqlite',
       timeZone: timeZone ?? 'runtime-default',
@@ -3190,6 +3192,131 @@ const server = createServer(async (request, response) => {
         provider: 'replaceable-broker',
       },
     });
+    return;
+  }
+
+  // Janus Evolution Guard: observaciones locales y postmortems auditables.
+  // Lectura y escritura requieren siempre sesión del Founder. Evidencias aportadas
+  // desde la UI NO quedan verificadas automáticamente (fail closed).
+  if (request.method === 'GET' && url.pathname === '/api/evolution') {
+    try {
+      requireFounderAuthority(request);
+      const observations: EvolutionObservation[] = store.listChronologyRecords()
+        .filter(record => record.sessionId === 'janus-evolution'
+          && record.kind === 'verification' && record.subject.startsWith('evolution-check:'))
+        .map(record => ({
+          id: record.metadata?.checkId as EvolutionCheckId,
+          at: record.at,
+          result: record.metadata?.result as EvolutionObservation['result'],
+          verified: record.metadata?.verified === true,
+          evidenceRef: String(record.metadata?.evidenceRef || ''),
+          notes: String(record.metadata?.notes || ''),
+        }))
+        .filter(item => EVOLUTION_CHECKS.some(check => check.id === item.id) && item.evidenceRef);
+      const report = premortem(observations, new Date().toISOString());
+      json(response, 200, {
+        ok: true, report,
+        recurrence: store.listErrorLessons()
+          .filter(lesson => lesson.fingerprint.startsWith('janus-evolution:'))
+          .map(lesson => ({ fingerprint: lesson.fingerprint, count: lesson.recurrenceCount,
+            priority: lesson.priority, protectionReview: lesson.requiresProtectionReview })),
+        execution: 'read-only', autoUpgrade: false,
+      });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/evolution/evidence') {
+    try {
+      const session = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const id = String(body.id || '').trim() as EvolutionCheckId;
+      const result = String(body.result || '');
+      const evidenceRef = String(body.evidenceRef || '').trim();
+      if (!EVOLUTION_CHECKS.some(check => check.id === id)
+        || !['pass', 'warn', 'fail'].includes(result)
+        || evidenceRef.length < 3 || evidenceRef.length > 300)
+        throw new HttpRequestError(400, 'La evidencia requiere chequeo conocido, estado válido y referencia verificable');
+      const at = new Date().toISOString();
+      const previous = continuitySnapshot().currentBySubject['evolution-check:' + id];
+      const recordId = 'evolution-observation:' + randomUUID();
+      store.appendChronologyRecord({
+        id: recordId, sessionId: 'janus-evolution', at, kind: 'verification',
+        subject: 'evolution-check:' + id,
+        content: 'Observación recibida; pendiente de verificación independiente',
+        status: 'current',
+        ...(previous ? { supersedesId: previous.id } : {}),
+        metadata: {
+          checkId: id, result, evidenceRef, verified: false,
+          principalId: session.principal.id,
+          notes: String(body.notes || '').slice(0, 250),
+          source: 'founder-reported-unverified',
+        },
+      });
+      json(response, 201, { ok: true, recordId, verified: false, requiresIndependentReview: true });
+    } catch (error) {
+      json(response, error instanceof HttpRequestError ? authErrorStatus(error) : 400, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/evolution/postmortem') {
+    try {
+      const session = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const id = String(body.id || '').trim();
+      const fingerprint = String(body.fingerprint || '').trim().toLowerCase();
+      if (!/^[a-zA-Z0-9_-]{3,80}$/.test(id) || !/^[a-z0-9:_-]{3,120}$/.test(fingerprint))
+        throw new HttpRequestError(400, 'Identificador o huella del incidente inválidos');
+      const recordId = 'evolution-incident:' + id;
+      // Idempotencia: misma incidencia nunca incrementa reincidencia dos veces.
+      const duplicate = store.listChronologyRecords().find(record => record.id === recordId);
+      if (duplicate) {
+        json(response, 200, { ok: true, alreadyRecorded: true, incidentId: id, recordId });
+        return;
+      }
+      const previous = store.listErrorLessons().find(lesson => lesson.fingerprint === 'janus-evolution:' + fingerprint);
+      const occurredAt = String(body.occurredAt || '');
+      const incident = postmortem({
+        id, fingerprint: 'janus-evolution:' + fingerprint, occurredAt,
+        recordedAt: new Date().toISOString(),
+        error: String(body.error || '').slice(0, 1200),
+        cause: String(body.cause || '').slice(0, 1200),
+        impact: String(body.impact || '').slice(0, 1200),
+        lesson: String(body.lesson || '').slice(0, 1200),
+        preventiveRule: String(body.preventiveRule || '').slice(0, 1200),
+        solutions: Array.isArray(body.solutions) ? body.solutions.slice(0, 5).map(x => String(x).slice(0, 1200)) : [],
+        change: String(body.change || '').slice(0, 1200),
+        verification: String(body.verification || '').slice(0, 1200),
+        evidenceRefs: Array.isArray(body.evidenceRefs) ? body.evidenceRefs.slice(0, 10).map(x => String(x).slice(0, 300)) : [],
+        previousOccurrences: previous?.recurrenceCount || 0,
+        verified: false,
+      });
+      const ledger = new ErrorLedger(store.listErrorLessons());
+      const lesson = ledger.record({
+        id: incident.incident.id, fingerprint: incident.incident.fingerprint,
+        at: incident.incident.recordedAt, error: incident.incident.error,
+        cause: incident.incident.cause, impact: incident.incident.impact,
+        lesson: incident.incident.lesson, preventiveRule: incident.incident.preventiveRule,
+        solutions: incident.incident.solutions, change: incident.incident.change,
+        verification: incident.incident.verification, verified: false,
+      });
+      store.upsertErrorLesson(lesson);
+      store.appendChronologyRecord({
+        id: recordId, sessionId: 'janus-evolution', at: incident.incident.recordedAt,
+        kind: 'error', subject: 'evolution-incident:' + id, status: 'current',
+        content: incident.incident.error,
+        metadata: { fingerprint: incident.incident.fingerprint, evidenceRefs: incident.incident.evidenceRefs,
+          principalId: session.principal.id, recurrenceCount: lesson.recurrenceCount,
+          requiresProtectionReview: lesson.requiresProtectionReview },
+      });
+      json(response, 201, { ok: true, postmortem: { status: 'open',
+        incidentId: id, recurrenceCount: lesson.recurrenceCount,
+        requiresProtectionReview: lesson.requiresProtectionReview, priority: lesson.priority,
+        requiresHumanApproval: true } });
+    } catch (error) {
+      json(response, error instanceof HttpRequestError ? authErrorStatus(error) : 400, authErrorBody(error));
+    }
     return;
   }
 
