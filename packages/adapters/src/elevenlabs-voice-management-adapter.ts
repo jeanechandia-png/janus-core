@@ -7,6 +7,7 @@
  * Las muestras se suben SOLO con aprobación auditada, pertenencia confirmada
  * y grabaciones originales del propio titular. No usar voces de menores.
  */
+import { createHash } from 'node:crypto';
 import { isSafeProviderVoiceId } from './elevenlabs-tts-adapter.js';
 
 export interface ProviderVoiceInfo {
@@ -147,6 +148,14 @@ export class ElevenLabsVoiceManagementAdapter {
     if (new Set(knownHashes).size !== samples.length
       || samples.some(s => !knownHashes.includes(s.sha256.toLowerCase()))) {
       throw new Error('Las muestras no coinciden con el recibo de consentimiento/aprobación.');
+    }
+    // Verificar bytes reales; no confiar solamente en el hash autodeclarado del
+    // manifiesto ni en la coincidencia de texto con el recibo.
+    for (const sample of samples) {
+      const buffer = new Uint8Array(await sample.data.arrayBuffer());
+      const actual = createHash('sha256').update(buffer).digest('hex');
+      if (actual !== sample.sha256.toLowerCase())
+        throw new Error('La huella del audio no coincide: muestra alterada o recibo incorrecto.');
     }
     const form = new FormData();
     form.set('name', 'JANUS - voz del Founder');
