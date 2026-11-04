@@ -5,7 +5,7 @@
 </style></head><body><main id="dashboard"><header><strong>🌈 JANUS KIDS</strong><nav aria-label="Language"><button data-lang="nl" aria-pressed="true">🇳🇱 Nederlands</button><button data-lang="es" aria-pressed="false">🇪🇸 Español</button></nav></header>
 <section class="card"><h1 id="welcome"></h1><p id="intro"></p><div class="avatar" id="avatar"></div></section>
 <section class="card"><h2 id="theme-heading"></h2><div class="choices" id="themes"></div></section>
-<section class="card"><div class="actions"><button id="learn"></button><button id="create"></button></div></section>
+<section class="card" id="creature-editor" aria-label="Creature customization"></section>\n<section class="card"><div class="actions"><button id="learn"></button><button id="create"></button></div></section>
 <p class="note" id="note"></p></main>
 <script>
 const palettes=[
@@ -22,4 +22,4 @@ let theme=safeRead('janus.dashboard-2.theme.v1','pink-hearts',v=>palettes.some(t
 function save(key,value){try{localStorage.setItem(key,value)}catch{}}
 function render(){const t=palettes.find(p=>p.id===theme),s=strings[lang];document.documentElement.lang=lang;const root=document.getElementById('dashboard');root.style.setProperty('--bg',t.bg);root.style.setProperty('--accent',t.accent);root.style.setProperty('--motif',JSON.stringify((t.motif+' ').repeat(110)));for(const id of ['welcome','intro','learn','create','note'])document.getElementById(id).textContent=s[id];document.getElementById('theme-heading').textContent=s.theme;document.getElementById('avatar').textContent=s.avatar;document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.lang===lang)));document.getElementById('themes').replaceChildren(...palettes.map(p=>{const b=document.createElement('button');b.className='theme';b.type='button';b.setAttribute('aria-pressed',String(p.id===theme));const i=document.createElement('span');i.className='swatch';i.textContent=p.icon;b.append(i,document.createTextNode(p[lang]));b.addEventListener('click',()=>{theme=p.id;save('janus.dashboard-2.theme.v1',theme);render()});return b}))}
 document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>{lang=b.dataset.lang;save('janus.dashboard-2.locale.v1',lang);render()}));render();
-</script></body></html>
+</script><script src="./creature-controls.js" defer></script></body></html>
