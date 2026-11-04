@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es" data-theme="lila">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- Solo se permite lo propio y los vídeos de youtube-nocookie.com (lista aprobada por el tutor); sin scripts en línea. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src https://www.youtube-nocookie.com; object-src 'none'; base-uri 'none'; form-action 'none'" />
+  <meta name="referrer" content="no-referrer" />
+  <meta name="theme-color" content="#7b5cff" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Mi compañero" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Mi compañero</title>
+  <link rel="manifest" href="/kendra.webmanifest" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/kendra-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/kendra-180.png" />
+  <link rel="stylesheet" href="/kendra.css" />
+</head>
+<body>
+  <div id="app" class="app" aria-live="polite">
+    <p class="loading">Cargando…</p>
+  </div>
+  <noscript><p style="padding:1rem">Necesitas activar JavaScript para usar tu compañero.</p></noscript>
+  <script type="module" src="/kendra.js"></script>
+</body>
+</html>

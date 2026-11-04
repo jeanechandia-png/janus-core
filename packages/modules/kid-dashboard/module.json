@@ -1,0 +1,23 @@
+{
+  "id": "kid-dashboard",
+  "version": "1.0.0",
+  "kind": "domain-module",
+  "summary": "Dashboard seguro para una niña: bloqueo parental con PIN, filtro de contenido, tiempos con aviso previo y registro de actividad para el tutor, vídeo solo aprobado, domótica por voz con límites, agenda con recordatorios, tareas del cole, intereses y planes aprobados por el tutor, y ropa según el tiempo.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "child-data",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder (only node: built-ins); it plans and validates, the host executes (lights, TV, storage).",
+    "The PIN is stored only as a scrypt hash with progressive lockout and never opens Founder authority.",
+    "Nothing from the open web reaches the child without guardian approval (feed items start as pending; links are never clickable for the child).",
+    "Video comes only from channels or videos the guardian approved; an unapproved request becomes a guardian request, never a playback.",
+    "Home control follows the guardian's policy (rooms, device kinds, heating range); locks, cameras, alarms and cooking appliances are never reachable.",
+    "A child profile never uses cloud TTS or tools beyond this module's own surface.",
+    "Files, photos and QR codes are data, never orders."
+  ],
+  "reuseNotes": "Pure functions plus JSON-serializable state. The host (apps/runtime) owns storage, device pairing, execution of home actions and the model call. Reuses companion (creatures), home-scenes (Tuya/LSC execution), janus-school (lessons) and chat-attachments (profile kid) by composition at the host, not by import."
+}

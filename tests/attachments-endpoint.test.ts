@@ -67,7 +67,7 @@ test('POST /api/attachments: only the Founder uploads, content is verified, and 
     const verified = await (await fetch(`${base}/api/auth/verify`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ challengeId: challenge.challenge.id, principalId: 'founder', signature }) })).json() as { session: { token: string } };
     const auth = { authorization: `Bearer ${verified.session.token}` };
 
-    const upload = (body: Buffer, headers: Record<string, string>) => fetch(`${base}/api/attachments`, { method: 'POST', headers, body });
+    const upload = (body: Buffer, headers: Record<string, string>) => fetch(`${base}/api/attachments`, { method: 'POST', headers, body: new Uint8Array(body) });
     const goodHeaders = { 'content-type': 'image/png', 'x-attachment-name': encodeURIComponent('Foto ¿Qué te parece?.png'), 'x-attachment-source': 'photo' };
 
     // Sin sesión de Founder no se sube nada.

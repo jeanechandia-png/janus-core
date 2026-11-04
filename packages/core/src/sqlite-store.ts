@@ -1674,6 +1674,121 @@ export class SqliteStore {
     }));
   }
 
+  // ── Dashboard de la niña (kid-dashboard). Los tokens y códigos se guardan SOLO como hash SHA-256. ────────────────
+
+  kidGetState(kidId: string): { revision: number; stateJson: string } | undefined {
+    const row = this.db.prepare('SELECT revision, state_json FROM kid_state WHERE kid_id = ?').get(kidId) as Record<string, unknown> | undefined;
+    return row ? { revision: Number(row.revision), stateJson: String(row.state_json) } : undefined;
+  }
+
+  /** Compare-and-set: `expectedRevision` = -1 para crear. Devuelve false si otro cambio se adelantó. */
+  kidPutState(kidId: string, expectedRevision: number, revision: number, stateJson: string, at: string): boolean {
+    if (expectedRevision < 0) {
+      try {
+        this.db.prepare('INSERT INTO kid_state (kid_id, revision, state_json, updated_at) VALUES (?, ?, ?, ?)').run(kidId, revision, stateJson, at);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const result = this.db.prepare('UPDATE kid_state SET revision = ?, state_json = ?, updated_at = ? WHERE kid_id = ? AND revision = ?').run(revision, stateJson, at, kidId, expectedRevision);
+    return Number(result.changes) === 1;
+  }
+
+  kidInsertPairingCode(record: { codeHash: string; kidId: string; createdAt: string; expiresAt: string }): void {
+    this.db.prepare('DELETE FROM kid_pairing_codes WHERE kid_id = ? AND used_at IS NULL').run(record.kidId);
+    this.db.prepare('INSERT INTO kid_pairing_codes (code_hash, kid_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(record.codeHash, record.kidId, record.createdAt, record.expiresAt);
+  }
+
+  /** Canjea un código de un solo uso; devuelve el kidId o undefined si no existe, ya se usó o caducó. */
+  kidConsumePairingCode(codeHash: string, nowIso: string): string | undefined {
+    const row = this.db.prepare('SELECT kid_id, expires_at, used_at FROM kid_pairing_codes WHERE code_hash = ?').get(codeHash) as Record<string, unknown> | undefined;
+    if (!row || row.used_at || String(row.expires_at) <= nowIso) return undefined;
+    const result = this.db.prepare('UPDATE kid_pairing_codes SET used_at = ? WHERE code_hash = ? AND used_at IS NULL').run(nowIso, codeHash);
+    return Number(result.changes) === 1 ? String(row.kid_id) : undefined;
+  }
+
+  kidInsertDevice(record: { id: string; kidId: string; tokenHash: string; label: string; createdAt: string }): void {
+    this.db.prepare('INSERT INTO kid_devices (id, kid_id, token_hash, label, created_at) VALUES (?, ?, ?, ?, ?)').run(record.id, record.kidId, record.tokenHash, record.label, record.createdAt);
+  }
+
+  kidFindDeviceByTokenHash(tokenHash: string): { id: string; kidId: string; label: string } | undefined {
+    const row = this.db.prepare('SELECT id, kid_id, label FROM kid_devices WHERE token_hash = ? AND revoked_at IS NULL').get(tokenHash) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), kidId: String(row.kid_id), label: String(row.label) } : undefined;
+  }
+
+  kidTouchDevice(id: string, at: string): void {
+    this.db.prepare('UPDATE kid_devices SET last_seen_at = ? WHERE id = ?').run(at, id);
+  }
+
+  kidListDevices(kidId: string): Array<{ id: string; label: string; createdAt: string; lastSeenAt?: string; revokedAt?: string }> {
+    const rows = this.db.prepare('SELECT id, label, created_at, last_seen_at, revoked_at FROM kid_devices WHERE kid_id = ? ORDER BY created_at ASC').all(kidId) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      label: String(row.label),
+      createdAt: String(row.created_at),
+      ...(row.last_seen_at ? { lastSeenAt: String(row.last_seen_at) } : {}),
+      ...(row.revoked_at ? { revokedAt: String(row.revoked_at) } : {}),
+    }));
+  }
+
+  kidRevokeDevice(kidId: string, id: string, at: string): boolean {
+    const result = this.db.prepare('UPDATE kid_devices SET revoked_at = ? WHERE id = ? AND kid_id = ? AND revoked_at IS NULL').run(at, id, kidId);
+    return Number(result.changes) === 1;
+  }
+
+  kidGetPin(kidId: string): unknown | undefined {
+    const row = this.db.prepare('SELECT pin_json FROM kid_pin WHERE kid_id = ?').get(kidId) as Record<string, unknown> | undefined;
+    return row ? (JSON.parse(String(row.pin_json)) as unknown) : undefined;
+  }
+
+  kidPutPin(kidId: string, pin: unknown, at: string): void {
+    this.db.prepare(`
+      INSERT INTO kid_pin (kid_id, pin_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(kid_id) DO UPDATE SET pin_json = excluded.pin_json, updated_at = excluded.updated_at
+    `).run(kidId, JSON.stringify(pin), at);
+  }
+
+  kidAppendActivity(record: { kidId: string; at: string; category: string; seconds: number; detail?: string }): void {
+    this.db.prepare('INSERT INTO kid_activity (kid_id, at, category, seconds, detail) VALUES (?, ?, ?, ?, ?)').run(record.kidId, record.at, record.category, Math.max(0, Math.min(3600, Math.round(record.seconds))), record.detail ?? null);
+  }
+
+  kidListActivity(kidId: string, fromIso: string, toIso: string): Array<{ at: string; category: string; seconds: number; detail?: string }> {
+    const rows = this.db.prepare('SELECT at, category, seconds, detail FROM kid_activity WHERE kid_id = ? AND at >= ? AND at < ? ORDER BY at ASC').all(kidId, fromIso, toIso) as Record<string, unknown>[];
+    return rows.map((row) => ({ at: String(row.at), category: String(row.category), seconds: Number(row.seconds), ...(row.detail ? { detail: String(row.detail) } : {}) }));
+  }
+
+  kidAddFlag(record: { kidId: string; at: string; severity: string; categories: string[]; summary: string }): void {
+    this.db.prepare('INSERT INTO kid_flags (kid_id, at, severity, categories, summary) VALUES (?, ?, ?, ?, ?)').run(record.kidId, record.at, record.severity, record.categories.join(','), record.summary);
+  }
+
+  kidListFlags(kidId: string, limit = 30): Array<{ id: number; at: string; severity: string; categories: string[]; summary: string; seen: boolean }> {
+    const rows = this.db.prepare('SELECT id, at, severity, categories, summary, seen_at FROM kid_flags WHERE kid_id = ? ORDER BY id DESC LIMIT ?').all(kidId, limit) as Record<string, unknown>[];
+    return rows.map((row) => ({ id: Number(row.id), at: String(row.at), severity: String(row.severity), categories: String(row.categories).split(',').filter(Boolean), summary: String(row.summary), seen: row.seen_at !== null }));
+  }
+
+  kidMarkFlagsSeen(kidId: string, at: string): void {
+    this.db.prepare('UPDATE kid_flags SET seen_at = ? WHERE kid_id = ? AND seen_at IS NULL').run(at, kidId);
+  }
+
+  kidAppendTranscript(record: { kidId: string; at: string; role: 'kid' | 'companion'; text: string }): void {
+    this.db.prepare('INSERT INTO kid_transcripts (kid_id, at, role, text) VALUES (?, ?, ?, ?)').run(record.kidId, record.at, record.role, record.text.slice(0, 2000));
+  }
+
+  kidListTranscripts(kidId: string, limit = 60): Array<{ at: string; role: string; text: string }> {
+    const rows = this.db.prepare('SELECT at, role, text FROM kid_transcripts WHERE kid_id = ? ORDER BY id DESC LIMIT ?').all(kidId, limit) as Record<string, unknown>[];
+    return rows.reverse().map((row) => ({ at: String(row.at), role: String(row.role), text: String(row.text) }));
+  }
+
+  kidMarkReminderDelivered(kidId: string, key: string, at: string): void {
+    this.db.prepare('INSERT OR IGNORE INTO kid_reminders_delivered (kid_id, reminder_key, at) VALUES (?, ?, ?)').run(kidId, key, at);
+  }
+
+  kidDeliveredReminderKeys(kidId: string): Set<string> {
+    const rows = this.db.prepare('SELECT reminder_key FROM kid_reminders_delivered WHERE kid_id = ?').all(kidId) as Record<string, unknown>[];
+    return new Set(rows.map((row) => String(row.reminder_key)));
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`
@@ -2073,6 +2188,74 @@ export class SqliteStore {
         revision INTEGER NOT NULL,
         checksum TEXT NOT NULL,
         reported_at TEXT NOT NULL
+      );
+
+      -- Dashboard de la niña (módulo kid-dashboard): estado, dispositivos emparejados, PIN parental, actividad y avisos.
+      CREATE TABLE IF NOT EXISTS kid_state (
+        kid_id TEXT PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        state_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_devices (
+        id TEXT PRIMARY KEY,
+        kid_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        label TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_seen_at TEXT,
+        revoked_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_pairing_codes (
+        code_hash TEXT PRIMARY KEY,
+        kid_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_pin (
+        kid_id TEXT PRIMARY KEY,
+        pin_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        category TEXT NOT NULL,
+        seconds INTEGER NOT NULL,
+        detail TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kid_activity_kid_at ON kid_activity(kid_id, at);
+
+      CREATE TABLE IF NOT EXISTS kid_flags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        categories TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        seen_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        role TEXT NOT NULL,
+        text TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_reminders_delivered (
+        kid_id TEXT NOT NULL,
+        reminder_key TEXT NOT NULL,
+        at TEXT NOT NULL,
+        PRIMARY KEY (kid_id, reminder_key)
       );
 
       CREATE TABLE IF NOT EXISTS flow_runs (

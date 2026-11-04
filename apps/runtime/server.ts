@@ -231,6 +231,10 @@ import {
   type AttachmentSource,
 } from '../../packages/modules/chat-attachments/src/index.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
+import { fetchHourlyForecast } from '../../packages/adapters/src/open-meteo-adapter.js';
+import { CREATURES } from '../../packages/modules/companion/src/index.js';
+import type { HomeDevice, HomeDeviceKind } from '../../packages/modules/kid-dashboard/src/index.js';
+import { createKidRoutes } from './kid-routes.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
@@ -2998,7 +3002,7 @@ function contentType(path: string): string {
 }
 
 function serveStatic(pathname: string, response: ServerResponse): void {
-  const requested = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
+  const requested = pathname === '/' ? 'index.html' : pathname === '/kendra' ? 'kendra.html' : pathname.replace(/^\/+/, '');
   const path = join(root, requested);
   if (!path.startsWith(root) || !existsSync(path)) {
     response.writeHead(404);
@@ -3008,6 +3012,48 @@ function serveStatic(pathname: string, response: ServerResponse): void {
   response.writeHead(200, { 'content-type': contentType(path) });
   createReadStream(path).pipe(response);
 }
+
+// ── Dashboard de la niña (módulo kid-dashboard) ───────────────────────────────────────────────────────────────────
+// Inventario doméstico: archivo local fuera de Git (config/home-devices.local.json). Sin archivo → sin dispositivos.
+const HOME_KINDS: readonly HomeDeviceKind[] = ['light', 'plug', 'fan', 'heater', 'thermostat'];
+function loadHomeInventory(): HomeDevice[] {
+  const path = process.env.JANUS_HOME_DEVICES_PATH?.trim() || join(process.cwd(), 'config', 'home-devices.local.json');
+  try {
+    if (!existsSync(path)) return [];
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    const list = Array.isArray(parsed) ? parsed : (parsed as { devices?: unknown })?.devices;
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((item): HomeDevice[] => {
+      const raw = item as Partial<HomeDevice> | null;
+      if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || typeof raw.room !== 'string') return [];
+      if (!HOME_KINDS.includes(raw.kind as HomeDeviceKind)) return [];
+      return [{ id: raw.id, name: raw.name, room: raw.room, kind: raw.kind as HomeDeviceKind, ...(Array.isArray(raw.tags) ? { tags: raw.tags.filter((tag): tag is string => typeof tag === 'string') } : {}) }];
+    });
+  } catch {
+    return [];
+  }
+}
+const kidChatModelOff = process.env.JANUS_KID_CHAT_MODEL?.trim().toLowerCase() === 'off';
+const kidWeatherOff = process.env.JANUS_KID_WEATHER?.trim().toLowerCase() === 'off';
+const kidDailyModelCalls = Number(process.env.JANUS_KID_MAX_MODEL_CALLS_PER_DAY);
+const handleKidRoute = createKidRoutes({
+  store,
+  json,
+  readJson,
+  readBodyBytes,
+  headerValue,
+  requireFounder: requireFounderAuthority,
+  errorStatus: authErrorStatus,
+  errorBody: authErrorBody,
+  attachmentStore,
+  ...(modelGateway && !kidChatModelOff ? { model: modelGateway } : {}),
+  homeInventory: loadHomeInventory,
+  // homeExecutor: pendiente (necesita credenciales Tuya y el inventario real) → las órdenes de la casa quedan en modo latente.
+  ...(kidWeatherOff ? {} : { weather: (input) => fetchHourlyForecast(input) }),
+  companions: CREATURES.map((creature) => ({ id: creature.id, name: creature.defaultName, primary: creature.palette.primary, glow: creature.palette.glow, catchphrase: creature.catchphrases[0] ?? '' })),
+  ...(timeZone ? { defaultTimeZone: timeZone } : {}),
+  ...(Number.isFinite(kidDailyModelCalls) && kidDailyModelCalls > 0 ? { maxModelCallsPerDay: Math.floor(kidDailyModelCalls) } : {}),
+});
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
@@ -5547,6 +5593,8 @@ const server = createServer(async (request, response) => {
     }
     return;
   }
+
+  if (await handleKidRoute(request, response, url)) return;
 
   if (request.method === 'POST' && url.pathname === '/api/attachments') {
     try {

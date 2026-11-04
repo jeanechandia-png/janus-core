@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v10';
+const CACHE = 'janus-shell-v11';
 const SHELL = [
   '/',
   '/index.html',
@@ -11,6 +11,15 @@ const SHELL = [
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',
+  '/kendra',
+  '/kendra.html',
+  '/kendra.css',
+  '/kendra.js',
+  '/kendra-parent.js',
+  '/kendra.webmanifest',
+  '/icons/kendra-180.png',
+  '/icons/kendra-192.png',
+  '/icons/kendra-512.png',
   '/icons/janus-icon-180.png',
   '/icons/janus-icon-192.png',
   '/icons/janus-icon-512.png',
