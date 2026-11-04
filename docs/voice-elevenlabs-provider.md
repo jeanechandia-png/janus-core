@@ -1,9 +1,9 @@
 # Voz de Janus: ElevenLabs como proveedor temporal + camino al clon propio
 
-Fecha: 2026-11-04 · Estado: adaptador, respaldo local, independencia de voz y pruebas **implementados**; activación en producción **PENDIENTE** (necesita clave, `voice_id` y host con whisper.cpp).
+Fecha: 2026-11-04 · Estado: adaptador, respaldo local, inventario y preparación de clonación **implementados**. **LA CLONACIÓN DEL FOUNDER ESTÁ PENDIENTE** tanto en ElevenLabs como en JANUS local. Activación con voz real todavía no verificada (clave, `voice_id`, grabaciones originales, aceptación y host con whisper.cpp).
 
 ## Decisión del Founder (2026-11-04)
-La voz clonada de Jean en ElevenLabs sirve **hoy** como voz de Janus (solo Janus; no los chatbots de clientes). Pero hay que clonarla **por medios propios** para no depender del proveedor. ElevenLabs es un puente, no un cimiento (`packages/identity-lego/VOICE_INDEPENDENCE.md` en `feat/identity-lego-voice-face-20261102`, y norma de local-first).
+**Corrección expresa del Founder:** su voz todavía **NO está clonada ni en ElevenLabs ni en JANUS**. Si se crea con ElevenLabs, JANUS podrá usarla después de verificarla. El proveedor es una herramienta temporal de aprendizaje y referencia funcional; el objetivo final es **clonación local desde grabaciones originales autorizadas**, independiente de servicios externos. El hecho de tener cuenta Creator, crédito o un `voice_id` configurado no demuestra que la clonación exista. ElevenLabs es un puente, no un cimiento (`packages/identity-lego/VOICE_INDEPENDENCE.md` en `feat/identity-lego-voice-face-20261102`, y norma de local-first).
 
 ## Hechos verificados (y su fuente)
 | Hecho | Fuente |
@@ -19,7 +19,9 @@ La voz clonada de Jean en ElevenLabs sirve **hoy** como voz de Janus (solo Janus
 ## Qué se implementó
 | Pieza | Archivo | Para qué |
 |---|---|---|
-| Adaptador de nube | `packages/adapters/src/elevenlabs-tts-adapter.ts` | PCM 24 kHz en streaming; clave solo vía `CredentialBroker` (servicio `elevenlabs`); **solo** los `voiceId` de Janus mapeados salen a la nube; tope por petición y presupuesto diario de caracteres |
+| Adaptador de nube | `packages/adapters/src/elevenlabs-tts-adapter.ts` | PCM 24 kHz en streaming; clave solo vía `CredentialBroker` (servicio `elevenlabs`); **solo** los `voiceId` de Janus mapeados salen a la nube; tope por petición y presupuesto diario de caracteres. Una voz temporal no se presenta como clon. |
+| Inventario y creación controlada | `packages/adapters/src/elevenlabs-voice-management-adapter.ts` | Consulta de voces personales por API, y preparación de IVC con aprobación, hashes originales y no reintento. **No hay acción automática** de clonación ni audio enviado en esta entrega. |
+| Estado verificable | `packages/voice/src/voice-clone-lifecycle.ts` | `pending` por defecto; un identificador, una suscripción o un modelo TTS no certifican un clon. Solo prueba de titularidad, síntesis y aceptación permiten marcarlo `verified`. |
 | Respaldo nube → local | `packages/voice/src/fallback-tts-gateway.ts` | Si el proveedor falla antes del primer audio, la misma frase se sirve en local; enfriamiento de 60 s; nunca mezcla dos voces en una frase |
 | Independencia | `packages/voice/src/voice-independence.ts`, `npm run voice:independence`, `config/voice-corpus.example.json` | Evalúa si el corpus de grabaciones originales basta para el clon local; **rechaza** audio de proveedor; 5 compuertas para retirar al proveedor |
 | Cableado | `apps/runtime/server.ts` | `JANUS_TTS_PROVIDER=elevenlabs` activa la nube con la voz local como respaldo; `/health` muestra proveedor, enfriamiento y caracteres usados |
