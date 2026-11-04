@@ -32,10 +32,18 @@ const info = (p, id) => p.evaluate((id) => { const o = Janus3D._inst[id]; return
 
   console.log('\n[telefono] Sala: forma, ánimo y color de ojos');
   ({ ctx, p, errs } = await nueva(br, 430, 932, '#trabajo'));
-  ok((await p.$('.avc .avchip')).length >= 13, 'la Sala muestra formas, ánimos y el hueco del modelo');
+  const panelContract = await p.evaluate(() => ({
+    male: !!document.querySelector('.avc [data-arg="nexo-masculino"]'),
+    female: !!document.querySelector('.avc [data-arg="nexo-femenino"]'),
+    moods: ['triste', 'enojado', 'sorprendido', 'alegre'].every(x => !!document.querySelector('.avc [data-arg="' + x + '"]')),
+    maleGlb: !!document.querySelector('.avc [data-slotfile="nexo-masculino"]'),
+    femaleGlb: !!document.querySelector('.avc [data-slotfile="nexo-femenino"]'),
+  }));
+  ok(Object.values(panelContract).every(Boolean), 'la Sala ofrece las identidades, ánimos y slots GLB ' + JSON.stringify(panelContract));
   await p.click('.avc .avchip[data-arg="nexo-femenino"]'); await p.waitForTimeout(1200);
   ok((await info(p, 'bot-sala')).alt === 'nexo-femenino', 'Melanie: avatar 3D volumétrico en la MISMA escena');
-  await p.click('.avc .avchip[data-arg="nexo-masculino"]'); await p.waitForTimeout(1200);
+  await p.click('.avc .avchip[data-arg="nexo-masculino"]');
+  await p.waitForFunction(() => Janus3D._inst['bot-sala']?.alt?.id === 'nexo-masculino', null, { timeout: 30000 });
   ok((await info(p, 'bot-sala')).alt === 'nexo-masculino', 'Janus: avatar 3D volumétrico en la MISMA escena');
   ok(await p.evaluate(() => {
     const bot = Janus3D._inst['bot-sala'].alt;
