@@ -1,7 +1,7 @@
 {
   "name": "JANUS",
   "short_name": "JANUS",
-  "start_url": "/",
+  "start_url": "/dashboard/a",
   "display": "standalone",
   "background_color": "#070a10",
   "theme_color": "#070a10",

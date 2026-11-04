@@ -1,4 +1,5 @@
 import type { JanusEventType } from '../../core/src/events.js';
+import { DEFAULT_AUTHORITY_POLICY } from '../../core/src/authority.js';
 import type { JanusStep } from '../../core/src/task-runner.js';
 import type { ToolGateway, ToolProgress, ToolResult } from '../../gateways/src/contracts.js';
 import type { JanusPlan, PlannedToolStep } from './plan.js';
@@ -22,7 +23,8 @@ function compileToolStep(step: PlannedToolStep, options: CompilePlanOptions): Ja
         id: step.id,
         label: step.label,
         tool: step.tool,
-        operation: step.action,
+        operation: step.action.startsWith(step.tool + '.') || DEFAULT_AUTHORITY_POLICY.confirmationActions.includes(step.action)
+          ? step.action : `${step.tool}.${step.action}`,
         target: describeTarget(step.input),
         risk: step.risk,
         reversible: step.reversible,

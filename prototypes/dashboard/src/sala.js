@@ -112,7 +112,7 @@ const refreshSala = () => { if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio' ||
 function askModel(P, list) {
   UI.js = 'pensando'; saveState();
   const parts = typeof attModelParts === 'function' ? attModelParts(list) : Promise.resolve({ messages: list.slice(-14).filter((m) => m.t).map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: m.t })), images: [], asked: 0 });
-  parts.then((pp) => JanusGateway.ask({ system: janusSystem(P), messages: pp.messages, images: pp.images }).then((r) => { r.noImg = pp.asked && (r.imagesSent || 0) < pp.asked; return r; })).then((r) => {
+  parts.then((pp) => JanusGateway.ask({ system: janusSystem(P), messages: pp.messages, images: pp.images, inputMode: list[list.length - 1]?.v ? 'voice' : 'text' }).then((r) => { r.noImg = pp.asked && (r.imagesSent || 0) < pp.asked; return r; })).then((r) => {
     if (r.via === 'local' || !r.text) { list.push({ who: 'ja', t: 'No pude consultar al modelo' + (r.skipped && r.skipped[0] ? ' (' + r.skipped[0].error + ')' : '') + '. Esta es una respuesta de la vista previa: en la app real trabajaría sobre ' + P.n + ' (siguiente paso: ' + P.next + ').', at: hhmm(), via: 'simulado' }); }
     else list.push({ who: 'ja', t: r.text, at: hhmm(), via: r.label + (r.noImg ? ' · fotos no enviadas' : '') });
     UI.js = 'listo'; saveState(); refreshSala();
@@ -156,13 +156,27 @@ const SALA_ACTS = {
   apprNo: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Rechazado. No hago nada fuera.', at: hhmm() }); UI.js = 'listo'; saveState(); },
   mic: () => {
     if (UI.listening) { try { REC && REC.stop(); } catch (e) { } UI.listening = false; UI.js = 'listo'; if (window.Janus3D) Janus3D.state.listening = false; return; }
+    if (document.querySelector('meta[name="janus-runtime"]')) {
+      let token = null;
+      try { token = sessionStorage.getItem('janus.founder.session'); } catch (_) {}
+      if (!token) { UI.micMsg = 'Primero toca «Identificarme» y entra como Founder.'; return; }
+    }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     UI.listening = true; UI.js = 'escuchando'; UI.micMsg = ''; if (window.Janus3D) Janus3D.state.listening = true;
     if (!SR) { UI.micMsg = 'El dictado no está disponible en esta vista; en la app de Janus el micrófono usa la voz propia de Janus.'; later(3500, () => { UI.listening = false; UI.js = 'listo'; }); return; }
     try {
       REC = new SR(); REC.lang = 'es-ES'; REC.interimResults = true; REC.continuous = false;
       const base = UI.draft ? UI.draft + ' ' : '';
-      REC.onresult = (ev) => { let t = ''; for (let i = 0; i < ev.results.length; i++) t += ev.results[i][0].transcript; UI.draft = base + t; document.querySelectorAll('[data-f="msg"]').forEach((ta) => { ta.value = UI.draft; ta.scrollTop = ta.scrollHeight; }); /* transcripción inmediata en todos los campos (móvil, Sala, tablet) */ };
+      let submitted = false;
+      REC.onresult = (ev) => {
+        let t = ''; let final = false;
+        for (let i = 0; i < ev.results.length; i++) { t += ev.results[i][0].transcript; final = final || ev.results[i].isFinal; }
+        UI.draft = base + t;
+        document.querySelectorAll('[data-f="msg"]').forEach((ta) => { ta.value = UI.draft; ta.scrollTop = ta.scrollHeight; });
+        if (final && !submitted && UI.draft.trim()) {
+          submitted = true; const text = UI.draft.trim(); UI.draft = ''; reply(UI.pSel, text, true, true);
+        }
+      };
       REC.onerror = (ev) => { UI.micMsg = 'Micrófono: ' + (ev.error === 'not-allowed' ? 'permiso denegado en esta vista' : ev.error); };
       REC.onend = () => { UI.listening = false; if (window.Janus3D) Janus3D.state.listening = false; const t = (UI.draft || '').trim(); if (t) { UI.draft = ''; reply(UI.pSel, t, true, true); } else UI.js = 'listo'; rerender(); scrollThread(); };
       REC.start();

@@ -1,0 +1,7 @@
+.app-install-sheet{position:fixed;inset:0;z-index:2000;background:#000a;display:grid;place-items:center;padding:20px;font:16px/1.5 system-ui;color:#eef3ff}
+.app-install-sheet[hidden]{display:none}
+.app-install-card{width:min(460px,94vw);padding:24px;border:1px solid #8b98ae;border-radius:20px;background:#111621;box-shadow:0 24px 80px #0009}
+.app-install-card h3{font-size:22px;margin:12px 0}
+.app-install-card ol{list-style:none;padding:0}.app-install-card li{display:flex;gap:12px;margin:16px 0}
+.app-install-step{flex:none;width:28px;height:28px;border:1px solid #8b98ae;border-radius:50%;text-align:center}
+.app-install-card button{font:inherit;padding:12px 18px;background:#202c41;border:1px solid #8b98ae;border-radius:10px;color:#fff}

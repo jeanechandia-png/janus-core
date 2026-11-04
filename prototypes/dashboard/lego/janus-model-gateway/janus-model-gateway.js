@@ -62,10 +62,11 @@ const JanusGateway = (() => {
     const user = [...(req.messages || [])].reverse().find(m => m.role === 'user' && typeof m.content === 'string' && m.content.trim());
     if (!user) throw new Error('Falta el mensaje del usuario.');
     const signal = req.signal;
+    if (!credentials().authorization) throw new Error('Primero toca «Identificarme» y entra como Founder.');
     const start = await fetch(coreUrl + '/api/command', {
       method: 'POST', signal,
       headers: { 'content-type': 'application/json', ...credentials() },
-      body: JSON.stringify({ text: user.content.slice(0, 30000), inputMode: 'text' }),
+      body: JSON.stringify({ text: user.content.slice(0, 30000), inputMode: req.inputMode === 'voice' ? 'voice' : 'text' }),
     });
     const result = await start.json().catch(() => ({}));
     if (!start.ok || !result.runId) {
@@ -108,6 +109,9 @@ const JanusGateway = (() => {
       };
       const consume = (event) => {
         if (!event || (event.runId && event.runId !== runId) || completed) return;
+        const payload = event.payload || {};
+        const proposalId = payload.tool === 'knowledge' && (payload.proposalId || payload.result?.output?.proposalId);
+        if (proposalId) window.dispatchEvent(new CustomEvent('janus:knowledge-proposal', { detail: { proposalId } }));
         const summary = String(event.payload?.preview || event.summary || '').slice(0, 1200);
         if (summary && summary !== lastPreview) {
           lastPreview = summary;
@@ -193,6 +197,10 @@ const JanusGateway = (() => {
 
   async function ask(req) {
     const skipped = [];
+    // A Core-served page never falls back to a remote Artifact while health is pending/offline.
+    if (window.document?.querySelector('meta[name="janus-runtime"]') && !coreReady) {
+      if (!await probeCore()) return { text: 'JANUS CORE no está disponible. Revisa la conexión con tu servidor.', via: 'core-error', label: 'JANUS CORE', skipped, imagesSent: 0 };
+    }
     for (const id of order) {
       const p = providers[id]; if (!p || !p.available()) continue;
       if (id === 'local') return { text: '', via: 'local', label: p.label, skipped };

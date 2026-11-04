@@ -3,6 +3,7 @@ import { mountGlowEmblem } from './glow-emblem.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 import { mountAttachMenu } from './attach.js';
+import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
 
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
@@ -30,6 +31,9 @@ const voiceSessionId = storedVoiceSessionId || `iphone_${crypto.randomUUID()}`;
 if (!storedVoiceSessionId) localStorage.setItem('janus.voiceSessionId', voiceSessionId);
 
 const PCM_MIME_TYPE = 'audio/pcm;rate=16000;channels=1;format=s16le';
+addEventListener('janus:knowledge-applied', (event) => {
+  setPresence('Cambio guardado', `Conocimiento actualizado a la revisión ${event.detail.revision}.`);
+});
 const VAD_START_RMS = 0.025;
 const VAD_END_RMS = 0.012;
 const VAD_START_FRAMES = 2;
@@ -143,6 +147,8 @@ function setRunControls(active) {
 
 function renderEvent(event) {
   if (currentRunId && event.runId !== currentRunId) return;
+  const proposalId = proposalFromEvent(event);
+  if (proposalId) void reviewKnowledgeProposal(proposalId).catch((error) => setPresence('Revisión pendiente', error.message));
   if (activity.classList.contains('empty')) {
     activity.classList.remove('empty');
     activity.innerHTML = '';
@@ -380,7 +386,7 @@ async function submitVoice(text) {
   try {
     const response = await fetch('/api/voice/utterance', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         sessionId: voiceSessionId,
         text: clean,
@@ -403,7 +409,7 @@ async function submitVoice(text) {
 
 async function controlRun(action) {
   if (!currentRunId || !currentRunActive) return;
-  const response = await fetch(`/api/runs/${encodeURIComponent(currentRunId)}/${action}`, { method: 'POST' });
+  const response = await fetch(`/api/runs/${encodeURIComponent(currentRunId)}/${action}`, { method: 'POST', headers: authHeaders() });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     setPresence('Control', data.error ?? 'No se pudo controlar la ejecución.');
@@ -414,7 +420,7 @@ async function syncMicrophone(state) {
   try {
     await fetch('/api/voice/microphone', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ sessionId: voiceSessionId, state }),
     });
   } catch {
@@ -428,6 +434,12 @@ function voiceSocketUrl() {
 }
 
 async function connectPcmSocket() {
+  const ticketResponse = await fetch('/api/voice/ticket', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ sessionId: voiceSessionId }),
+  });
+  const access = await ticketResponse.json();
+  if (!ticketResponse.ok) throw new Error(access.error || 'Identifícate antes de activar la voz.');
   const socket = new WebSocket(voiceSocketUrl());
   socket.binaryType = 'arraybuffer';
   voiceSocket = socket;
@@ -447,6 +459,7 @@ async function connectPcmSocket() {
     type: 'hello',
     version: 1,
     sessionId: voiceSessionId,
+    ticket: access.ticket,
     audio: { mimeType: PCM_MIME_TYPE },
   }));
   await waitForVoiceReady(socket);
@@ -762,6 +775,11 @@ function configureSpeechRecognition() {
 }
 
 voiceButton.addEventListener('click', () => {
+  if (!sessionToken() && !listening) {
+    setPresence('Identificación necesaria', 'Entra como Founder antes de activar el micrófono.');
+    document.querySelector('#founderSignInButton')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   if (voiceMode === 'pcm-stream') {
     if (listening) {
       void stopPcmVoice();
@@ -959,6 +977,8 @@ founderSignInButton.addEventListener('click', async () => {
   try {
     await signIn(deviceKey);
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
+    const returnTo = new URLSearchParams(location.search).get('returnTo');
+    if (returnTo === '/dashboard/a' || returnTo === '/dashboard/b') location.assign(returnTo);
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
@@ -968,6 +988,8 @@ founderSignInButton.addEventListener('click', async () => {
   }
 });
 founderSignOutButton.addEventListener('click', async () => {
+  if (voiceMode === 'pcm-stream') await stopPcmVoice({ preserveMessage: true });
+  else { listening = false; recognition?.stop(); voiceButton.classList.remove('listening'); }
   await signOut();
   setApprovalsStatus('Sesión cerrada.');
   refreshFounderControls();

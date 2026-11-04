@@ -472,3 +472,12 @@ Sobre clonación: el Founder declara que **ya existe una clonación rápida en E
 6. No declarar lista la app, el cambio por voz ni el clon perfeccionado solo por pruebas simuladas, un botón o un commit. Mantener las restricciones vigentes de producción y gasto; esta actualización no publica ni activa servicios.
 
 **Cambio de esta intervención:** solo se añade este handoff al archivo vigente de #59, preservando su contenido previo. No se repitió la suite funcional porque no se modificó código; las pruebas históricas de otros agentes siguen atribuidas a sus respectivos handoffs.
+
+## Handoff 2026-11-04 — Código: voz autenticada, propuestas aprobables y apps
+
+- Continuación de PR #59 desde `2f6ddb4` en `chatgpt/janus-integrated-review-20261104`, mismo repositorio. Este handoff es posterior al traspaso documental anterior: **ahora sí hay cambios de código**.
+- Implementado: sesión Founder en dictado/controles, tickets PCM de un uso y revocación, autoridad completa de acciones compiladas, revisión y aplicación de la propuesta exacta con prueba biométrica, persistencia/historial existente, acceso instalable del Founder al dashboard, Kendra en su propia ruta, identificación/retorno A/B y puente Swift web/nativo.
+- Verificado: TypeScript; 653 pruebas (652 pasan, 1 omisión privada); 10/10 contratos de dashboards; build A/B y variantes Core; runtime smoke; sintaxis y diff. La prueba nueva recorre HTTP → propuesta → bloqueo sin prueba → firma de fixture → aplicación → SQLite → reinicio, con rechazo de token infantil y replay.
+- **Pendiente real:** instalación en tablet/host HTTPS; compilación e instalación del host iOS y Face ID físico; micrófono/voz real; instalación y pruebas en dispositivos. Chromium local no ejecutado por descarga de binario truncada. No confundir estas pruebas con aceptación física ni con producción.
+- No hay ejecutor universal de cualquier cambio por voz: se conectaron las acciones de conocimiento soportadas. Voz/configuración arbitrarias y cambios de código siguen requiriendo herramientas concretas. PR #60 sigue como rama hermana no integrada; contrastar su estado de clon con la evidencia privada.
+- Relevo y pasos exactos: `docs/handoffs/2026-11-04-authenticated-voice-apps.md`. El siguiente agente refresca HEAD, lee este último handoff y continúa aquí; no restaura `main` ni copia servidores completos desde otra base.

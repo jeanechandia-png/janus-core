@@ -1656,6 +1656,13 @@ export class SqliteStore {
     this.db.prepare('UPDATE business_knowledge_proposals SET status = ? WHERE id = ?').run(status, id);
   }
 
+  getBusinessKnowledgeProposal(id: string): { id: string; key: string; status: string; expiresAt: string; payload: unknown } | undefined {
+    const row = this.db.prepare('SELECT id, proposal_key, status, expires_at, proposal_json FROM business_knowledge_proposals WHERE id = ?')
+      .get(id) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), key: String(row.proposal_key), status: String(row.status),
+      expiresAt: String(row.expires_at), payload: JSON.parse(String(row.proposal_json)) as unknown } : undefined;
+  }
+
   upsertBusinessKnowledgeConsumerReport(report: { consumer: string; revision: number; checksum: string; reportedAt: string }): void {
     this.db.prepare(`
       INSERT INTO business_knowledge_consumer_reports (consumer, revision, checksum, reported_at)
