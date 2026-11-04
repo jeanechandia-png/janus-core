@@ -1,0 +1,25 @@
+{
+  "id": "janus-evolution-guard",
+  "version": "1.0.0",
+  "kind": "governance-module",
+  "summary": "Premortem de obsolescencia tecnológica (24 meses), postmortem de incidentes, propuestas de mejora controladas y puerta de promoción con aprobación explícita.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "metadata-only",
+  "locales": [
+    "es"
+  ],
+  "invariants": [
+    "JANUS CORE remains authoritative: module never calls a remote provider, changes code, updates dependencies or deploys.",
+    "An absent, unverified or stale check is UNKNOWN, never PASS.",
+    "Evidence must identify a verifiable test, immutable receipt or official source.",
+    "Repeated incidents escalate and mandate review of prior preventive protection.",
+    "All proposal outputs require human approval and rollback evidence before promotion.",
+    "Designed to run offline with caller-provided observations and timestamps; state persistence belongs to Janus Core SQLite.",
+    "Changes to limits/cadence require versioned policy, not hardcoded personal circumstances."
+  ],
+  "reuseNotes": "Import premortem, postmortem, proposeUpgrade, assessReleaseGate from src/index.ts; the host owns evidence acquisition, audit persistence in SQLite and approvals. API may expose summary only to authenticated Founder."
+}
