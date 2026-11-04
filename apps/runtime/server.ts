@@ -294,6 +294,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     youtube: 'YOUTUBE_ACCESS_TOKEN',
     model: 'JANUS_MODEL_API_KEY',
     openai: 'JANUS_OPENAI_API_KEY',
+    elevenlabs: 'JANUS_ELEVENLABS_API_KEY',
     anthropic: 'JANUS_ANTHROPIC_API_KEY',
     gemini: 'JANUS_GEMINI_API_KEY',
     asana: 'ASANA_ACCESS_TOKEN',
