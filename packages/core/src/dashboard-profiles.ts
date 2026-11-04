@@ -7,6 +7,8 @@ export interface DashboardProfile {
   readonly role: DashboardRole;
   readonly modules: readonly string[];
   readonly defaultVoice: VoicePresentation;
+  readonly supportedLocales?: readonly ("nl" | "es")[];
+  readonly defaultLocale?: "nl" | "es";
   readonly avatarAssetStatus: "approved-reference-required";
   readonly avatarEmotions: readonly AvatarEmotion[];
 }
@@ -25,6 +27,8 @@ export const dashboardProfiles: Readonly<Record<DashboardRole, DashboardProfile>
     role: "child",
     modules: ["companion", "learning", "voice"],
     defaultVoice: "feminine",
+    supportedLocales: ["nl", "es"],
+    defaultLocale: "nl",
     avatarAssetStatus: "approved-reference-required",
     avatarEmotions: emotions,
   },
