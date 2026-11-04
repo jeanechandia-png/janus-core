@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -246,6 +247,8 @@ import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.
 
 const port = Number(process.env.PORT ?? 8787);
 const root = fileURLToPath(new URL('../pwa/', import.meta.url));
+const dashboardRoot = fileURLToPath(new URL('../../prototypes/dashboard/', import.meta.url));
+const dashboardBuild = join(dashboardRoot, 'build.cjs');
 const founderReferenceLibraryPath = fileURLToPath(
   new URL('../../config/founder-reference-library.json', import.meta.url),
 );
@@ -3058,6 +3061,41 @@ const handleKidRoute = createKidRoutes({
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', `http://${request.headers.host ?? 'localhost'}`);
+
+  // ÚNICO ORIGEN: PWA oficial y dashboards A/B comparten autenticación
+  // de Founder, /api/command, SSE, aprobaciones y memoria SQLite.
+  // No se envían tokens a una landing ni a un Artifact ajenos al Núcleo.
+  if (url.pathname === '/dashboard' || url.pathname === '/dashboard/a' || url.pathname === '/dashboard/b') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
+    }
+    const skin = url.pathname === '/dashboard/b' ? 'b' : 'a';
+    const dashboardFile = join(dashboardRoot, 'dist',
+      skin === 'a' ? 'Janus-A-Obsidiana-interactivo.html' : 'Janus-B-Platino-interactivo.html');
+    try {
+      if (!existsSync(dashboardFile)) {
+        if (!existsSync(dashboardBuild)) throw new Error('Módulo de dashboard no instalado');
+        execFileSync(process.execPath, [dashboardBuild, '--skin', skin], {
+          cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
+        });
+      }
+      if (!existsSync(dashboardFile)) throw new Error('No se generó la vista ' + skin);
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+      });
+      if (request.method === 'HEAD') response.end();
+      else createReadStream(dashboardFile).pipe(response);
+    } catch (error) {
+      json(response, 503, { ok: false, error: 'Dashboard local no disponible',
+        detail: error instanceof Error ? error.message : String(error) });
+    }
+    return;
+  }
+
+
 
   if (request.method === 'GET' && url.pathname === '/health') {
     json(response, 200, {
