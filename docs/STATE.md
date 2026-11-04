@@ -2,6 +2,15 @@
 
 Fecha: 2026-11-04
 
+## CORRECCIÓN VIGENTE — Voz de JANUS (04-11-2026)
+
+- **NO EXISTE TODAVÍA UNA CLONACIÓN VERIFICADA DE LA VOZ DEL FOUNDER** en ElevenLabs ni en JANUS local. Sigue **PENDIENTE**. Las descripciones anteriores que afirmaban disponer del clon quedan en **HISTÓRICO / SUPERADAS**.
+- **JANUS** (robot masculino) es una identidad autónoma; **la voz futura** podrá ser una clonación autorizada de Jean. **Melanie** es la identidad femenina independiente. La apariencia y el sonido nunca confieren autoridad.
+- ElevenLabs es un adaptador intercambiable: inventario de voces propias por API y preparación de IVC con autorización, muestras originales, hashes y verificación. No se ha ejecutado clonación ni conectado un `voice_id` clonado real.
+- Ruta de independencia: corpus local original, Qwen3-TTS local, comparativa de calidad/latencia/coste y validación del Founder; no entrenar con audio generado por ElevenLabs.
+- **Rama:** `chatgpt/janus-voice-cloning-pending-and-independent-20261104`, aún sin fusionar ni desplegar. Este bloque VIGENTE prima sobre los resúmenes históricos de 2026-11-04.
+
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
