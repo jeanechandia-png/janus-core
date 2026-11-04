@@ -22,7 +22,7 @@
   "characters": [
     {
       "id": "nexo-masculino",
-      "initialCasting": "Jean",
+      "initialCasting": "Janus",
       "rig": "janus-nexo-3d",
       "slot": "nexo-masculino",
       "design": "approved"
