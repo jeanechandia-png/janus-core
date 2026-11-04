@@ -18,7 +18,7 @@
     "voice:independence": "node --import tsx scripts/voice-independence-check.ts",
     "dashboard:build": "node prototypes/dashboard/build.cjs && node prototypes/dashboard/build.cjs --skin b",
     "start:dashboards": "npm run dashboard:build && npm run start:local",
-    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs"
+    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs"
   },
   "dependencies": {
     "ws": "^8.21.3"
