@@ -1,0 +1,99 @@
+name: Janus Dashboard A/B · build, 3D rigs y navegación
+
+on:
+  push:
+    branches:
+      - chatgpt/janus-nexo-masculino-aprobado-20261104
+    paths:
+      - 'prototypes/dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  pull_request:
+    paths:
+      - 'prototypes/dashboard/**'
+      - '.github/workflows/dashboard-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: janus-dashboard-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout de la rama exacta
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencias originales (sin credenciales)
+        run: npm install --no-audit --no-fund
+      - name: Contratos LEGO · avatares Janus y Melanie, cuatro criaturas
+        run: node --test prototypes/dashboard/tests/avatar-catalog.test.cjs
+      - name: Puerta de seguridad JANUS CORE (sin salida a proveedores externos)
+        run: node --test prototypes/dashboard/tests/core-bridge.test.cjs
+      - name: Ensamblar ambas dashboards sin servidor ni claves
+        run: |
+          cd prototypes/dashboard
+          node build.cjs
+          node build.cjs --skin b
+          test -s dist/Janus-A-Obsidiana-interactivo.html
+          test -s dist/Janus-B-Platino-interactivo.html
+      - name: Smoke de dashboard A/B + PWA + Core en el mismo origen
+        run: node --test prototypes/dashboard/tests/core-serve.test.cjs
+      - name: Compilar y validar JavaScript de pantallas
+        run: |
+          node --check prototypes/dashboard/lego/janus-avatar-catalog/janus-avatar-catalog.js
+          node --check prototypes/dashboard/lego/janus-nexo-3d/janus-nexo-3d.js
+          node --check prototypes/dashboard/lego/janus-3d/janus-3d.js
+          node --check prototypes/dashboard/src/avatar.js
+          node --check prototypes/dashboard/lego/janus-model-gateway/janus-model-gateway.js
+          node --check prototypes/dashboard/tools/serve-with-core.cjs
+          node --check prototypes/dashboard/tests/e2e-avatar.cjs
+      - name: Chromium headless para pruebas reales de interfaz
+        run: |
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.58.2 sharp@0.34.5
+          npx playwright install --with-deps chromium
+      - name: Prueba en Chromium móvil y tablet (NEXO, criaturas, GLB)
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHARP_MODULE: ${{ github.workspace }}/node_modules/sharp
+          SHOTS: ${{ runner.temp }}/janus-shots
+        run: |
+          cd prototypes/dashboard
+          node tests/e2e-avatar.cjs
+      - name: Regresión de maquetación A/B
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHARP_MODULE: ${{ github.workspace }}/node_modules/sharp
+        run: |
+          cd prototypes/dashboard
+          node tests/layout.cjs offline
+          node tests/skin.cjs
+      - name: HTML A/B verificables para revisión (datos genéricos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-dashboard-ab-preview
+          path: |
+            prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html
+            prototypes/dashboard/dist/Janus-B-Platino-interactivo.html
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Evidencia visual móvil/tablet (sin datos personales)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-dashboard-3d-shots
+          path: ${{ runner.temp }}/janus-shots/
+          if-no-files-found: ignore
+          retention-days: 7
