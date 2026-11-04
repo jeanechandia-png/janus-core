@@ -49,6 +49,8 @@ import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insi
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
+import { ElevenLabsVoiceManagementAdapter } from '../../packages/adapters/src/elevenlabs-voice-management-adapter.js';
+import { declaredVoiceCloneStatus } from '../../packages/voice/src/voice-clone-lifecycle.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -3066,6 +3068,7 @@ const server = createServer(async (request, response) => {
       db: dbPath === ':memory:' ? 'memory' : 'sqlite',
       timeZone: timeZone ?? 'runtime-default',
       voiceSessionAuthority: 'core',
+      voiceClone: declaredVoiceCloneStatus(process.env),
       speakerRecognition: speakerRecognitionState,
       faceRecognition: { ...faceRecognitionState, householdStrict },
       voice: {
@@ -3190,6 +3193,46 @@ const server = createServer(async (request, response) => {
         provider: 'replaceable-broker',
       },
     });
+    return;
+  }
+
+  // Inventario de metadatos: acceso del Founder, clave desde CredentialBroker,
+  // sin transmitir audio, nombre de menor, conversaciones o muestras originales.
+  // La presencia de un voice_id NO certifica que el clon del Founder exista.
+  if (request.method === 'GET' && url.pathname === '/api/voice/clone-status') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, {
+        ok: true,
+        clone: declaredVoiceCloneStatus(process.env),
+        cloneCreation: 'pending',
+        ownershipVerification: 'pending',
+        founderAcceptance: 'pending',
+        note: 'El proveedor TTS puede funcionar con una voz temporal; no equivale a un clon verificado.',
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/voice/provider/voices') {
+    try {
+      requireFounderAuthority(request);
+      const provider = new ElevenLabsVoiceManagementAdapter({
+        apiKeyProvider: () => credentialBroker.accessToken('elevenlabs'),
+      });
+      const voices = await provider.listPersonalVoices();
+      json(response, 200, {
+        ok: true, source: 'elevenlabs', cloneStatus: 'pending-unverified',
+        voices, // solo datos metadata; jamás credenciales, samples o audio
+      });
+    } catch (error) {
+      // Fallo del proveedor no significa que exista o no exista un clon.
+      const status = error instanceof HttpRequestError ? authErrorStatus(error)
+        : error instanceof AuthorityAuthenticationError ? authErrorStatus(error) : 503;
+      json(response, status, authErrorBody(error));
+    }
     return;
   }
 
