@@ -67,6 +67,19 @@ try {
   const health = await waitForJson(`${base}/health`, 8_000);
   assert.equal(health.ok, true);
   assert.equal(health.service, 'janus-runtime');
+  assert.equal(health.evolutionGuard?.endpoint, '/api/evolution');
+  // Ambas dashboards comparten el origen con JANUS CORE y la PWA.
+  for (const skin of ['a', 'b']) {
+    const page = await fetch(`${base}/dashboard/${skin}`);
+    assert.equal(page.status, 200, 'dashboard ' + skin + ' debe cargar');
+    assert.match(page.headers.get('content-type') || '', /text\/html/);
+    const html = await page.text();
+    assert.match(html, /JanusGateway/);
+    assert.match(html, /JanusNexo3D/);
+    assert.match(html, /JanusAvatarCatalog/);
+  }
+  const unauthorizedEvolution = await fetch(`${base}/api/evolution`);
+  assert.equal(unauthorizedEvolution.status, 401, 'premortem requiere Founder autenticado');
   assert.equal(health.durable, true);
   assert.equal(health.db, 'memory');
   assert.equal(health.timeZone, 'Europe/Amsterdam');
