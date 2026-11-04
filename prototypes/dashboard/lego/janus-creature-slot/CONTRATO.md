@@ -76,3 +76,14 @@ Atributo de vértice **`COLOR_1`, canal R** = flexibilidad (0 anclado, 1 libre).
 - Recolorear o cambiar materiales de un GLB desde el Vestidor (accesorios en sockets: fase 2).
 - Medidas en iPhone/iPad reales (solo se midió por software con SwiftShader).
 - Un GLB de verdad: los dos de `tests/fixtures/` son sintéticos, hechos para probar el contrato; no son criaturas.
+
+## Casting NEXO masculino y femenino (2026-11-04)
+
+El contrato GLB existente también se utiliza para los dos robots aprobados; **no se crea otro importador ni se duplican los visemas**.
+
+- `nexo-masculino`: identidad visual inicial **Jean**.
+- `nexo-femenino`: identidad visual inicial **Melanie**.
+- Cada uno tiene un slot independiente y privado en IndexedDB local. `robot` sigue siendo el robot clásico y no se sustituye.
+- Importar un GLB riggeado válido en cualquiera de estos slots sustituye únicamente la **malla procedural 3D de ese personaje**, manteniendo la misma cámara, controles táctiles, estados de escucha/conversación y expresiones.
+- Los alias de casting pueden cambiar localmente: nunca otorgan autorización ni reconocimiento biométrico.
+- La aprobación de las **imágenes de referencia** no equivale a validar la geometría real del GLB: el activo final debe cotejarse visualmente con ambas referencias aprobadas y comprobarse en iPhone antes de declararlo hiperrealista y productivo.
