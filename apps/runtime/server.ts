@@ -246,6 +246,13 @@ import { safeSpokenRunSummary } from '../../packages/voice/src/run-response.js';
 import { VoiceStreamServer } from '../../packages/voice/src/websocket-transport.js';
 
 const port = Number(process.env.PORT ?? 8787);
+// Política local-first: el servicio contiene datos y trazas privados; escuchando
+// en 0.0.0.0 expondría endpoints de lectura antiguos sin autenticación.
+// Acceso desde otros dispositivos: SOLO mediante un proxy HTTPS autenticado hacia loopback.
+const bindHost = process.env.JANUS_BIND_HOST?.trim() || '127.0.0.1';
+if (!['127.0.0.1', '::1', 'localhost'].includes(bindHost)) {
+  throw new Error('JANUS_BIND_HOST remoto rechazado: use loopback y un proxy HTTPS autenticado; no exponga SQLite/Janus directamente.');
+}
 const root = fileURLToPath(new URL('../pwa/', import.meta.url));
 const dashboardRoot = fileURLToPath(new URL('../../prototypes/dashboard/', import.meta.url));
 const dashboardBuild = join(dashboardRoot, 'build.cjs');
@@ -6087,6 +6094,6 @@ process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
 
-server.listen(port, '0.0.0.0', () => {
-  console.log(`JANUS runtime listening on http://0.0.0.0:${port}`);
+server.listen(port, bindHost, () => {
+  console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);
 });
