@@ -19,9 +19,10 @@ const info = (p, id) => p.evaluate((id) => { const o = Janus3D._inst[id]; return
   const br = await chromium.launch({ ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'] });
   console.log('\n[telefono] el robot junto al chat se transforma');
   let { ctx, p, errs } = await nueva(br, 430, 932, '#');
-  ok(await p.evaluate(() => Janus3D.form() === 'robot' && Janus3D.FORMS.length === 7), 'por defecto es el robot de siempre; hay 7 formas');
+  ok(await p.evaluate(() => Janus3D.form() === 'nexo-masculino' && Janus3D.FORMS.length === 9), 'por defecto Jean · NEXO masculino; 9 formas incl. Melanie y criaturas');
+  ok(await p.evaluate(() => JanusAvatarCatalog.casting('nexo-femenino').display.includes('Melanie') && JanusAvatarCatalog.casting('nexo-masculino').display.includes('Jean')), 'casting visual Jean/Melanie sin privilegios ni biometría');
   ok(!!(await p.$('.a2bot .a2morph')), 'el botón de transformar está en el propio robot del chat');
-  const seq = [['cabeza', (i) => i.mount && i.alt === null], ['cara', (i) => i.alt === 'cara' && !i.rootVisible], ['lumi', (i) => i.alt === 'lumi'], ['bombo', (i) => i.alt === 'bombo'], ['musgo', (i) => i.alt === 'musgo'], ['nimbo', (i) => i.alt === 'nimbo'], ['robot', (i) => i.alt === null && !i.mount && i.rootVisible]];
+  const seq = [['nexo-femenino', (i) => i.alt === 'nexo-femenino' && !i.rootVisible], ['robot', (i) => i.alt === null && !i.mount && i.rootVisible], ['cabeza', (i) => i.mount && i.alt === null], ['cara', (i) => i.alt === 'cara' && !i.rootVisible], ['lumi', (i) => i.alt === 'lumi'], ['bombo', (i) => i.alt === 'bombo'], ['musgo', (i) => i.alt === 'musgo'], ['nimbo', (i) => i.alt === 'nimbo'], ['nexo-masculino', (i) => i.alt === 'nexo-masculino' && !i.rootVisible]];
   for (const [f, chk] of seq) {
     await p.click('.a2bot .a2morph'); await p.waitForTimeout(2200); const i = await info(p, 'bot-dash');
     ok(i && i.form === f && i.host === f && chk(i), 'toca «transformar» → ' + f + ' (' + JSON.stringify(i) + ')'); if (f !== 'robot') await shot(p, 'tel-' + f);
@@ -31,7 +32,18 @@ const info = (p, id) => p.evaluate((id) => { const o = Janus3D._inst[id]; return
 
   console.log('\n[telefono] Sala: forma, ánimo y color de ojos');
   ({ ctx, p, errs } = await nueva(br, 430, 932, '#trabajo'));
-  ok((await p.$$('.avc .avchip')).length >= 13, 'la Sala muestra formas, ánimos y el hueco del modelo');
+  ok((await p.$('.avc .avchip')).length >= 13, 'la Sala muestra formas, ánimos y el hueco del modelo');
+  await p.click('.avc .avchip[data-arg="nexo-femenino"]'); await p.waitForTimeout(1200);
+  ok((await info(p, 'bot-sala')).alt === 'nexo-femenino', 'Melanie: avatar 3D volumétrico en la MISMA escena');
+  await p.click('.avc .avchip[data-arg="nexo-masculino"]'); await p.waitForTimeout(1200);
+  ok((await info(p, 'bot-sala')).alt === 'nexo-masculino', 'Jean: avatar 3D volumétrico en la MISMA escena');
+  ok(await p.evaluate(() => {
+    const bot = Janus3D._inst['bot-sala'].alt;
+    const id = bot && bot.root && bot.root.userData.approvedIdentity;
+    const lips = []; bot.root.traverse((x) => { if (x.name && /labio-|nariz-|iris-azul/.test(x.name)) lips.push(x.name); });
+    bot.update(2, 0.016, { pose:'habla', mood:'sorprendido', talk:true, listening:true });
+    return id === 'nexo-masculino' && lips.some(x => x.includes('superior')) && lips.some(x => x.includes('inferior')) && lips.some(x => x.includes('nariz'));
+  }), 'NEXO masculino: labios 3D separados, nariz y expresiones animables');
   await p.click('.avc .avchip[data-arg="cabeza"]'); await p.waitForTimeout(2000); ok((await info(p, 'bot-sala')).form === 'cabeza', 'la forma cambia en el robot de la Sala');
   for (const m of ['triste', 'enojado', 'sorprendido', 'alegre']) { await p.click('.avc .avchip[data-arg="' + m + '"]'); await p.waitForTimeout(1200); ok(await p.evaluate(() => 1) && (await p.evaluate(() => Janus3D.mood())) === m, 'ánimo: ' + m); await shot(p, 'sala-cabeza-' + m); }
   await p.click('.avc .avsw:nth-child(2)'); await p.waitForTimeout(800); ok((await p.evaluate(() => Janus3D.eyes())).toLowerCase() === '#59e4d4', 'el color de ojos y boca se cambia');
