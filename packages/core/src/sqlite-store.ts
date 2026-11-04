@@ -1615,6 +1615,65 @@ export class SqliteStore {
     this.db.prepare('DELETE FROM trigger_queue WHERE id = ?').run(id);
   }
 
+  /** Añade una revisión aprobada. La clave primaria impide dos revisiones con el mismo número (compare-and-set). */
+  appendBusinessKnowledgeRevision(record: { revision: number; at: string; approvalRef: string; stateChecksum: string; payload: unknown }): void {
+    this.db.prepare(`
+      INSERT INTO business_knowledge_revisions (revision, at, approval_ref, state_checksum, revision_json)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(record.revision, record.at, record.approvalRef, record.stateChecksum, JSON.stringify(record.payload));
+  }
+
+  listBusinessKnowledgeRevisions(): unknown[] {
+    const rows = this.db.prepare('SELECT revision_json FROM business_knowledge_revisions ORDER BY revision ASC').all();
+    return (rows as Record<string, unknown>[]).map((row) => JSON.parse(String(row.revision_json)) as unknown);
+  }
+
+  putBusinessKnowledgeProposal(record: { id: string; key: string; createdAt: string; expiresAt: string; payload: unknown }): void {
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare("UPDATE business_knowledge_proposals SET status = 'superseded' WHERE proposal_key = ? AND status = 'pending'").run(record.key);
+      this.db.prepare(`
+        INSERT INTO business_knowledge_proposals (id, proposal_key, status, created_at, expires_at, proposal_json)
+        VALUES (?, ?, 'pending', ?, ?, ?)
+      `).run(record.id, record.key, record.createdAt, record.expiresAt, JSON.stringify(record.payload));
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  findPendingBusinessKnowledgeProposal(key: string, nowIso: string): { id: string; payload: unknown } | undefined {
+    const row = this.db.prepare(`
+      SELECT id, proposal_json FROM business_knowledge_proposals
+      WHERE proposal_key = ? AND status = 'pending' AND expires_at >= ?
+      ORDER BY created_at DESC LIMIT 1
+    `).get(key, nowIso) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), payload: JSON.parse(String(row.proposal_json)) as unknown } : undefined;
+  }
+
+  setBusinessKnowledgeProposalStatus(id: string, status: 'applied' | 'superseded' | 'rejected'): void {
+    this.db.prepare('UPDATE business_knowledge_proposals SET status = ? WHERE id = ?').run(status, id);
+  }
+
+  upsertBusinessKnowledgeConsumerReport(report: { consumer: string; revision: number; checksum: string; reportedAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO business_knowledge_consumer_reports (consumer, revision, checksum, reported_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(consumer) DO UPDATE SET revision = excluded.revision, checksum = excluded.checksum, reported_at = excluded.reported_at
+    `).run(report.consumer, report.revision, report.checksum, report.reportedAt);
+  }
+
+  listBusinessKnowledgeConsumerReports(): Array<{ consumer: string; revision: number; checksum: string; reportedAt: string }> {
+    const rows = this.db.prepare('SELECT consumer, revision, checksum, reported_at FROM business_knowledge_consumer_reports ORDER BY consumer ASC').all();
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      consumer: String(row.consumer),
+      revision: Number(row.revision),
+      checksum: String(row.checksum),
+      reportedAt: String(row.reported_at),
+    }));
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`
@@ -1979,6 +2038,42 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_social_channel_product_time
       ON social_channel_snapshots(product_id, platform, verified_at, id);
+
+      -- Conocimiento del negocio (módulo business-knowledge): historial APPEND-ONLY de revisiones aprobadas.
+      CREATE TABLE IF NOT EXISTS business_knowledge_revisions (
+        revision INTEGER PRIMARY KEY,
+        at TEXT NOT NULL,
+        approval_ref TEXT NOT NULL,
+        state_checksum TEXT NOT NULL,
+        revision_json TEXT NOT NULL
+      );
+
+      CREATE TRIGGER IF NOT EXISTS business_knowledge_revisions_no_update
+      BEFORE UPDATE ON business_knowledge_revisions
+      BEGIN SELECT RAISE(ABORT, 'business_knowledge_revisions is append-only'); END;
+
+      CREATE TRIGGER IF NOT EXISTS business_knowledge_revisions_no_delete
+      BEFORE DELETE ON business_knowledge_revisions
+      BEGIN SELECT RAISE(ABORT, 'business_knowledge_revisions is append-only'); END;
+
+      CREATE TABLE IF NOT EXISTS business_knowledge_proposals (
+        id TEXT PRIMARY KEY,
+        proposal_key TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        proposal_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_business_knowledge_proposals_key
+      ON business_knowledge_proposals(proposal_key, status, created_at);
+
+      CREATE TABLE IF NOT EXISTS business_knowledge_consumer_reports (
+        consumer TEXT PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        checksum TEXT NOT NULL,
+        reported_at TEXT NOT NULL
+      );
 
       CREATE TABLE IF NOT EXISTS flow_runs (
         run_id TEXT PRIMARY KEY,

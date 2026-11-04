@@ -65,6 +65,8 @@ export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
   requireAuthentication: true,
   confirmationActions: ['delete_all', 'rotate_root_keys', 'disable_audit', 'transfer_authority'],
   founderOnlyActions: [
+    'knowledge.change.apply',
+    'knowledge.snapshot.publish',
     'founder.private.*',
     'security.biometric.*',
     'security.authority.*',
@@ -77,6 +79,8 @@ export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
     'transfer_authority',
   ],
   biometricActions: [
+    'knowledge.change.apply',
+    'knowledge.snapshot.publish',
     'founder.private.*',
     'security.biometric.*',
     'security.authority.*',

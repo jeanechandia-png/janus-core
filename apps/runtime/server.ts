@@ -219,6 +219,7 @@ import { FallbackTextToSpeechGateway } from '../../packages/voice/src/fallback-t
 import { VoiceSessionRegistry } from '../../packages/voice/src/registry.js';
 import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js';
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
+import { BusinessKnowledgeToolAdapter } from '../../packages/adapters/src/business-knowledge-tool-adapter.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
@@ -321,6 +322,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     hostinger: 'HOSTINGER_API_TOKEN',
     'hostinger-release': 'HOSTINGER_RELEASE_TOKEN',
     elevenlabs: 'ELEVENLABS_API_KEY',
+    'knowledge-publish': 'JANUS_KNOWLEDGE_PUBLISH_TOKEN',
     ...httpServiceVariables,
     ...mailServiceVariables,
   },
@@ -578,6 +580,36 @@ capabilities.register({
   tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
+});
+
+// Conocimiento del negocio (precios, IVA, productos, equipo, instrucciones): se propone por voz/chat, se lee de vuelta
+// y SOLO se aplica con aprobación del Founder (autoridad + Face ID). Publicar fuera de Janus es opt-in por entorno.
+const knowledgePublishUrl = process.env.JANUS_KNOWLEDGE_PUBLISH_URL?.trim() || undefined;
+toolGateway.register(new BusinessKnowledgeToolAdapter({
+  store: {
+    appendRevision: (record) => store.appendBusinessKnowledgeRevision(record),
+    listRevisions: () => store.listBusinessKnowledgeRevisions(),
+    putProposal: (record) => store.putBusinessKnowledgeProposal(record),
+    findPendingProposal: (key, nowIso) => store.findPendingBusinessKnowledgeProposal(key, nowIso),
+    setProposalStatus: (id, status) => store.setBusinessKnowledgeProposalStatus(id, status),
+    upsertConsumerReport: (report) => store.upsertBusinessKnowledgeConsumerReport(report),
+    listConsumerReports: () => store.listBusinessKnowledgeConsumerReports(),
+  },
+  ...(knowledgePublishUrl
+    ? { publish: { url: knowledgePublishUrl, tokenProvider: () => credentialBroker.accessToken('knowledge-publish') } }
+    : {}),
+  statusUrls: parseKnowledgeStatusUrls(process.env.JANUS_KNOWLEDGE_STATUS_URLS),
+}));
+capabilities.register({
+  tool: 'knowledge',
+  actions: ['entries.list', 'snapshot.get', 'change.propose', 'change.apply', 'sync.check'],
+  state: 'available',
+});
+capabilities.register({
+  tool: 'knowledge',
+  actions: ['snapshot.publish'],
+  state: knowledgePublishUrl ? 'available' : 'disabled',
+  ...(knowledgePublishUrl ? {} : { reason: 'Sin destino de publicación (JANUS_KNOWLEDGE_PUBLISH_URL): el conocimiento queda solo en Janus.' }),
 });
 
 // Optional speaker recognition (convenience only; never an authority). Needs explicit configuration.
@@ -1547,6 +1579,21 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     console.warn('Voice: ElevenLabs sin respaldo local (JANUS_TTS_BASE_URL ausente); si el proveedor falla, no habrá voz.');
   }
   return new CompositeVoiceGateway(stt, router);
+}
+
+function parseKnowledgeStatusUrls(raw: string | undefined): Record<string, string> {
+  if (!raw?.trim()) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('JANUS_KNOWLEDGE_STATUS_URLS must be a JSON object {"consumidor":"https://…"}');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+    || !Object.values(parsed as Record<string, unknown>).every((url) => typeof url === 'string' && url.startsWith('https://'))) {
+    throw new Error('JANUS_KNOWLEDGE_STATUS_URLS entries must be https URLs');
+  }
+  return parsed as Record<string, string>;
 }
 
 function numericEnv(name: string): number | undefined {

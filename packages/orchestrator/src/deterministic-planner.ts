@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createPlan, type JanusPlan, type PlannedToolStep } from './plan.js';
 
 interface GitHubTarget {
@@ -15,6 +16,10 @@ export function deterministicPlan(
   command: string,
   context: DeterministicPlannerContext = {},
 ): JanusPlan | null {
+  // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
+  // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
+  if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);
+
   const github = parseGitHubTarget(command);
   if (github) return githubPlan(command, github);
 
@@ -322,4 +327,72 @@ function schoolPlan(command: string, request: SchoolRequest): JanusPlan {
       resultMode: 'full',
     },
   ], 'deterministic');
+}
+
+
+// ── Conocimiento del negocio (voz/chat → propuesta → aprobación → aplicar) ─────────────────────────────────────
+function foldForRouting(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+const KNOWLEDGE_CHANGE_VERBS = /\b(cambia|cambiar|actualiza|actualizar|pon|ponle|sube|baja|ajusta|fija|modifica|modificar|corrige)\w*/;
+const KNOWLEDGE_AMOUNT = /\d[\d.,]*\s*(?:euros?|eur|€)/;
+
+/** Frases que piden cambiar lo que Melanie y los chats saben del negocio. Estricto: ante la duda, no se activa. */
+export function isKnowledgeChangeRequest(command: string): boolean {
+  const text = foldForRouting(command);
+  if (!text || text.length > 600 || text.includes('?')) return false;
+
+  // Instrucción explícita
+  if (/\b(?:guarda|registra|anota|memoriza|apunta|anade|toma nota de)\b[^.]{0,30}\binstruccion/.test(text)) return true;
+  // A partir de ahora … SOLO si va dirigido a Melanie/asistentes/clientes
+  if (/\b(?:a partir de ahora|desde ahora)\b/.test(text) && /\b(?:melanie|asistentes?|clientes?|chat de la web)\b/.test(text)) return true;
+  // Pregunta frecuente
+  if (/\bsi\b[^.]{0,60}\b(?:pregunta|preguntan|pide|piden)\b[^.]*\b(?:responde|contesta|dile|diles)\b/.test(text)) return true;
+  // IVA por defecto
+  if (/\b(?:cambia|actualiza|pon|fija|ajusta|sube|baja)\w*\s+(?:el\s+|los\s+)?(?:tipo de\s+)?iva\b[^.]*\d\s*(?:%|por ?ciento)/.test(text)) return true;
+  // Producto nuevo o retirado
+  if (/\b(?:anade|agrega|crea|incluye|lanzamos|hemos lanzado|tenemos)\s+(?:un|una|el|la)?\s*(?:nuevo\s+|nueva\s+)?(?:producto|modulo|servicio|plan|paquete)\b/.test(text)) return true;
+  if (/\b(?:quita|retira|elimina|da de baja|descataloga)\s+(?:el|la)?\s*(?:producto|modulo|servicio|plan|paquete)\b/.test(text)) return true;
+  // Equipo
+  if (/\b(?:nuev[oa]\s+(?:integrante|miembro|companer[oa]|colaborador)|se (?:ha )?(?:incorporado|unido|sumado)\s+(?:al equipo)|incorporamos a|fichamos a|damos la bienvenida a)\b/.test(text)) return true;
+  // Precio con importe y verbo de cambio (o «ahora cuesta»)
+  if (KNOWLEDGE_AMOUNT.test(text)) {
+    if (/\b(?:precio|tarifa|cuota|coste)\s+(?:del?|de la|de los|de las|para)\b/.test(text) && (KNOWLEDGE_CHANGE_VERBS.test(text) || /\b(?:pasa|pase|sera|es)\b/.test(text))) return true;
+    if (/\bahora\s+(?:cuesta|vale|cuestan|valen)\b/.test(text)) return true;
+    if (/\bmelanie\b/.test(text) && /\b(?:cuesta|vale)\b/.test(text)) return true;
+  }
+  return false;
+}
+
+function knowledgeChangePlan(command: string): JanusPlan {
+  const proposalKey = createHash('sha256').update(foldForRouting(command)).digest('hex').slice(0, 24);
+  const steps: PlannedToolStep[] = [
+    {
+      id: 'knowledge-propose',
+      kind: 'tool',
+      label: 'Entender el cambio y leértelo antes de tocar nada',
+      tool: 'knowledge',
+      action: 'change.propose',
+      input: { utterance: command.trim().slice(0, 600), proposalKey, source: 'voice' },
+      risk: 'none',
+      reversible: true,
+      requiresApproval: false,
+      resultMode: 'full',
+    },
+    {
+      id: 'knowledge-apply',
+      kind: 'tool',
+      label: 'Aplicar el cambio leído al conocimiento del negocio (requiere tu aprobación con Face ID)',
+      tool: 'knowledge',
+      action: 'change.apply',
+      input: { proposalKey },
+      risk: 'high',
+      reversible: false,
+      requiresApproval: true,
+      idempotencyKey: `knowledge:apply:${proposalKey}`,
+      resultMode: 'full',
+    },
+  ];
+  return createPlan(command, steps, 'deterministic');
 }

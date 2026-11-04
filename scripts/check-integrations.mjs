@@ -40,6 +40,7 @@ const groups = [
   ['Almacén cifrado de credenciales', ['JANUS_CREDENTIAL_VAULT_KEY'], ['JANUS_CREDENTIAL_VAULT_PATH']],
   ['Consentimiento de Google por buzón', ['JANUS_CREDENTIAL_VAULT_KEY', 'GOOGLE_OAUTH_CLIENT_ID'], ['GOOGLE_OAUTH_CLIENT_SECRET', 'JANUS_OAUTH_REDIRECT_BASE']],
   ['Seguimiento periódico de redes', ['JANUS_SOCIAL_WATCH_INTERVAL_MIN'], []],
+  ['Conocimiento del negocio: publicar a Melanie y chats (con aprobación)', ['JANUS_KNOWLEDGE_PUBLISH_URL', 'JANUS_KNOWLEDGE_PUBLISH_TOKEN'], ['JANUS_KNOWLEDGE_STATUS_URLS']],
   ['Voz en la nube (ElevenLabs, temporal y opcional)', ['ELEVENLABS_API_KEY', 'JANUS_ELEVENLABS_VOICE_ID'], ['JANUS_ELEVENLABS_MODEL', 'JANUS_ELEVENLABS_DAILY_CHARS']],
 ];
 

@@ -1,0 +1,22 @@
+{
+  "id": "business-knowledge",
+  "version": "1.0.0",
+  "kind": "knowledge-module",
+  "summary": "Catálogo y conocimiento vivo del negocio (productos, precios, IVA, equipo, preguntas frecuentes e instrucciones) con propuestas, lectura de confirmación en español, revisiones encadenadas y snapshots firmados por checksum para sincronizar asistentes.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "business-internal",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder (only node: built-ins).",
+    "A change is never applied without an explicit approval reference; proposals only describe it.",
+    "History is append-only: retiring an entry never deletes it.",
+    "Text that looks like a secret or an attempt to override assistant rules is rejected, never stored.",
+    "Snapshots contain only entries visible to the requested audience and carry a deterministic SHA-256 checksum.",
+    "A consumer counts as synchronized only when it reports the same revision AND checksum."
+  ],
+  "reuseNotes": "Import from src/index.ts. The host product owns persistence (Janus stores revisions in SQLite through an adapter), approvals and the publication channel. Feed utterances through parseSpanishUtterance + resolveIntent; apply with applyChanges once the host has an approval."
+}
