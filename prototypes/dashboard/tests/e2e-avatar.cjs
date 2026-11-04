@@ -19,8 +19,8 @@ const info = (p, id) => p.evaluate((id) => { const o = Janus3D._inst[id]; return
   const br = await chromium.launch({ ...(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}), args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--allow-file-access-from-files'] });
   console.log('\n[telefono] el robot junto al chat se transforma');
   let { ctx, p, errs } = await nueva(br, 430, 932, '#');
-  ok(await p.evaluate(() => Janus3D.form() === 'nexo-masculino' && Janus3D.FORMS.length === 9), 'por defecto Jean · NEXO masculino; 9 formas incl. Melanie y criaturas');
-  ok(await p.evaluate(() => JanusAvatarCatalog.casting('nexo-femenino').display.includes('Melanie') && JanusAvatarCatalog.casting('nexo-masculino').display.includes('Jean')), 'casting visual Jean/Melanie sin privilegios ni biometría');
+  ok(await p.evaluate(() => Janus3D.form() === 'nexo-masculino' && Janus3D.FORMS.length === 9), 'por defecto Janus · NEXO masculino; 9 formas incl. Melanie y criaturas');
+  ok(await p.evaluate(() => JanusAvatarCatalog.casting('nexo-femenino').display.includes('Melanie') && JanusAvatarCatalog.casting('nexo-masculino').display.includes('Janus')), 'casting visual Janus/Melanie sin privilegios ni biometría');
   ok(!!(await p.$('.a2bot .a2morph')), 'el botón de transformar está en el propio robot del chat');
   const seq = [['nexo-femenino', (i) => i.alt === 'nexo-femenino' && !i.rootVisible], ['robot', (i) => i.alt === null && !i.mount && i.rootVisible], ['cabeza', (i) => i.mount && i.alt === null], ['cara', (i) => i.alt === 'cara' && !i.rootVisible], ['lumi', (i) => i.alt === 'lumi'], ['bombo', (i) => i.alt === 'bombo'], ['musgo', (i) => i.alt === 'musgo'], ['nimbo', (i) => i.alt === 'nimbo'], ['nexo-masculino', (i) => i.alt === 'nexo-masculino' && !i.rootVisible]];
   for (const [f, chk] of seq) {
@@ -36,7 +36,7 @@ const info = (p, id) => p.evaluate((id) => { const o = Janus3D._inst[id]; return
   await p.click('.avc .avchip[data-arg="nexo-femenino"]'); await p.waitForTimeout(1200);
   ok((await info(p, 'bot-sala')).alt === 'nexo-femenino', 'Melanie: avatar 3D volumétrico en la MISMA escena');
   await p.click('.avc .avchip[data-arg="nexo-masculino"]'); await p.waitForTimeout(1200);
-  ok((await info(p, 'bot-sala')).alt === 'nexo-masculino', 'Jean: avatar 3D volumétrico en la MISMA escena');
+  ok((await info(p, 'bot-sala')).alt === 'nexo-masculino', 'Janus: avatar 3D volumétrico en la MISMA escena');
   ok(await p.evaluate(() => {
     const bot = Janus3D._inst['bot-sala'].alt;
     const id = bot && bot.root && bot.root.userData.approvedIdentity;
