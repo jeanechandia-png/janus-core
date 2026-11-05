@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v9';
+const CACHE = 'janus-shell-v10';
 const SHELL = [
   '/',
   '/index.html',
@@ -13,6 +13,8 @@ const SHELL = [
   '/icons/janus-icon-180.png',
   '/icons/janus-icon-192.png',
   '/icons/janus-icon-512.png',
+  '/icons/janus-icon-maskable-192.png',
+  '/icons/janus-icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (event) => {
