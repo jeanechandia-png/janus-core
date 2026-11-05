@@ -6565,8 +6565,10 @@ const COMP_ACTS = {
     if (!V || !V.styles.some((v) => v.id === style)) return;
     C.voiceStyles[C.creatureId] = style; saveState();
     COMP_UI.voiceMsg = 'Estilo guardado para ' + Companion.displayName(compProfile()) + '.';
-    const result = V.preview(C.creatureId, { style, enabled: C.voiceEnabled !== false });
-    if (!result.ok) COMP_UI.voiceMsg = 'Voz no disponible en el dispositivo. La configuración permanece guardada.';
+    if (C.voiceEnabled !== false) {
+      const result = V.preview(C.creatureId, { style });
+      if (!result.ok) COMP_UI.voiceMsg = 'Voz no disponible en el dispositivo. La configuración permanece guardada.';
+    }
   },
   cpVoiceToggle: () => {
     const C = compState(); C.voiceEnabled = C.voiceEnabled === false; saveState();
