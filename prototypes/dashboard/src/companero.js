@@ -7,16 +7,16 @@
  * Las lecciones usan representaciones concretas (IES/WWC 2021006, Rec. 3); no sustituyen a un profesional (ver pestaña «Papá»).
  */
 const CREAT_IMG = { lumi: IMG.cLumi, bombo: IMG.cBombo, musgo: IMG.cMusgo, nimbo: IMG.cNimbo };
-const CHILD = '__HIJA__';
+const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
 const CP_STAGE = 'kendra';
 const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
-  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
+  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
 function compProfile() {
-  const C = compState(), p = Companion.newKitProfile('hija', CHILD, C.creatureId);
+  const C = compState(), p = Companion.newKitProfile('kendra', CHILD, C.creatureId);
   p.names = C.names; p.mathLevel = C.level; p.encourage = C.enc; p.looks = C.looks; if (C.world) p.world = C.world; Companion.worldOf(p); return p;
 }
 function compSave(p) { const C = compState(); C.names = p.names; C.enc = p.encourage; C.looks = p.looks || {}; C.world = p.world; saveState(); }
@@ -60,6 +60,7 @@ function cpSyncStage(st) {
   if (st.setAspect) st.setAspect(C.aspect);
   st.setCreature(C.creatureId, hexLook(Companion.lookOf(p)));
   if (st.setWind) st.setWind(Number.isFinite(C.windStrength) ? C.windStrength : 0.3);
+  if (st.setFurStyle) st.setFurStyle(C.furStyles[C.creatureId] || 'natural');
   st.setWorld({ home: w.home, vehicle: w.vehicle, decor: w.decor });
   st.setMode(C.tab === 'mundo' ? 'mundo' : 'escena');
   if (C.tab !== 'mundo') st.setView(COMP_UI.view);
@@ -111,7 +112,7 @@ function cpCheckGoal() {
   const r = Companion.checkBuild(COMP_UI.scn, g), key = L.exerciseId + ':' + COMP_UI.si;
   if (r.done && !COMP_UI.goalDone[key]) {
     COMP_UI.goalDone[key] = true; cpEarn('leccion', 'leccion:' + key);
-    const st = cpStage(); if (st) st.celebrate(); cpSay('¡Lo lograste tú solita! Mira cómo queda.', 'celebra');
+    const st = cpStage(); if (st) st.celebrate(); cpSay('¡Lo lograste, ' + CHILD + '! Mira cómo queda.', 'celebra');
   }
 }
 
@@ -163,8 +164,18 @@ function tabVestidor(p, name) {
   const sw = (part, cur) => '<div class="cpsw">' + Companion.SWATCH_IDS.map((id) => dot('cpWear', part + '|' + id, S[id].hex, S[id].label, cur === id)).join('') + '</div>';
   const price = (k) => (Companion.kitShop.item(k) || { price: 0 }).price;
   const slotRow = (slot) => '<div class="cpgr"><h4 class="mono">' + esc(Companion.SLOT_LABEL[slot]) + '</h4><div class="cpchips">' + chip('cpWear', 'accessory|' + slot + '|', '∅', 'Ninguno', !look.accessories[slot] ? 'on' : '') + Companion.ACCESSORIES[slot].map((a) => { const k = Companion.accessoryKey(slot, a.id); return chip('cpWear', 'accessory|' + slot + '|' + a.id, a.icon, a.label, look.accessories[slot] === a.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div></div>';
-  const asp = compState().aspect, canFace = !!window.JanusFace3D;
-  return (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
+  const C = compState(), asp = C.aspect, canFace = !!window.JanusFace3D;
+  const species = C.creatureId, opts = CP_STYLES[species] || CP_STYLES.lumi;
+  const style = C.furStyles[species] || 'natural';
+  const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
+    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
+    '<div class="addf"><input type="text" data-f="cpNewName" maxlength="20" value="' + esc(name) + '" aria-label="Nombre de mi criatura" placeholder="Escribe el nombre que quieras">' +
+    '<span class="btn" role="button" tabindex="0"' + act('cpRenameWardrobe', '', 'Guardar el nombre de mi criatura') + '>Guardar nombre</span></div>' +
+    (COMP_UI.nameMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.nameMsg) + '</p>' : '') + '</div>';
+  const furPanel = '<div class="cpgr"><h4 class="mono">' + (species === 'bombo' ? 'Forma de las branquias' : species === 'musgo' ? 'Estilo del musgo' : species === 'nimbo' ? 'Forma de la nube' : 'Estilo del pelaje') + '</h4>' +
+    '<p class="cpmini dim">Personalízalo como más te guste. La forma cambia en la criatura 3D; su personalidad y sus recuerdos siguen siendo los mismos.</p>' +
+    '<div class="cpchips">' + opts.map((item) => chip('cpStyle', item[0], '✦', item[1], style === item[0] ? 'on' : '')).join('') + '</div></div>';
+  return identity + furPanel + (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
     '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
     '<div class="cpgr"><h4 class="mono">Viento en fibras 3D</h4><div class="cpchips">' +
       [[0, '🍃 Calma'], [0.3, '🌬 Brisa'], [0.7, '💨 Viento']].map((v) => chip('cpWind', v[0], v[1], v[1], String(Number.isFinite(compState().windStrength) ? compState().windStrength : 0.3) === String(v[0]) ? 'on' : '')).join('') +
@@ -190,6 +201,12 @@ function tabMundo(p, name) {
     '<div class="cpgr"><h4 class="mono">Decoración (hasta ' + Companion.MAX_DECOR + ')</h4><div class="cpchips">' + (ownedOf(Companion.DECOR_KEYS).map((k) => chip('cpDecor', k, it(k).icon, it(k).label, w.decor.includes(k) ? 'on' : '')).join('') || '<span class="dim">Todavía no tienes. ¡Mira la Tienda!</span>') + '</div></div>' +
     '<div class="cpbtns"><span class="btn2 mono"' + act('cpTab', 'tienda', 'Ir a la tienda') + '>⭐ Ir a la tienda</span></div>';
 }
+const CP_STYLES = {
+  lumi: [['natural', 'Natural'], ['corto', 'Cortito'], ['esponjoso', 'Esponjoso'], ['rebelde', 'Despeinado']],
+  musgo: [['natural', 'Natural'], ['corto', 'Musgo corto'], ['esponjoso', 'Frondoso'], ['rebelde', 'Silvestre']],
+  nimbo: [['natural', 'Natural'], ['corto', 'Nube suave'], ['esponjoso', 'Nube esponjosa'], ['rebelde', 'Ondulado']],
+  bombo: [['natural', 'Branquias naturales'], ['corto', 'Compactas'], ['esponjoso', 'Abundantes'], ['rebelde', 'Onduladas']]
+};
 const CP_MOODS = [['alegre', '😄', 'Alegre'], ['contento', '🙂', 'Contento'], ['triste', '😢', 'Triste'], ['enojado', '😠', 'Enojado'], ['sorprendido', '😮', 'Sorprendido'], ['pensativo', '🤔', 'Pensativo']];
 function tabHablar(p, name) {
   const sc = Companion.SCENARIOS[compState().sc % Companion.SCENARIOS.length];
@@ -244,15 +261,33 @@ function parseWear(arg) {
   if (part === 'accessory') return { part, slot: a[1], value: a[2] || null };
   return { part, value: a[1] };
 }
+function cpRenameCommit(raw) {
+  const C = compState(), p = compProfile();
+  try {
+    const name = Companion.renameCreature(p, C.creatureId, String(raw || ''));
+    compSave(p); COMP_UI.renaming = false; COMP_UI.nameMsg = 'Nombre guardado: ' + name;
+    cpSay('¡Me encanta mi nombre, ' + CHILD + '! Ahora puedes llamarme ' + name + '.', 'celebra', false, 'alegre');
+  } catch (e) {
+    COMP_UI.nameMsg = 'Prueba otro nombre (entre 1 y 20 letras, sin palabras inapropiadas).';
+    cpSay('Kendra, probemos con otro nombre que te guste.', 'piensa', true, 'pensativo');
+  }
+}
 const COMP_ACTS = {
   cpNoop: () => { },
   cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
   cpVisual: (mode) => { const C = compState(); C.visualMode = mode === '3d' ? '3d' : 'cinematic'; saveState(); },
   cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; COMP_UI.renaming = false; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
-  cpRename: () => {
-    try { const C = compState(), p = compProfile(); Companion.renameCreature(p, C.creatureId, field('cpName')); compSave(p); COMP_UI.renaming = false; cpSay('¡Me encanta mi nombre nuevo! Gracias, ' + CHILD + '.', 'celebra'); }
-    catch (e) { if (/mejor no/.test(String(e && e.message))) { cpSay('Mmm, ese nombre mejor no. ¿Probamos con otro que nos guste a todos?', 'piensa'); } else COMP_UI.renaming = false; }
+  cpRename: () => cpRenameCommit(field('cpName')),
+  cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
+  cpStyle: (style) => {
+    const C = compState(), ids = (CP_STYLES[C.creatureId] || []).map((v) => v[0]);
+    if (!ids.includes(style)) return;
+    C.furStyles[C.creatureId] = style;
+    C.visualMode = '3d'; // previsualizacion REAL en vez de foto con paralaje
+    saveState();
+    const st = cpStage(); if (st && st.setFurStyle) st.setFurStyle(style);
+    cpSay('¡Mira, ' + CHILD + '! ¿Qué te parece mi nuevo estilo?', 'saluda', true, 'alegre');
   },
   cpWind: (v) => { const C = compState(), x = Number(v); if (![0, 0.3, 0.7].includes(x)) return; C.windStrength = x; saveState(); const st = cpStage(); if (st && st.setWind) st.setWind(x); },
   cpAspect: (a) => { const C = compState(); C.aspect = a === 'cara' ? 'cara' : 'criatura'; saveState(); const st = cpStage(); if (st && st.setAspect) { st.setAspect(C.aspect); st.sparkle(-1.6, 1.8, '#FFE9A0'); } cpSay(C.aspect === 'cara' ? '¡Ahora me ves la cara! Mira cómo cambian mis ojos.' : '¡Vuelvo a ser yo, con cuerpo y todo!', 'saluda', true, 'alegre'); },
@@ -321,7 +356,7 @@ const COMP_ACTS = {
     compSave(p); cpSay(t.say.join(' '), t.safety.parentAlert ? 'saluda' : 'habla');
   }
 };
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } } });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } else if (ev.target.matches('[data-f="cpNewName"]')) { COMP_ACTS.cpRenameWardrobe(); rerender(); } else if (ev.target.matches('[data-f="cpName"]')) { COMP_ACTS.cpRename(); rerender(); } } });
 
 /* ---- Módulo de criaturas (GLB): importar, refrescar la escena y recuperar lo guardado en este dispositivo ---- */
 document.addEventListener('change', async (ev) => {
