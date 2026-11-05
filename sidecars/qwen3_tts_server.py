@@ -24,6 +24,19 @@ _MODEL_CACHE: dict[str, Any] = {}
 _MODEL_LOCK = threading.Lock()
 _INFERENCE_LOCK = threading.Lock()
 
+_VOICE_CONFIG_LOCK = threading.Lock()
+
+
+def reload_voice_catalog(server: ThreadingHTTPServer) -> None:
+    """Reload voice definitions after an atomic local configuration update."""
+    with _VOICE_CONFIG_LOCK:
+        config_file = Path(server.voice_config_path)
+        stamp = config_file.stat().st_mtime_ns
+        if stamp != server.voice_config_stamp:
+            server.voices = load_voice_config(str(config_file))
+            server.voice_config_stamp = stamp
+
+
 
 def env_true(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() == "true"
