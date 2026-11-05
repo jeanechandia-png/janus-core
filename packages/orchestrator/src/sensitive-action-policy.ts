@@ -25,6 +25,10 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'google-workspace-write.gmail.draft.send': 'ENVÍA un correo desde tu cuenta (irreversible: el destinatario lo recibe).',
   'knowledge.change.apply': 'Cambia lo que Janus, Melanie y los chats saben del negocio (precios, IVA, productos, equipo, instrucciones).',
   'knowledge.snapshot.publish': 'Publica el conocimiento del negocio a los asistentes de cara al público (escritura externa).',
+  'voice-studio.design.apply': 'Instala una nueva voz sintética local; requiere validación explícita de identidad y autorización biométrica.',
+  'voice-studio.clone.apply': 'Crea un clon de voz con grabaciones originales y consentimiento; requiere autorización biométrica del Founder.',
+  'voice-studio.voice.revoke': 'Revoca una voz del registro local de síntesis y evita su uso posterior.',
+
   // Reservadas para canales por venir. Ningún adaptador las implementa todavía, pero nacen con aprobación obligatoria:
   // el día que exista uno, ni un planificador ni un flujo podrán ejecutarlas sin la confirmación del Founder.
   'whatsapp.message.send': 'ENVÍA un mensaje de WhatsApp en tu nombre (irreversible: el destinatario lo recibe).',
