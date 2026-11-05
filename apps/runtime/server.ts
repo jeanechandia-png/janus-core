@@ -56,6 +56,8 @@ import {
   type ProductOperationalRecord,
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
+import { buildPlatformFinOpsSnapshot } from '../../packages/core/src/platform-finops.js';
+import { pollBillingSources, type BillingPollFailure } from '../../packages/core/src/provider-billing-collector.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
@@ -557,6 +559,60 @@ function productOperationsPortfolioSnapshot() {
     productOperationsSnapshot(product.id)
   ));
 }
+
+let finopsRefreshInFlight: Promise<void> | null = null;
+let finopsConnectors: BillingPollFailure[] = [];
+let finopsLastPolledAt: string | null = null;
+
+function platformFinOpsSnapshot() {
+  // Reutiliza las lecturas verificadas del Operations Hub; no se inventan costes.
+  return {
+    ...buildPlatformFinOpsSnapshot(
+      store.listProductOperationalRecords(),
+      store.listProductHealthSnapshots(),
+      new Date().toISOString(),
+    ),
+    connectors: finopsConnectors,
+    lastPolledAt: finopsLastPolledAt,
+  };
+}
+function refreshFinOpsSources(): Promise<void> {
+  if (finopsRefreshInFlight) return finopsRefreshInFlight;
+  finopsRefreshInFlight = (async () => {
+    const now = new Date();
+    const report = await pollBillingSources(process.env, fetch, now);
+    for (const item of report.results) {
+      const previous = store.getProductOperationalRecord(item.providerId);
+      if (!previous) {
+        store.upsertProductOperationalRecord(createProductOperationalRecord({
+          id: item.providerId, name: item.providerName, status: 'active',
+          tags: ['finops:provider'],
+          sources: [{kind:'api',ref:item.source,purpose:'Solo lectura: consumo y cuota de proveedor'}],
+        }));
+      } else if (!previous.tags?.includes('finops:provider')) {
+        store.upsertProductOperationalRecord(createProductOperationalRecord({
+          ...previous, tags: [...(previous.tags ?? []),'finops:provider'],
+        }));
+      }
+      for (const reading of item.readings) {
+        store.appendProductHealthSnapshot(createProductHealthSnapshot(reading));
+      }
+    }
+    finopsConnectors = report.missing;
+    finopsLastPolledAt = now.toISOString();
+    // No revelar credenciales ni respuestas de proveedores en logs.
+    if (report.missing.length) console.warn(
+      '[JANUS FinOps] Fuentes pendientes: ' + report.missing.map(x => x.providerId+':'+x.status).join(', ')
+    );
+  })().finally(() => { finopsRefreshInFlight = null; });
+  return finopsRefreshInFlight;
+}
+
+// Recolección automática exclusivamente de endpoints de lectura; no bloquea el arranque ni cambia proveedores.
+void refreshFinOpsSources().catch(() => {console.warn('[JANUS FinOps] Recopilación no disponible');});
+setInterval(() => {
+  void refreshFinOpsSources().catch(() => {console.warn('[JANUS FinOps] Recopilación no disponible');});
+}, 15 * 60_000).unref();
 
 function assistantControlSnapshot() {
   const profiles = store.listAssistantProfileRevisions();
@@ -4033,6 +4089,22 @@ const server = createServer(async (request, response) => {
         || error instanceof FounderBiometricError
         ? authErrorStatus(error)
         : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/finops') {
+    try {
+      // Las cifras de facturación solo son accesibles al propietario de JANUS.
+      requireFounderAuthority(request);
+      json(response, 200, platformFinOpsSnapshot());
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
       json(response, status, authErrorBody(error));
     }
     return;

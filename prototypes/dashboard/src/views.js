@@ -1,7 +1,7 @@
 'use strict';
 /* ===== Pestañas de detalle ===== */
 const UI = { clDay: null, clH: null, clMetric: 't', dDay: 0, dSel: null, kDay: 0, mFilter: 0, mSel: 'm0', fSel: null, iPer: 12, iSel: null, aPer: 30, bSel: null, cSort: 'views', cSel: 'r1', clCat: 'leads', clSel: 0, geo: [], geoMsg: '' };
-const TABS = [['clima', '🚴', 'Clima'], ['dia', '🗓', 'Mi día'], ['familia', '🌟', '__HIJA__'], ['prioridades', '🎯', 'Prioridades'], ['janus', '⚙', 'Janus'], ['ingresos', '💶', 'Ingresos'], ['alcance', '👁', 'Alcance'], ['chatbots', '🤖', 'Chatbots'], ['contenido', '🎬', 'Contenido'], ['clientes', '🤝', 'Clientes'], ['datos', '🛈', 'Datos']];
+const TABS = [['clima', '🚴', 'Clima'], ['dia', '🗓', 'Mi día'], ['familia', '🌟', '__HIJA__'], ['prioridades', '🎯', 'Prioridades'], ['janus', '⚙', 'Janus'], ['plataformas', '◉', 'Costes'], ['ingresos', '💶', 'Ingresos'], ['alcance', '👁', 'Alcance'], ['chatbots', '🤖', 'Chatbots'], ['contenido', '🎬', 'Contenido'], ['clientes', '🤝', 'Clientes'], ['datos', '🛈', 'Datos']];
 const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
 const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
 const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + e + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
@@ -43,7 +43,9 @@ const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div cl
 
 function frame(id, sub, M, body) {
   const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : srcBadge(live)) +
+  const finC = id === 'plataformas' ? FinOps.counters() : null;
+  const finKnown = finC && (finC.critical + finC.warning + finC.healthy) > 0;
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
     '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
     '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }
@@ -245,4 +247,4 @@ function vDatos(M) {
   const misc = panel('', '💾', 'Este dispositivo', storeOk ? 'guardado activo' : 'sin almacenamiento', '<div class="dim" style="margin-bottom:5px">Piel del dashboard</div>' + seg('skin', skinNow(), [['a', 'A · Obsidiana (oro)'], ['b', 'B · Platino (claro)']]) + '<div style="height:8px"></div>' + '<div class="dim">Tus marcas (hechos, checklist, umbrales, metas, eventos rápidos) se guardan solo en este navegador. En la versión final vivirán en JANUS Core (SQLite) y se sincronizarán.</div><div class="btns"><span class="btn r"' + act('reset') + '>↺ Restablecer vista previa</span></div><div class="sb mono">Atajos</div><div class="dim">Esc o ← vuelve al dashboard · ↗ abre la pestaña en una ventana nueva · las zonas se iluminan al tocarlas.</div>');
   return frame('datos', '', M, st + '<div class="col3">' + loc + misc + '</div>');
 }
-const VIEWS = { clima: vClima, dia: vDia, familia: vFamilia, prioridades: vPrioridades, janus: vJanus, ingresos: vIngresos, alcance: vAlcance, chatbots: vChatbots, contenido: vContenido, clientes: vClientes, datos: vDatos };
+const VIEWS = { clima: vClima, dia: vDia, familia: vFamilia, prioridades: vPrioridades, janus: vJanus, plataformas: (M, X, sub) => FinOps.detail(sub, M), ingresos: vIngresos, alcance: vAlcance, chatbots: vChatbots, contenido: vContenido, clientes: vClientes, datos: vDatos };

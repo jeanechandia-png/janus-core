@@ -139,3 +139,24 @@
 .v-no{color:var(--bad);border-color:rgba(255,107,94,.5);background:rgba(255,107,94,.1)}
 .cit-n{font-size:10px;line-height:1.4}
 .msg.ja .bub .cit{max-width:100%}
+
+/* ===== Avatar de Janus: controles de forma, ánimo y ojos (el robot del chat se transforma) ===== */
+.avc{margin-top:10px;display:grid;gap:6px}
+.avh{font-size:10px;letter-spacing:.08em;text-transform:uppercase;opacity:.66;margin-top:4px}
+.avr{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.avchip{display:inline-flex;align-items:center;gap:4px;padding:7px 12px;min-height:34px;border-radius:999px;border:1px solid rgba(255,211,106,.30);background:rgba(255,255,255,.06);color:inherit;font:600 12px/1 system-ui,sans-serif;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative}
+.avchip.on{background:linear-gradient(180deg,#FFE08A,#E9A93A);color:#2a1a04;border-color:#FFF3C4}
+.avchip input[type=file]{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.avsw{width:28px;height:28px;border-radius:50%;background:var(--c);border:2px solid rgba(255,255,255,.4);cursor:pointer;box-shadow:0 0 10px var(--c)}
+.avsw.on{outline:2px solid #fff;outline-offset:2px}
+.avn{font-size:11px;line-height:1.35}
+.a2bot{position:relative}
+.a2morph{position:absolute;right:4px;bottom:10px;z-index:4;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:rgba(10,8,4,.66);border:1px solid rgba(255,211,106,.6);box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}
+.a2morph img{width:20px;height:20px}
+.avbar{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;padding:6px 12px;border-radius:12px;border:1px solid rgba(255,211,106,.28);background:rgba(255,255,255,.05);cursor:pointer;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.avbar span{opacity:.75;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.avbar b{font-weight:600;white-space:nowrap}
+.avc.closed{margin-top:8px}.avbody{display:grid;gap:6px;max-height:340px;overflow-y:auto;padding-right:2px}
+.j3bot{position:relative}
+.avgear{position:absolute;right:4px;bottom:4px;z-index:4;display:flex;gap:6px}
+.avg{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:rgba(10,8,4,.66);border:1px solid rgba(255,211,106,.6);box-shadow:0 4px 14px rgba(0,0,0,.5);cursor:pointer}
+.avg img,.avg svg{width:18px;height:18px}

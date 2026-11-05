@@ -14,7 +14,10 @@ function render() {
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
+  if (typeof avatarSync === 'function') avatarSync();
   if (window.Janus3D) Janus3D.hydrate(document);
+  if (window.JanusStage3D) JanusStage3D.hydrate(document);
+  if (typeof cpAfterRender === 'function') cpAfterRender();
 }
 function rerender() { render(); }
 function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
@@ -56,7 +59,8 @@ const ACTS = {
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
-Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS);
+Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS);
+if (typeof slotWire === 'function') slotWire();
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
 function trigger(el) {
@@ -94,6 +98,9 @@ $root.addEventListener('change', (ev) => {
 loadState();
 ROUTE = parseHash(); if (!VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' };
 render();
+FinOps.load().then(() => rerender());
+// Consumo y alertas: consultar el runtime fundador cada 15 minutos sin recargar la página.
+setInterval(() => { FinOps.load(true).then(() => { if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); }); }, 15 * 60_000);
 if (ST.settings.mode === 'vivo') refreshWeather();
 setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);

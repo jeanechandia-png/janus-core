@@ -44,9 +44,12 @@ Leyenda: ✅ hecho y verificado · 🟡 parcial · ⏳ pendiente · 🔒 bloquea
 ## Kendra
 | Instrucción | Estado | Dónde / prueba |
 |---|---|---|
-| Criaturas originales para elegir y renombrar; graciosas y animadas | ✅ | 4 criaturas; 3 clips |
+| Criaturas originales para elegir y renombrar; graciosas y animadas | ✅ | 4 criaturas 3D dentro de la escena (`lego/janus-creatures-3d`); Kendra les pone nombre |
+| La criatura forma parte de la escena y manipula lo que explica; Kendra manipula toda la escena | ✅ | `lego/janus-stage-3d` + módulo `scene-stage` (lecciones con fichas, platos y tartas) |
+| Personalizar como en un juego (ropa, accesorios, pelo, ojos) sin cambiar su carácter | ✅ | módulo `avatar-look`; solo estético |
+| Entorno donde comprar casa, coche, moto… con estrellas ganadas por esfuerzo | ✅ | módulo `star-shop` (tope diario, sin castigos, sin dinero real) |
 | Voz propia de cada criatura | 🔒 | Sin créditos en ElevenLabs. Alternativa: ChatGPT |
-| Clip de Nimbo | 🔒 | Sin créditos en ElevenLabs. Alternativa: Gemini Veo |
+| Clip de Nimbo | ➖ | Ya no aplica: la criatura es 3D en la escena (el concepto de clip plano se descartó el 2026-11-02) |
 | Ánimo sutil, dulzura, matemáticas, TDAH y amigos, nunca hablar de peso, avisar a papá | ✅ | `companion` (#45) + `janus-school` (#40) |
 
 ## Productividad

@@ -6,12 +6,24 @@
  *  - El canvas de cada id se conserva entre re-renders (no se recrea WebGL).
  *  - Janus3D.state.talking / listening / thinking animan boca, ojos, ondas.
  * Reutilizable en landings y webs de InfinitySeed (solo necesita window.THREE + window.RoomEnvironment).
+ * FORMAS (v1.1): el MISMO robot puede transformarse: robot · cabeza (cabeza del robot con ojos y boca expresivos) · cara (ojos y sonrisa flotantes)
+ *   · lumi/bombo/musgo/nimbo (criaturas; si hay un GLB importado en JanusCreatureSlot, usa ese). Janus3D.setForm(f), setMood(m, secs), setLook(look), setEyes(hex), refresh(), react().
+ *   Un hueco 'robot' en JanusCreatureSlot sustituye al robot procedural (el robot hiperrealista que llegue en GLB).
  */
 const Janus3D = (() => {
-  const T = window.THREE; if (!T) return { hydrate() {}, state: {} };
-  const state = { talking: false, listening: false, thinking: false, wave: 0 };
+  const T = window.THREE; if (!T) return { hydrate() {}, state: {}, FORMS: ['robot'], MOODS: [], setForm() { return false; }, form: () => 'robot', setMood() {}, setLook() {}, setEyes() {}, refresh() {}, react() {} };
+  const state = { talking: false, listening: false, thinking: false, wave: 0, still: false }; // still: pose neutra fija (capturas de referencia)
   const inst = {};
   let raf = 0, t0 = performance.now();
+  /* ---------- formas y emociones (compartidas por todas las instancias del robot) ---------- */
+  const FORMS = ['robot', 'cabeza', 'cara', 'lumi', 'bombo', 'musgo', 'nimbo'], CREATURES = ['lumi', 'bombo', 'musgo', 'nimbo'];
+  const MOODS = ['alegre', 'contento', 'triste', 'enojado', 'sorprendido', 'pensativo'];
+  const FORM = { key: 'robot', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
+  const MOOD = { base: null, flash: null, until: 0 };
+  const TINT = { alegre: '#FFE48A', contento: '#FFD36A', triste: '#6FA8FF', enojado: '#FF4A3D', sorprendido: '#FFFFFF', pensativo: '#B79CFF' };
+  const nowMs = () => performance.now();
+  const effMood = () => (MOOD.flash && nowMs() < MOOD.until ? MOOD.flash : MOOD.base || (state.thinking ? 'pensativo' : 'contento'));
+  const damp = (c, g, k, dt) => c + (g - c) * (1 - Math.exp(-k * dt));
 
   function makeRenderer(w, h) {
     const r = new T.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -80,6 +92,7 @@ const Janus3D = (() => {
       return hip;
     };
     P.legL = leg(-1); P.legR = leg(1);
+    P.bodyParts = [neck, body, badge, core, P.armL.sh, P.armR.sh, P.legL, P.legR];
     const pl = new T.PointLight(0xFFC060, 2.2, 3.5); pl.position.set(0, 1.2, 1.6); root.add(pl); P.pl = pl;
     root.position.y = -0.35;
     return { root, P };
@@ -91,11 +104,11 @@ const Janus3D = (() => {
     const blink = (t % 4.2) < 0.12 ? 0.12 : 1; P.eyes.forEach((e) => { e.scale.y = blink; e.userData.spr.material.opacity = S.listening ? 1 : 0.75; });
     const talk = S.talking ? 0.55 + Math.abs(Math.sin(t * 14)) * 0.9 : 1; P.smile.scale.set(1, talk, 1);
     P.core.rotation.z = t * 1.5; P.bglow.material.opacity = 0.55 + Math.sin(t * 3) * 0.35; P.pl.intensity = 1.8 + (S.talking ? Math.sin(t * 14) * 0.6 : 0);
-    const waving = tap > 0 || (t % 8) < 2.2 || S.wave > 0;
+    const waving = !S.still && (tap > 0 || (t % 8) < 2.2 || S.wave > 0);
     const R = P.armR, L = P.armL;
     R.sh.rotation.z = waving ? 2.5 : 0.12 + Math.sin(t * 1.6) * 0.06; R.el.rotation.z = waving ? Math.sin(t * 9) * 0.55 : 0.1; R.sh.rotation.x = waving ? -0.2 : Math.sin(t * 1.6) * 0.12;
     L.sh.rotation.z = -0.12 - Math.sin(t * 1.6 + 1) * 0.06 - (S.talking ? Math.abs(Math.sin(t * 3)) * 0.4 : 0); L.el.rotation.z = -0.1 - (S.talking ? 0.5 : 0); L.sh.rotation.x = -Math.sin(t * 1.6) * 0.12;
-    const step = (t % 10) > 7.5 || tap > 0 ? Math.sin(t * 8) * 0.35 : 0; P.legL.rotation.x = step; P.legR.rotation.x = -step;
+    const step = !S.still && ((t % 10) > 7.5 || tap > 0) ? Math.sin(t * 8) * 0.35 : 0; P.legL.rotation.x = step; P.legR.rotation.x = -step;
   }
 
   /* ---------- Micrófono ---------- */
@@ -125,18 +138,88 @@ const Janus3D = (() => {
     o.root.position.y = 0.25 + Math.sin(t * 1.8) * 0.03;
   }
 
+
+  /* ---------- formas del robot: cabeza con expresiones · cara flotante · criaturas · GLB importado ---------- */
+  const fitBox = (root) => {
+    root.updateMatrixWorld(true); const b = new T.Box3(), tmp = new T.Box3();
+    root.traverse((m) => {
+      if (!m.isMesh || m.isSprite || m.userData.noFit) return; for (let q = m; q; q = q.parent) if (!q.visible) return;
+      const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (mt && (mt.blending === T.AdditiveBlending || (mt.transparent && mt.opacity < 0.5))) return;
+      tmp.setFromObject(m); if (isFinite(tmp.min.x) && isFinite(tmp.max.x)) b.union(tmp);
+    });
+    return b;
+  };
+  function fitTo(o, obj, H, cy) {
+    o.fitSpec = { obj, H, cy }; o.fit.scale.setScalar(1); o.fit.position.set(0, 0, 0); o.root.position.y = -0.35; o.fit.updateMatrixWorld(true);
+    const b = fitBox(obj); if (b.isEmpty()) return;
+    const h = (b.max.y - b.min.y) || 1, w = (b.max.x - b.min.x) || 1, halfW = Math.tan((14 * Math.PI) / 180) * 9.3 * o.cam.aspect, k = Math.min(H / h, (halfW * 2 * 0.92) / w);
+    o.fit.scale.setScalar(k); o.fit.position.set(-((b.max.x + b.min.x) / 2) * k, cy - ((b.max.y + b.min.y) / 2) * k, -((b.max.z + b.min.z) / 2) * k);
+  }
+  const EYE_HEX = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
+  function clearForm(o) {
+    if (o.alt) { o.fit.remove(o.alt.root); o.alt = null; }
+    if (o.mount) { o.P.head.remove(o.mount.root); o.mount = null; }
+    o.root.visible = true; o.P.bodyParts.forEach((m) => { m.visible = true; }); o.P.eyes.forEach((e) => { e.visible = true; e.userData.spr.visible = true; }); o.P.smile.visible = true; o.P.pl.visible = true;
+    o.fit.scale.setScalar(1); o.fit.position.set(0, 0, 0); o.fitSpec = null;
+  }
+  function applyForm(o) {
+    const f = FORM.key, slot = window.JanusCreatureSlot, FC = window.JanusFace3D, CR = window.JanusCreatures3D; o.formKey = f; o.formGen = FORM.gen; o.lookGen = FORM.lookGen; o.eyesGen = FORM.eyesGen;
+    clearForm(o); if (o.host) o.host.setAttribute('data-form', f);
+    try {
+      if (f === 'robot') { if (slot && slot.has && slot.has('robot')) { const rig = slot.rigFor('robot'); if (rig) { o.alt = rig; o.fit.add(rig.root); o.root.visible = false; rig.update(0, 0.016, {}); fitTo(o, rig.root, 3.5, 0.2); } } return; }
+      if (f === 'cabeza' && FC) {
+        o.P.bodyParts.forEach((m) => { m.visible = false; }); o.P.eyes.forEach((e) => { e.visible = false; e.userData.spr.visible = false; }); o.P.smile.visible = false; o.P.pl.visible = false; /* sin la luz puntual del pecho: no deja un brillo central en el visor que parezca una nariz */
+        const fc = o.cache.cabeza || (o.cache.cabeza = FC.build('janus', FORM.eyes, { mount: true, scale: 0.6 })); fc.root.position.set(0, 0.07, 0.962); o.P.head.add(fc.root); o.mount = fc; fc.setLook({ eyes: FORM.eyes }); fc.update(0, 0.016, {});
+        fitTo(o, o.root, 3.7, 0.2); return;
+      }
+      if (f === 'cara' && FC) { const fc = o.cache.cara || (o.cache.cara = FC.build('janus', FORM.eyes)); fc.setLook({ eyes: FORM.eyes }); o.alt = fc; o.fit.add(fc.root); o.root.visible = false; fc.update(0, 0.016, {}); fitTo(o, fc.root, 2.5, 0.3); return; }
+      if (CREATURES.includes(f)) {
+        const rig = (slot && slot.has && slot.has(f) && slot.rigFor(f)) || (CR && (o.cache[f] || (o.cache[f] = CR.build(f, EYE_HEX[f])))); if (!rig) throw new Error('sin criatura ' + f);
+        if (FORM.look && rig.setLook) rig.setLook(FORM.look); o.alt = rig; o.fit.add(rig.root); o.root.visible = false; rig.update(0, 0.016, {}); fitTo(o, rig.root, 3.4, 0.15); return;
+      }
+    } catch (e) { clearForm(o); if (window.console) console.warn('Janus3D: forma «' + f + '» no disponible, vuelve el robot', e && e.message); }
+  }
+  const RMOOD = {
+    alegre: { sx: 1.1, sy: 1.0, ey: 0.01, smx: 1.3, smy: 1.0, fr: 0, k: 0.25 }, contento: { sx: 1, sy: 1, ey: 0, smx: 1, smy: 1, fr: 0, k: 0 },
+    triste: { sx: 1, sy: 0.72, ey: -0.035, smx: 0.9, smy: 0.9, fr: 1, k: 0.6 }, enojado: { sx: 1.1, sy: 0.55, ey: 0, smx: 1.05, smy: 0.8, fr: 1, k: 0.7 },
+    sorprendido: { sx: 1.25, sy: 1.3, ey: 0.02, smx: 0.5, smy: 1.7, fr: 0, k: 0.35 }, pensativo: { sx: 0.95, sy: 0.8, ey: 0, smx: 0.8, smy: 0.9, fr: 0, k: 0.5 }
+  };
+  /** Emociones sobre el robot original: tamaño y posición de los ojos, curva de la sonrisa y un matiz de color. */
+  function robotMood(o, mood, dt) {
+    const P = o.P, K = RMOOD[mood] || RMOOD.contento, m = o.mk || (o.mk = { sx: 1, sy: 1, ey: 0, smx: 1, smy: 1, fr: 0, col: new T.Color(FORM.eyes), tg: new T.Color(), tn: new T.Color() });
+    ['sx', 'sy', 'ey', 'smx', 'smy', 'fr'].forEach((k) => { m[k] = damp(m[k], K[k], 12, dt); });
+    m.tn.set(TINT[mood] || FORM.eyes); m.tg.set(FORM.eyes).lerp(m.tn, K.k); m.col.lerp(m.tg, 1 - Math.exp(-7 * dt));
+    P.eyes.forEach((e) => { e.scale.x = m.sx; e.scale.y *= m.sy; e.position.y = 0.07 + m.ey; e.userData.spr.position.y = 0.07 + m.ey; e.material.color.copy(m.col); e.userData.spr.material.color.copy(m.col); });
+    const fr = m.fr > 0.5; P.smile.rotation.z = fr ? Math.PI / 8 : Math.PI * 1.125; P.smile.position.y = fr ? -0.5 : -0.2; P.smile.scale.x = m.smx; P.smile.scale.y *= m.smy; P.smile.material.color.copy(m.col);
+  }
+  function animForm(o, t, dt) {
+    const tap = Math.max(0, o.tapT - t + 1.6), waving = !state.still && (tap > 0 || (t % 8) < 2.2 || state.wave > 0), mood = effMood();
+    /* OJO: las criaturas procedurales también traen R.face (kit de cara); solo el módulo de cara flotante marca face === true */
+    if (o.lookGen !== FORM.lookGen) { o.lookGen = FORM.lookGen; if (o.alt && o.alt.face !== true && FORM.look && o.alt.setLook) o.alt.setLook(FORM.look); }
+    if (o.eyesGen !== FORM.eyesGen) { o.eyesGen = FORM.eyesGen; [o.alt, o.mount].forEach((r) => { if (r && r.face === true) r.setLook({ eyes: FORM.eyes }); }); }
+    if (!o.alt && !o.mount) { if (o.formKey === 'robot') robotMood(o, mood, dt); return; }
+    const ctl = { pose: tap > 0 ? 'celebra' : state.talking ? 'habla' : state.thinking ? 'piensa' : waving ? 'saluda' : 'idle', mood, talk: state.talking, listening: state.listening, excite: tap > 0 ? 1 : 0, walk: 0 };
+    if (o.alt) o.alt.update(t, dt, ctl); if (o.mount) o.mount.update(t, dt, ctl);
+  }
+  function setForm(f) { if (!FORMS.includes(f)) return false; if (f !== FORM.key) { FORM.key = f; FORM.gen++; } return true; }
+  function setMood(m, secs) { if (m && !MOODS.includes(m)) return; if (secs > 0) { MOOD.flash = m; MOOD.until = nowMs() + secs * 1000; } else MOOD.base = m || null; }
+  function setLook(l) { const k = JSON.stringify(l || null); if (k === FORM.lookKey) return; FORM.lookKey = k; FORM.look = l || null; FORM.lookGen++; }
+  function setEyes(hex) { if (!hex || hex === FORM.eyes) return; FORM.eyes = hex; FORM.eyesGen++; }
+  function refresh() { Object.values(inst).forEach((o) => { o.cache = {}; }); FORM.gen++; }
+  function react(secs, mood) { const t = (nowMs() - t0) / 1000; Object.values(inst).forEach((o) => { if (o.kind === 'bot') o.tapT = t; }); if (mood) setMood(mood, secs || 2.2); }
+
   /* ---------- Montaje / ciclo ---------- */
   function create(kind, host) {
     const w = Math.max(60, host.clientWidth), h = Math.max(60, host.clientHeight);
     const renderer = makeRenderer(w, h), scene = new T.Scene(); scene.environment = studio(renderer); lights(scene);
     const cam = new T.PerspectiveCamera(kind === 'bot' ? 28 : 30, w / h, 0.1, 100);
     cam.position.set(0, kind === 'bot' ? 0.45 : 0.2, kind === 'bot' ? 9.3 : 8.2); cam.lookAt(0, kind === 'bot' ? 0.35 : 0.0, 0);
-    const built = kind === 'bot' ? buildBot() : buildMic(), pivot = new T.Group(); pivot.add(built.root); scene.add(pivot);
-    const o = { kind, renderer, scene, cam, pivot, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
+    const built = kind === 'bot' ? buildBot() : buildMic(), pivot = new T.Group(), fit = new T.Group(); fit.add(built.root); pivot.add(fit); scene.add(pivot);
+    const o = { kind, renderer, scene, cam, pivot, fit, formKey: 'robot', formGen: 0, lookGen: 0, alt: null, mount: null, cache: {}, lt: 0, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
     const cv = renderer.domElement; cv.className = 'j3d-cv'; cv.style.touchAction = 'pan-y';
     cv.addEventListener('pointerdown', (e) => { o.drag = { x: e.clientX, y: e.clientY, moved: 0, lx: e.clientX, ly: e.clientY }; o.vel = 0; try { cv.setPointerCapture(e.pointerId); } catch (_) { } });
     cv.addEventListener('pointermove', (e) => { if (!o.drag) return; const dx = e.clientX - o.drag.lx, dy = e.clientY - o.drag.ly; o.drag.lx = e.clientX; o.drag.ly = e.clientY; o.drag.moved += Math.abs(dx) + Math.abs(dy); o.rotY += dx * 0.012; o.rotX = Math.max(-0.5, Math.min(0.5, o.rotX + dy * 0.006)); o.vel = dx * 0.012; });
-    const up = () => { if (!o.drag) return; const tap = o.drag.moved < 8; o.drag = null; if (tap) { o.tapT = (performance.now() - t0) / 1000; if (o.onTap) setTimeout(o.onTap, kind === 'bot' ? 450 : 0); } };
+    const up = () => { if (!o.drag) return; const tap = o.drag.moved < 8; o.drag = null; if (tap) { o.tapT = (performance.now() - t0) / 1000; if (kind === 'bot') setMood('alegre', 2.2); if (o.onTap) setTimeout(o.onTap, kind === 'bot' ? 450 : 0); } };
     cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { o.drag = null; });
     return o;
   }
@@ -146,10 +229,13 @@ const Janus3D = (() => {
     Object.values(inst).forEach((o) => {
       const cv = o.renderer.domElement; if (!cv.isConnected || !cv.offsetParent) return; const vw = document.getElementById('view'); if (vw && !vw.hidden && !vw.contains(cv)) return;
       const host = cv.parentElement, w = host.clientWidth, h = host.clientHeight;
-      if (w && h && (w !== o.w || h !== o.h)) { o.w = w; o.h = h; o.renderer.setSize(w, h, false); o.cam.aspect = w / h; o.cam.updateProjectionMatrix(); }
+      if (w && h && (w !== o.w || h !== o.h)) { o.w = w; o.h = h; o.renderer.setSize(w, h, false); o.cam.aspect = w / h; o.cam.updateProjectionMatrix(); if (o.fitSpec) fitTo(o, o.fitSpec.obj, o.fitSpec.H, o.fitSpec.cy); }
+      const dt = Math.min(0.05, Math.max(0.001, t - (o.lt || t))); o.lt = t;
+      if (o.kind === 'bot' && (o.formKey !== FORM.key || o.formGen !== FORM.gen)) applyForm(o);
       if (!o.drag) { o.rotY += o.vel; o.vel *= 0.94; if (Math.abs(o.vel) < 0.0005) { o.vel = 0; o.rotY += ((o.kind === 'bot' ? -0.25 : 0.35) - o.rotY) * 0.01; o.rotX *= 0.97; } }
+      if (o.kind === 'bot' && o.formKey === 'cara') o.rotY = Math.max(-0.9, Math.min(0.9, o.rotY));
       o.pivot.rotation.y = o.rotY; o.pivot.rotation.x = o.rotX;
-      if (o.kind === 'bot') animBot(o, t); else animMic(o, t);
+      if (o.kind === 'bot') { animBot(o, t); animForm(o, t, dt); } else animMic(o, t);
       o.renderer.render(o.scene, o.cam);
     });
   }
@@ -158,12 +244,13 @@ const Janus3D = (() => {
       const kind = host.getAttribute('data-3d'), id = host.getAttribute('data-id') || kind;
       let o = inst[id];
       if (!o) { try { o = inst[id] = create(kind, host); } catch (e) { host.classList.add('j3d-off'); if (host.getAttribute('data-tapact')) host.setAttribute('data-act', host.getAttribute('data-tapact')); if (host.getAttribute('data-tap')) host.setAttribute('data-go', host.getAttribute('data-tap').replace(/^#/, '')); return; } }
+      o.host = host; if (kind === 'bot') host.setAttribute('data-form', o.formKey);
       if (o.renderer.domElement.parentElement !== host) host.appendChild(o.renderer.domElement);
       const to = host.getAttribute('data-tap'), ta = host.getAttribute('data-tapact');
       o.onTap = to ? () => { location.hash = to; } : ta ? () => { try { if (typeof ACTS !== 'undefined' && ACTS[ta]) { ACTS[ta](); if (typeof rerender === 'function') rerender(); } } catch (e) { } } : null;
     });
     if (!raf) frame();
   }
-  return { hydrate, state, _inst: inst };
+  return { hydrate, state, _inst: inst, FORMS, MOODS, setForm, form: () => FORM.key, setMood, mood: effMood, setLook, setEyes, refresh, react, eyes: () => FORM.eyes };
 })();
 window.Janus3D = Janus3D;
