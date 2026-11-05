@@ -96,13 +96,15 @@ export function continuityReport({root=ROOT,features=CORE_FEATURES,requireMainAn
   return {
     project:'JANUS CORE',at:new Date().toISOString(),featureCoverage:checks,
     currentMain:ancestry,pendingMerge:PENDING_SURFACES,
-    releaseSafe:checks.ok && (!requireMainAncestor || ancestry.ok),
-    note:'A green structural gate does not mean draft PRs are merged, hardware works or acoustic cloning is verified.'
+    coreContinuitySafe:checks.ok && (!requireMainAncestor || ancestry.ok),
+    productReleaseVerified:false,
+    releaseBlockers:['Draft companion/dashboard PRs remain separate','Physical voice/biometrics/GPU validation pending'],
+    note:'A green CORE gate does not mean draft PRs are merged, hardware works or acoustic cloning is verified.'
   };
 }
 if(process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   const strict=process.argv.includes('--require-main-ancestor');
   const result=continuityReport({requireMainAncestor:strict});
   console.log(JSON.stringify(result,null,2));
-  if(!result.releaseSafe) process.exitCode=1;
+  if(!result.coreContinuitySafe) process.exitCode=1;
 }
