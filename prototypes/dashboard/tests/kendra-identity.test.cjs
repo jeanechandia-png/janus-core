@@ -85,5 +85,16 @@ test('imagen aprobada en Kendra: usa nombre personalizado escapado', () => {
   assert.match(src,/Companion\.displayName\(compProfile\(\), id\)/);
   assert.match(src,/safeName/);
   assert.match(o.render(),/Luna &amp; Sol/);
+  o.eval(src);
+  const html = o.eval("window.JanusPresence.render('kendra', false, 'lumi')");
+  assert.match(html,/Luna &amp; Sol/,'nombre personalizado en arte aprobado');
+  assert.match(o.eval('COMP_UI.say'),/Kendra/);
+});
+test('el saludo de la criatura usa Kendra, no una relación parental', () => {
+  const o=setup();
+  o.eval('cpOnTapCreature()');
+  assert.match(o.eval('COMP_UI.say'),/^¡Hola, Kendra!/);
+  assert.doesNotMatch(o.eval('COMP_UI.say'),/hija|__HIJA__/i);
+  o.eval("COMP_ACTS.cpGesture('saludo')");
   assert.match(o.eval('COMP_UI.say'),/Kendra/);
 });
