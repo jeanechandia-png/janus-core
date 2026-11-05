@@ -20,6 +20,12 @@ export function deterministicPlan(
   // Lo adjunto (archivos, códigos QR) son datos: nunca deciden la ruta. Solo cuentan las palabras del usuario.
   const command = userTextOutsideAttachmentBlock(rawCommand);
   if (!command) return null;
+  const voiceStudio = voiceStudioPlan(command);
+  if (voiceStudio) return voiceStudio;
+  const specialization = professionalSpecializationPlan(command);
+  if (specialization) return specialization;
+  const media = localMediaPlan(command);
+  if (media) return media;
   // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
   // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
   if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);
@@ -41,6 +47,96 @@ export function deterministicPlan(
   const seneca = parseSenecaRequest(command);
   if (seneca) return senecaPlan(command, seneca);
   return null;
+}
+
+/**
+ * Órdenes habladas para crear voces en el estudio LOCAL de Janus.
+ * La detección sólo encamina la solicitud: no clona voces, no salta permisos.
+ * Cambios en el registro local quedan sujetos a aprobación Founder + Face ID.
+ */
+function voiceStudioPlan(command: string): JanusPlan | null {
+  const text = foldVoiceText(command);
+  if (/\b(que es|como funciona|explicame|cuentame|puedes|capacidad|tutorial|investiga)\b/.test(text)
+      && !/\b(crea|disena|genera|clona|prepara)\b/.test(text)) return null;
+  const isClone = /\b(clona|clonar|clonacion|copia mi voz|replica mi voz)\b/.test(text)
+    && /\b(voz|mi voz|voz de jean)\b/.test(text);
+  const isDesign = /\b(crea|crear|disena|disenar|genera|generar|prepara)\b/.test(text)
+    && /\b(una voz|un timbre de voz|voz nueva|nueva voz|voz caricaturesca|voz sintetica)\b/.test(text);
+  if (!isClone && !isDesign) return null;
+
+  const mode = isClone ? 'clone' : 'design';
+  const id = isClone ? 'janus-founder-local' : 'janus-designed';
+  const input = mode === 'clone'
+    ? {subjectId:'jean',voiceId:id}
+    : {voiceId:id,instruct:command.trim().slice(0,800)};
+  const preview = mode === 'clone' ? 'clone.readiness' : 'design.preview';
+  const apply = mode === 'clone' ? 'clone.apply' : 'design.apply';
+  const idempotencyKey = createHash('sha256').update('voice-studio:' + mode + ':' + text).digest('hex');
+  const steps: PlannedToolStep[] = [
+    {
+      id:'voice-studio-review',kind:'tool',label:mode === 'clone' ? 'Comprobar consentimiento y audio original local' : 'Revisar el diseño vocal y su modelo local',
+      tool:'voice-studio',action:preview,input,
+      risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+    },
+    {
+      id:'voice-studio-install',kind:'tool',label:mode === 'clone' ? 'Instalar clon propio tras revisión y Face ID' : 'Instalar diseño de voz local tras revisión y Face ID',
+      tool:'voice-studio',action:apply,input,
+      idempotencyKey,risk:'high',reversible:false,requiresApproval:true,resultMode:'full',
+    },
+  ];
+  return createPlan(command,steps,'deterministic');
+}
+
+function localMediaPlan(command:string):JanusPlan|null {
+  // Los archivos adjuntos son datos, nunca órdenes. Solo se usan nombres
+  // existentes del inbox local; no se inventa contenido ni se publica una web.
+  const clean=command.normalize('NFC').trim();
+  const hasIntent=/\b(agrega|agregar|incorpora|incorporar|añade|anade|anadir)\b/i.test(clean)
+    && /\b(imagen|foto|fotografia|fotografía)\b/i.test(clean);
+  if(!hasIntent)return null;
+  const matched=clean.match(/(?:imagen|foto|fotografia|fotografía)\s+([a-z0-9][a-z0-9_.-]{0,100}\.(?:png|jpg|jpeg|webp))\s+(?:al|en el|en)\s+proyecto\s+([a-z][a-z0-9_-]{2,79})/i);
+  if(!matched) return createPlan(clean,[{
+    id:'media-inbox-list',kind:'tool',label:'Mostrar imágenes locales disponibles para elegir',
+    tool:'media',action:'images.list',input:{},risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+  }],'deterministic');
+  const [,fileName,projectId]=matched;
+  const idempotencyKey=createHash('sha256').update('media:stage:'+projectId+':'+fileName).digest('hex');
+  return createPlan(clean,[
+    {id:'media-inspect',kind:'tool',label:'Verificar imagen '+fileName,tool:'media',action:'image.inspect',
+      input:{fileName},risk:'none',reversible:true,requiresApproval:false,resultMode:'full'},
+    {id:'media-stage',kind:'tool',label:'Agregar '+fileName+' al proyecto local '+projectId+' tras aprobación',
+      tool:'media',action:'image.stage.apply',input:{fileName,projectId},
+      idempotencyKey,risk:'high',reversible:false,requiresApproval:true,resultMode:'full'},
+  ],'deterministic');
+}
+
+function professionalSpecializationPlan(command:string):JanusPlan|null {
+  // El comando solo inicia una investigación con fuentes; no se reentrena
+  // automáticamente el modelo ni se aceptan como normas los documentos web.
+  const text=foldVoiceText(command);
+  const match=text.match(/(?:^|\s)(?:actua|actues|actuar|conviertete|especializate|aprende|aprendas)\s+(?:(?:como|a ser)\s+)?(?:(?:un|una)\s+)?(?:especialista|experto|experta|profesional)\s+en\s+(.+)$/)
+    || text.match(/(?:^|\s)(?:conviertete|especializate)\s+en\s+(?:especialista|experto|experta)\s+en\s+(.+)$/);
+  if (!match) return null;
+  const domain=match[1]!.replace(/\s+(?:correcto|por favor|de acuerdo)$/,'').trim().slice(0,100);
+  if(domain.length<4) return null;
+  const key=createHash('sha256').update('specialization:research:'+text).digest('hex');
+  return createPlan(command,[
+    {
+      id:'specialization-plan',kind:'tool',label:'Plan de estudio y actualización de '+domain,
+      tool:'specialization',action:'research.plan',input:{domain},
+      risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+    },
+    {
+      id:'specialization-research',kind:'tool',label:'Investigar fuentes y conservar dossier revisable de '+domain,
+      tool:'specialization',action:'research.apply',input:{domain},
+      idempotencyKey:key,risk:'high',reversible:false,requiresApproval:true,resultMode:'full',
+    },
+  ],'deterministic');
+}
+
+function foldVoiceText(value:string):string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9ñ\s]/g,' ').replace(/\s+/g,' ').trim();
 }
 
 type SenecaRequest =

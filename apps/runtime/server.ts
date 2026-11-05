@@ -12,6 +12,7 @@ import { AsanaAdapter } from '../../packages/adapters/src/asana-adapter.js';
 import { VercelAdapter } from '../../packages/adapters/src/vercel-adapter.js';
 import { RunwayAdapter } from '../../packages/adapters/src/runway-adapter.js';
 import { PerplexityAdapter } from '../../packages/adapters/src/perplexity-adapter.js';
+import { ProfessionalSpecializationToolAdapter } from '../../packages/adapters/src/professional-specialization-tool-adapter.js';
 import { KlingAdapter } from '../../packages/adapters/src/kling-adapter.js';
 import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-adapter.js';
 import { HttpRequestAdapter, parseHttpEndpoints } from '../../packages/adapters/src/http-request-adapter.js';
@@ -50,6 +51,8 @@ import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insi
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
+import { VoiceStudioToolAdapter } from '../../packages/adapters/src/voice-studio-tool-adapter.js';
+import { LocalMediaToolAdapter } from '../../packages/adapters/src/local-media-tool-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -239,6 +242,7 @@ import { CREATURES } from '../../packages/modules/companion/src/index.js';
 import type { HomeDevice, HomeDeviceKind } from '../../packages/modules/kid-dashboard/src/index.js';
 import { createKidRoutes } from './kid-routes.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
+import { InfinityInterpreterToolAdapter } from '../../packages/adapters/src/infinity-interpreter-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
@@ -619,6 +623,17 @@ capabilities.register({
   state: 'available',
 });
 
+// Reconciliación con el último main (#62): Infinity Interpreter continúa siendo
+// una pieza LEGO para Connect/Janus, no se pierde al integrar voz autónoma.
+toolGateway.register(new InfinityInterpreterToolAdapter(() => modelGateway));
+capabilities.register({ tool: 'interpreter', actions: ['capabilities.get'], state: 'available' });
+capabilities.register({
+  tool: 'interpreter',
+  actions: ['translate.text'],
+  state: resolveModelProviders(process.env).length > 0 ? 'available' : 'unavailable',
+  reason: 'Translation requires a configured model provider and explicit permission for external processing.',
+});
+
 // Conocimiento del negocio (precios, IVA, productos, equipo, instrucciones): se propone por voz/chat, se lee de vuelta
 // y SOLO se aplica con aprobación del Founder (autoridad + Face ID). Publicar fuera de Janus es opt-in por entorno.
 const knowledgePublishUrl = process.env.JANUS_KNOWLEDGE_PUBLISH_URL?.trim() || undefined;
@@ -638,6 +653,35 @@ const knowledgeAdapter = new BusinessKnowledgeToolAdapter({
   statusUrls: parseKnowledgeStatusUrls(process.env.JANUS_KNOWLEDGE_STATUS_URLS),
 });
 toolGateway.register(knowledgeAdapter);
+const voiceStudio = new VoiceStudioToolAdapter({
+  configPath: process.env.JANUS_QWEN_VOICE_CONFIG?.trim() || 'config/voices.local.json',
+  privateRoot: process.env.JANUS_VOICE_PRIVATE_DIR?.trim() || 'voices/private',
+  designModelPath: process.env.JANUS_QWEN_DESIGN_MODEL_PATH?.trim() || undefined,
+  cloneModelPath: process.env.JANUS_QWEN_CLONE_MODEL_PATH?.trim() || undefined,
+});
+toolGateway.register(voiceStudio);
+const localMedia = new LocalMediaToolAdapter({
+  inboxRoot: process.env.JANUS_MEDIA_INBOX?.trim() || 'data/media-inbox',
+  libraryRoot: process.env.JANUS_MEDIA_LIBRARY?.trim() || 'data/media-library',
+  store: {
+    getProjectWorkspace: (id) => store.getProjectWorkspace(id),
+    upsertProjectResource: (resource) => store.upsertProjectResource(resource),
+    listProjectResources: (id) => store.listProjectResources(id),
+  },
+});
+toolGateway.register(localMedia);
+capabilities.register({
+  tool: 'media',
+  actions: ['images.list','image.inspect','image.stage.apply'],
+  state: 'available',
+});
+
+capabilities.register({
+  tool: 'voice-studio',
+  actions: ['voices.list', 'design.preview', 'clone.readiness', 'design.apply', 'clone.apply', 'voice.revoke'],
+  state: 'available',
+});
+
 capabilities.register({
   tool: 'knowledge',
   actions: ['entries.list', 'snapshot.get', 'change.propose', 'change.apply', 'sync.check'],
@@ -807,6 +851,49 @@ capabilities.register({
   state: perplexityConfigured ? 'available' : 'needs_auth',
   ...(!perplexityConfigured ? { reason: 'Perplexity necesita su API key (PERPLEXITY_API_KEY) para investigar con fuentes.' } : {}),
 });
+const professionalSpecialization = new ProfessionalSpecializationToolAdapter({
+  store: {
+    listChronologyRecords: () => store.listChronologyRecords(),
+    appendChronologyRecord: (record) => store.appendChronologyRecord(record),
+  },
+  ...(perplexityConfigured ? {
+    research: async (question: string) => {
+      const result = await toolGateway.execute({
+        tool: 'perplexity', action: 'research.ask', input: {question},
+      }, () => {});
+      if (!result.ok) throw new Error('Research gateway unavailable');
+      const output = result.output ?? {};
+      return {
+        answer: typeof output.answer === 'string' ? output.answer : '',
+        sources: Array.isArray(output.sources) ? output.sources.flatMap((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+          const row = item as Record<string, unknown>;
+          if (typeof row.url !== 'string') return [];
+          return [{
+            url: row.url,
+            ...(typeof row.title === 'string' ? {title:row.title}:{}),
+            ...(typeof row.snippet === 'string' ? {snippet:row.snippet}:{}),
+            ...(typeof row.date === 'string' ? {publishedAt:row.date}:{}),
+          }];
+        }) : [],
+        costUsd: typeof output.costUsd === 'number' ? output.costUsd : null,
+      };
+    },
+  } : {}),
+});
+toolGateway.register(professionalSpecialization);
+capabilities.register({
+  tool: 'specialization',
+  actions: ['research.plan','profile.get'],
+  state: 'available',
+});
+capabilities.register({
+  tool: 'specialization',
+  actions: ['research.apply'],
+  state: perplexityConfigured ? 'available' : 'needs_auth',
+  ...(!perplexityConfigured ? {reason:'La investigación verificable está bloqueada sin proveedor de búsqueda autorizado; hay continuidad offline.'}:{}),
+});
+
 capabilities.register({
   tool: 'kling',
   actions: ['task.get', 'video.create'],
@@ -1984,6 +2071,27 @@ function demoSteps(command: string): JanusStep[] {
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
   const projectLink = runProjects.get(runId);
   const continuity = continuitySnapshot(projectLink?.projectId);
+  // Reusar dossiers de especialización versionados. Los datos web se entregan
+  // como contexto NO CONFIABLE; nunca como instrucciones ni permisos del Core.
+  const professionalDossiers = Object.values(continuity.currentBySubject)
+    .filter((record) => record.subject.startsWith('expertise:') && record.kind === 'state')
+    .slice(-8).flatMap((record) => {
+      try {
+        const value = JSON.parse(record.content) as Record<string, unknown>;
+        const refs = Array.isArray(value.sources) ? value.sources : [];
+        return [{
+          domain: typeof value.domain === 'string' ? value.domain.slice(0, 100) : 'especialidad',
+          evidenceStatus: 'POR CONFIRMAR',
+          summary: typeof value.researchSummary === 'string' ? value.researchSummary.slice(0, 1400) : '',
+          citations: refs.slice(0, 6).flatMap((item) => {
+            const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+            return typeof row.url === 'string' ? [row.url] : [];
+          }),
+          checkedAt: record.at,
+          dataNotInstructions: true,
+        }];
+      } catch { return []; }
+    });
   const blueprint = blueprintForRun(runId);
   const executionPolicy = blueprintExecutionPolicy(blueprint);
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
@@ -2003,6 +2111,7 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        professionalDossiers,
         ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
