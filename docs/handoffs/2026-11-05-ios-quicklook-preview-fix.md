@@ -24,3 +24,11 @@
 ## Continuidad
 
 Mantener el módulo `JanusEdgeCompanion` y Nexo/Founder separados de las criaturas de Kendra; no reconstruir ni sobreescribir trabajo anterior. No afirmar despliegue principal ni 4K cinematográfico completado.
+
+## Resultado comprobado del despliegue QA HTTPS
+
+- GitHub Actions **pages build and deployment** ejecutado sobre `gh-pages` commit `37d8e5cdc0ceacda6333cf3357f7736b60c9d6dd`: [run #42101778605](https://github.com/jeanechandia-png/janus-core/actions/runs/42101778605) = **success**.
+- Workflow de construcción y publicación de QA aislada: [run #42101744838](https://github.com/jeanechandia-png/janus-core/actions/runs/42101744838) = **success**.
+- URL de entrada del QA: https://jeanechandia-png.github.io/janus-core/qa/janus-2026-11-05/ con enlaces a `platino.html` y `obsidiana.html`.
+- Se verificó en la rama Pages que esos HTML contienen `janus-static-preview`; la raíz `index.html` conserva su SHA anterior `0f0b34cc98c7fc0b1fd00407178c044136ae59c0`.
+- Pendiente **prueba física de Safari iOS** (la web herramienta no pudo recuperar `github.io` desde su infraestructura, por lo que la comprobación disponible es el despliegue Pages y pruebas Chromium, no una prueba Safari).
