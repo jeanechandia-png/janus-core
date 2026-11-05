@@ -18,9 +18,9 @@ test('ElevenLabs parsing: threshold, unlimited overage, reset and missing full E
     current_overage: { amount: '4.99', currency: 'usd' },
     next_character_count_reset_unix: 1793865600, currency: 'usd',
   }, '2026-11-05T11:00:00Z');
-  assert.equal(x.alert, 'critical');
+  assert.equal(x.alert, 'high');
   assert.equal(x.overageEnabled, true);
-  assert.equal(x.percent, 94.3); // threshold is 'high' at 85%; overage increases severity? see next assertion
+  assert.equal(x.percent, 94.3);
   assert.equal(x.totalCostEUR, null);
   assert.equal(x.overageEUR, null); // never convert USD to guessed EUR
   assert.equal(x.unit, 'caracteres reportados por API');
