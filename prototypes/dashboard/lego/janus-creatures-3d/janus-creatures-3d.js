@@ -260,6 +260,17 @@ const JanusCreatures3D = (() => {
       R.wind = Math.max(0, Math.min(1, Number(amount) || 0));
       if (Number.isFinite(yaw)) R.windYaw = yaw;
     };
+    // Un peinado por criatura; Bombo personaliza la longitud de las branquias,
+    // no un pelaje ficticio. Conserva el rig, la cara, ropa y accesorios.
+    R.setFurStyle = (style) => {
+      const allowed = ['natural', 'corto', 'esponjoso', 'rebelde'];
+      R.furStyle = allowed.includes(style) ? style : 'natural';
+      R.furCoats.forEach(({ coat }) => { if (coat.setStyle) coat.setStyle(R.furStyle); });
+      if (R.id === 'bombo' && R.parts.gills) {
+        const scale = { natural: 1, corto: 0.75, esponjoso: 1.23, rebelde: 1.15 }[R.furStyle];
+        R.parts.gills.forEach((side) => side.forEach((g) => g.scale.setScalar(scale)));
+      }
+    };
     R.furDetailRatio = 1;
     R.setDetail = (ratio) => {
       R.furDetailRatio = Math.max(0.2, Math.min(1, Number(ratio) || 1));
