@@ -1612,7 +1612,12 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
     maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
-    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'),
+    // Hard default for optional cloud voice: local TTS remains preferred.
+    // Only limits JANUS' own calls; unrelated apps must set provider-side caps.
+    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS') === undefined
+      ? 3000 : Math.max(1, Math.floor(numericEnv('JANUS_ELEVENLABS_DAILY_CHARS')!)),
+    reserveDailyChars: (day, count, max) => store.reserveProviderDailyCharacters('elevenlabs', day, count, max),
+    usedDailyChars: (day) => store.getProviderDailyCharacters('elevenlabs', day),
   });
   const router = new FallbackTextToSpeechGateway({
     primary: elevenlabs,
