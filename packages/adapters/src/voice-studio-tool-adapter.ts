@@ -25,7 +25,7 @@ export interface VoiceStudioOptions {
 
 type VoiceSpec = Record<string, unknown>;
 type VoiceConfig = { voices: Record<string, VoiceSpec> };
-type AudioManifest = VoiceCorpusManifest & { samples: Array<VoiceCorpusSample & { audioPath?: string; transcript?: string }> };
+type AudioManifest = Omit<VoiceCorpusManifest, 'samples'> & { samples: Array<VoiceCorpusSample & { audioPath?: string; transcript?: string }> };
 type Ledger = Record<string, { requestHash: string; voiceId: string; recordedAt: string }>;
 
 export class VoiceStudioToolAdapter implements ToolAdapter {
