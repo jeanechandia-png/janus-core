@@ -12,6 +12,7 @@ import { AsanaAdapter } from '../../packages/adapters/src/asana-adapter.js';
 import { VercelAdapter } from '../../packages/adapters/src/vercel-adapter.js';
 import { RunwayAdapter } from '../../packages/adapters/src/runway-adapter.js';
 import { PerplexityAdapter } from '../../packages/adapters/src/perplexity-adapter.js';
+import { ProfessionalSpecializationToolAdapter } from '../../packages/adapters/src/professional-specialization-tool-adapter.js';
 import { KlingAdapter } from '../../packages/adapters/src/kling-adapter.js';
 import { N8nAdapter, parseN8nWebhooks } from '../../packages/adapters/src/n8n-adapter.js';
 import { HttpRequestAdapter, parseHttpEndpoints } from '../../packages/adapters/src/http-request-adapter.js';
@@ -833,6 +834,49 @@ capabilities.register({
   state: perplexityConfigured ? 'available' : 'needs_auth',
   ...(!perplexityConfigured ? { reason: 'Perplexity necesita su API key (PERPLEXITY_API_KEY) para investigar con fuentes.' } : {}),
 });
+const professionalSpecialization = new ProfessionalSpecializationToolAdapter({
+  store: {
+    listChronologyRecords: () => store.listChronologyRecords(),
+    appendChronologyRecord: (record) => store.appendChronologyRecord(record),
+  },
+  ...(perplexityConfigured ? {
+    research: async (question: string) => {
+      const result = await toolGateway.execute({
+        tool: 'perplexity', action: 'research.ask', input: {question},
+      }, () => {});
+      if (!result.ok) throw new Error('Research gateway unavailable');
+      const output = result.output ?? {};
+      return {
+        answer: typeof output.answer === 'string' ? output.answer : '',
+        sources: Array.isArray(output.sources) ? output.sources.flatMap((item) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+          const row = item as Record<string, unknown>;
+          if (typeof row.url !== 'string') return [];
+          return [{
+            url: row.url,
+            ...(typeof row.title === 'string' ? {title:row.title}:{}),
+            ...(typeof row.snippet === 'string' ? {snippet:row.snippet}:{}),
+            ...(typeof row.date === 'string' ? {publishedAt:row.date}:{}),
+          }];
+        }) : [],
+        costUsd: typeof output.costUsd === 'number' ? output.costUsd : null,
+      };
+    },
+  } : {}),
+});
+toolGateway.register(professionalSpecialization);
+capabilities.register({
+  tool: 'specialization',
+  actions: ['research.plan','profile.get'],
+  state: 'available',
+});
+capabilities.register({
+  tool: 'specialization',
+  actions: ['research.apply'],
+  state: perplexityConfigured ? 'available' : 'needs_auth',
+  ...(!perplexityConfigured ? {reason:'La investigación verificable está bloqueada sin proveedor de búsqueda autorizado; hay continuidad offline.'}:{}),
+});
+
 capabilities.register({
   tool: 'kling',
   actions: ['task.get', 'video.create'],
