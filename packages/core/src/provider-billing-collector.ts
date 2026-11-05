@@ -129,7 +129,7 @@ async function ecbUsdPerEur(fetcher: Fetcher): Promise<{value: number; date: str
   const usd = xml.match(/<Cube\s+currency=['"]USD['"]\s+rate=['"]([\d.]+)['"]/i);
   const rate = usd ? Number(usd[1]) : NaN;
   if (!time || !Number.isFinite(rate) || rate <= 0) throw new Error('ECB exchange rate not verified');
-  return {value: rate,date:time[1]};
+  return {value: rate,date:time[1]!};
 }
 export async function pollOpenAi(env: NodeJS.ProcessEnv, fetcher: Fetcher, now: Date): Promise<BillingPollResult> {
   const key = env.OPENAI_FINOPS_ADMIN_KEY;
