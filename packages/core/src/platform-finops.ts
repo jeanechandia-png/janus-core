@@ -18,6 +18,11 @@ export interface PlatformFinOpsProvider {
   spentEur: number | null;
   creditsUsed: number | null;
   creditsLimit: number | null;
+  charactersUsed: number | null;
+  charactersLimit: number | null;
+  creditDaily: Array<{date: string; credits: number}>;
+  openInvoices: boolean;
+  currentOverageEur: number | null;
   daily: PlatformFinOpsPoint[];
   monthly: PlatformFinOpsPoint[];
   renewalDate: string | null;
@@ -56,14 +61,17 @@ export function buildPlatformFinOpsSnapshot(
     const m = latest?.metrics ?? {};
     const days = new Map<string, PlatformFinOpsPoint>();
     const months = new Map<string, PlatformFinOpsPoint>();
+    const creditDays = new Map<string, {date: string; credits: number}>();
     for (const reading of history) {
       const keyDay = reading.observedAt.slice(0, 10);
       const keyMonth = reading.observedAt.slice(0, 7);
       const dailyCost = euro(reading.metrics?.dailySpendEur);
+      const credits = numeric(reading.metrics?.creditsToday);
       const monthlyToDate = euro(reading.metrics?.spentEur);
       // Los puntos publicados son la ÚLTIMA lectura del día/mes;
       // jamás se suman lecturas acumulativas entre sí.
       if (dailyCost !== null) days.set(keyDay, { date: keyDay, eur: dailyCost });
+      if (credits !== null) creditDays.set(keyDay, {date: keyDay, credits});
       if (monthlyToDate !== null) months.set(keyMonth, { month: keyMonth, eur: monthlyToDate });
     }
     return {
@@ -75,6 +83,11 @@ export function buildPlatformFinOpsSnapshot(
       spentEur: euro(m.spentEur),
       creditsUsed: numeric(m.creditsUsed),
       creditsLimit: numeric(m.creditsLimit),
+      charactersUsed: numeric(m.charactersUsed),
+      charactersLimit: numeric(m.charactersLimit),
+      creditDaily: [...creditDays.values()].slice(-31),
+      openInvoices: m.openInvoices === true,
+      currentOverageEur: euro(m.currentOverageEur),
       daily: [...days.values()].slice(-31),
       monthly: [...months.values()].slice(-12),
       renewalDate: date(m.renewalDate),
