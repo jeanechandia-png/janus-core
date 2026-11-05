@@ -1,0 +1,60 @@
+name: JANUS creatures 3D — verification
+on:
+  push:
+    branches:
+      - chatgpt/janus-presencia-criaturas-cinematica-20261105
+  pull_request:
+    paths:
+      - 'prototypes/dashboard/**'
+      - '.github/workflows/janus-creatures-ci.yml'
+permissions:
+  contents: read
+jobs:
+  no-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          for f in \
+            prototypes/dashboard/lego/janus-fur-wind/janus-fur-wind.js \
+            prototypes/dashboard/lego/janus-presence/janus-presence.js \
+            prototypes/dashboard/lego/janus-creatures-3d/janus-creatures-3d.js \
+            prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
+            prototypes/dashboard/src/companero.js \
+            prototypes/dashboard/src/phonev.js \
+            prototypes/dashboard/src/sala.js \
+            prototypes/dashboard/src/app.js; do
+            node --check "$f"
+          done
+      - name: Deterministic unit tests
+        run: |
+          cd prototypes/dashboard
+          node tests/presence.test.cjs
+          node --test tests/fur-wind.test.cjs
+      - name: Offline self-contained dashboard builds
+        run: |
+          cd prototypes/dashboard
+          node build.cjs
+          node build.cjs --skin b
+      - name: Verify generated HTML and JavaScript are self-contained
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const path = require('node:path');
+          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html']) {
+            const html = fs.readFileSync(path.join('prototypes/dashboard/dist', file), 'utf8');
+            for (const token of ['JanusPresence', 'JanusFurWind', 'JanusCreatures3D', 'JanusCreatureSlot']) {
+              if (!html.includes(token)) throw new Error(file + ': missing ' + token);
+            }
+            const matches = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
+            if (!matches.length) throw new Error(file + ': missing JS');
+            for (const m of matches) new vm.Script(m[1], {filename:file});
+            console.log('PASS ' + file + ' (' + Math.round(html.length/1024) + ' KiB)');
+          }
+          NODE
