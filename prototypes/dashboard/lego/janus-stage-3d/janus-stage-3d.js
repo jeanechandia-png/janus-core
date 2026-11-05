@@ -438,7 +438,7 @@ const JanusStage3D = (() => {
 
     const cam = new T.PerspectiveCamera(36, 1.4, 0.1, 300);
     const cb = {}; // callbacks del anfitrión
-    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null, wind: 0.3 };
+    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null, wind: 0.3, furStyle: 'natural' };
     const wp = { home: null, homeKey: null, vehicle: null, vehKey: null, decor: new Map(), vehLap: null };
     const cre = { id: null, rig: null, rigs: {}, pos: [-4, 1.5], target: [-4, 1.5], pose: 'idle', point: null, yaw: 0, walk: 0, reactUntil: 0, reactPose: null, hop: 0, look: null, mood: null, moodUntil: 0, aspect: 'criatura', key: null };
     const FACE_COL = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
@@ -482,7 +482,7 @@ const JanusStage3D = (() => {
       if (id && (id !== cre.id || key !== cre.key)) {
         if (cre.rig) scene.remove(cre.rig.root);
         let rig = cre.rigs[key]; if (!rig) { rig = cre.rigs[key] = (key !== id ? window.JanusFace3D.build(id, FACE_COL[id]) : null) || (window.JanusCreatureSlot && window.JanusCreatureSlot.rigFor(id)) || window.JanusCreatures3D.build(id, '#FFD27A'); const hit = new T.Mesh(new T.CylinderGeometry(0.95, 0.95, 2.6, 10), new T.MeshBasicMaterial({ visible: false })); hit.position.y = 1.3; hit.userData.pickKind = 'creature'; rig.root.add(hit); }
-        cre.id = id; cre.key = key; cre.rig = rig; if (rig.setDetail) rig.setDetail(furDetail); scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
+        cre.id = id; cre.key = key; cre.rig = rig; if (rig.setDetail) rig.setDetail(furDetail); if (rig.setFurStyle) rig.setFurStyle(state.furStyle); scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
       }
       if (look && cre.rig) { cre.look = look; cre.rig.setLook(look); }
     }
@@ -659,6 +659,11 @@ const JanusStage3D = (() => {
       },
       setCreature, setLook(look) { if (cre.rig) { cre.look = look; cre.rig.setLook(look); } }, setWorld, apply,
       setWind(value) { if (Number.isFinite(value)) state.wind = Math.max(0, Math.min(1, value)); },
+      setFurStyle(style) {
+        const next = ['natural', 'corto', 'esponjoso', 'rebelde'].includes(style) ? style : 'natural';
+        state.furStyle = next;
+        if (cre.rig && cre.rig.setFurStyle) cre.rig.setFurStyle(next);
+      },
       setView(v) { state.viewOverride = v || null; computeGoal(); },
       setMode(m) { state.mode = m === 'mundo' ? 'mundo' : 'escena'; state.viewOverride = state.mode === 'mundo' ? 'mundo' : null; computeGoal(); },
       select(id) { select(id); },
