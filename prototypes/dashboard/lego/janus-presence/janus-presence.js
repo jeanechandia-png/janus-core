@@ -11,10 +11,25 @@ const JanusPresence = (() => {
   });
   const IDS = Object.keys(SPECIES);
   const normalize = (id) => IDS.includes(id) ? id : 'lumi';
-  const current = (context) => normalize(context === 'kendra' && typeof compState === 'function'
-    ? compState().creatureId : ST.settings.presenceCreature);
+  const current = (context) => context === 'founder' ? 'robot' :
+    normalize(typeof compState === 'function' ? compState().creatureId : 'lumi');
   const source = (id) => IMG[SPECIES[normalize(id)].image];
+  function renderNexo(compact) {
+    // El Founder tiene una identidad propia: Nexo, no Lumi/Bombo/Musgo/Nimbo.
+    // El GLB final aprobado puede importarse en JanusCreatureSlot('robot').
+    // Hasta entonces el renderer local Janus3D es una representacion procedural.
+    const size = compact ? 'jpresence--mini' : 'jpresence--hero';
+    const id = compact ? 'nexo-dashboard' : 'nexo-sala';
+    return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo">' +
+      '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
+      'aria-label="Nexo, robot de Janus; identidad del asistente personal del Founder">' +
+      '<div class="jnexo-fallback" aria-hidden="true">✦</div></div>' +
+      '<figcaption class="jp-caption"><b>Nexo</b>' +
+      (compact ? '<span>JANUS</span>' : '<span>Robot de Janus · modelo 3D provisional</span>') +
+      '</figcaption></figure>';
+  }
   function render(context, compact, creatureId) {
+    if (context === 'founder') return renderNexo(compact);
     const id = normalize(creatureId || current(context)), meta = SPECIES[id];
     // Kendra nombra cada criatura a su gusto; no se sustituye por el nombre del adulto.
     const name = context === 'kendra' && typeof Companion !== 'undefined' &&
@@ -49,13 +64,9 @@ const JanusPresence = (() => {
       portrait.addEventListener('pointerleave', reset, { passive: true });
     });
   }
-  const actions = {
-    presenceNext: () => {
-      const idx = IDS.indexOf(current('founder'));
-      ST.settings.presenceCreature = IDS[(idx + 1) % IDS.length];
-      saveState();
-    }
-  };
+  // Acción obsoleta conservada como no-op para dashboards previamente empaquetados.
+  // Nunca permite sustituir Nexo por una criatura de Kendra.
+  const actions = { presenceNext: () => {} };
   return Object.freeze({ IDS, SPECIES, normalize, current, render, hydrate, actions });
 })();
 window.JanusPresence = JanusPresence;
