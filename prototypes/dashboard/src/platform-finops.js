@@ -28,8 +28,10 @@ const FinOps = (() => {
   function status(p) {
     if (!fresh(p)) return 'unknown';
     if (p.health === 'down' || p.paymentFailed === true || p.creditsUsed != null && p.creditsLimit != null && p.creditsLimit > 0 && p.creditsUsed >= p.creditsLimit) return 'critical';
-    const percentage = val(p.budgetEur) != null && p.budgetEur > 0 && val(p.spentEur) != null ? p.spentEur / p.budgetEur * 100 :
-      val(p.creditsUsed) != null && val(p.creditsLimit) != null && p.creditsLimit > 0 ? p.creditsUsed / p.creditsLimit * 100 : null;
+    const ratios = [];
+    if (val(p.budgetEur) != null && p.budgetEur > 0 && val(p.spentEur) != null) ratios.push(p.spentEur / p.budgetEur * 100);
+    if (val(p.creditsUsed) != null && val(p.creditsLimit) != null && p.creditsLimit > 0) ratios.push(p.creditsUsed / p.creditsLimit * 100);
+    const percentage = ratios.length ? Math.max(...ratios) : null;
     if (percentage == null) return 'unknown';
     if (percentage >= 85) return 'critical';
     if (percentage >= 70 || p.health === 'degraded') return 'warning';
