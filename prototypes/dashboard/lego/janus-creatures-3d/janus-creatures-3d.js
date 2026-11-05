@@ -353,7 +353,16 @@ const JanusCreatures3D = (() => {
       const breeze = Number.isFinite(c.wind) ? c.wind : R.wind;
       R.furCoats.forEach((e) => e.coat.update(t, breeze, c.windYaw == null ? R.windYaw : c.windYaw));
     };
-    R.dispose = () => { R.furCoats.forEach((e) => e.coat.dispose()); root.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); };
+    R.dispose = () => {
+      R.furCoats.forEach((e) => e.coat.dispose());
+      const done = new Set();
+      root.traverse((o) => {
+        if (o.geometry && !done.has(o.geometry)) { done.add(o.geometry); o.geometry.dispose(); }
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach((m) => { if (m && !done.has(m)) { done.add(m); if (m.dispose) m.dispose(); } });
+      });
+      if (M.wingTex && M.wingTex.dispose) M.wingTex.dispose();
+    };
     return R;
   }
 
@@ -442,6 +451,23 @@ const JanusCreatures3D = (() => {
   }
 
   /* ---------- aspecto ---------- */
+  // Evita acumulación de geometrías/materiales al probar distintos looks.
+  // Nunca se destruyen los materiales compartidos con el cuerpo o el pelaje.
+  function clearFashionSlot(slot, shared) {
+    const sharedValues = new Set(Object.values(shared));
+    const done = new Set();
+    slot.traverse((o) => {
+      if (o === slot || !o.isMesh) return;
+      if (o.geometry && !done.has(o.geometry)) { done.add(o.geometry); o.geometry.dispose(); }
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        if (m && !sharedValues.has(m) && !done.has(m)) {
+          done.add(m); if (typeof m.dispose === 'function') m.dispose();
+        }
+      });
+    });
+    slot.clear();
+  }
   function applyLook(R, look) {
     const M = R.M, c = (h) => col(h);
     M.fur.color.copy(c(look.fur)); M.fur.sheenColor.copy(c(look.fur).lerp(c('#ffffff'), 0.55));
@@ -454,12 +480,12 @@ const JanusCreatures3D = (() => {
     if (R.parts.wings) R.parts.wings.forEach((w) => w.userData.mat.color.copy(c(look.accent).lerp(c('#ffffff'), 0.25)));
     // prenda
     const ok = look.outfit + '|' + look.outfitColor + '|' + look.accessoryColor;
-    if (R.outfitKey !== ok) { R.slots.outfit.clear(); R.outfitKey = ok; const o = outfitMesh(look.outfit, R.torsoB, M.outfit, M.acc); R.slots.outfit.add(o); R.outfitOn = look.outfit !== 'ninguna'; }
+    if (R.outfitKey !== ok) { clearFashionSlot(R.slots.outfit, M); R.outfitKey = ok; const o = outfitMesh(look.outfit, R.torsoB, M.outfit, M.acc); R.slots.outfit.add(o); R.outfitOn = look.outfit !== 'ninguna'; }
     // accesorios
     ['cabeza', 'cara', 'cuello', 'espalda', 'pies'].forEach((slot) => {
       const id = look.accessories && look.accessories[slot] || '', key = id + '|' + look.accessoryColor;
       if (R.accKey[slot] === key) return; R.accKey[slot] = key;
-      const sl = R.slots[slot]; sl.clear(); R.wingsAcc = slot === 'espalda' ? null : R.wingsAcc;
+      const sl = R.slots[slot]; clearFashionSlot(sl, M); R.wingsAcc = slot === 'espalda' ? null : R.wingsAcc;
       if (!id) return;
       const mesh = accessoryMesh(slot, id, M.acc, M, R.id); sl.add(mesh);
       if (slot === 'espalda') R.backAcc = mesh;
