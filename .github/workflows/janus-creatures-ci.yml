@@ -44,6 +44,7 @@ jobs:
           cd prototypes/dashboard
           node build.cjs
           node build.cjs --skin b
+          node --test tests/ios-quicklook.test.cjs
       - name: Verify generated HTML and JavaScript are self-contained
         run: |
           node <<'NODE'
