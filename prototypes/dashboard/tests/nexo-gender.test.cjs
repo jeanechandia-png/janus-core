@@ -109,6 +109,7 @@ test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
  assert.match(glb,/sort\(\(a,b\)=>b\.length-a\.length\)/);
  const engine=read('lego/janus-3d/janus-3d.js');
  assert.match(engine,/JanusNexo3D/);
+ assert.match(engine,/formKey: 'robot', formGen: -1/,'Nexo inicial sin seleccionar manualmente');
  assert.match(engine,/setVariant\(v\)/);
  assert.match(engine,/robot-femenino/);
  const build=read('build.cjs');
