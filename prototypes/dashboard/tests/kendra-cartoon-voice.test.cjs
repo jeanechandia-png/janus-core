@@ -62,19 +62,19 @@ test('modo silencio bloquea autocomentarios, pero la prueba explícita permite e
   const f=fixture(), {V}=f;
   const muted=V.speak('Buenos días', 'musgo',{enabled:false});
   assert.equal(muted.ok,false);assert.equal(muted.reason,'muted');
-  assert.equal(f.f.queued.length,0);
+  assert.equal(f.queued.length,0);
   const preview=V.preview('musgo',{enabled:false});
   assert.equal(preview.ok,true);
-  assert.equal(f.f.queued.length,1);
-  assert.match(f.f.queued[0].text,/Kendra/);
-  V.stop();assert.equal(f.f.queued.length,0);
+  assert.equal(f.queued.length,1);
+  assert.match(f.queued[0].text,/Kendra/);
+  V.stop();assert.equal(f.queued.length,0);
   assert.ok(f.cancellations>=2);
 });
 test('callbacks de sincronización facial y motor de voz reemplazable',()=>{
   const f=fixture(), {V}=f;
   let start=0,end=0,ids=[];
   V.speak('Hola', 'bombo',{onStart:(p)=>{start++;ids.push(p.id);},onEnd:()=>end++});
-  f.f.queued[0].onstart();f.f.queued[0].onend();
+  f.queued[0].onstart();f.queued[0].onend();
   assert.equal(start,1);assert.equal(end,1);assert.deepEqual(ids,['bombo']);
   let adapterInput=null,calls=0;
   const adapter={speak(input){adapterInput=input;return 'played';},stop(){calls++;}};
