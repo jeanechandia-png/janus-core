@@ -50,6 +50,8 @@ import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insi
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
+import { ElevenLabsSubscriptionReader } from '../../packages/adapters/src/elevenlabs-subscription-reader.js';
+import { buildProviderSpendSnapshot, parseElevenLabsSubscription, type ProviderSpendObservation } from '../../packages/core/src/provider-spend-control.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -410,6 +412,9 @@ const vaultCredentialProvider = credentialVault
   : null;
 // El token del almacén va primero: gana sobre una variable de entorno de desarrollo.
 const credentialBroker = new CredentialBroker([...(vaultCredentialProvider ? [vaultCredentialProvider] : []), environmentCredentials]);
+// Billing checks are read-only, on demand, cached and never run before Founder authentication.
+const spendReader = new ElevenLabsSubscriptionReader({ apiKeyProvider: () => credentialBroker.accessToken('elevenlabs') });
+let spendReadCache: { until: number; observation: ProviderSpendObservation | null; state: 'not_connected' | 'unavailable' } | null = null;
 
 // Metadatos del almacén (sin secretos), refrescados tras cada cambio. Sirven para los planes y las instantáneas, que son síncronos.
 const vaultCache = new Map<string, VaultCredentialDescription>();
@@ -1607,7 +1612,12 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
     maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
-    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'),
+    // Hard default for optional cloud voice: local TTS remains preferred.
+    // Only limits JANUS' own calls; unrelated apps must set provider-side caps.
+    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS') === undefined
+      ? 3000 : Math.max(1, Math.floor(numericEnv('JANUS_ELEVENLABS_DAILY_CHARS')!)),
+    reserveDailyChars: (day, count, max) => store.reserveProviderDailyCharacters('elevenlabs', day, count, max),
+    usedDailyChars: (day) => store.getProviderDailyCharacters('elevenlabs', day),
   });
   const router = new FallbackTextToSpeechGateway({
     primary: elevenlabs,
@@ -3125,6 +3135,37 @@ const server = createServer(async (request, response) => {
   }
 
 
+
+  // Independent of /health: billing data is private to the authenticated Founder.
+  // No subscription change, no payment, no audio/text history and no invented EUR totals.
+  if (request.method === 'GET' && url.pathname === '/api/spend') {
+    try {
+      requireFounderAuthority(request);
+      if (!spendReadCache || Date.now() >= spendReadCache.until) {
+        let observation: ProviderSpendObservation | null = null;
+        let state: 'not_connected' | 'unavailable' = 'not_connected';
+        try {
+          const raw = await spendReader.read();
+          if (raw !== null) {
+            observation = parseElevenLabsSubscription(raw, new Date().toISOString());
+            store.recordProviderSpendObservation(observation);
+          }
+        } catch {
+          state = 'unavailable';
+        }
+        spendReadCache = { until: Date.now() + 15 * 60_000, observation, state };
+      }
+      const report = buildProviderSpendSnapshot(
+        spendReadCache.observation, store.listProviderSpendHistory('elevenlabs', 90), spendReadCache.state,
+      );
+      json(response, 200, { ok: true, report, collectedAt: new Date().toISOString(),
+        notes: ['Costes totales en EUR no verificados: no sumar datos incompletos.',
+          'Histórico: solo observaciones reales desde la activación, sin datos retroactivos simulados.'] });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
 
   if (request.method === 'GET' && url.pathname === '/health') {
     json(response, 200, {

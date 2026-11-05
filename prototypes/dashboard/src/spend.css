@@ -1,0 +1,21 @@
+/* Shared provider spend controls: short summary in main dashboard, detail on demand. */
+.spend-quick{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;cursor:pointer;border:1px solid rgba(213,170,97,.4);border-radius:9px;padding:5px 9px;color:#edd8a5;background:rgba(20,24,31,.85);font-size:11px;line-height:1.4}
+.spend-quick:focus-visible,.spend-provider:focus-visible{outline:2px solid #86b6ff;outline-offset:2px}
+.spend-section{margin-block:9px}
+.spend-section .pb{overflow:auto;max-height:none}
+.spend-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(124px,1fr));gap:12px;padding:12px 0}
+.spend-top>div{min-width:0;border:1px solid rgba(176,187,203,.18);border-radius:12px;padding:12px}
+.spend-top small{display:block;color:#a6b1c2;font-size:11px;margin-bottom:8px}
+.spend-top strong{display:block;color:#f0d39c;font-size:clamp(13px,1.4vw,20px);overflow-wrap:anywhere}
+.spend-providers{display:flex;flex-direction:column;gap:6px}
+.spend-provider{display:grid;grid-template-columns:minmax(120px,2fr) auto minmax(110px,2fr) 14px;gap:9px;align-items:center;cursor:pointer;padding:11px;border:1px solid rgba(170,180,192,.16);border-radius:10px;color:inherit;background:rgba(102,115,143,.08)}
+.spend-provider:hover{border-color:rgba(213,170,97,.48)}
+.spend-provider-usage{color:#b2bdc8;font-size:11px;text-align:right;overflow-wrap:anywhere}
+.spend-alert,.spend-unknown{font-size:10px;letter-spacing:.01em;padding:3px 7px;border-radius:8px;white-space:nowrap;border:1px solid rgba(170,180,192,.24)}
+.spend-unknown{color:#b9bdc4}.spend-watch{color:#eed18b}.spend-high{color:#ffbc79}.spend-critical{color:#ff9a95}.spend-normal{color:#98d4b4}
+.spend-caption,.spend-empty{color:#c2c6cc;font-size:12px;line-height:1.6;margin:9px 0}
+.spend-refresh{display:inline-block;cursor:pointer;margin-top:10px}
+.spend-chart-wrap{width:100%;overflow-x:auto;overflow-y:hidden;margin:12px 0}
+.spend-chart{display:block;width:100%;min-width:320px;max-height:260px;overflow:visible}
+.spend-legend{display:flex;justify-content:space-between;color:#bfc2c7;font-size:11px;gap:12px}
+@media(max-width:700px){.spend-provider{grid-template-columns:minmax(100px,1.5fr) auto 14px}.spend-provider-usage{grid-column:1/-1;text-align:left}.spend-top{grid-template-columns:repeat(2,minmax(0,1fr))}.spend-quick{padding:4px 6px;font-size:10px}}

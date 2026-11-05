@@ -75,6 +75,10 @@ export interface ElevenLabsTtsAdapterOptions {
   maxCharsPerRequest?: number;
   /** Presupuesto diario de caracteres (UTC). Sin valor = sin tope propio (el plan de ElevenLabs sigue mandando). */
   dailyCharBudget?: number;
+  /** Optional durable atomic quota reservation: false means refuse before calling provider. */
+  reserveDailyChars?: (day: string, characters: number, maxCharacters: number) => boolean;
+  /** Optional persisted quota reader for accurate health after restarts. */
+  usedDailyChars?: (day: string) => number;
   now?: () => Date;
 }
 
@@ -97,6 +101,8 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
   private readonly requestTimeoutMs: number;
   private readonly maxCharsPerRequest: number;
   private readonly dailyCharBudget: number | null;
+  private readonly reserveDailyChars?: (day: string, characters: number, maxCharacters: number) => boolean;
+  private readonly usedDailyChars?: (day: string) => number;
   private readonly now: () => Date;
   private usageDay = '';
   private usageChars = 0;
@@ -120,6 +126,8 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
     this.dailyCharBudget = Number.isFinite(options.dailyCharBudget) && Number(options.dailyCharBudget) > 0
       ? Math.floor(Number(options.dailyCharBudget))
       : null;
+    this.reserveDailyChars = options.reserveDailyChars;
+    this.usedDailyChars = options.usedDailyChars;
     this.now = options.now ?? (() => new Date());
   }
 
@@ -132,7 +140,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
     this.rollUsageDay();
     return {
       day: this.usageDay,
-      charactersRequested: this.usageChars,
+      charactersRequested: this.usedDailyChars ? this.usedDailyChars(this.usageDay) : this.usageChars,
       dailyCharBudget: this.dailyCharBudget,
       requests: this.usageRequests,
     };
@@ -165,6 +173,15 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
     const apiKey = (await this.apiKeyProvider())?.trim();
     if (!apiKey) {
       throw new ElevenLabsTtsError('not_configured', 'Falta la credencial del servicio elevenlabs.', 'provider');
+    }
+
+    // The provider may bill a failed/aborted request. Reserve conservatively
+    // BEFORE the HTTP call. A SQLite-backed callback survives process restart.
+    if (this.dailyCharBudget !== null && this.reserveDailyChars) {
+      let reserved = false;
+      try { reserved = this.reserveDailyChars(this.usageDay, cleanText.length, this.dailyCharBudget); }
+      catch { throw new ElevenLabsTtsError('budget_exhausted', 'No se pudo validar el límite persistente de voz. Se bloquea el gasto en la nube.', 'provider'); }
+      if (!reserved) throw new ElevenLabsTtsError('budget_exhausted', 'Límite diario persistente de voz en la nube alcanzado.', 'provider');
     }
 
     this.usageChars += cleanText.length;
