@@ -47,6 +47,8 @@ const JanusCreatures3D = (() => {
       eg.add(at(ell(o.er * 0.4, 1, 1.1, 0.4, M.dark, 16, 12), 0, -o.er * 0.04, o.er * 0.4));
       eg.add(at(ell(o.er * 0.18, 1, 1, 0.5, M.hi, 10, 8), o.er * 0.22, o.er * 0.3, o.er * 0.5));
       eg.add(at(ell(o.er * 0.1, 1, 1, 0.5, M.hi, 8, 6), -o.er * 0.2, -o.er * 0.22, o.er * 0.48));
+      // La esclerotica permanece fija; iris, pupila y brillos siguen la mirada.
+      eg.userData.faceBase = eg.children.slice(1, 5).map((part) => part.position.clone());
       eyes.push(eg);
     });
     const smile = new T.Mesh(new T.TorusGeometry(o.mw, o.mt || 0.03, 8, 28, Math.PI), M.dark); smile.rotation.z = Math.PI; smile.position.set(0, o.my, o.mz); head.add(smile);
@@ -444,6 +446,22 @@ const JanusCreatures3D = (() => {
     const F = R.face;
     const mk = MOODS[ctl.mood] ? ctl.mood : think ? 'pensativo' : 'contento', MD = MOODS[mk]; F.mood = mk;
     F.eyes.forEach((e, i) => { const wk = R.id === 'musgo' && i === 0 && R.wink > 0 ? 0.08 : 1; e.scale.y = damp(e.scale.y, Math.min(bl, wk) * MD.eyeY * MD.eyeS, 40, dt); e.scale.x = damp(e.scale.x, MD.eyeS, 14, dt); });
+    // La emocion vive sobre todo en los ojos: desplazamiento real de iris/pupila,
+    // dos brillos sincronizados y giro sutil de cabeza, sin deformar el blanco.
+    const goalX = ctl.gaze && Number.isFinite(ctl.gaze.x) ? Math.max(-1, Math.min(1, ctl.gaze.x)) : Math.sin(ph * 0.43) * 0.15;
+    const goalY = ctl.gaze && Number.isFinite(ctl.gaze.y) ? Math.max(-1, Math.min(1, ctl.gaze.y)) : Math.sin(ph * 0.33) * 0.10;
+    R.gazeX = damp(R.gazeX || 0, goalX, 7, dt);
+    R.gazeY = damp(R.gazeY || 0, goalY, 7, dt);
+    F.eyes.forEach((eye) => {
+      const base = eye.userData.faceBase;
+      if (!base) return;
+      for (let j = 0; j < base.length; j++) {
+        const el = eye.children[j + 1];
+        el.position.x = base[j].x + R.gazeX * 0.029;
+        el.position.y = base[j].y + R.gazeY * 0.024;
+      }
+    });
+    R.head.rotation.y = damp(R.head.rotation.y, R.gazeX * 0.17, 5.5, dt);
     if (R.id === 'musgo') { R.wink = Math.max(0, R.wink - dt); if (R.wink <= 0 && Math.sin(ph * 0.31) > 0.995) R.wink = 0.45; if (cel && R.wink <= 0) R.wink = 0.6; }
     // cejas, mofletes y boca según la emoción
     F.brows.forEach((b) => { const u = b.userData; b.scale.y = damp(b.scale.y, MD.brow ? 1 : 0.001, 18, dt); b.rotation.z = damp(b.rotation.z, u.s * MD.browA, 14, dt); b.position.y = damp(b.position.y, u.y0 + MD.browY * u.er, 14, dt); });
