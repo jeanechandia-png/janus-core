@@ -64,3 +64,21 @@
  .jnexo.jpresence--mini{width:58px}
  .stage main>.jnexo.jpresence--hero{height:200px;min-height:200px}
 }
+
+/* Nexo masculino/femenino — el selector funciona tanto en Sala como en A/B y móvil. */
+.jnexo{--jp-accent:#b5c7e1}
+.jnexo-display{background:radial-gradient(circle at 35% 30%,rgba(209,219,234,.21),transparent 55%),linear-gradient(145deg,#171722,#090a12)}
+.jnexo .jnexo-fallback{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;background:radial-gradient(ellipse at 50% 40%,#d7dfe828,transparent 58%);color:#dfedff}
+.jnexo .jnexo-fallback b{font:600 clamp(14px,1.5vw,20px) 'Instrument Sans',sans-serif;letter-spacing:.1em}
+.jnexo .jnexo-fallback span{font:500 10px 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:#b1c7e6}
+.jnexo.jpresence--mini .jnexo-fallback b{font-size:9px}
+.jnexo.jpresence--mini .jnexo-fallback span{font-size:8px}
+.jnexo-variants{position:absolute;top:9px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:4px;padding:3px;border:1px solid rgba(212,225,250,.42);border-radius:13px;background:#0c101cdd;box-shadow:0 4px 16px #0008}
+.jnexo-variant-btn{appearance:none;cursor:pointer;padding:7px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#d7e5fb;font:600 11px 'Instrument Sans',sans-serif;min-height:32px}
+.jnexo-variant-btn.active{background:#b9cce8;color:#111a2d;border-color:#e1ebf9}
+.jnexo-variant-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.jnexo-variant-btn.is-mini{position:absolute;z-index:10;top:2px;right:2px;padding:0;border:1px solid rgba(213,228,249,.85);border-radius:50%;width:25px;height:25px;min-height:25px;background:#18233df0;color:#f7f9ff;font-size:19px}
+@media(max-width:47.5em),(max-height:31.25em){
+  .jnexo-variants{top:7px;max-width:calc(100% - 10px)}
+  .jnexo-variant-btn{padding:5px 9px;font-size:10px}
+}
