@@ -29,3 +29,17 @@
 @keyframes jp-shine{0%,45%{background-position:100% 0}70%,100%{background-position:-120% 0}}
 @media (prefers-reduced-motion:reduce){.jp-image,.jp-light{animation:none!important;transform:none!important;transition:none!important}}
 @media (max-width:47.5em),(max-height:31.25em){.jpresence--mini{width:58px}.cp-cinematic .jp-caption{bottom:74px}.cp-mode{top:76px}}
+
+/* Sala sin conversación: criatura de referencia protagonista, el robot 3D sigue a la derecha. */
+.sala .empty>.jpresence--hero{height:clamp(156px,32vh,232px);width:min(100%,270px);flex:none}
+.sala .empty>.jpresence--hero .jp-caption{padding:7px 10px}
+.sala .empty>.jpresence--hero .jp-caption span{display:none}
+/* A/B/C/A2: figura protagonista móvil; evita height:100% indeterminada y respeta las grillas. */
+@media (max-width:47.5em),(max-height:31.25em){
+ .stage main>.jpresence--hero{height:200px;min-height:200px;grid-column:1/-1;flex:none}
+ .stage main>.jpresence--hero .jp-image{object-position:center 39%}
+ .stage main>.jpresence--hero .jp-caption{padding:9px 12px}
+ .stage main>.jpresence--hero .jp-caption b{font-size:21px}
+ .stage main>.jpresence--hero .jp-caption span{max-width:28ch;text-align:right}
+ .sala .empty>.jpresence--hero{height:185px;width:min(100%,240px)}
+}
