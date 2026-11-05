@@ -4,10 +4,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { APPROVED_CHARACTER_SELECTION } from '../packages/modules/companion/src/index.js';
 // @ts-expect-error browser ES module, intentionally shared with the offline PWA
-import {
-  initialCompanionState, restoreCompanionState, renameLocally, activeName,
-  addStarsForChallenge, unlockAccessory, equipAccessory,
-} from '../apps/pwa/companion-state.js';
+import { initialCompanionState, restoreCompanionState, renameLocally, activeName, addStarsForChallenge, unlockAccessory, equipAccessory } from '../apps/pwa/companion-state.js';
 
 const catalog = JSON.parse(readFileSync('apps/pwa/companion-catalog.json', 'utf8'));
 const option = (id: string) => catalog.characters.find((c: { id: string }) => c.id === id);
