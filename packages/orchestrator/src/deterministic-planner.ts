@@ -20,6 +20,8 @@ export function deterministicPlan(
   // Lo adjunto (archivos, códigos QR) son datos: nunca deciden la ruta. Solo cuentan las palabras del usuario.
   const command = userTextOutsideAttachmentBlock(rawCommand);
   if (!command) return null;
+  const voiceStudio = voiceStudioPlan(command);
+  if (voiceStudio) return voiceStudio;
   // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
   // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
   if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);
@@ -41,6 +43,49 @@ export function deterministicPlan(
   const seneca = parseSenecaRequest(command);
   if (seneca) return senecaPlan(command, seneca);
   return null;
+}
+
+/**
+ * Órdenes habladas para crear voces en el estudio LOCAL de Janus.
+ * La detección sólo encamina la solicitud: no clona voces, no salta permisos.
+ * Cambios en el registro local quedan sujetos a aprobación Founder + Face ID.
+ */
+function voiceStudioPlan(command: string): JanusPlan | null {
+  const text = foldVoiceText(command);
+  if (/\b(que es|como funciona|explicame|cuentame|puedes|capacidad|tutorial|investiga)\b/.test(text)
+      && !/\b(crea|disena|genera|clona|prepara)\b/.test(text)) return null;
+  const isClone = /\b(clona|clonar|clonacion|copia mi voz|replica mi voz)\b/.test(text)
+    && /\b(voz|mi voz|voz de jean)\b/.test(text);
+  const isDesign = /\b(crea|crear|disena|disenar|genera|generar|prepara)\b/.test(text)
+    && /\b(una voz|un timbre de voz|voz nueva|nueva voz|voz caricaturesca|voz sintetica)\b/.test(text);
+  if (!isClone && !isDesign) return null;
+
+  const mode = isClone ? 'clone' : 'design';
+  const id = isClone ? 'janus-founder-local' : 'janus-designed';
+  const input = mode === 'clone'
+    ? {subjectId:'jean',voiceId:id}
+    : {voiceId:id,instruct:command.trim().slice(0,800)};
+  const preview = mode === 'clone' ? 'clone.readiness' : 'design.preview';
+  const apply = mode === 'clone' ? 'clone.apply' : 'design.apply';
+  const idempotencyKey = createHash('sha256').update('voice-studio:' + mode + ':' + text).digest('hex');
+  const steps: PlannedToolStep[] = [
+    {
+      id:'voice-studio-review',kind:'tool',label:mode === 'clone' ? 'Comprobar consentimiento y audio original local' : 'Revisar el diseño vocal y su modelo local',
+      tool:'voice-studio',action:preview,input,
+      risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+    },
+    {
+      id:'voice-studio-install',kind:'tool',label:mode === 'clone' ? 'Instalar clon propio tras revisión y Face ID' : 'Instalar diseño de voz local tras revisión y Face ID',
+      tool:'voice-studio',action:apply,input,
+      idempotencyKey,risk:'high',reversible:false,requiresApproval:true,resultMode:'full',
+    },
+  ];
+  return createPlan(command,steps,'deterministic');
+}
+
+function foldVoiceText(value:string):string {
+  return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9ñ\s]/g,' ').replace(/\s+/g,' ').trim();
 }
 
 type SenecaRequest =
