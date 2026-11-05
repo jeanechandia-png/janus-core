@@ -94,7 +94,10 @@ test('tool adapter reuses model gateway and exposes Connect as flagship', async 
   const blocked = await adapter.execute(base, async () => {});
   assert.equal(blocked.ok, false);
   assert.equal(calls, 0);
-  const result = await adapter.execute({ ...base, input: { ...base.input, allowExternalProcessing: true } }, async () => {});
+  const flagOnly = await adapter.execute({ ...base, input: { ...base.input, allowExternalProcessing: true } }, async () => {});
+  assert.equal(flagOnly.ok, false);
+  assert.equal(calls, 0);
+  const result = await adapter.execute({ ...base, input: { ...base.input, allowExternalProcessing: true }, authorization: { privileged: true, authorityDecisionHash: 'a'.repeat(64) } }, async () => {});
   assert.equal(result.ok, true);
   assert.equal(result.output?.reply, 'Hallo');
   const info = await adapter.execute({ tool: 'interpreter', action: 'capabilities.get', input: {} }, async () => {});
