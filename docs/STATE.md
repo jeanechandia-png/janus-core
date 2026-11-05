@@ -1,5 +1,17 @@
 # JANUS — Estado vigente
 
+## ACTUALIZACIÓN VIGENTE · 2026-11-05 · reconciliación Claude/ChatGPT
+
+**Autoridad del código:** repositorio único `jeanechandia-png/janus-core`. `main` está en `7ddfe245f15ec53438c2db98dbb7b137420ebcf9` (Infinity Interpreter #62). La rama **PR #64** (`chatgpt/janus-voice-autonomy-20261105`) conserva el trabajo de Claude (#57–#59) y el último `main` como ancestro real, tras reconciliar el módulo de interpretación con blobs idénticos. **No está fusionada ni desplegada.**
+
+**HECHO:** código de voz autenticada, conocimiento por voz y estudio local de voz conservados; corrección de fallos de CI de Voice Studio; nuevo guard de continuidad (`npm run continuity:gate -- --require-main-ancestor`) y prueba que impide pérdida silenciosa de módulos. La CI ejecuta el guard frente al `main` más reciente.
+
+**BLOQUEADO/PENDIENTE:** #63 contiene el trabajo visual de Claude/ChatGPT (Nexo masculino/femenino, Kendra, mascotas 3D) pero aún no está reconciliado con esta rama de Core ni con el `main` reciente. #60 independencia de voz y #61 FINOPS requieren cotejo de diffs; no fusionar por fuerza. Las voces clonadas GLB/VoiceDesign no están verificadas con hardware/audio reales.
+
+**CONTINUAR AQUÍ:** `docs/handoffs/2026-11-05-claude-chatgpt-reconciliation.md` + PRs #63/#64 y `docs/STATE.md` histórico a continuación. Revalidar el SHA de `main` antes de editar; no sobrescribir archivos concurrentes.
+
+---
+
 Fecha: 2026-11-04
 
 ## Integración en revisión — dashboards A/B + JANUS CORE + evolución (04-11-2026)
