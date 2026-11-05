@@ -22,6 +22,9 @@ jobs:
         run: |
           for f in \
             prototypes/dashboard/lego/janus-fur-wind/janus-fur-wind.js \
+            prototypes/dashboard/lego/janus-nexo-3d/janus-nexo-3d.js \
+            prototypes/dashboard/src/avatar.js \
+            prototypes/dashboard/lego/janus-presence/janus-presence.js \
             prototypes/dashboard/lego/janus-presence/janus-presence.js \
             prototypes/dashboard/lego/janus-creatures-3d/janus-creatures-3d.js \
             prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
@@ -39,6 +42,7 @@ jobs:
           node --test tests/kendra-identity.test.cjs
           node --test tests/edge-companion.test.cjs
           node --test tests/kendra-fashion.test.cjs
+          node --test tests/nexo-gender.test.cjs
       - name: Offline self-contained dashboard builds
         run: |
           cd prototypes/dashboard
