@@ -1,0 +1,14 @@
+{
+  "piece": "janus-3d",
+  "name": "Robot Janus y micrófono de oro en 3D real: girables, con voz, manos, pies y ondas",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (22-23 oct 2026). Reutiliza el oro y el estudio de luz de lego/janus-gold; el micrófono sigue el diseño vintage de las landings de Melanie. Sin tocar apps/pwa.",
+  "dependencies": ["three.js r160 (MIT) en vendor/three-r160.min.js"],
+  "api": "Janus3D.hydrate(root) monta [data-3d=\"bot|mic\"][data-id][data-tap=\"#ruta\"|data-tapact=\"acción\"] · Janus3D.state.{talking,listening,thinking} (booleanos que el anfitrión activa)",
+  "behaviour": "Un lienzo por data-id (se conserva al re-renderizar); arrastre para girar con inercia; toque → navega o ejecuta acción; no dibuja si está oculto; sin WebGL → imagen de respaldo (.j3d-fb) con la misma navegación.",
+  "mounts": [{ "product": "Janus · dashboard A (prototipo) — teléfono y Sala", "file": "prototypes/dashboard/src/phonea2.js · src/sala.js", "version": "1.0.0" }],
+  "plannedMounts": ["landing.infinity-group", "landing.infinity-chatbox (asistente de cada cliente con su color)", "landing.iba", "Janus PWA (apps/pwa) — requiere autorización de Jean"],
+  "commercial": "Reutilizable y vendible: el color del metal (gold()) y la mascota se parametrizan por cliente.",
+  "knownLimits": ["Rendimiento en iPad/iPhone reales sin medir: dos lienzos WebGL simultáneos como máximo (el que no se ve no se dibuja).", "Realismo = MeshPhysicalMaterial + entorno de estudio propio; no es un modelo glTF esculpido."],
+  "distribution": "Registrar en la Reusable LEGO Library y en el perfil padre infinity-landing-assistant (tracking=current)."
+}

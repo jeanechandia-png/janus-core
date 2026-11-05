@@ -1,0 +1,104 @@
+/* ===== Capa 3D y tipografía de alta definición (Obsidiana) ===== */
+/* Tipografía nítida: suavizado, kerning, cifras tabulares y pesos firmes */
+.a{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:geometricPrecision;font-kerning:normal;font-feature-settings:"kern" 1,"liga" 1}
+.a .mono{font-weight:500;font-variant-numeric:tabular-nums slashed-zero;font-feature-settings:"zero" 1,"tnum" 1}
+.a .serif{font-weight:700;font-variant-numeric:lining-nums;letter-spacing:-.005em}
+.a .lb{font-weight:600;color:#F0CD86;text-shadow:0 1px 0 rgba(0,0,0,.85)}
+.a .dim{color:#C6BEAD}
+.a .gld{background:linear-gradient(180deg,#FFFBEA 0%,#FFE7A8 30%,#E8C37A 55%,#B07E2C 82%,#7A4F12 100%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 1px 0 rgba(255,240,200,.18)) drop-shadow(0 2px 0 rgba(40,24,4,.9)) drop-shadow(0 7px 12px rgba(0,0,0,.65))}
+
+/* Iconos vectoriales grabados */
+.ji{width:1.08em;height:1.08em;display:inline-block;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+.bb{position:relative;color:#F0CD86;background:radial-gradient(circle at 32% 24%,rgba(255,250,230,.42),rgba(255,255,255,.06) 38%,rgba(0,0,0,.55) 100%),linear-gradient(160deg,#2a2418,#0b0a0d);border:0;box-shadow:0 0 0 1px rgba(255,226,160,.55),0 0 0 2.5px #1a140a,0 0 0 3.5px rgba(232,195,122,.35),inset 0 2px 1px rgba(255,248,225,.35),inset 0 -5px 8px rgba(0,0,0,.75),0 8px 14px -6px rgba(0,0,0,.95)}
+.bb .ji{width:60%;height:60%;stroke:url(#jg);stroke-width:2.1;filter:drop-shadow(0 1px 0 rgba(0,0,0,.9)) drop-shadow(0 0 3px rgba(232,195,122,.35))}
+.bb::after{content:"";position:absolute;left:18%;right:18%;top:7%;height:32%;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.38),rgba(255,255,255,0));pointer-events:none}
+.bb.off .ji{stroke:#8d8678}
+
+/* Pestañas con iconos acuñados */
+.tb2 i .ji{width:1.35em;height:1.35em;stroke:url(#jg);stroke-width:1.9;filter:drop-shadow(0 1px 0 #000)}
+.tb2.on i .ji{filter:drop-shadow(0 0 6px rgba(255,220,150,.75)) drop-shadow(0 1px 0 #000)}
+
+/* Paneles con volumen: bisel dorado, luz superior, sombra de contacto y reflejo que sigue al dedo */
+.a .cd{transform:perspective(1100px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .3s;will-change:transform;
+  background:radial-gradient(120% 70% at 50% -12%,rgba(255,228,170,.11),transparent 60%),linear-gradient(162deg,rgba(255,255,255,.085),rgba(255,255,255,.02) 38%,rgba(255,255,255,.035) 100%),#0c0b0f;
+  box-shadow:0 0 0 1px rgba(232,195,122,.2),inset 0 1px 0 rgba(255,238,200,.28),inset 0 -2px 0 rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.025),0 2px 0 -1px rgba(255,220,150,.12),0 22px 34px -20px rgba(0,0,0,1),0 46px 60px -40px rgba(0,0,0,.9)}
+.a .cd.tilt{transition:transform .08s linear,box-shadow .3s}
+.a .cd::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;transition:opacity .35s;background:radial-gradient(420px 260px at var(--mx,50%) var(--my,0%),rgba(255,236,190,.12),transparent 60%)}
+.a .cd.tilt::after{opacity:1}
+
+/* Entrada en profundidad de las vistas (solo al cambiar de pestaña) */
+@keyframes rise3d{from{opacity:0;transform:perspective(1100px) translate3d(0,26px,-140px) rotateX(9deg)}to{opacity:1;transform:perspective(1100px) translate3d(0,0,0) rotateX(0)}}
+#view.enter .vb>.cd,#view.enter .vb>div>.cd{animation:rise3d .62s cubic-bezier(.16,.84,.24,1) both;animation-delay:calc(var(--i,0) * 55ms)}
+@keyframes hdr3d{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+#view.enter .vh{animation:hdr3d .45s ease-out both}
+
+/* Cabecera de vista: medalla que gira en 3D */
+.vh .bb.m{width:34px;height:34px;transform-style:preserve-3d;animation:coin 9s ease-in-out infinite}
+@keyframes coin{0%,72%,100%{transform:perspective(300px) rotateY(0)}80%{transform:perspective(300px) rotateY(180deg)}88%{transform:perspective(300px) rotateY(360deg)}}
+.vh h1{font-size:30px;letter-spacing:.01em}
+
+/* Gráficas sobre un plano en perspectiva con suelo reflectante */
+.lc .plot{transform:perspective(1000px) rotateX(10deg);transform-origin:50% 100%;border-radius:10px;
+  background:linear-gradient(180deg,rgba(255,255,255,.015),rgba(232,195,122,.035)),repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px calc(100% / 12));
+  box-shadow:inset 0 -1px 0 rgba(232,195,122,.45),0 14px 16px -12px rgba(232,195,122,.25)}
+.lc .plot::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:30%;pointer-events:none;background:linear-gradient(0deg,rgba(232,195,122,.07),transparent);border-radius:0 0 10px 10px}
+.lc .plot svg{overflow:visible;filter:drop-shadow(0 10px 8px rgba(0,0,0,.55))}
+.ln3{filter:drop-shadow(0 0 4px currentColor)}
+
+/* Barras horizontales como tubos de vidrio con relleno líquido */
+.rtk{position:relative;height:12px!important;border-radius:999px!important;background:linear-gradient(180deg,#050506,#17161b)!important;box-shadow:inset 0 2px 3px #000,inset 0 -1px 0 rgba(255,255,255,.08),0 1px 0 rgba(255,255,255,.05)!important;overflow:hidden}
+.rfl{height:100%!important;border-radius:999px!important;background-image:linear-gradient(180deg,rgba(255,255,255,.65) 0,rgba(255,255,255,.12) 38%,rgba(0,0,0,0) 55%,rgba(0,0,0,.38) 100%)!important;background-color:var(--c,#E8C37A)!important;box-shadow:0 0 12px -2px var(--c,#E8C37A),inset -2px 0 3px rgba(255,255,255,.5)!important}
+
+/* Anillos de progreso con grosor */
+.rg2{filter:drop-shadow(0 2px 0 #000) drop-shadow(0 10px 10px rgba(0,0,0,.7))!important;box-shadow:inset 0 2px 1px rgba(255,255,255,.35),inset 0 -3px 4px rgba(0,0,0,.6)}
+.rg2::after{background:radial-gradient(circle at 40% 30%,#24201a,#08080a 70%)!important;box-shadow:inset 0 3px 6px #000,0 0 0 1px rgba(255,226,160,.25)!important}
+.rg2 span{font-weight:600}
+
+/* Cifras protagonistas */
+.hero .tp,.kpi b.serif,.big.serif{filter:drop-shadow(0 2px 0 rgba(40,24,4,.95)) drop-shadow(0 10px 16px rgba(0,0,0,.7))}
+
+/* Clima: brújula tumbada en 3D llenando el hueco inferior */
+.vb-clima .wxh{display:flex;flex-direction:column}
+.vb-clima .dw2{flex:1;display:grid;place-items:center;margin:8px auto 0;width:min(100%,200px);transform:perspective(700px) rotateX(38deg);filter:drop-shadow(0 26px 18px rgba(0,0,0,.85)) drop-shadow(0 0 22px rgba(232,195,122,.18))}
+.vb-clima .dw2 svg{width:100%;max-height:100%}
+
+@media (prefers-reduced-motion:reduce){.a .cd{transform:none!important;transition:none}#view.enter .vb>.cd,#view.enter .vb>div>.cd,#view.enter .vh,.vh .bb.m{animation:none}}
+@media (max-width:47.5em),(max-height:31.25em){.a .cd{transform:none}.lc .plot{transform:none}.vb-clima .dw2{width:180px}}
+.kp2 .kpi .v{line-height:1.3;padding-top:1px}
+.tms label{min-width:0}.tms input{min-width:0;width:100%;flex:1;font-variant-numeric:tabular-nums}
+.jiw{display:inline;white-space:normal}
+
+/* Cuerpo de panel: ocupa el alto y reparte filas para no dejar huecos */
+#view .cd>.pb{flex:1;min-height:0;display:flex;flex-direction:column}
+#view .pb:not(:has(.lc,.wk2,.fun2,.scol,.dn2,.tbl,.mls,.d7,.hb,.lg2,.kv,.heat,.tlp,.igr,.kp2,.hero,.ro,textarea)){justify-content:space-evenly}
+#view .pb>.li2,#view .pb>.ci,#view .pb>.kt,#view .pb>.cl2{min-height:40px}
+
+/* Semana familiar: columnas con escala horaria proporcional (07–21 h) */
+.wk2{grid-template-columns:22px repeat(7,minmax(0,1fr))!important}
+.wkax{position:relative;margin:50px 0 10px}
+.wkax span{position:absolute;right:2px;transform:translateY(-50%);font-size:9px;color:var(--mute)}
+.wkc{align-items:stretch!important;text-align:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 10px 18px -12px #000}
+.wkt{position:relative;flex:1;margin:4px 2px 4px;border-radius:8px;background:repeating-linear-gradient(180deg,rgba(255,255,255,.05) 0 1px,transparent 1px calc(100% / 7)),linear-gradient(180deg,rgba(0,0,0,.35),rgba(0,0,0,.1));box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+.wkt .kit3{position:absolute;left:3px;right:3px;padding:4px 0 3px;border-radius:8px;background:linear-gradient(180deg,rgba(255,226,160,.28),rgba(168,116,31,.18));border:1px solid rgba(255,226,160,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 6px 10px -4px #000;color:#F0CD86}
+.wkt .kit3 .ji{width:16px;height:16px;stroke:url(#jg)}
+.wkt .kit3 small{font-size:8.5px;color:#E9DCC0}
+
+/* Columnas apiladas como prismas 3D: cara lateral y tapa */
+.stk2c{position:relative;overflow:visible!important;border-radius:3px!important}
+.stk2c>i:first-child{border-radius:0 0 3px 3px}
+.stk2c .sd3{position:absolute;left:100%;top:0;bottom:0;width:11px;display:flex;flex-direction:column-reverse;transform:skewY(-34deg);transform-origin:0 100%;filter:brightness(.5) saturate(1.1)}
+.stk2c .sd3 i{display:block;width:100%}
+.stk2c .cap3{position:absolute;left:0;right:0;bottom:100%;height:7px;transform:skewX(-56deg);transform-origin:0 100%;filter:brightness(1.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.stk2c>i{box-shadow:inset 0 1px 0 rgba(255,255,255,.25),inset 6px 0 8px -6px rgba(255,255,255,.4)}
+.scol{gap:14px!important;padding-right:12px}
+
+/* Donut como disco 3D con canto */
+.donut.big{transform:perspective(520px) rotateX(32deg);filter:drop-shadow(0 1px 0 #3a2d14) drop-shadow(0 1px 0 #3a2d14) drop-shadow(0 1px 0 #3a2d14) drop-shadow(0 2px 0 #241b0b) drop-shadow(0 2px 0 #241b0b) drop-shadow(0 18px 16px rgba(0,0,0,.8))}
+.donut.big b{transform:translateZ(0)}
+
+/* Embudo 3D que ocupa toda la altura */
+.fun2{justify-content:stretch!important;gap:0!important;perspective:700px}
+.fun2 .fs{flex:1;margin:0 auto;border-radius:6px!important;clip-path:polygon(0 0,100% 0,93% 100%,7% 100%);background:linear-gradient(180deg,rgba(255,236,190,.45),rgba(232,195,122,.25) 30%,rgba(120,80,20,.35))!important;box-shadow:inset 0 2px 0 rgba(255,255,255,.4),inset 0 -12px 18px rgba(0,0,0,.45)!important;transform:rotateX(14deg)}
+.fun2 .fcv{padding:4px 0;color:#E9DCC0}
+.a .jiw>svg.ji{width:1.08em!important;height:1.08em!important;display:inline-block!important;flex:none!important;margin:0 .22em 0 0;vertical-align:-.16em!important}

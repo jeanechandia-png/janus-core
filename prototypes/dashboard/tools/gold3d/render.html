@@ -1,0 +1,155 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"./nm/three/build/three.module.js","three/addons/":"./nm/three/examples/jsm/"}}</script>
+</head><body style="margin:0;background:transparent">
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+import opentype from './nm/opentype.js/dist/opentype.module.js';
+
+const FINISH = {
+  pulido:  { color: 0xe8ab3e, rough: 0.12, clear: 0.6, env: 1.1, warm: 0xffc46a, cool: 0x5aa0ff },
+  satinado:{ color: 0xd9a043, rough: 0.32, clear: 0.15, env: 1.05, warm: 0xffb054, cool: 0x7a8cff },
+  champan: { color: 0xe6b98f, rough: 0.18, clear: 0.5, env: 1.05, warm: 0xffd2b0, cool: 0x9ab8ff }
+};
+const fonts = {};
+async function font(name) { if (!fonts[name]) { const buf = await (await fetch(name)).arrayBuffer(); fonts[name] = opentype.parse(buf); } return fonts[name]; }
+
+function studio(renderer, f) {
+  // Estudio cinematográfico: sala neutra + paneles cálidos (clave) y fríos (contraluz) que se reflejan en el oro.
+  const scene = new THREE.Scene();
+  // Fondo oscuro con softboxes: reflejos contrastados, como en fotografía de joyería.
+  scene.background = new THREE.Color(0x0a0806);
+  const room = new RoomEnvironment(renderer); room.scale.setScalar(0.6);
+  room.traverse((o) => { if (o.isMesh && o.material && o.material.color) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.18); } });
+  scene.add(room);
+  const panel = (w, h, color, k, pos) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(...pos); m.lookAt(0, 0, 0); scene.add(m); };
+  panel(9, 1.2, 0xffffff, 11, [0, 6, 2]);
+  panel(2.2, 9, f.warm, 16, [-6, 1, 4]);
+  panel(1.2, 9, f.warm, 10, [6, 0, 3.5]);
+  panel(3, 3, 0x6b4310, 2.2, [2, -2, 7]);
+  panel(2, 6, f.cool, 6, [-5, -1, -4]);
+  panel(9, 1, 0xffd9a0, 4, [0, -6, 2]);
+  const pm = new THREE.PMREMGenerator(renderer);
+  return pm.fromScene(scene, 0.02).texture;
+}
+function goldMat(f) {
+  return new THREE.MeshPhysicalMaterial({ color: f.color, metalness: 1, roughness: f.rough, clearcoat: f.clear, clearcoatRoughness: 0.08, envMapIntensity: f.env });
+}
+function setup(W, H) {
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1); renderer.setSize(W, H);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+  renderer.setClearColor(0x000000, 0);
+  return renderer;
+}
+function addLights(scene) {
+  const key = new THREE.DirectionalLight(0xfff0d0, 2.2); key.position.set(-3, 4, 5); scene.add(key);
+  const rim = new THREE.DirectionalLight(0x9fc4ff, 1.2); rim.position.set(4, -2, -3); scene.add(rim);
+}
+function frameObject(obj, cam, W, H, pad, tilt) {
+  const box = new THREE.Box3().setFromObject(obj), c = box.getCenter(new THREE.Vector3()), s = box.getSize(new THREE.Vector3());
+  obj.position.sub(c);
+  const pivot = new THREE.Group(); pivot.add(obj); pivot.rotation.x = tilt ? tilt[0] : 0; pivot.rotation.y = tilt ? tilt[1] : 0;
+  const aspect = W / H, fit = Math.max(s.x / aspect, s.y) * (1 + pad);
+  cam.position.set(0, 0, fit / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov / 2))) + s.z);
+  cam.lookAt(0, 0, 0);
+  return pivot;
+}
+function shapesFromPathData(d) {
+  const data = new SVGLoader().parse('<svg xmlns="http://www.w3.org/2000/svg"><path d="' + d + '"/></svg>');
+  const shapes = []; data.paths.forEach((p) => SVGLoader.createShapes(p).forEach((s) => shapes.push(s)));
+  return shapes;
+}
+
+/* Letras de oro 3D: extrusión con bisel redondeado */
+async function text(opts) {
+  const f = FINISH[opts.finish || 'pulido'], W = opts.w || 2048, H = opts.h || 640;
+  const fnt = await font(opts.font || 'cinzel900.woff');
+  const size = 200, spacing = opts.spacing != null ? opts.spacing : 0.08;
+  let x = 0; const ds = [];
+  for (const ch of opts.text) { const g = fnt.charToGlyph(ch); const path = g.getPath(x, 0, size); ds.push(path.toPathData(3)); x += g.advanceWidth * size / fnt.unitsPerEm + size * spacing; }
+  const shapes = shapesFromPathData(ds.join(' '));
+  const depth = opts.depth != null ? opts.depth : 34;
+  const geo = new THREE.ExtrudeGeometry(shapes, { depth, bevelEnabled: true, bevelThickness: 5, bevelSize: 2.4, bevelSegments: 5, curveSegments: 18 });
+  geo.scale(1, -1, 1); geo.computeVertexNormals();
+  if (opts.fixed) {
+    // Escala fija: todas las cifras comparten altura de mayúscula (coherencia visual entre tarjetas).
+    const sc = opts.scale || 1, mesh = new THREE.Mesh(geo, goldMat(f));
+    const piv = new THREE.Group(); mesh.position.set(0, 0, -depth / 2); piv.add(mesh); piv.rotation.set(opts.tilt ? opts.tilt[0] : -0.1, opts.tilt ? opts.tilt[1] : 0.08, 0);
+    piv.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(piv), m = 14;
+    const w = box.max.x - box.min.x + 2 * m, top = 160 + m, bot = -(size * 0.28) - m;
+    const Wp = Math.ceil(w * sc), Hp = Math.ceil((top - bot) * sc);
+    const renderer = setup(Wp, Hp), scene = new THREE.Scene();
+    scene.environment = studio(renderer, f);
+    const cam = new THREE.OrthographicCamera(box.min.x - m, box.max.x + m, -bot > 0 ? -bot * -1 + 0 : 0, 0, 0.1, 5000);
+    cam.left = box.min.x - m; cam.right = box.max.x + m; cam.top = top; cam.bottom = bot; cam.position.set(0, 0, 2000); cam.updateProjectionMatrix();
+    scene.add(piv); addLights(scene);
+    renderer.render(scene, cam);
+    return renderer.domElement.toDataURL('image/png');
+  }
+  const renderer = setup(W, H), scene = new THREE.Scene();
+  scene.environment = studio(renderer, f);
+  const mesh = new THREE.Mesh(geo, goldMat(f));
+  const cam = new THREE.PerspectiveCamera(22, W / H, 1, 50000);
+  const piv = frameObject(mesh, cam, W, H, opts.pad != null ? opts.pad : 0.08, opts.tilt || [-0.12, 0.1]);
+  scene.add(piv); addLights(scene);
+  renderer.render(scene, cam);
+  return renderer.domElement.toDataURL('image/png');
+}
+
+/* Icono acuñado: moneda con canto de oro, esmalte negro brillante y el símbolo en hilo de oro en relieve */
+function iconCoin(opts) {
+  const f = FINISH[opts.finish || 'pulido'], S = opts.size || 512;
+  const renderer = setup(S, S), scene = new THREE.Scene();
+  scene.environment = studio(renderer, f);
+  const grp = new THREE.Group();
+  // Canto (perfil torneado)
+  const prof = [[0, -2], [10.6, -2], [12, -1.2], [12.4, 0.4], [12, 1.6], [11.2, 2], [10.6, 1.4], [10.4, 0.6], [0, 0.6]].map((p) => new THREE.Vector2(p[0], p[1]));
+  const coin = new THREE.Mesh(new THREE.LatheGeometry(prof, 96), goldMat(f));
+  coin.rotation.x = Math.PI / 2; grp.add(coin);
+  const enamel = new THREE.Mesh(new THREE.CircleGeometry(10.5, 96), new THREE.MeshPhysicalMaterial({ color: 0x0b0a0c, metalness: 0.2, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05, envMapIntensity: 0.9 }));
+  enamel.position.z = 0.62; grp.add(enamel);
+  // Símbolo: trazos de Lucide (24×24, trazo 2) convertidos en tubos de oro
+  const data = new SVGLoader().parse(opts.svg);
+  const mat = goldMat(f);
+  data.paths.forEach((p) => p.subPaths.forEach((sp) => {
+    const pts = sp.getPoints(24).map((v) => new THREE.Vector3((v.x - 12) * 0.62, -(v.y - 12) * 0.62, 1.15));
+    const clean = pts.filter((v, i) => i === 0 || v.distanceTo(pts[i - 1]) > 0.001);
+    if (clean.length < 2) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), mat); s.position.copy(pts[0]); grp.add(s); return; }
+    const path = new THREE.CurvePath(); for (let i = 1; i < clean.length; i++) path.add(new THREE.LineCurve3(clean[i - 1], clean[i]));
+    grp.add(new THREE.Mesh(new THREE.TubeGeometry(path, Math.max(8, clean.length * 3), 0.62, 14, false), mat));
+    [clean[0], clean[clean.length - 1]].forEach((v) => { const s = new THREE.Mesh(new THREE.SphereGeometry(0.62, 16, 12), mat); s.position.copy(v); grp.add(s); });
+  }));
+  const cam = new THREE.PerspectiveCamera(24, 1, 0.1, 1000);
+  const piv = frameObject(grp, cam, S, S, 0.06, opts.tilt || [-0.22, 0.18]);
+  scene.add(piv); addLights(scene);
+  renderer.render(scene, cam);
+  return renderer.domElement.toDataURL('image/png');
+}
+
+/* Marco de oro (para bordes de panel tipo 9-slice): rectángulo redondeado extruido */
+function frame(opts) {
+  const f = FINISH[opts.finish || 'pulido'], S = opts.size || 600, R = opts.r || 70, T = opts.t || 10;
+  const rr = (s, x, y, w, h, r) => { s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r); s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y); };
+  const sh = new THREE.Shape(); rr(sh, 0, 0, S, S, R);
+  const hole = new THREE.Path(); rr(hole, T, T, S - 2 * T, S - 2 * T, R - T); sh.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: 4, bevelEnabled: true, bevelThickness: 3, bevelSize: 3, bevelSegments: 5, curveSegments: 32 });
+  const renderer = setup(S + 16, S + 16), scene = new THREE.Scene();
+  scene.environment = studio(renderer, f);
+  const mesh = new THREE.Mesh(geo, goldMat(f));
+  const cam = new THREE.OrthographicCamera(-(S + 16) / 2, (S + 16) / 2, (S + 16) / 2, -(S + 16) / 2, 0.1, 5000); cam.position.set(0, 0, 1000);
+  const box = new THREE.Box3().setFromObject(mesh), c = box.getCenter(new THREE.Vector3()); mesh.position.sub(c);
+  const piv = new THREE.Group(); piv.add(mesh); piv.rotation.x = -0.35; piv.rotation.y = 0.25; piv.scale.set(1, 1, 1);
+  // Ortográfica sin inclinación real (el reflejo cambia por la normal del bisel); la inclinación sólo afecta a la iluminación del entorno
+  piv.rotation.set(0, 0, 0);
+  scene.add(piv); addLights(scene);
+  scene.environmentRotation = new THREE.Euler(-0.4, 0.5, 0);
+  renderer.render(scene, cam);
+  return renderer.domElement.toDataURL('image/png');
+}
+window.R = { text, iconCoin, frame, ready: true };
+</script></body></html>
