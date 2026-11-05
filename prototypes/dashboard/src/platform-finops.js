@@ -31,10 +31,11 @@ const FinOps = (() => {
     const ratios = [];
     if (val(p.budgetEur) != null && p.budgetEur > 0 && val(p.spentEur) != null) ratios.push(p.spentEur / p.budgetEur * 100);
     if (val(p.creditsUsed) != null && val(p.creditsLimit) != null && p.creditsLimit > 0) ratios.push(p.creditsUsed / p.creditsLimit * 100);
+    if (val(p.charactersUsed) != null && val(p.charactersLimit) != null && p.charactersLimit > 0) ratios.push(p.charactersUsed / p.charactersLimit * 100);
     const percentage = ratios.length ? Math.max(...ratios) : null;
-    if (percentage == null) return 'unknown';
+    if (percentage == null) return p.openInvoices === true || p.health === 'degraded' ? 'warning' : 'unknown';
     if (percentage >= 85) return 'critical';
-    if (percentage >= 70 || p.health === 'degraded') return 'warning';
+    if (percentage >= 70 || p.health === 'degraded' || p.openInvoices === true) return 'warning';
     return 'healthy';
   }
   const badge = s => s === 'critical' ? ['Crítico','fi-red'] : s === 'warning' ? ['Atención','fi-amber'] : s === 'healthy' ? ['Correcto','fi-green'] : ['Sin verificar','fi-grey'];
@@ -61,6 +62,15 @@ const FinOps = (() => {
       return '<div class="fi-barcol" title="'+esc(x[key])+': '+esc(amount(x.eur))+'"><span class="fi-barvalue">'+esc(amount(x.eur))+'</span><div class="fi-bar" style="height:'+height+'%"></div><small>'+esc(x[key].slice(key==='month'?5:8))+'</small></div>';
     }).join('')+'</div><p class="fi-disclaimer">Gráfica de registros aportados por la fuente; no demuestra que el período esté completo.</p></section>';
   }
+  function creditChart(p) {
+    const series = Array.isArray(p.creditDaily) ? p.creditDaily.filter(x=>x && /^\d{4}-\d{2}-\d{2}$/.test(x.date) && val(x.credits)!=null).slice(-31) : [];
+    if (!series.length) return '<section class="fi-graph"><h3>Créditos utilizados por día</h3><div class="fi-blank">Sin lecturas de créditos verificadas.</div></section>';
+    const maximum = Math.max(1,...series.map(x=>x.credits));
+    return '<section class="fi-graph"><h3>Créditos utilizados por día</h3><div class="fi-bars" role="img" aria-label="Créditos diarios">'
+      + series.map(x=>'<div class="fi-barcol" title="'+esc(x.date+' · '+x.credits.toLocaleString('es-ES')+' créditos')+'">'
+      +'<div class="fi-bar" style="height:'+Math.max(2,Math.round(x.credits/maximum*100))+'%"></div><small>'+esc(x.date.slice(8))+'</small></div>').join('')
+      +'</div><p class="fi-disclaimer">Unidades de créditos del proveedor; NO equivalen a euros.</p></section>';
+  }
   function tableCard(p) {
     const state = status(p), b=badge(state);
     return '<div class="fi-provider go"'+goAttr('plataformas/'+encodeURIComponent(p.id),'Detalle de '+p.name)+'><span class="fi-dot '+b[1]+'"></span><strong>'+esc(p.name)+'</strong><span class="fi-money">'+amount(val(p.spentEur))+'</span><small class="'+b[1]+'">'+b[0]+'</small><span class="fi-chevron">›</span></div>';
@@ -80,13 +90,17 @@ const FinOps = (() => {
         ['Presupuesto',amount(val(selected.budgetEur))],
         ['Créditos utilizados',val(selected.creditsUsed) == null ? 'Sin verificar' : Number(selected.creditsUsed).toLocaleString('es-ES')],
         ['Límite de créditos',val(selected.creditsLimit)==null?'Sin verificar':Number(selected.creditsLimit).toLocaleString('es-ES')],
+        ['Caracteres utilizados',val(selected.charactersUsed)==null?'Sin verificar':Number(selected.charactersUsed).toLocaleString('es-ES')],
+        ['Límite de caracteres',val(selected.charactersLimit)==null?'Sin verificar':Number(selected.charactersLimit).toLocaleString('es-ES')],
+        ['Facturas abiertas',selected.openInvoices === true ? 'Sí · revisar' : 'Sin facturas abiertas verificadas'],
+        ['Excedente actual en €',amount(val(selected.currentOverageEur))],
         ['Plan',esc(selected.plan||'Sin verificar')],
         ['Próxima renovación',esc(selected.renewalDate||'Sin verificar')],
         ['Plan B',esc(selected.fallback||'Sin verificar')],
         ['Fuente',esc(selected.source||'No conectada')],
         ['Comprobado',esc(selected.verifiedAt||'Sin verificar')]
       ];
-      return frame('plataformas',sub,M,header+'<div class="fi-return go"'+goAttr('plataformas','Volver a plataformas')+'>← Todas las plataformas</div><div class="fi-facts">'+facts.map(f=>'<div><small>'+f[0]+'</small><b>'+f[1]+'</b></div>').join('')+'</div><div class="fi-graphs">'+graph(safeSeries(selected,'daily','date'),'date','Consumo diario')+graph(safeSeries(selected,'monthly','month'),'month','Evolución mensual')+'</div>'+note);
+      return frame('plataformas',sub,M,header+'<div class="fi-return go"'+goAttr('plataformas','Volver a plataformas')+'>← Todas las plataformas</div><div class="fi-facts">'+facts.map(f=>'<div><small>'+f[0]+'</small><b>'+f[1]+'</b></div>').join('')+'</div><div class="fi-graphs">'+graph(safeSeries(selected,'daily','date'),'date','Consumo diario')+graph(safeSeries(selected,'monthly','month'),'month','Evolución mensual')+creditChart(selected)+'</div>'+note);
     }
     const dailyMap=new Map(),monthlyMap=new Map();
     all.forEach(p=>{safeSeries(p,'daily','date').forEach(x=>dailyMap.set(x.date,(dailyMap.get(x.date)||0)+x.eur));safeSeries(p,'monthly','month').forEach(x=>monthlyMap.set(x.month,(monthlyMap.get(x.month)||0)+x.eur));});
