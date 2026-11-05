@@ -29,7 +29,7 @@ const JanusPresence = (() => {
       '<span class="jp-light" aria-hidden="true"></span></div>' +
       (compact
         ? '<figcaption class="jp-caption"><b>' + safeName + '</b><span>Arte aprobado</span></figcaption><span class="jp-next" data-act="presenceNext" role="button" tabindex="0" aria-label="Cambiar criatura">✦</span>'
-        : '<figcaption class="jp-caption"><b>' + meta.name + '</b><span>' + (glb ? 'Modelo GLB disponible · entrar a escena 3D' : 'Arte aprobado · modelo 3D cinematográfico pendiente') + '</span></figcaption>') +
+        : '<figcaption class="jp-caption"><b>' + safeName + '</b><span>' + (glb ? 'Modelo GLB disponible · entrar a escena 3D' : 'Arte aprobado · modelo 3D cinematográfico pendiente') + '</span></figcaption>') +
       '</figure>';
   }
   function hydrate(root) {
