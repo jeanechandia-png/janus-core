@@ -26,6 +26,9 @@ jobs:
       - name: PWA syntax
         run: |
           node --check apps/pwa/app.js
+          node --check apps/pwa/dashboard-access.js
+          node --check apps/pwa/kendra.js
+          node --check apps/pwa/language-buttons.js
           node --check apps/pwa/app-install.js
           node --check apps/pwa/glow-emblem.js
           node --check apps/pwa/founder-session.js
