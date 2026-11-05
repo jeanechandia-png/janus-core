@@ -48,7 +48,7 @@ function renderDashB(M, X) {
   const chip = (cls, route, label, inner) => '<span class="' + C('chip' + (cls ? ' ' + cls : '')) + ' go"' + goAttr(route, label) + '>' + inner + '</span>';
   const rainChip = M.rainAt ? chip('warn', 'clima/h' + (M.rainAt.day * 24 + M.rainAt.h), 'Lluvia', '☔ <b>' + pad2(M.rainAt.h) + ':00</b>') : chip('good', 'clima', 'Sin lluvia', '☀ <b>seco</b>');
   const head = '<header class="' + C('hd') + '"><img class="' + C('medal') + ' go" src="' + IMG.medal + '" alt="Janus"' + goAttr('datos', 'Estado de datos') + '><div><div class="' + C('wm sora') + '">JANUS</div><div class="' + C('dt') + ' mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div>' +
-    '<div class="' + C('chips') + ' mono">' + chip(M.ida.verdict === 'g' ? 'good' : M.ida.verdict === 'r' ? 'bad' : 'warn', 'clima/ida', 'Ida', '🚴 ' + (M.ida.verdict === 'g' ? '✔' : '!') + ' <b>IDA</b>') + rainChip +
+    '<div class="' + C('chips') + ' mono">' + chip(M.ida.verdict === 'g' ? 'good' : M.ida.verdict === 'r' ? 'bad' : 'warn', 'clima/ida', 'Ida', '🚴 ' + (M.ida.verdict === 'g' ? '✔' : '!') + ' <b>IDA</b>') + rainChip + FinOps.chipB(chip) +
     chip('', 'correo', 'Correo', '✉ <b>' + X.mailsOpen.length + '</b>') + chip('good', 'ofertas', 'Ofertas', '🏷 <b>' + OF.digest.alerts.length + '</b>') + chip('', 'janus/aprob', 'Aprobaciones', '🔐 <b>' + X.apprOpen.length + '</b>') + chip(flags ? 'bad' : '', 'prioridades/m0', 'Alertas', '⚑ <b>' + flags + '</b>') + '</div>' +
     skinSeg() + '<div class="' + C('demo') + ' mono go"' + goAttr('datos', 'Estado de datos') + '>' + (live ? '● Clima en vivo · resto ejemplo' : 'Vista previa · datos de ejemplo') + '</div></header>';
 
