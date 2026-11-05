@@ -1,4 +1,5 @@
 export * from './personas.js';
+export * from './selection.js';
 export * from './encourage.js';
 export * from './tutor.js';
 export * from './social.js';
