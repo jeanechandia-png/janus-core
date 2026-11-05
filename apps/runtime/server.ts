@@ -50,6 +50,7 @@ import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insi
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
+import { VoiceStudioToolAdapter } from '../../packages/adapters/src/voice-studio-tool-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -638,6 +639,19 @@ const knowledgeAdapter = new BusinessKnowledgeToolAdapter({
   statusUrls: parseKnowledgeStatusUrls(process.env.JANUS_KNOWLEDGE_STATUS_URLS),
 });
 toolGateway.register(knowledgeAdapter);
+const voiceStudio = new VoiceStudioToolAdapter({
+  configPath: process.env.JANUS_QWEN_VOICE_CONFIG?.trim() || 'config/voices.local.json',
+  privateRoot: process.env.JANUS_VOICE_PRIVATE_DIR?.trim() || 'voices/private',
+  designModelPath: process.env.JANUS_QWEN_DESIGN_MODEL_PATH?.trim() || undefined,
+  cloneModelPath: process.env.JANUS_QWEN_CLONE_MODEL_PATH?.trim() || undefined,
+});
+toolGateway.register(voiceStudio);
+capabilities.register({
+  tool: 'voice-studio',
+  actions: ['voices.list', 'design.preview', 'clone.readiness', 'design.apply', 'clone.apply', 'voice.revoke'],
+  state: 'available',
+});
+
 capabilities.register({
   tool: 'knowledge',
   actions: ['entries.list', 'snapshot.get', 'change.propose', 'change.apply', 'sync.check'],
