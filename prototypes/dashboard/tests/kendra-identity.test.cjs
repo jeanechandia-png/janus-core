@@ -65,7 +65,7 @@ test('personalización 3D por criatura, sin afectar su identidad ni estrellas', 
   const o=setup();
   o.eval('COMP_ACTS.cpStyle("esponjoso")');
   assert.equal(o.ST.comp.furStyles.lumi,'esponjoso');
-  assert.equal(o.ST.comp.visualMode,'3d');
+  assert.equal(o.ST.comp.visualMode,'edge','el Vestidor previsualiza la criatura viva en el borde');
   assert.ok(o.styles.includes('esponjoso'));
   o.eval("COMP_ACTS.cpPick('bombo')");
   o.eval('COMP_ACTS.cpStyle("corto")');
