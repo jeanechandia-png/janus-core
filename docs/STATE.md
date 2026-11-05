@@ -10,6 +10,13 @@ Fecha: 2026-10-23
 - **PENDIENTE:** vincular las imágenes y archivos glTF/GLB exactos y autorizados para las tres opciones, motor 3D offline autocontenido, accesorios animados/rigged, controles de expresiones y comprobación física de rendimiento en iPhone. No publicar ni afirmar 3D terminado hasta pruebas de activos reales.
 - **PUBLICACIÓN:** solo PR en borrador, no fusionada ni desplegada. La PWA pública de Janus y la landing existente permanecen intactas.
 
+### Idiomas y accesos app — decisión 2026-11-05
+
+- **Icono:** la obra dorada bifronte de Janus es **solo** icono de acceso a app (sin banderas ni componentes superpuestos). El acceso de Jean conserva `/manifest.webmanifest` y Kendra dispone de `/companion.webmanifest`, ambos con los iconos oficiales existentes de Janus (PNG 180/192/512), con destinos diferentes `/` y `/companion.html`. No se reemplazó el arte del icono en producción.
+- **Dashboards, sin rediseño:** dos botones pequeños de idioma por cabecera (NL y ES, cada uno de 44×44 px para pulsación, imagen de 32×32), usando miniaturas derivadas de **las dos imágenes de bandera aportadas por Jean** y preservando su aspecto 3D original. Resplandor y barrido de reflejo al tocar por CSS, soporte de movimiento reducido. Estado ES/NL independiente en almacenamiento local por perfil.
+- **Implementado en PR #65:** `apps/pwa/language-buttons.{js,css}`, arte base64 WebP local `language-art/*.webp.b64`, montaje en dashboard del Founder y en compañero, manifiesto de Kendra y assets incluidos en service worker offline. Un subconjunto de etiquetas visibles tiene traducción ES/NL; **la localización completa de los flujos dinámicos y respuestas del backend sigue pendiente**. No se afirman iconos nativos 4K: las imágenes suministradas tienen 1254–1320 px, y los botones muestran miniaturas para el tamaño real en iPhone.
+- **Pruebas:** `tests/language-buttons.test.ts` protege la separación de icono vs botones, rutas de acceso, archivo de las banderas y selector. Sin despliegue en producción.
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
