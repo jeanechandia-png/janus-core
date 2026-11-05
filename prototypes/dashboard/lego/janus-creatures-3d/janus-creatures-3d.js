@@ -227,11 +227,45 @@ const JanusCreatures3D = (() => {
 
     if (id === 'lumi') buildLumi(R, M, glow); else if (id === 'bombo') buildBombo(R, M, glow); else if (id === 'musgo') buildMusgo(R, M, glow); else buildNimbo(R, M, glow);
 
+    // Fibras 3D ancladas a la superficie de la malla; deformacion GPU por viento.
+    // No hay pelo en Bombo (ajolote), para preservar su piel humeda.
+    R.furCoats = []; R.wind = 0.25; R.windYaw = 0.3;
+    const FW = window.JanusFurWind;
+    if (FW && FW.supported() && id !== 'bombo') {
+      const qt = FW.tier(), factor = qt === 'eco' ? 0.18 : qt === 'mobile' ? 0.38 : 1;
+      const coat = (mesh, n, length, part, seed) => {
+        if (!mesh || !mesh.geometry) return;
+        const color = part === 'accent' ? M.accent.color : M.fur.color;
+        const c = FW.attach(mesh, { count: Math.floor(n * factor), length, color,
+          quality: qt, seed: id + ':' + seed, roughness: part === 'accent' ? 0.95 : 0.78 });
+        if (c) R.furCoats.push({ coat: c, part });
+      };
+      if (id === 'lumi') {
+        coat(torso, 1300, 0.09, 'fur', 'torso');
+        coat(headMesh, 950, 0.065, 'fur', 'head');
+        R.parts.tail.children.forEach((m, i) => coat(m, i ? 500 : 850, i ? 0.085 : 0.13, i ? 'accent' : 'fur', 'tail' + i));
+      } else if (id === 'musgo') {
+        R.parts.moss.children.forEach((m, i) => coat(m, 240, 0.16, 'fur', 'moss' + i));
+      } else if (id === 'nimbo') {
+        coat(torso, 600, 0.055, 'fur', 'body');
+        coat(headMesh, 550, 0.058, 'fur', 'head');
+        R.parts.puffs.forEach((m, i) => coat(m, 130, 0.08, 'fur', 'puff' + i));
+      }
+    }
+
     const sc = sp.scale; root.scale.setScalar(sc);
     root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     R.setLook = (look) => applyLook(R, look);
-    R.update = (t, dt, ctl) => animate(R, t, dt, ctl || {});
-    R.dispose = () => root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    R.setWind = (amount, yaw) => {
+      R.wind = Math.max(0, Math.min(1, Number(amount) || 0));
+      if (Number.isFinite(yaw)) R.windYaw = yaw;
+    };
+    R.update = (t, dt, ctl) => {
+      const c = ctl || {}; animate(R, t, dt, c);
+      const breeze = Number.isFinite(c.wind) ? c.wind : R.wind;
+      R.furCoats.forEach((e) => e.coat.update(t, breeze, c.windYaw == null ? R.windYaw : c.windYaw));
+    };
+    R.dispose = () => { R.furCoats.forEach((e) => e.coat.dispose()); root.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); };
     return R;
   }
 
@@ -326,6 +360,7 @@ const JanusCreatures3D = (() => {
     M.accent.color.copy(c(look.accent)); M.accent.sheenColor.copy(c(look.accent).lerp(c('#ffffff'), 0.55));
     M.belly.color.copy(c(look.fur).lerp(c('#ffffff'), 0.55)); M.belly.sheenColor.copy(M.belly.color);
     M.iris.color.copy(c(look.eyes)); M.outfit.color.copy(c(look.outfitColor)); M.acc.color.copy(c(look.accessoryColor));
+    (R.furCoats || []).forEach(({ coat, part }) => coat.setColor(part === 'accent' ? look.accent : look.fur));
     if (R.id === 'musgo') { /* la roca es el detalle (piedra) y el musgo el pelo */ }
     if (R.id === 'nimbo' && R.parts.rbMats) { const a = c(look.accent), hsl = {}; a.getHSL(hsl); R.parts.rbMats.forEach((m, i) => m.color.setHSL((hsl.h + (i - 1) * 0.1 + 1) % 1, Math.max(0.55, hsl.s), Math.min(0.68, Math.max(0.55, hsl.l)))); }
     if (R.parts.wings) R.parts.wings.forEach((w) => w.userData.mat.color.copy(c(look.accent).lerp(c('#ffffff'), 0.25)));
