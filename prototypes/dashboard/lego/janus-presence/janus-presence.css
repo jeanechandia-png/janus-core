@@ -43,3 +43,7 @@
  .stage main>.jpresence--hero .jp-caption span{max-width:28ch;text-align:right}
  .sala .empty>.jpresence--hero{height:185px;width:min(100%,240px)}
 }
+
+/* El dashboard Platino usa una fila flex sin altura fija: asegurar caja visible. */
+.stage.b .pl-sr0>.jpresence--mini{height:56px}
+.tsala>.jpresence--mini{height:100%}
