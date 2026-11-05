@@ -136,3 +136,8 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
 .pair .code{text-align:center;text-transform:uppercase;letter-spacing:.2em;font-size:1.5rem}
 
 @media (max-width:380px){nav.tabs button{font-size:.66rem}.icons{grid-template-columns:repeat(4,1fr)}}
+
+/* Aprobados: medallones ES/NL compactos en la cabecera existente. */
+.top .janus-language-switch{display:inline-flex;gap:4px;flex:0 0 auto}
+.top .janus-language-button{width:44px;height:44px;min-width:44px;flex:0 0 44px}
+@media(max-width:480px){.top{flex-wrap:wrap}.top .who{flex-basis:calc(100% - 114px)}.top .janus-language-switch{margin-inline-start:auto}}
