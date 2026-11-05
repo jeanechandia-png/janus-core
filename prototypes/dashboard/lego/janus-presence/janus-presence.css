@@ -1,0 +1,31 @@
+/* LEGO JanusPresence · arte aprobado: no simula ser una malla 3D.
+ * Un GLB auténtico sigue usando el contrato JanusCreatureSlot. */
+.jpresence{position:relative;display:block;margin:0;overflow:hidden;isolation:isolate;--jp-rx:0deg;--jp-ry:0deg;--jp-accent:#FFD36A}
+.jp-portrait{position:relative;display:block;width:100%;height:100%;overflow:hidden;cursor:pointer;outline-offset:-3px;perspective:800px}
+.jp-image{width:100%;height:100%;display:block;object-fit:cover;object-position:center 42%;transform:rotateX(var(--jp-rx)) rotateY(var(--jp-ry)) scale(1.075);animation:jp-breathe 8s ease-in-out infinite alternate;transition:transform .24s ease-out;backface-visibility:hidden}
+.jp-light{pointer-events:none;position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.13) 52%,transparent 68%);background-size:230% 100%;mix-blend-mode:screen;animation:jp-shine 9s ease-in-out infinite}
+.jpresence .jp-caption{position:absolute;left:0;bottom:0;right:0;z-index:1;display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:11px 14px;background:linear-gradient(transparent,rgba(8,7,14,.92));color:#fff}
+.jpresence .jp-caption b{font:700 19px 'Instrument Sans',sans-serif;color:#FFE7BB;text-shadow:0 2px 5px #000}
+.jpresence .jp-caption span{font:400 10px 'IBM Plex Mono',monospace;color:#f1e8da}
+.jpresence--hero{width:100%;height:100%;background:radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--jp-accent),#090910 80%),#07060b);border-radius:20px}
+.jpresence--hero .jp-portrait{height:100%}
+.jpresence--mini{height:100%;width:66px;min-width:54px;border-radius:12px;flex:none;background:#090a10;box-shadow:0 0 0 1px var(--jp-accent),0 6px 16px rgba(0,0,0,.27)}
+.jpresence--mini .jp-portrait{height:100%}
+.jpresence--mini .jp-caption{padding:3px 5px;display:block}
+.jpresence--mini .jp-caption b{font-size:10px;line-height:1}
+.jpresence--mini .jp-caption span{display:none}
+.jpresence--mini .jp-next{position:absolute;right:3px;top:3px;z-index:3;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:rgba(10,10,17,.8);color:#fff;border:1px solid rgba(255,255,255,.6);cursor:pointer;font-size:16px}
+.jpresence--mini .jp-next:focus-visible,.jpresence .jp-portrait:focus-visible{outline:2px solid var(--jp-accent)}
+.cp-cinematic{position:absolute;inset:0;z-index:1}
+.cp-cinematic .jpresence--hero{border-radius:0}
+.cp-cinematic .jp-caption{bottom:66px;align-items:flex-start;flex-direction:column;gap:3px}
+.cp-cinematic .jp-caption span{font-size:11px;line-height:1.45}
+.cp-cinematic .jp-image{object-position:50% 46%}
+.cp-mode{position:absolute;top:65px;right:12px;z-index:5;background:rgba(8,8,15,.87);color:#FFE7BB;border:1px solid #E8C37A;border-radius:13px;padding:8px 12px;font-size:12px;font-family:'Instrument Sans',sans-serif;cursor:pointer}
+.cp-mode:focus-visible{outline:3px solid #fff}
+.cpst3.cinematic .cpov{z-index:4}
+.cpst3.cinematic .cpviews{display:none}
+@keyframes jp-breathe{from{transform:rotateX(var(--jp-rx)) rotateY(var(--jp-ry)) scale(1.065) translateY(0)}to{transform:rotateX(var(--jp-rx)) rotateY(var(--jp-ry)) scale(1.105) translateY(-.5%)}}
+@keyframes jp-shine{0%,45%{background-position:100% 0}70%,100%{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){.jp-image,.jp-light{animation:none!important;transform:none!important;transition:none!important}}
+@media (max-width:47.5em),(max-height:31.25em){.jpresence--mini{width:58px}.cp-cinematic .jp-caption{bottom:74px}.cp-mode{top:76px}}
