@@ -3,8 +3,8 @@
  * are not replaced. Artist-supplied flag images are kept intact via <img>.
  */
 export const LANGUAGES = Object.freeze([
-  { code: 'nl', name: 'Nederlands', image: '/language-art/nederland.webp' },
-  { code: 'es', name: 'Español', image: '/language-art/espana.webp' },
+  { code: 'nl', name: 'Nederlands', image: '/language-art/nederland.webp.b64' },
+  { code: 'es', name: 'Español', image: '/language-art/espana.webp.b64' },
 ]);
 
 const dictionaries = {
@@ -90,7 +90,15 @@ export function mountLanguageButtons(container, scope, {
     flag.alt = '';
     flag.width = 32;
     flag.height = 32;
-    flag.src = language.image;
+    // Local bundled copies of the exact user-supplied glossy flags; never a generated replacement.
+    fetch(language.image).then(async (response) => {
+      if (!response.ok) throw new Error('Flag art unavailable');
+      const encoded = (await response.text()).trim();
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded) || encoded.length > 40000) {
+        throw new Error('Invalid bundled art');
+      }
+      flag.src = 'data:image/webp;base64,' + encoded;
+    }).catch(() => { button.setAttribute('data-asset-missing', 'true'); });
     flag.decoding = 'async';
     flag.loading = 'eager';
     button.append(flag);
