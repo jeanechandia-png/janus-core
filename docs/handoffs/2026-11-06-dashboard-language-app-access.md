@@ -3,7 +3,7 @@ Fecha: 2026-11-06 (Europe/Amsterdam)
 Proyecto: JANUS CORE
 Agente saliente: ChatGPT (sesión de continuidad)
 Agente entrante: por asignar
-Estado: IMPLEMENTADO EN RAMA / VERIFICACIÓN CI Y DISPOSITIVOS PENDIENTE
+Estado: IMPLEMENTADO EN RAMA / CORE CI VERIFICADA / DISPOSITIVOS PENDIENTES
 
 ## OBJETIVO PRINCIPAL
 Incorporar los DOS medallones de idioma ES/NL originales facilitados por el Founder en los dashboards existentes, con animación táctil compacta, y mantener accesos tipo app separados para Janus y Kendra. No rehacer ni sustituir la UI 3D, escenas aprobadas, pantallas ni seguridad existente.
@@ -28,7 +28,7 @@ Incorporar los DOS medallones de idioma ES/NL originales facilitados por el Foun
 
 ## CRITERIOS DE ACEPTACIÓN Y PRUEBAS
 - Lectura de GitHub y revisión de archivos: realizados; cambios registrados mediante commits concretos en la nueva rama.
-- Node/TypeScript/CI y E2E A/B/Kendra: ejecutar sobre el HEAD de esta rama, NO declarado aprobado.
+- **CI del núcleo verificada** en commit `a0b685beebccea9f7d99f3da58a788eec5103b42`: [Janus Core CI #42131385129](https://github.com/jeanechandia-png/janus-core/actions/runs/42131385129), final `success`; pasos Typecheck, PWA syntax, Sidecar syntax, Tests (incluyendo nuevas regresiones) y Runtime smoke `success`. No implica E2E visual, rendimiento GPU ni aceptación de usuarios. Si este documento cambia en un commit posterior, comprobar CI de ese nuevo HEAD.
 - iPhone físico (Safari e instalación desde pantalla de inicio), reflejo/estética y icono real: NO VERIFICADO.
 - Traducción ES/NL actual: etiquetas de primera capa. Contenido dinámico, TTS/STT, lecciones y textos completos NO localizados; no atribuir traducción total.
 - Arte original: miniaturas WebP existentes de PR #65; no se declara 4K nativo ni GLB final.
