@@ -11,6 +11,9 @@ function render() {
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
   dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
+  // One compact entry in each dashboard skin; never show unverified amounts.
+  const spendHost = dash.querySelector('.chips,.pl-chips,.pvc');
+  if (spendHost) spendHost.insertAdjacentHTML('beforeend', spendLink());
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
@@ -97,7 +100,9 @@ $root.addEventListener('change', (ev) => {
 /* Reloj: en vivo se refresca cada 15 min el clima; el reloj de pantalla cada minuto */
 loadState();
 ROUTE = parseHash(); if (!VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' };
+ACTS.spendRefresh = () => { void loadSpendData(true); };
 render();
+void loadSpendData(false);
 if (ST.settings.mode === 'vivo') refreshWeather();
 setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);
