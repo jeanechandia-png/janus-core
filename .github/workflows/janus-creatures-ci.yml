@@ -28,6 +28,7 @@ jobs:
             prototypes/dashboard/lego/janus-presence/janus-presence.js \
             prototypes/dashboard/lego/janus-creatures-3d/janus-creatures-3d.js \
             prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
+            prototypes/dashboard/lego/janus-cartoon-voice/janus-cartoon-voice.js \
             prototypes/dashboard/src/companero.js \
             prototypes/dashboard/src/phonev.js \
             prototypes/dashboard/src/sala.js \
@@ -43,6 +44,7 @@ jobs:
           node --test tests/edge-companion.test.cjs
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
+          node --test tests/kendra-cartoon-voice.test.cjs
       - name: Offline self-contained dashboard builds
         run: |
           cd prototypes/dashboard
