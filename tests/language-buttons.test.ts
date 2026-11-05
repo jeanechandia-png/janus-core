@@ -44,7 +44,7 @@ test('existing flag artwork is embedded from local WebP copies (no CDN or emoji 
     assert.equal(bytes.subarray(0,4).toString('ascii'), 'RIFF');
     assert.equal(bytes.subarray(8,12).toString('ascii'), 'WEBP');
     assert.ok(bytes.length > 1200);
-    assert.match(source, new RegExp('/language-art/' + lang + '\\\\.webp\\\\.b64'));
+    assert.ok(source.includes('/language-art/' + lang + '.webp.b64'));
     assert.ok(shell.includes("/language-art/" + lang + ".webp.b64"));
   }
   assert.ok(source.includes("data:image/webp;base64,"));
