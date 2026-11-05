@@ -219,6 +219,7 @@ import type { VoiceSpeakerHint } from '../../packages/voice/src/speaker-hint.js'
 import { SenecaToolAdapter } from '../../packages/adapters/src/seneca-tool-adapter.js';
 import { JanusSchoolToolAdapter, JsonFileSchoolProgressStore } from '../../packages/adapters/src/janus-school-tool-adapter.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
+import { InfinityInterpreterToolAdapter } from '../../packages/adapters/src/infinity-interpreter-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
@@ -566,6 +567,15 @@ capabilities.register({
   tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
+});
+
+toolGateway.register(new InfinityInterpreterToolAdapter(() => modelGateway));
+capabilities.register({ tool: 'interpreter', actions: ['capabilities.get'], state: 'available' });
+capabilities.register({
+  tool: 'interpreter',
+  actions: ['translate.text'],
+  state: resolveModelProviders(process.env).length > 0 ? 'available' : 'unavailable',
+  reason: 'Translation requires a configured model provider and explicit permission for external processing.',
 });
 
 // Optional speaker recognition (convenience only; never an authority). Needs explicit configuration.
