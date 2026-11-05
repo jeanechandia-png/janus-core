@@ -108,8 +108,8 @@ const FinOps = (() => {
     const monthly=Array.from(monthlyMap,([month,eur])=>({month,eur})).sort((a,b)=>a.month.localeCompare(b.month)).slice(-12);
     return frame('plataformas',sub,M,header+'<div class="fi-summary"><div class="fi-stat"><small>Consumo registrado (parcial)</small><strong>'+amount(total)+'</strong></div><div class="fi-stat fi-red"><small>Críticas</small><strong>'+c.critical+'</strong></div><div class="fi-stat fi-amber"><small>Atención</small><strong>'+c.warning+'</strong></div><div class="fi-stat fi-grey"><small>Sin verificar</small><strong>'+c.unknown+'</strong></div></div><div class="fi-graphs">'+graph(daily,'date','Consumo diario registrado')+graph(monthly,'month','Consumo mensual registrado')+'</div><h3 class="fi-subhead">Plataformas · tocar para ver detalle</h3><div class="fi-providers">'+all.map(tableCard).join('')+'</div>'+note);
   }
-  async function load() {
-    if (pending||loaded) return;
+  async function load(force = false) {
+    if (pending||(loaded && !force)) return;
     pending=true;
     try {
       if (window.JANUS_FINOPS_SNAPSHOT && Array.isArray(window.JANUS_FINOPS_SNAPSHOT.providers)) {
@@ -120,9 +120,10 @@ const FinOps = (() => {
         if(response.ok){
           const raw=await response.json();
           if(raw && Array.isArray(raw.providers)){ snapshot=raw; connection='API JANUS'; }
-        }
+          else { snapshot=null; connection='Respuesta sin datos verificados'; }
+        } else { snapshot=null; connection='Sin autorización o servicio no disponible'; }
       }
-    }catch(_error){connection='Sin conexión con la fuente';}
+    }catch(_error){snapshot=null;connection='Sin conexión con la fuente';}
     finally {pending=false;loaded=true;}
   }
   return {load,chip,chipB,mobileChip,detail,status,records,counters};
