@@ -81,7 +81,7 @@ function cpApply(events) { const st = cpStage(); if (st) st.apply(COMP_UI.scn, e
 function cpOnMove(id, to) { try { COMP_UI.scn = Companion.userMove(COMP_UI.scn, id, to); } catch (e) { return; } COMP_UI.sel = id; cpApply(); cpRefreshOv(); }
 function cpOnTapProp(id) { COMP_UI.sel = id; const st = cpStage(); if (st) st.select(id); cpRefreshOv(); }
 function cpOnTapEmpty() { if (COMP_UI.sel) { COMP_UI.sel = null; const st = cpStage(); if (st) st.select(null); cpRefreshOv(); } }
-function cpOnTapCreature() { const cr = Companion.getCreature(compState().creatureId); cpSay(cr.catchphrases[Math.floor(Math.random() * cr.catchphrases.length)].replace('{n}', CHILD), 'saluda'); }
+function cpOnTapCreature() { const cr = Companion.getCreature(compState().creatureId); cpSay('¡Hola, ' + CHILD + '! ' + cr.catchphrases[Math.floor(Math.random() * cr.catchphrases.length)].replaceAll('{n}', CHILD), 'saluda'); }
 function cpOnTapHome() { cpSay('¡Esta es mi casa! Aquí descanso después de aprender contigo.', 'saluda'); }
 function cpOnTapVehicle() { const w = Companion.worldOf(compProfile()); cpSay(w.vehicle === 'veh:cohete' ? '¡Tres, dos, uno… despegue!' : '¡Brrrum! Vamos a dar una vuelta.', 'celebra'); }
 function cpOnTapDecor() { cpSay('¡Qué bonito se ve todo, ' + CHILD + '!', 'saluda', true); }
@@ -137,7 +137,7 @@ function cpHud() {
 }
 function cpOverlay() {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), w = Companion.worldOf(p);
-  const say = COMP_UI.say || cr.catchphrases[0].replace('{n}', CHILD), mundo = C.tab === 'mundo';
+  const say = COMP_UI.say || '¡Hola, ' + CHILD + '! ' + cr.catchphrases[0].replaceAll('{n}', CHILD), mundo = C.tab === 'mundo';
   const views = mundo ? '' : '<div class="cpviews">' + [['amplia', '🔭', 'Vista amplia'], ['mesa', '🍪', 'Vista de la mesa'], ['primer-plano', '🔍', 'Más cerca']].map((v) => '<span class="cpvb' + (COMP_UI.view === v[0] ? ' on' : '') + '"' + act('cpView', v[0], v[2]) + '>' + v[1] + '</span>').join('') + '<span class="cpvb"' + act('cpView', '', 'Que la cámara siga la lección') + '>🎯</span></div>';
   return '<div class="cpsay"><b>' + esc(name) + '</b><span>' + esc(say) + '</span><span class="mini mono"' + act('cpSpeak', '', 'Escuchar') + '>🔊</span></div>' +
     '<div class="cpstars mono" title="Estrellas: se ganan por esfuerzo, máximo ' + Companion.DAILY_CAP + ' al día">★ <b>' + w.stars + '</b><span class="hoy"> · hoy ' + w.earnedToday + '/' + Companion.DAILY_CAP + '</span>' + (COMP_UI.toast ? '<em>' + esc(COMP_UI.toast) + '</em>' : '') + '</div>' + views +
@@ -298,7 +298,7 @@ const COMP_ACTS = {
   },
   cpSlotDel: (id) => { if (window.JanusCreatureSlot) { JanusCreatureSlot.remove(id); COMP_UI.slotMsg = SLOT_NAMES[id] + ': vuelve la criatura procedural.'; } },
   cpGesture: (g) => { const t = { saludo: '¡Holaaa, ' + CHILD + '!', cara: '¡Bluuu! ¿Me salió graciosa la cara?', baile: '¡A bailar! Un pasito para aquí, otro para allá.', risa: '¡Jajaja! Me haces cosquillas.' }[g]; if (t) cpSay(t, { saludo: 'saluda', cara: 'piensa', baile: 'celebra', risa: 'habla' }[g]); },
-  cpSpeak: () => { speak(COMP_UI.say || Companion.getCreature(compState().creatureId).catchphrases[0]); },
+  cpSpeak: () => { speak(COMP_UI.say || '¡Hola, ' + CHILD + '! ' + Companion.getCreature(compState().creatureId).catchphrases[0]); },
   cpView: (v) => { COMP_UI.view = ['amplia', 'mesa', 'primer-plano'].includes(v) ? v : null; const st = cpStage(); if (st) { st.resetView(); st.setView(COMP_UI.view); } },
   cpTopic: (t) => { const C = compState(); C.topic = t; C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; cpReset(); saveState(); },
   cpNext: () => { const C = compState(); C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; COMP_UI.ok = null; cpReset(); saveState(); },
@@ -350,7 +350,7 @@ const COMP_ACTS = {
   cpLight: (l) => { const C = compState(), sc = Companion.SCENARIOS[C.sc % Companion.SCENARIOS.length], r = Companion.answerScenario(sc, l); COMP_UI.scFb = (r.correct ? '✔ ' : '↺ ') + r.feedback; cpSay(r.feedback, r.correct ? 'celebra' : 'piensa'); if (r.correct) C.sc++; saveState(); },
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
-    const reply = '¡Qué interesante! Cuéntame más, me encanta escucharte.';
+    const reply = '¡Te escucho, ' + CHILD + '! Cuéntame más, me encanta escucharte.';
     const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
     if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));
     compSave(p); cpSay(t.say.join(' '), t.safety.parentAlert ? 'saluda' : 'habla');
