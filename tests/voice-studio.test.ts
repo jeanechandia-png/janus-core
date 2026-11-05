@@ -43,7 +43,7 @@ function fixture() {
     gateway.execute({
       tool: 'voice-studio', action, input,
       ...(authorized ? { idempotencyKey: key, authorization: {
-        privileged: true, authorityDecisionHash: 'audited-founder-signature',
+        privileged: true, authorityDecisionHash: createHash('sha256').update('test-only-authorized-permit').digest('hex'),
         principalId: 'founder',
       } } : {}),
     }, () => {});
@@ -122,7 +122,7 @@ test('audio manipulado, clave repetida para contenido distinto, y falta de motor
    const noModel = new VoiceStudioToolAdapter({configPath:join(f.root,'other','voices.local.json'),privateRoot:f.privateRoot});
    const result=await noModel.execute({
      tool:'voice-studio',action:'design.apply',input:{voiceId:'janus-new',instruct:'Voz tranquila y melodiosa para ayudar'},
-     idempotencyKey:'new:'+randomUUID(),authorization:{privileged:true,authorityDecisionHash:'approval',principalId:'founder'},
+     idempotencyKey:'new:'+randomUUID(),authorization:{privileged:true,authorityDecisionHash:createHash('sha256').update('test-only-authorized-permit').digest('hex'),principalId:'founder'},
    },()=>{});
    assert.equal(result.ok,false);assert.match(result.error||'',/modelo Qwen3/i);
  } finally {f.dispose();}
