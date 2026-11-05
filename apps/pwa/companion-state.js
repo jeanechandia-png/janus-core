@@ -4,7 +4,7 @@ const REWARD = 3;
 const DAILY_REWARDS = 5;
 const allowedId = (catalog, id) => Boolean(catalog.characters.find((c) => c.id === id));
 const safeText = (value, max, fallback) => {
-  const text = String(value ?? '').replace(/[<>\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+  const text = String(value ?? '').replace(/[<>\/\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
   return text || fallback;
 };
 const dayStamp = (date) => [
