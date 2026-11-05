@@ -56,6 +56,7 @@ import {
   type ProductOperationalRecord,
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
+import { buildPlatformFinOpsSnapshot } from '../../packages/core/src/platform-finops.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
@@ -556,6 +557,15 @@ function productOperationsPortfolioSnapshot() {
   return store.listProductOperationalRecords().map((product) => (
     productOperationsSnapshot(product.id)
   ));
+}
+
+function platformFinOpsSnapshot() {
+  // Reutiliza las lecturas verificadas del Operations Hub; no se inventan costes.
+  return buildPlatformFinOpsSnapshot(
+    store.listProductOperationalRecords(),
+    store.listProductHealthSnapshots(),
+    new Date().toISOString(),
+  );
 }
 
 function assistantControlSnapshot() {
@@ -4033,6 +4043,22 @@ const server = createServer(async (request, response) => {
         || error instanceof FounderBiometricError
         ? authErrorStatus(error)
         : 400;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/finops') {
+    try {
+      // Las cifras de facturación solo son accesibles al propietario de JANUS.
+      requireFounderAuthority(request);
+      json(response, 200, platformFinOpsSnapshot());
+    } catch (error) {
+      const status = error instanceof HttpRequestError
+        || error instanceof AuthorityAuthenticationError
+        || error instanceof FounderBiometricError
+        ? authErrorStatus(error)
+        : 409;
       json(response, status, authErrorBody(error));
     }
     return;
