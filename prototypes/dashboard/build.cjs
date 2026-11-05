@@ -102,8 +102,8 @@ html:not(.janus-ready) .stage{display:none!important}
 .janus-static .js-footer{text-align:center;font-size:9px;color:var(--js-mute);padding:10px 0;letter-spacing:.12em}
 `;
 const head = '';
-const body = fallback + '<div class="stage a" id="app"><div id="dash" style="display:contents"></div><div id="view" hidden></div></div>\\n<script>\\n(function(){\\n' + js +
-  '\\n})();\\n</script>\\n<script>(function(){try{var a=document.querySelector("#dash"),b=document.querySelector("#view");if((a&&a.textContent.trim().length>30)||(b&&b.textContent.trim().length>30))document.documentElement.classList.add("janus-ready");}catch(e){}})();</script>';
+const body = fallback + '<div class="stage a" id="app"><div id="dash" style="display:contents"></div><div id="view" hidden></div></div>\n<script>\n(function(){\n' + js +
+  '\n})();\n</script>\n<script>(function(){try{var a=document.querySelector("#dash"),b=document.querySelector("#view");if((a&&a.textContent.trim().length>30)||(b&&b.textContent.trim().length>30))document.documentElement.classList.add("janus-ready");}catch(e){}})();</script>';
 const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n' +
   '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
   '<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n' +
@@ -112,7 +112,7 @@ const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\
   'html,body{margin:0;height:100%;overflow:hidden;background:#07070a}\n*{box-sizing:border-box}\n' +
   '.stage{width:100vw;height:100vh;height:100dvh;overflow:hidden;position:relative}\n' +
   '@media (max-aspect-ratio:1/1){.stage{height:69.85vw;top:calc((100dvh - 69.85vw) / 2)}}\n' +
-  px2rem(css) + '\\n' + fallbackCss + '\\n</style>\\n</head>\\n<body>\\n' + body + '\\n</body>\\n</html>\\n';
+  px2rem(css) + '\n' + fallbackCss + '\n</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n';
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
 console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', has('local/names.json') ? 'local' : 'genéricos');
