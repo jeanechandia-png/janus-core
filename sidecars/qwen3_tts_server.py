@@ -170,6 +170,11 @@ class JanusQwenHandler(BaseHTTPRequestHandler):
         if self.path != "/health":
             self.send_error(HTTPStatus.NOT_FOUND)
             return
+        try:
+            reload_voice_catalog(self.server)
+        except Exception:
+            self.send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "invalid voice configuration"})
+            return
         self.send_json(
             HTTPStatus.OK,
             {
@@ -187,6 +192,11 @@ class JanusQwenHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         if self.path != "/synthesize":
             self.send_error(HTTPStatus.NOT_FOUND)
+            return
+        try:
+            reload_voice_catalog(self.server)
+        except Exception:
+            self.send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"error": "invalid voice configuration"})
             return
 
         content_length = self.headers.get("content-length")
@@ -274,6 +284,8 @@ def main() -> None:
     voices = load_voice_config(config_path)
     server = ThreadingHTTPServer((host, port), JanusQwenHandler)
     server.voices = voices  # type: ignore[attr-defined]
+    server.voice_config_path = str(Path(config_path).expanduser().resolve())
+    server.voice_config_stamp = Path(server.voice_config_path).stat().st_mtime_ns
     server.allow_remote_model = env_true("JANUS_QWEN_ALLOW_REMOTE_MODEL_ID")  # type: ignore[attr-defined]
     print(f"JANUS Qwen3-TTS sidecar listening on http://{host}:{port}")
     server.serve_forever()
