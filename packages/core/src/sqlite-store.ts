@@ -1851,6 +1851,33 @@ export class SqliteStore {
       .map((row) => JSON.parse(String(row.snapshot_json)) as MonetizationRequirementSnapshot);
   }
 
+  /** Atomic and restart-safe local spending guard: reserve before paid TTS request. */
+  reserveProviderDailyCharacters(providerId: string, day: string, count: number, maxChars: number): boolean {
+    if (!/^[a-z][a-z0-9_-]{0,47}$/.test(providerId) || !/^\d{4}-\d{2}-\d{2}$/.test(day)
+      || !Number.isSafeInteger(count) || count <= 0 || !Number.isSafeInteger(maxChars) || maxChars <= 0) {
+      throw new Error('Invalid provider daily budget reservation');
+    }
+    this.db.prepare(`
+      INSERT INTO provider_daily_usage(provider_id, observed_day, characters_reserved)
+      VALUES (?, ?, 0) ON CONFLICT(provider_id, observed_day) DO NOTHING
+    `).run(providerId, day);
+    // The conditional UPDATE is atomic across multiple JANUS processes sharing SQLite.
+    const change = this.db.prepare(`
+      UPDATE provider_daily_usage SET characters_reserved = characters_reserved + ?
+      WHERE provider_id = ? AND observed_day = ?
+        AND characters_reserved <= ? - ?
+    `).run(count, providerId, day, maxChars, count);
+    return Number(change.changes) === 1;
+  }
+
+  getProviderDailyCharacters(providerId: string, day: string): number {
+    const row = this.db.prepare(`
+      SELECT characters_reserved FROM provider_daily_usage
+      WHERE provider_id = ? AND observed_day = ?
+    `).get(providerId, day) as { characters_reserved?: number } | undefined;
+    return Number(row?.characters_reserved ?? 0);
+  }
+
   /** Strictly observed data; this never estimates usage or bills. */
   recordProviderSpendObservation(sample: ProviderSpendObservation): void {
     if (!Number.isSafeInteger(sample.used) || !Number.isSafeInteger(sample.limit)
@@ -1889,6 +1916,12 @@ export class SqliteStore {
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS provider_daily_usage (
+        provider_id TEXT NOT NULL,
+        observed_day TEXT NOT NULL,
+        characters_reserved INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY(provider_id, observed_day)
+      );
       CREATE TABLE IF NOT EXISTS provider_spend_observations (
         provider_id TEXT NOT NULL,
         observed_at TEXT NOT NULL,
