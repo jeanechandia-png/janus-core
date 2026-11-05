@@ -32,3 +32,14 @@ Riesgo: reclamar “3D 4K terminado” cuando solo hay fotos 2D y mallas procedu
 - **Pendiente real**: 4 modelos GLB finales esculpidos/riggeados con acabado cinematográfico, pruebas GPU reales iPhone/iPad, mediciones de FPS/color/LOD y aprobación visual del Founder. El movimiento GPU implementado es geometría **procedural**, no sustituto del acabado de VFX deseado.
 
 Estado: implementación en PR #63 (borrador). No fusionada, no desplegada. Conserva la rama de interpretación contextual `feat/infinity-connect-contextual-interpreter` intacta.
+
+## Continuidad — identidad de Kendra y personalización individual
+
+- **Separación de roles vigente:** las cuatro criaturas viven en el universo de Kendra. Son sus compañeros ficticios, **no** representan ni hablan como Jean ni sustituyen la figura paterna; el robot masculino aprobado `Nexo` es el personaje previsto para el dashboard del Founder. No confundir identidades en reutilizaciones posteriores.
+- **Nombre de la usuaria:** toda interacción del compañero se dirige a **Kendra** (no `__HIJA__`, `hija` ni `papá` como vocativo); `newKitProfile` usa la clave de perfil `kendra`. La pestaña «Papá» de avisos familiares permanece independiente del personaje.
+- **Nombre de criatura:** la función heredada `Companion.renameCreature` se reutiliza; el Vestidor añade un control de nombre visible, validación y confirmación; renombrar sigue disponible desde la banda de la escena. Estado `ST.comp.names[creatureId]`, separado por criatura, persistido mediante `saveState`, sin costes, pérdida de objetos ni alterar personalidad.
+- **Aspecto propio:** paleta de pelaje/piedra/ojos y ropa permanecen en `ST.comp.looks[creatureId]`. Los nuevos peinados/forma de fibras se guardan en `ST.comp.furStyles[creatureId]`; nombres y estilos de una especie no sobrescriben los de otra.
+- **Morfología:** Lumi cambia longitud y curvatura de hebras, Musgo cambia su fibra vegetal, Nimbo su pelusa/nube. Bombo no tiene pelo: el mismo selector cambia el tamaño de sus **branquias**; se conserva su piel húmeda.
+- **Alcance 3D actual:** el shader de `JanusFurWind` aplica deformación GPU real en los modelos procedurales. Los GLB externos no reciben automáticamente este cambio de forma, salvo que implementen una interfaz compatible; la calidad cinematográfica/4K real de los GLB aprobados sigue por validar.
+- **Pruebas:** `tests/kendra-identity.test.cjs` cubre vocativos, perfil correcto, renombres aislados, escapar el nombre en la tarjeta aprobada, apariencia propia por especie e independencia de estrellas. `tests/fur-wind.test.cjs` verifica uniformes de longitud y rizo. Ambas se ejecutan dentro de `.github/workflows/janus-creatures-ci.yml`.
+- **Próximo:** conservar esta regla de identidad en cualquier futuro adaptador de conversación, TTS, IA o animación facial. No fusionar personajes Founder/Kendra; revisar visualmente en dispositivos con WebGL real, sin presentar arte estático como 3D riggeado final.
