@@ -6,8 +6,11 @@
   <meta name="theme-color" content="#111827" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>Compañeros · JANUS</title>
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="manifest" href="/companion.webmanifest" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/janus-icon-180.png" />
+  <meta name="apple-mobile-web-app-title" content="JANUS Kendra" />
   <link rel="stylesheet" href="/companion.css" />
+  <link rel="stylesheet" href="/language-buttons.css" />
 </head>
 <body>
   <main class="companion-app">
@@ -18,6 +21,7 @@
         <h1>Tu compañero</h1>
         <p>Elige cómo quieres que te acompañe. Puedes cambiar cuando quieras.</p>
       </div>
+      <div id="companionLanguageSwitch" class="janus-language-switch" role="group" aria-label="Seleccionar idioma"></div>
       <div class="stars" aria-live="polite">✦ <strong id="starBalance">0</strong> estrellas</div>
     </header>
 
