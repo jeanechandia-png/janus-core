@@ -66,7 +66,8 @@ const FinOps = (() => {
   function detail(sub,M) {
     const all=records(), c=counters();
     const selected = sub ? all.find(p=>p.id===decodeURIComponent(sub)) : null;
-    const total = all.every(p=>val(p.spentEur)!=null&&fresh(p)) ? all.reduce((x,p)=>x+p.spentEur,0) : null;
+    const measured = all.filter(p=>val(p.spentEur)!=null&&fresh(p));
+    const total = measured.length ? measured.reduce((x,p)=>x+p.spentEur,0) : null;
     const header = '<div class="fi-header"><div><h2>'+ (selected ? esc(selected.name) : 'Control de plataformas') +'</h2><p>Facturación, cuotas y disponibilidad · importes en euros</p></div><div class="fi-updated">'+esc(snapshot?.generatedAt && validDate(snapshot.generatedAt) ? 'Datos: '+new Date(snapshot.generatedAt).toLocaleString('es-ES') : connection)+'</div></div>';
     const note = '<div class="fi-note">Fuentes no conectadas o desactualizadas = SIN VERIFICAR, nunca 0 € ni estado verde. Los planes personales y las API se supervisan por separado; no se presupone ninguna suscripción activa.</div>';
     if(selected){
