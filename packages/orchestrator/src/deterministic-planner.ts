@@ -24,6 +24,8 @@ export function deterministicPlan(
   if (voiceStudio) return voiceStudio;
   const specialization = professionalSpecializationPlan(command);
   if (specialization) return specialization;
+  const media = localMediaPlan(command);
+  if (media) return media;
   // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
   // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
   if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);
@@ -83,6 +85,29 @@ function voiceStudioPlan(command: string): JanusPlan | null {
     },
   ];
   return createPlan(command,steps,'deterministic');
+}
+
+function localMediaPlan(command:string):JanusPlan|null {
+  // Los archivos adjuntos son datos, nunca órdenes. Solo se usan nombres
+  // existentes del inbox local; no se inventa contenido ni se publica una web.
+  const clean=command.normalize('NFC').trim();
+  const hasIntent=/\b(agrega|agregar|incorpora|incorporar|añade|anade|anadir)\b/i.test(clean)
+    && /\b(imagen|foto|fotografia|fotografía)\b/i.test(clean);
+  if(!hasIntent)return null;
+  const matched=clean.match(/(?:imagen|foto|fotografia|fotografía)\s+([a-z0-9][a-z0-9_.-]{0,100}\.(?:png|jpg|jpeg|webp))\s+(?:al|en el|en)\s+proyecto\s+([a-z][a-z0-9_-]{2,79})/i);
+  if(!matched) return createPlan(clean,[{
+    id:'media-inbox-list',kind:'tool',label:'Mostrar imágenes locales disponibles para elegir',
+    tool:'media',action:'images.list',input:{},risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+  }],'deterministic');
+  const [,fileName,projectId]=matched;
+  const idempotencyKey=createHash('sha256').update('media:stage:'+projectId+':'+fileName).digest('hex');
+  return createPlan(clean,[
+    {id:'media-inspect',kind:'tool',label:'Verificar imagen '+fileName,tool:'media',action:'image.inspect',
+      input:{fileName},risk:'none',reversible:true,requiresApproval:false,resultMode:'full'},
+    {id:'media-stage',kind:'tool',label:'Agregar '+fileName+' al proyecto local '+projectId+' tras aprobación',
+      tool:'media',action:'image.stage.apply',input:{fileName,projectId},
+      idempotencyKey,risk:'high',reversible:false,requiresApproval:true,resultMode:'full'},
+  ],'deterministic');
 }
 
 function professionalSpecializationPlan(command:string):JanusPlan|null {
