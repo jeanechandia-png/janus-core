@@ -59,6 +59,7 @@ function cpSyncStage(st) {
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   if (st.setAspect) st.setAspect(C.aspect);
   st.setCreature(C.creatureId, hexLook(Companion.lookOf(p)));
+  if (st.setWind) st.setWind(Number.isFinite(C.windStrength) ? C.windStrength : 0.3);
   st.setWorld({ home: w.home, vehicle: w.vehicle, decor: w.decor });
   st.setMode(C.tab === 'mundo' ? 'mundo' : 'escena');
   if (C.tab !== 'mundo') st.setView(COMP_UI.view);
@@ -165,6 +166,9 @@ function tabVestidor(p, name) {
   const asp = compState().aspect, canFace = !!window.JanusFace3D;
   return (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
     '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
+    '<div class="cpgr"><h4 class="mono">Viento en fibras 3D</h4><div class="cpchips">' +
+      [[0, '🍃 Calma'], [0.3, '🌬 Brisa'], [0.7, '💨 Viento']].map((v) => chip('cpWind', v[0], v[1], v[1], String(Number.isFinite(compState().windStrength) ? compState().windStrength : 0.3) === String(v[0]) ? 'on' : '')).join('') +
+      '</div><p class="cpmini dim">Pelaje y musgo en geometría 3D con viento en GPU. Bombo mantiene piel húmeda sin pelo. En modelos GLB el viento depende del atributo COLOR_1 del contrato.</p></div>' +
     '<div class="cpgr"><h4 class="mono">Color del pelo</h4>' + sw('fur', look.fur) + '</div><div class="cpgr"><h4 class="mono">Detalles</h4>' + sw('accent', look.accent) + '</div>' +
     '<div class="cpgr"><h4 class="mono">Ojos</h4><div class="cpsw">' + Companion.EYE_IDS.map((id) => dot('cpWear', 'eyes|' + id, Companion.EYES[id].hex, Companion.EYES[id].label, look.eyes === id)).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Ropa</h4><div class="cpchips">' + Companion.OUTFITS.map((o) => { const k = Companion.outfitKey(o.id); return chip('cpWear', 'outfit|' + o.id, o.icon, o.label, look.outfit === o.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div>' + (look.outfit !== 'ninguna' ? '<h4 class="mono">Color de la ropa</h4>' + sw('outfitColor', look.outfitColor) : '') + '</div>' +
@@ -250,6 +254,7 @@ const COMP_ACTS = {
     try { const C = compState(), p = compProfile(); Companion.renameCreature(p, C.creatureId, field('cpName')); compSave(p); COMP_UI.renaming = false; cpSay('¡Me encanta mi nombre nuevo! Gracias, ' + CHILD + '.', 'celebra'); }
     catch (e) { if (/mejor no/.test(String(e && e.message))) { cpSay('Mmm, ese nombre mejor no. ¿Probamos con otro que nos guste a todos?', 'piensa'); } else COMP_UI.renaming = false; }
   },
+  cpWind: (v) => { const C = compState(), x = Number(v); if (![0, 0.3, 0.7].includes(x)) return; C.windStrength = x; saveState(); const st = cpStage(); if (st && st.setWind) st.setWind(x); },
   cpAspect: (a) => { const C = compState(); C.aspect = a === 'cara' ? 'cara' : 'criatura'; saveState(); const st = cpStage(); if (st && st.setAspect) { st.setAspect(C.aspect); st.sparkle(-1.6, 1.8, '#FFE9A0'); } cpSay(C.aspect === 'cara' ? '¡Ahora me ves la cara! Mira cómo cambian mis ojos.' : '¡Vuelvo a ser yo, con cuerpo y todo!', 'saluda', true, 'alegre'); },
   cpMood: (m) => {
     if (!CP_MOODS.some((x) => x[0] === m)) return; const st = cpStage(); if (!st) return;
