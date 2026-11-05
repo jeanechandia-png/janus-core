@@ -68,7 +68,7 @@ function cpSyncStage(st) {
 function cpAfterRender() {
   if (typeof ROUTE === 'undefined' || ROUTE.v !== 'companero') return;
   document.querySelectorAll('#view [data-hex]').forEach((el) => el.style.setProperty('--c', el.getAttribute('data-hex')));
-  if (!window.JanusStage3D) return;
+  if (!window.JanusStage3D || !document.querySelector('#view [data-stage3d]')) return;
   const st = cpStage(); if (!st) return;
   if (!st._wired) { st._wired = true; st.on({ move: cpOnMove, tapProp: cpOnTapProp, tapCreature: cpOnTapCreature, tapHome: cpOnTapHome, tapVehicle: cpOnTapVehicle, tapDecor: cpOnTapDecor, tapEmpty: cpOnTapEmpty }); }
   cpSyncStage(st);
@@ -216,8 +216,16 @@ function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
-    (ok3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' : '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
+  const hasModel = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
+  // El arte de referencia aprobado protagoniza la escena; una lección o GLB real activa Three.js.
+  const cinematic = C.visualMode !== '3d' && !hasModel && C.tab !== 'mundo' && !COMP_UI.lesson;
+  const switchLabel = cinematic ? 'Entrar en el mundo 3D interactivo' : 'Ver arte cinematográfico aprobado';
+  const switchTo = cinematic ? '3d' : 'cinematic';
+  const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
+    (cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
+      ok3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
+        '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
+    (ok3d && !hasModel && !COMP_UI.lesson && C.tab !== 'mundo' ? '<button class="cp-mode" type="button"' + act('cpVisual', switchTo, switchLabel) + '>' + (cinematic ? '✦ Explorar en 3D' : '✦ Arte aprobado') + '</button>' : '') +
     '<div class="cpov">' + cpOverlay() + '</div></section>';
   const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3);
@@ -234,7 +242,8 @@ function parseWear(arg) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = mode === '3d' ? '3d' : 'cinematic'; saveState(); },
   cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; COMP_UI.renaming = false; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
   cpRename: () => {
@@ -253,8 +262,8 @@ const COMP_ACTS = {
   cpView: (v) => { COMP_UI.view = ['amplia', 'mesa', 'primer-plano'].includes(v) ? v : null; const st = cpStage(); if (st) { st.resetView(); st.setView(COMP_UI.view); } },
   cpTopic: (t) => { const C = compState(); C.topic = t; C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; cpReset(); saveState(); },
   cpNext: () => { const C = compState(); C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; COMP_UI.ok = null; cpReset(); saveState(); },
-  cpShow: () => { COMP_UI.hint = ''; cpLessonStart(false); },
-  cpSolStart: () => { COMP_UI.hint = ''; cpLessonStart(true); },
+  cpShow: () => { const C = compState(); C.visualMode = '3d'; saveState(); COMP_UI.hint = ''; cpLessonStart(false); }, 
+  cpSolStart: () => { const C = compState(); C.visualMode = '3d'; saveState(); COMP_UI.hint = ''; cpLessonStart(true); }, 
   cpSol: () => { COMP_UI.sol = true; COMP_UI.ended = false; cpStep(); },
   cpStep: () => { cpStep(); },
   cpRetry: () => { cpLessonStart(COMP_UI.sol); },
