@@ -52,6 +52,7 @@ import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insi
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
 import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
 import { VoiceStudioToolAdapter } from '../../packages/adapters/src/voice-studio-tool-adapter.js';
+import { LocalMediaToolAdapter } from '../../packages/adapters/src/local-media-tool-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -659,6 +660,22 @@ const voiceStudio = new VoiceStudioToolAdapter({
   cloneModelPath: process.env.JANUS_QWEN_CLONE_MODEL_PATH?.trim() || undefined,
 });
 toolGateway.register(voiceStudio);
+const localMedia = new LocalMediaToolAdapter({
+  inboxRoot: process.env.JANUS_MEDIA_INBOX?.trim() || 'data/media-inbox',
+  libraryRoot: process.env.JANUS_MEDIA_LIBRARY?.trim() || 'data/media-library',
+  store: {
+    getProjectWorkspace: (id) => store.getProjectWorkspace(id),
+    upsertProjectResource: (resource) => store.upsertProjectResource(resource),
+    listProjectResources: (id) => store.listProjectResources(id),
+  },
+});
+toolGateway.register(localMedia);
+capabilities.register({
+  tool: 'media',
+  actions: ['images.list','image.inspect','image.stage.apply'],
+  state: 'available',
+});
+
 capabilities.register({
   tool: 'voice-studio',
   actions: ['voices.list', 'design.preview', 'clone.readiness', 'design.apply', 'clone.apply', 'voice.revoke'],
