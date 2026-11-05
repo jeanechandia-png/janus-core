@@ -18,3 +18,17 @@
 ## Registro preventivo
 
 Riesgo: reclamar “3D 4K terminado” cuando solo hay fotos 2D y mallas procedurales no aprobadas. Prevención: etiquetar en UI los recursos según tipo real, conservar `GLB` como fuente de verdad del rig y exigir modelos finales, capturas y pruebas E2E antes de cambiar el estado. Diseño responsive con `prefers-reduced-motion`; no introducir datos infantiles reales en repositorio público.
+
+## Implementación adicional y pruebas (mismo día)
+
+- Módulo `janus-fur-wind`: pelos, briznas de musgo y fibras de nube en **geometría Three.js real** mediante `InstancedMesh` con deformación progresiva de puntas por vertex shader. Bombo continúa sin pelaje. Fibras físicamente iluminadas y teñibles con el Vestidor.
+- Integración `janus-creatures-3d`: Lumi (cabeza, tronco, cola), Musgo (7 grupos de musgo), Nimbo (cuerpo, cabeza y cúmulos), viento controlado mediante `cpWind` y preferencias de movimiento reducido; el contrato GLB sigue intacto.
+- Regulador FPS de densidad de fibras en `janus-stage-3d`: baja gradualmente por debajo de 24 FPS sostenidos, recupera por encima de 48 FPS sostenidos, sin cambiar silueta, actividades, memoria ni modelo de criatura. El modo móvil usa menor presupuesto inicial.
+- Nueva CI `.github/workflows/janus-creatures-ci.yml` valida sintaxis JS, `tests/presence.test.cjs`, `tests/fur-wind.test.cjs`, builds HTML autosuficientes A/B y sus scripts. Además publica un ZIP temporal de HTML de revisión.
+- **Evidencia CI satisfactoria** sobre commit `35b30d0e6caec09b4818c29af5705dd31f52158e`:
+  - JANUS creatures 3D — verification: [run 42091227182](https://github.com/jeanechandia-png/janus-core/actions/runs/42091227182) = success.
+  - Janus Core CI: [run 42091227215](https://github.com/jeanechandia-png/janus-core/actions/runs/42091227215) = success.
+- **Revisión visual local**: HTML exportado desde Actions abierto en Chromium vía `page.set_content`, vistas A/B escritorio 1194x834 y móvil 390x844, y ruta Compañero/Kendra. Sin errores JS de página. Las capturas no validan el movimiento 3D porque el navegador de este entorno bloqueó WebGL, por lo que no se atribuye aprobación visual 3D.
+- **Pendiente real**: 4 modelos GLB finales esculpidos/riggeados con acabado cinematográfico, pruebas GPU reales iPhone/iPad, mediciones de FPS/color/LOD y aprobación visual del Founder. El movimiento GPU implementado es geometría **procedural**, no sustituto del acabado de VFX deseado.
+
+Estado: implementación en PR #63 (borrador). No fusionada, no desplegada. Conserva la rama de interpretación contextual `feat/infinity-connect-contextual-interpreter` intacta.
