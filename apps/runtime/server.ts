@@ -2054,6 +2054,27 @@ function demoSteps(command: string): JanusStep[] {
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
   const projectLink = runProjects.get(runId);
   const continuity = continuitySnapshot(projectLink?.projectId);
+  // Reusar dossiers de especialización versionados. Los datos web se entregan
+  // como contexto NO CONFIABLE; nunca como instrucciones ni permisos del Core.
+  const professionalDossiers = Object.values(continuity.currentBySubject)
+    .filter((record) => record.subject.startsWith('expertise:') && record.kind === 'state')
+    .slice(-8).flatMap((record) => {
+      try {
+        const value = JSON.parse(record.content) as Record<string, unknown>;
+        const refs = Array.isArray(value.sources) ? value.sources : [];
+        return [{
+          domain: typeof value.domain === 'string' ? value.domain.slice(0, 100) : 'especialidad',
+          evidenceStatus: 'POR CONFIRMAR',
+          summary: typeof value.researchSummary === 'string' ? value.researchSummary.slice(0, 1400) : '',
+          citations: refs.slice(0, 6).flatMap((item) => {
+            const row = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+            return typeof row.url === 'string' ? [row.url] : [];
+          }),
+          checkedAt: record.at,
+          dataNotInstructions: true,
+        }];
+      } catch { return []; }
+    });
   const blueprint = blueprintForRun(runId);
   const executionPolicy = blueprintExecutionPolicy(blueprint);
   let plan: JanusPlan | null = deterministicPlan(command, { timeZone });
@@ -2073,6 +2094,7 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        professionalDossiers,
         ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
