@@ -76,23 +76,26 @@ const JanusFurWind = (() => {
       metalness: 0, sheen: 0.95, sheenRoughness: 0.52, sheenColor: opts.color || '#ffffff',
       side: T.DoubleSide, envMapIntensity: 0.92
     });
-    const U = { uJanusFurTime: { value: 0 }, uJanusFurWind: { value: 0.15 }, uJanusFurYaw: { value: 0.3 } };
+    const U = { uJanusFurTime: { value: 0 }, uJanusFurWind: { value: 0.15 }, uJanusFurYaw: { value: 0.3 }, uJanusFurLengthFactor: { value: 1 }, uJanusFurCurl: { value: 0.08 } };
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, U);
       sh.vertexShader = sh.vertexShader.replace('#include <common>',
-        '#include <common>\nuniform float uJanusFurTime; uniform float uJanusFurWind; uniform float uJanusFurYaw;');
+        '#include <common>\nuniform float uJanusFurTime; uniform float uJanusFurWind; uniform float uJanusFurYaw; uniform float uJanusFurLengthFactor; uniform float uJanusFurCurl;');
       sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
 #ifdef USE_INSTANCING
 float jPhase = dot(instanceMatrix[3].xyz, vec3(9.13, 17.71, 5.97));
 float jTip = clamp(position.y / ${length.toFixed(6)}, 0.0, 1.0);
 float jFlex = jTip * jTip;
+transformed.y *= uJanusFurLengthFactor;
+transformed.x += sin(jPhase * 1.3 + jTip * 5.2) * uJanusFurCurl * jFlex * ${(length * 0.4).toFixed(6)};
+transformed.z += cos(jPhase * 0.8 + jTip * 4.1) * uJanusFurCurl * jFlex * ${(length * 0.4).toFixed(6)};
 float jWave = sin(uJanusFurTime * 2.0 + jPhase) * 0.5
              + sin(uJanusFurTime * 3.7 + jPhase * 0.7) * 0.25;
 transformed.x += (cos(uJanusFurYaw) * uJanusFurWind + jWave * uJanusFurWind) * jFlex * ${(length * 0.5).toFixed(6)};
 transformed.z += (sin(uJanusFurYaw) * uJanusFurWind + jWave * uJanusFurWind * 0.6) * jFlex * ${(length * 0.5).toFixed(6)};
 #endif`);
     };
-    mat.customProgramCacheKey = () => 'janus-instanced-fur-v1:' + length.toFixed(6);
+    mat.customProgramCacheKey = () => 'janus-instanced-fur-v2:' + length.toFixed(6);
     const mesh = new T.InstancedMesh(geo, mat, count), dummy = new T.Object3D(), q = new T.Quaternion();
     mesh.name = 'janus-fibers-' + (opts.seed || 'coat');
     mesh.frustumCulled = false; mesh.castShadow = false; mesh.receiveShadow = false;
@@ -109,6 +112,12 @@ transformed.z += (sin(uJanusFurYaw) * uJanusFurWind + jWave * uJanusFurWind * 0.
     const obj = {
       mesh, count, source: target, material: mat,
       setColor(color) { mat.color.set(color); mat.sheenColor.set(color); },
+      setStyle(style) {
+        const presets = { natural: [1, 0.08], corto: [0.64, 0.02], esponjoso: [1.36, 0.2], rebelde: [1.16, 0.65] };
+        const v = presets[style] || presets.natural;
+        U.uJanusFurLengthFactor.value = v[0];
+        U.uJanusFurCurl.value = v[1];
+      },
       update(time, wind, yaw) {
         U.uJanusFurTime.value = Number.isFinite(time) ? time : 0;
         U.uJanusFurWind.value = prefersStill() ? 0 : clamp(Number(wind) || 0, 0, 1);
