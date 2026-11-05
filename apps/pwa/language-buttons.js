@@ -21,8 +21,8 @@ export function currentLanguage(scope, storage = globalThis.localStorage) {
   try { return storage?.getItem('janus.language.' + scope) === 'nl' ? 'nl' : 'es'; }
   catch { return 'es'; }
 }
-export function uiLabel(scope, key, fallback = '') {
-  return UI[scope]?.[currentLanguage(scope)]?.[key] ?? fallback;
+export function uiLabel(scope, key, fallback = '', storage = globalThis.localStorage) {
+  return UI[scope]?.[currentLanguage(scope, storage)]?.[key] ?? fallback;
 }
 const artCache = new Map();
 function imageData(image) {
