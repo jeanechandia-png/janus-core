@@ -1,0 +1,27 @@
+{
+  "name": "JANUS · Kendra",
+  "short_name": "JANUS Kendra",
+  "start_url": "/companion.html",
+  "id": "/companion.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0b0f1d",
+  "theme_color": "#111827",
+  "lang": "es",
+  "dir": "ltr",
+  "description": "Janus — mundo compañero local",
+  "icons": [
+    {
+      "src": "/icons/janus-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/janus-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
