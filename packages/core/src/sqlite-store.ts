@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import type { ProviderSpendObservation, ProviderSpendHistoryPoint } from './provider-spend-control.js';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
 import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
 import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
@@ -1850,12 +1851,55 @@ export class SqliteStore {
       .map((row) => JSON.parse(String(row.snapshot_json)) as MonetizationRequirementSnapshot);
   }
 
+  /** Strictly observed data; this never estimates usage or bills. */
+  recordProviderSpendObservation(sample: ProviderSpendObservation): void {
+    if (!Number.isSafeInteger(sample.used) || !Number.isSafeInteger(sample.limit)
+      || sample.used < 0 || sample.limit < 0 || !Number.isFinite(Date.parse(sample.observedAt))) {
+      throw new Error('Invalid provider spend observation');
+    }
+    this.db.prepare(`
+      INSERT OR IGNORE INTO provider_spend_observations
+        (provider_id, observed_at, observed_day, units_used, units_limit)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(sample.provider, sample.observedAt, sample.observedAt.slice(0, 10), sample.used, sample.limit);
+  }
+
+  listProviderSpendHistory(providerId: string, maxDays = 90): ProviderSpendHistoryPoint[] {
+    const limit = Math.max(1, Math.min(365, Math.floor(maxDays)));
+    const rows = this.db.prepare(`
+      SELECT a.observed_day AS date, a.units_used AS used, a.units_limit AS unit_limit,
+             a.observed_at AS observed_at
+      FROM provider_spend_observations a
+      WHERE a.provider_id = ?
+        AND a.observed_at = (
+          SELECT MAX(b.observed_at) FROM provider_spend_observations b
+          WHERE b.provider_id = a.provider_id AND b.observed_day = a.observed_day
+        )
+      ORDER BY a.observed_day DESC LIMIT ?
+    `).all(providerId, limit) as Record<string, unknown>[];
+    return rows.reverse().map(r => ({
+      date: String(r.date), used: Number(r.used), limit: Number(r.unit_limit),
+      observedAt: String(r.observed_at),
+    }));
+  }
+
   close(): void {
     this.db.close();
   }
 
   private migrate(): void {
     this.db.exec(`
+      CREATE TABLE IF NOT EXISTS provider_spend_observations (
+        provider_id TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        observed_day TEXT NOT NULL,
+        units_used INTEGER NOT NULL,
+        units_limit INTEGER NOT NULL,
+        PRIMARY KEY(provider_id, observed_at)
+      );
+      CREATE INDEX IF NOT EXISTS idx_provider_spend_history
+      ON provider_spend_observations(provider_id, observed_day, observed_at);
+
       CREATE TABLE IF NOT EXISTS runs (
         id TEXT PRIMARY KEY,
         goal TEXT NOT NULL,
