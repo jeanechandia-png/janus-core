@@ -235,7 +235,7 @@ const Janus3D = (() => {
     const cam = new T.PerspectiveCamera(kind === 'bot' ? 28 : 30, w / h, 0.1, 100);
     cam.position.set(0, kind === 'bot' ? 0.45 : 0.2, kind === 'bot' ? 9.3 : 8.2); cam.lookAt(0, kind === 'bot' ? 0.35 : 0.0, 0);
     const built = kind === 'bot' ? buildBot() : buildMic(), pivot = new T.Group(), fit = new T.Group(); fit.add(built.root); pivot.add(fit); scene.add(pivot);
-    const o = { kind, renderer, scene, cam, pivot, fit, formKey: 'robot', formGen: 0, lookGen: 0, alt: null, mount: null, cache: {}, lt: 0, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
+    const o = { kind, renderer, scene, cam, pivot, fit, formKey: 'robot', formGen: -1, lookGen: -1, alt: null, mount: null, cache: {}, lt: 0, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
     const cv = renderer.domElement; cv.className = 'j3d-cv'; cv.style.touchAction = 'pan-y';
     cv.addEventListener('pointerdown', (e) => { o.drag = { x: e.clientX, y: e.clientY, moved: 0, lx: e.clientX, ly: e.clientY }; o.vel = 0; try { cv.setPointerCapture(e.pointerId); } catch (_) { } });
     cv.addEventListener('pointermove', (e) => { if (!o.drag) return; const dx = e.clientX - o.drag.lx, dy = e.clientY - o.drag.ly; o.drag.lx = e.clientX; o.drag.ly = e.clientY; o.drag.moved += Math.abs(dx) + Math.abs(dy); o.rotY += dx * 0.012; o.rotX = Math.max(-0.5, Math.min(0.5, o.rotX + dy * 0.006)); o.vel = dx * 0.012; });
