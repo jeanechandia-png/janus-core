@@ -16,6 +16,8 @@ function render() {
   decorate(ROUTE.v || '');
   if (typeof avatarSync === 'function') avatarSync();
   if (window.JanusPresence) JanusPresence.hydrate(document);
+  // El avatar de la cuenta Founder es Nexo, no una de las cuatro criaturas de Kendra.
+  if (ROUTE.v !== 'companero' && window.Janus3D && Janus3D.form() !== 'robot') Janus3D.setForm('robot');
   if (window.Janus3D) Janus3D.hydrate(document);
   if (window.JanusStage3D) JanusStage3D.hydrate(document);
   if (typeof cpAfterRender === 'function') cpAfterRender();
