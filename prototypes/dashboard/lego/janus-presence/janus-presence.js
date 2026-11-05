@@ -16,7 +16,7 @@ const JanusPresence = (() => {
   const source = (id) => IMG[SPECIES[normalize(id)].image];
   function render(context, compact, creatureId) {
     const id = normalize(creatureId || current(context)), meta = SPECIES[id];
-    const glb = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(id));
+    const glb = !!(window.JanusCreatureSlot && window.JanusCreatureSlot.has && window.JanusCreatureSlot.has(id));
     const cls = compact ? 'jpresence jpresence--mini' : 'jpresence jpresence--hero';
     const link = context === 'founder' ? 'trabajo/voz' : 'companero';
     return '<figure class="' + cls + '" data-jpresence="' + id + '" style="--jp-accent:' + meta.accent + '">' +
