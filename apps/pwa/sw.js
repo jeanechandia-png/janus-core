@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v10';
+const CACHE = 'janus-shell-v11';
 const SHELL = [
   '/',
   '/index.html',
@@ -7,6 +7,11 @@ const SHELL = [
   '/companion.js',
   '/companion-state.js',
   '/companion-catalog.json',
+  '/companion.webmanifest',
+  '/language-buttons.js',
+  '/language-buttons.css',
+  '/language-art/nederland.webp',
+  '/language-art/espana.webp',
   '/styles.css',
   '/app.js',
   '/app-install.js',
