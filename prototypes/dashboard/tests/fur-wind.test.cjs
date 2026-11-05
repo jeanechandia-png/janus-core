@@ -59,6 +59,15 @@ test('triangulos muestreados, hebras fisicas, shader de viento y liberacion',()=
   coat.material.onBeforeCompile(sh);
   assert.match(sh.vertexShader,/uJanusFurWind/);
   assert.match(sh.vertexShader,/jTip \* jTip/);
+  assert.match(sh.vertexShader,/uJanusFurLengthFactor/);
+  assert.match(sh.vertexShader,/uJanusFurCurl/);
+  coat.setStyle('esponjoso');
+  assert.equal(sh.uniforms.uJanusFurLengthFactor.value,1.36,'pelo largo');
+  assert.equal(sh.uniforms.uJanusFurCurl.value,0.2,'rizo suave');
+  coat.setStyle('corto');
+  assert.equal(sh.uniforms.uJanusFurLengthFactor.value,0.64,'pelo corto');
+  coat.setStyle('otro');
+  assert.equal(sh.uniforms.uJanusFurLengthFactor.value,1,'preset desconocido = natural');
   assert.match(sh.vertexShader,/instanceMatrix/);
   coat.update(7,0.6,0.3);
   assert.equal(sh.uniforms.uJanusFurWind.value,0.6);
@@ -81,6 +90,9 @@ test('budgets no superan mobile y BOMBO no genera hebras',()=>{
   assert.match(c,/R\.parts\.puffs\.forEach/);
   const stage=fs.readFileSync(path.resolve(__dirname,'../lego/janus-stage-3d/janus-stage-3d.js'),'utf8');
   assert.match(stage,/setWind\(value\)/);
+  assert.match(stage,/setFurStyle\(style\)/);
+  assert.match(c,/R\.setFurStyle =/);
+  assert.match(c,/R\.parts\.gills\.forEach/);
   assert.match(stage,/windYaw: cre\.yaw/);
   const companion=fs.readFileSync(path.resolve(__dirname,'../src/companero.js'),'utf8');
   assert.match(companion,/cpWind: \(v\)/);
