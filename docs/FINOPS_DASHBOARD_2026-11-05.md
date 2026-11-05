@@ -15,7 +15,9 @@ Archivos: prototypes/dashboard/src/platform-finops.js, platform-finops.css, view
 
 ## Contrato de datos y seguridad
 
-El frontend espera GET /api/finops (misma sesión autenticada de JANUS) o window.JANUS_FINOPS_SNAPSHOT solo si se inyecta por un runtime privado autenticado.
+El frontend consulta GET /api/finops, ahora IMPLEMENTADO en apps/runtime/server.ts con autorización exclusiva del fundador. Lee los snapshots SQLite ya existentes del Operations Hub, filtrando solo registros de plataforma etiquetados como finops:provider. Alternativamente admite window.JANUS_FINOPS_SNAPSHOT únicamente cuando lo inyecte un runtime privado autenticado.
+
+Para registrar una plataforma se reutiliza POST /api/operations/products con tags=[finops:provider]; para registrar lecturas verificadas se reutiliza POST /api/operations/health con métricas spentEur (coste acumulado del período en EUR), dailySpendEur (coste real del día en EUR), budgetEur, creditsUsed, creditsLimit, renewalDate, plan y fallback. Los snapshots representan lecturas, no facturas pagadas; no sumarlos al ledger contable como nuevos pagos. No se crean tablas, procesos paralelos ni una contabilidad duplicada.
 
 Campos por proveedor: id, name, verifiedAt, source, budgetEur, spentEur, creditsUsed, creditsLimit, daily[{date,eur}], monthly[{month,eur}], renewalDate, health, plan, fallback. La respuesta contiene generatedAt y providers[].
 
@@ -26,7 +28,7 @@ El endpoint de JANUS debe requerir autorización de propietario, no exponer clav
 ## Estado y próximos pasos
 
 - CODED: navegación, diseño responsive, color de riesgo, detalle y gráficas alimentadas exclusivamente por datos proporcionados.
-- STATIC VERIFIED: sintaxis y pruebas de contrato en memoria con datos ficticios de prueba; estos no quedan guardados en el dashboard.
-- NO VERIFICADO E2E/PRODUCCIÓN: falta implementar/conectar el endpoint autenticado con datos reales de ElevenLabs, OpenAI, ChatGPT, Claude, Gemini, Google Workspace, Hostinger, Vercel, Netlify, Supabase, Meta y demás servicios efectivamente pagados. No llamar operativo al monitor hasta ejecutar pruebas E2E del endpoint, proveedor, notificación y contingencia real.
+- STATIC VERIFIED: sintaxis y pruebas de contrato en memoria con datos ficticios de prueba; estos no quedan guardados en el dashboard. Se añadieron tests/platform-finops.test.ts y prototypes/dashboard/tests/finops.cjs para verificar aislamiento, no duplicación de lecturas, importes desconocidos, gráficas y estados.
+- NO VERIFICADO E2E/PRODUCCIÓN: el endpoint autenticado está implementado con lectura de la base existente; aún falta conectar los importadores de uso real de ElevenLabs, OpenAI, ChatGPT, Claude, Gemini, Google Workspace, Hostinger, Vercel, Netlify, Supabase, Meta y demás servicios efectivamente pagados. No llamar operativo al monitor hasta ejecutar pruebas E2E del endpoint, proveedor, notificación y contingencia real.
 - Las alertas horarias de JANUS son un respaldo. Se requiere monitor de producción independiente, alertas 50/70/85/95, proyección de agotamiento, avisos por pago fallido, sondas sintéticas y fallback real comprobado. Esta interfaz por sí sola no impide interrupciones ni cargos.
 - No se cambiaron contraseñas, suscripciones, prompts, modelos, servicios ni despliegues.
