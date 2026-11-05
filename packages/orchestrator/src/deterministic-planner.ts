@@ -22,6 +22,8 @@ export function deterministicPlan(
   if (!command) return null;
   const voiceStudio = voiceStudioPlan(command);
   if (voiceStudio) return voiceStudio;
+  const specialization = professionalSpecializationPlan(command);
+  if (specialization) return specialization;
   // Cambios al conocimiento del negocio (precios, IVA, productos, equipo, instrucciones…): detección ESTRICTA;
   // la interpretación fina vive en la herramienta `knowledge`, que valida y lee de vuelta antes de pedir aprobación.
   if (isKnowledgeChangeRequest(command)) return knowledgeChangePlan(command);
@@ -81,6 +83,30 @@ function voiceStudioPlan(command: string): JanusPlan | null {
     },
   ];
   return createPlan(command,steps,'deterministic');
+}
+
+function professionalSpecializationPlan(command:string):JanusPlan|null {
+  // El comando solo inicia una investigación con fuentes; no se reentrena
+  // automáticamente el modelo ni se aceptan como normas los documentos web.
+  const text=foldVoiceText(command);
+  const match=text.match(/(?:^|\s)(?:actua|actues|actuar|conviertete|especializate|aprende|aprendas)\s+(?:(?:como|a ser)\s+)?(?:(?:un|una)\s+)?(?:especialista|experto|experta|profesional)\s+en\s+(.+)$/)
+    || text.match(/(?:^|\s)(?:conviertete|especializate)\s+en\s+(?:especialista|experto|experta)\s+en\s+(.+)$/);
+  if (!match) return null;
+  const domain=match[1]!.replace(/\s+(?:correcto|por favor|de acuerdo)$/,'').trim().slice(0,100);
+  if(domain.length<4) return null;
+  const key=createHash('sha256').update('specialization:research:'+text).digest('hex');
+  return createPlan(command,[
+    {
+      id:'specialization-plan',kind:'tool',label:'Plan de estudio y actualización de '+domain,
+      tool:'specialization',action:'research.plan',input:{domain},
+      risk:'none',reversible:true,requiresApproval:false,resultMode:'full',
+    },
+    {
+      id:'specialization-research',kind:'tool',label:'Investigar fuentes y conservar dossier revisable de '+domain,
+      tool:'specialization',action:'research.apply',input:{domain},
+      idempotencyKey:key,risk:'high',reversible:false,requiresApproval:true,resultMode:'full',
+    },
+  ],'deterministic');
 }
 
 function foldVoiceText(value:string):string {
