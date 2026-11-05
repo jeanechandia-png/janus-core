@@ -12,6 +12,8 @@ Pieza LEGO comercial: criaturas originales que acompañan a un niño o niña. Ca
 Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son diseños originales de InfinitySeed.
 
 ## Qué hace
+- **Carácter propio y fijo** (`Creature.style`): cada criatura tiene su movimiento (revolotea, rebota, guiña, flota), su energía, su forma de enseñar y sus aperturas y cierres. **Vestirla no lo cambia.** Su aspecto de fábrica (`Creature.look`) son ids de paleta.
+- `makeExercise()` entrega también `params` (los números del enunciado) para que cualquier escena o lección los use sin interpretar el texto.
 - `companionTurn()`: primero la seguridad, después la respuesta del modelo filtrada y, como mucho, una frase de ánimo.
 - `pickEncouragement()`: ánimo **sutil y con límite de frecuencia** (por defecto ≤4 por hora y ≥25 min entre frases espontáneas).
 - `makeExercise()` / `checkAnswer()` / `adaptLevel()`: matemáticas con pistas graduales.
@@ -24,6 +26,13 @@ Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son dis
 - Golden, N. H., Schneider, M., Wood, C. & AAP Committee on Nutrition (2016). *Preventing Obesity and Eating Disorders in Adolescents*. Pediatrics 138(3). Recomienda no hablar de peso ni de dietas y centrarse en hábitos y en un ambiente de apoyo. https://med.stanford.edu/news/all-news/2016/08/new-guidelines-offer-one-approach-to-prevent-teen-obesity-eating-disorders.html
 - Revisión: *Peer functioning in children with AD/HD: current understanding and intervention options*. https://cie.asu.edu/ojs/index.php/cieatasu/article/view/16
 - RGPD: la biometría es categoría especial (art. 9). El uso puramente doméstico queda fuera del RGPD (art. 2.2.c), pero un uso comercial exige consentimiento explícito del tutor. Por eso: procesamiento en el dispositivo y `enableBiometrics()` solo con consentimiento.
+
+### Piezas hermanas (módulos independientes, se unen con el adaptador `packages/adapters/src/companion-kit.ts`)
+- `avatar-look`: pelo, detalles, ojos, ropa y accesorios (catálogo cerrado, solo estético).
+- `star-shop`: estrellas por esfuerzo, tienda, casa, vehículos y decoración.
+- `scene-stage`: escena manipulable por la criatura y por la niña + lecciones con representaciones concretas (WWC 2021006, Rec. 1-3; fuentes y límites en su README).
+- **HECHO VERIFICADO** · AAP (2019), guía clínica del TDAH (Pediatrics 144(4):e20192528; resumen: Wetterer, Am Fam Physician 2020;102(1):58-60): entrenamiento de los padres, apoyos escolares con sistemas de puntos y refuerzo positivo.
+- **POR CONFIRMAR:** revisión profesional de las lecciones y de la economía de estrellas. Este módulo **no sustituye a un profesional**.
 
 ## Límites (Protocolo de la Verdad)
 - No es terapia ni diagnóstico. Ante señales serias, avisa al adulto.
