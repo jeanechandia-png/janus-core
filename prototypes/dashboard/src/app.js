@@ -15,6 +15,7 @@ function render() {
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
   if (typeof avatarSync === 'function') avatarSync();
+  if (window.JanusPresence) JanusPresence.hydrate(document);
   if (window.Janus3D) Janus3D.hydrate(document);
   if (window.JanusStage3D) JanusStage3D.hydrate(document);
   if (typeof cpAfterRender === 'function') cpAfterRender();
@@ -59,7 +60,7 @@ const ACTS = {
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
-Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS);
+Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS, JanusPresence.actions);
 if (typeof slotWire === 'function') slotWire();
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
