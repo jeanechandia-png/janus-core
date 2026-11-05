@@ -2,6 +2,14 @@
 
 Fecha: 2026-10-23
 
+## Decisión VIGENTE — personajes de Kendra (2026-11-05)
+
+- **APROBADO:** dos diseños de criaturas hechos por ChatGPT en las posiciones 1 y 2; el primer robot original de Janus es la posición 3, conservado como evidencia histórica de la evolución.
+- **RECHAZADO:** propuestas de criaturas de Claude. El catálogo antiguo de \`personas.ts\` queda compatible como legado, pero no se puede inferir aprobación para la selección nueva.
+- **HECHO (rama \`feat/companion-art-direction-20261105\`, PR #65):** selección y bloqueo de diseños no aprobados (\`packages/modules/companion/src/selection.ts\`), catálogo aprobado offline (\`apps/pwa/companion-catalog.json\`), página mobile-first \`/companion.html\` enlazada desde la PWA, opciones 1–3, cambio de nombres, estrellas por cálculo con límite e idempotencia, armario desbloqueable y elección de accesorios, escena desplazable, gestos sin fingir animaciones, persistencia local y pruebas automatizadas. Los activos visuales no están identificados; no se han creado modelos falsos.
+- **PENDIENTE:** vincular las imágenes y archivos glTF/GLB exactos y autorizados para las tres opciones, motor 3D offline autocontenido, accesorios animados/rigged, controles de expresiones y comprobación física de rendimiento en iPhone. No publicar ni afirmar 3D terminado hasta pruebas de activos reales.
+- **PUBLICACIÓN:** solo PR en borrador, no fusionada ni desplegada. La PWA pública de Janus y la landing existente permanecen intactas.
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
