@@ -4,6 +4,7 @@ import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessio
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 import { mountAttachMenu } from './attach.js';
 import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
+import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
@@ -996,6 +997,23 @@ founderSignOutButton.addEventListener('click', async () => {
 });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pollApprovals(); });
 refreshFounderControls();
+
+function refreshFounderLocale() {
+  const labels = {
+    'h1': 'heading',
+    '#approvalsTitle': 'approvals',
+    '#capabilityTitle': 'capabilities',
+    '#sendButton': 'run',
+    '#pauseButton': 'pause',
+    '#stopButton': 'stop',
+  };
+  for (const [selector, key] of Object.entries(labels)) {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = uiLabel('founder', key);
+  }
+}
+mountLanguageButtons(document.querySelector('#founderLanguageSwitch'), 'founder', { onChange: refreshFounderLocale });
+refreshFounderLocale();
 
 mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
