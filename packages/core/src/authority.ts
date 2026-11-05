@@ -67,6 +67,9 @@ export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
   founderOnlyActions: [
     'knowledge.change.apply',
     'knowledge.snapshot.publish',
+    'voice-studio.design.apply',
+    'voice-studio.clone.apply',
+    'voice-studio.voice.revoke',
     'founder.private.*',
     'security.biometric.*',
     'security.authority.*',
@@ -81,6 +84,9 @@ export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
   biometricActions: [
     'knowledge.change.apply',
     'knowledge.snapshot.publish',
+    'voice-studio.design.apply',
+    'voice-studio.clone.apply',
+    'voice-studio.voice.revoke',
     'founder.private.*',
     'security.biometric.*',
     'security.authority.*',
