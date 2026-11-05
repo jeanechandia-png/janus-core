@@ -33,7 +33,7 @@ def load_voice_config(path: str) -> dict[str, dict[str, Any]]:
     config_path = Path(path).expanduser().resolve()
     payload = json.loads(config_path.read_text(encoding="utf-8"))
     voices = payload.get("voices")
-    if not isinstance(voices, dict) or not voices:
+    if not isinstance(voices, dict):
         raise RuntimeError("voice config must contain a non-empty 'voices' object")
 
     normalized: dict[str, dict[str, Any]] = {}
