@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { ToolAdapter, ToolProgress, ToolRequest, ToolResult } from '../../gateways/src/contracts.js';
-import { assessLocalCloneReadiness, type VoiceCorpusManifest } from '../../voice/src/voice-independence.js';
+import { assessLocalCloneReadiness, type VoiceCorpusManifest, type VoiceCorpusSample } from '../../voice/src/voice-independence.js';
 
 /**
  * Estudio de voz 100 % local y auditado por JANUS CORE.
@@ -25,6 +25,7 @@ export interface VoiceStudioOptions {
 
 type VoiceSpec = Record<string, unknown>;
 type VoiceConfig = { voices: Record<string, VoiceSpec> };
+type AudioManifest = VoiceCorpusManifest & { samples: Array<VoiceCorpusSample & { audioPath?: string; transcript?: string }> };
 type Ledger = Record<string, { requestHash: string; voiceId: string; recordedAt: string }>;
 
 export class VoiceStudioToolAdapter implements ToolAdapter {
@@ -193,12 +194,12 @@ export class VoiceStudioToolAdapter implements ToolAdapter {
     return {voices:value.voices as Record<string,VoiceSpec>};
   }
 
-  private readManifest(subjectId:string): VoiceCorpusManifest & {samples:Array<{audioPath?:string;transcript?:string} & VoiceCorpusManifest['samples'][number]>} {
+  private readManifest(subjectId:string): AudioManifest {
     const file=join(this.privateRoot,subjectId,'corpus.json');
     if (!existsSync(file)) throw new StudioError('No existe corpus privado de grabaciones originales para ese titular.');
     const parsed=JSON.parse(readFileSync(file,'utf8')) as VoiceCorpusManifest;
     if (!parsed || !Array.isArray(parsed.samples)) throw new StudioError('Manifest de corpus no válido.');
-    return parsed as ReturnType<VoiceStudioToolAdapter['readManifest']>;
+    return parsed as AudioManifest;
   }
 
   private validLocalAudio(file:string,expectedHash:string): boolean {
