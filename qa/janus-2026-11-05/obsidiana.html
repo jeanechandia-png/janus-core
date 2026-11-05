@@ -12078,7 +12078,7 @@ const JanusCreatureSlot = (() => {
   const report = (id) => (reg[id] ? reg[id].report : null);
   const info = (id) => (reg[id] ? { name: reg[id].name, at: reg[id].at, level: reg[id].report.level, summary: reg[id].report.summary, stats: reg[id].report.stats } : null);
   const onChange = (fn) => { listeners.push(fn); };
-  const guessId = (name) => IDS.find((i) => new RegExp('(^|[^a-z])' + i + '([^a-z]|$)', 'i').test(String(name || ''))) || null;
+  const guessId = (name) => [...IDS].sort((a,b)=>b.length-a.length).find((i) => new RegExp('(^|[^a-z])' + i + '([^a-z]|$)', 'i').test(String(name || ''))) || null; // robot-femenino antes de robot
 
   /* ---------- viento en pelo, plumas y musgo (COLOR_1.r = flexibilidad) ---------- */
   const WU = { uTime: { value: 0 }, uWind: { value: new T.Vector3() } };
