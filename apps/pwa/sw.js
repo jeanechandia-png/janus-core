@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v13';
+const CACHE = 'janus-shell-v14';
 const SHELL = [
   '/',
   '/index.html',
@@ -11,6 +11,10 @@ const SHELL = [
   '/knowledge-review.js',
   '/dashboard-access.js',
   '/dashboard-access.css',
+  '/language-buttons.js',
+  '/language-buttons.css',
+  '/language-art/nederland.webp.b64',
+  '/language-art/espana.webp.b64',
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',
