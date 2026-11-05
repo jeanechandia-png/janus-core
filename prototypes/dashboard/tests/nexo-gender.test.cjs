@@ -43,7 +43,7 @@ test('dos rigs Nexo plateados reales con ojos azules, articulaciones y proporcio
   assert.ok(objs.some(o=>o.name==='Face silver'));
   assert.ok(objs.some(o=>o.name==='Iris sapphire'));
   assert.equal(objs.filter(o=>o.name.startsWith('Finger segment')).length,20,'dos manos articuladas');
-  assert.ok(objs.some(o=>o.name==='Upper eyelid'));
+  assert.ok(objs.some(o=>o.name.startsWith('Upper eyelid')));
   assert.ok(objs.some(o=>o.name==='Smiling lips'));
   assert.ok(r.sockets.Hand_L&&r.sockets.Hand_R,'sockets manos');
   assert.ok(r.sockets.Foot_L&&r.sockets.Foot_R,'sockets pies');
