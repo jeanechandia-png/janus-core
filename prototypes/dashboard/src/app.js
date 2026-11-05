@@ -99,6 +99,8 @@ loadState();
 ROUTE = parseHash(); if (!VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' };
 render();
 FinOps.load().then(() => rerender());
+// Consumo y alertas: consultar el runtime fundador cada 15 minutos sin recargar la página.
+setInterval(() => { FinOps.load(true).then(() => { if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); }); }, 15 * 60_000);
 if (ST.settings.mode === 'vivo') refreshWeather();
 setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);
