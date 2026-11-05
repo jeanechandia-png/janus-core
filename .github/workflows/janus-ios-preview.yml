@@ -1,0 +1,66 @@
+name: JANUS iPhone QA preview (isolated GitHub Pages path)
+on:
+  push:
+    branches:
+      - chatgpt/janus-presencia-criaturas-cinematica-20261105
+    paths:
+      - "prototypes/dashboard/**"
+      - ".github/workflows/janus-ios-preview.yml"
+permissions:
+  contents: write
+concurrency:
+  group: janus-ios-qa-preview
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.repository == 'jeanechandia-png/janus-core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exclude any real/local or private dashboard data from public QA
+        run: |
+          if [ -e prototypes/dashboard/local/real.js ] || [ -e prototypes/dashboard/local/names.json ]; then
+            echo "BLOCKED: private local data could be bundled. No public preview is allowed."
+            exit 1
+          fi
+          test -f prototypes/dashboard/src/real.example.js
+      - name: Build example-only A/B previews and verify iPhone document fallback
+        run: |
+          cd prototypes/dashboard
+          node build.cjs --skin a
+          node build.cjs --skin b
+          node --test tests/ios-quicklook.test.cjs
+      - name: Publish only a new isolated directory to existing gh-pages branch
+        run: |
+          git fetch origin gh-pages
+          git worktree add --detach /tmp/janus-pages origin/gh-pages
+          mkdir -p /tmp/janus-pages/qa/janus-2026-11-05
+          cp prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html /tmp/janus-pages/qa/janus-2026-11-05/obsidiana.html
+          cp prototypes/dashboard/dist/Janus-B-Platino-interactivo.html /tmp/janus-pages/qa/janus-2026-11-05/platino.html
+          cat > /tmp/janus-pages/qa/janus-2026-11-05/index.html <<'HTML'
+          <!doctype html>
+          <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>JANUS · Vista QA iPhone</title><style>
+          body{margin:0;min-height:100vh;box-sizing:border-box;background:#0e111a;color:#f6e7c9;font:16px system-ui,-apple-system,sans-serif;display:grid;place-items:center;padding:22px}
+          main{max-width:440px;width:100%;text-align:center}
+          h1{font-size:30px;letter-spacing:.08em}p{line-height:1.5;color:#bfbfd0}
+          a{display:block;margin:13px 0;padding:20px 18px;background:#252b42;color:#fff;border:1px solid #d0b06b;border-radius:16px;font-weight:700;text-decoration:none}
+          small{color:#a4a6b4}
+          </style></head><body><main><h1>JANUS · iPhone</h1><p>Previsualización técnica con datos de ejemplo. Este enlace abre la aplicación en Safari, sin utilizar el visor de archivos.</p>
+          <a href="platino.html">Abrir dashboard Platino B</a><a href="obsidiana.html">Abrir dashboard Obsidiana A</a>
+          <small>QA aislado · no es la web principal · sin datos reales</small></main></body></html>
+          HTML
+          git -C /tmp/janus-pages config user.name "github-actions[bot]"
+          git -C /tmp/janus-pages config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C /tmp/janus-pages add qa/janus-2026-11-05/
+          if ! git -C /tmp/janus-pages diff --cached --quiet; then
+            git -C /tmp/janus-pages commit -m "qa(janus): isolated mobile Safari preview using example-only data"
+            git -C /tmp/janus-pages push origin HEAD:gh-pages
+          fi
