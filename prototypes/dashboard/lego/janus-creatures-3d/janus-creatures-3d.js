@@ -260,6 +260,11 @@ const JanusCreatures3D = (() => {
       R.wind = Math.max(0, Math.min(1, Number(amount) || 0));
       if (Number.isFinite(yaw)) R.windYaw = yaw;
     };
+    R.furDetailRatio = 1;
+    R.setDetail = (ratio) => {
+      R.furDetailRatio = Math.max(0.2, Math.min(1, Number(ratio) || 1));
+      R.furCoats.forEach(({ coat }) => { coat.mesh.count = Math.max(1, Math.round(coat.count * R.furDetailRatio)); });
+    };
     R.update = (t, dt, ctl) => {
       const c = ctl || {}; animate(R, t, dt, c);
       const breeze = Number.isFinite(c.wind) ? c.wind : R.wind;
