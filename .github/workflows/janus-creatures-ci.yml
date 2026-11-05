@@ -58,3 +58,12 @@ jobs:
             console.log('PASS ' + file + ' (' + Math.round(html.length/1024) + ' KiB)');
           }
           NODE
+      - name: Publish offline dashboard previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-creatures-a-b-offline
+          path: |
+            prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html
+            prototypes/dashboard/dist/Janus-B-Platino-interactivo.html
+          retention-days: 7
+          if-no-files-found: error
