@@ -37,6 +37,7 @@ jobs:
           node tests/presence.test.cjs
           node --test tests/fur-wind.test.cjs
           node --test tests/kendra-identity.test.cjs
+          node --test tests/edge-companion.test.cjs
       - name: Offline self-contained dashboard builds
         run: |
           cd prototypes/dashboard
