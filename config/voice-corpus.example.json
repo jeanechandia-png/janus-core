@@ -1,5 +1,5 @@
 {
-  "_comment": "Plantilla. Copia a voices/private/corpus.json (ignorado por Git). Solo METADATOS: el audio vive en voices/private/ y nunca se sube. Solo grabaciones originales del titular; el audio generado por un proveedor se rechaza.",
+  "_comment": "Plantilla de corpus: copiar a voices/private/jean/corpus.json, ignorado por Git. Muestras originales y transcripción exacta; no utilizar audio generado por ElevenLabs ni otros proveedores. Mantener el audio local.",
   "subject": "jean",
   "subjectIsMinor": false,
   "consent": {
@@ -15,7 +15,9 @@
       "sha256": "SHA-256 hexadecimal del archivo (shasum -a 256 archivo.wav)",
       "storedLocally": true,
       "hasTranscript": true,
-      "cleanAudioConfirmed": false
+      "cleanAudioConfirmed": false,
+      "audioPath": "/RUTA/LOCAL/ABSOLUTA/voices/private/jean/original.wav",
+      "transcript": "Transcripción literal exacta de la grabación original (sin datos privados adicionales)."
     }
   ]
 }
