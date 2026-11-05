@@ -18,7 +18,7 @@ function fixture(failWebGL) {
     getBoundingClientRect() { return {left:0,top:0,width:300,height:400}; }
     fire(k,v) { assert.ok(this.listeners[k], 'listener '+k); this.listeners[k](Object.assign({pointerId:1,clientX:110,clientY:150},v||{})); }
   }
-  const document = { body: new Node('body'), hidden: false };
+  const document = { body: new Node('body'), hidden: false, createElement: (tag) => new Node(tag) };
   let rendererCount=0, now=0, renderCount=0, built=[], current=null, queued=new Map(), nextId=0, downs=0;
   const canvas = new Node('canvas');
   class Renderer {
