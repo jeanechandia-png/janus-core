@@ -47,6 +47,7 @@ import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-a
 import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
+import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -294,6 +295,7 @@ const environmentCredentials = new EnvironmentCredentialProvider({
     youtube: 'YOUTUBE_ACCESS_TOKEN',
     model: 'JANUS_MODEL_API_KEY',
     openai: 'JANUS_OPENAI_API_KEY',
+    elevenlabs: 'JANUS_ELEVENLABS_API_KEY',
     anthropic: 'JANUS_ANTHROPIC_API_KEY',
     gemini: 'JANUS_GEMINI_API_KEY',
     asana: 'ASANA_ACCESS_TOKEN',
@@ -1495,7 +1497,10 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
 }
 
 function createConfiguredVoiceGateway(): VoiceGateway | undefined {
-  if (!sttBaseUrl || !ttsBaseUrl) return undefined;
+  if (!sttBaseUrl) return undefined;
+  const ttsProvider = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() || 'local';
+  if (ttsProvider !== 'local' && ttsProvider !== 'elevenlabs') return undefined;
+  if (ttsProvider === 'local' && !ttsBaseUrl) return undefined;
 
   const stt = new WhisperCppSttAdapter({
     baseUrl: sttBaseUrl,
@@ -1503,13 +1508,18 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
     vocabularyPrompt: transcriptionVocabularyPrompt(),
   });
-  const tts = new Qwen3TtsHttpAdapter({
-    baseUrl: ttsBaseUrl,
-    language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
-    instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
-    chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
-    allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
-  });
+  const tts = ttsProvider === 'elevenlabs'
+    ? new ElevenLabsTtsAdapter({
+        apiKey: async () => (await credentialBroker.accessToken('elevenlabs')) || '',
+        modelId: process.env.JANUS_ELEVENLABS_MODEL?.trim() || undefined,
+      })
+    : new Qwen3TtsHttpAdapter({
+        baseUrl: ttsBaseUrl!,
+        language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
+        instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+        chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
+        allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+      });
   return new CompositeVoiceGateway(stt, tts);
 }
 
