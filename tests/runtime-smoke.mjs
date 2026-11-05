@@ -106,9 +106,26 @@ try {
   assert.deepEqual(threadsActions, ['threads.account.insights', 'threads.account.profile']);
   assert.ok(capabilities.filter((item) => item?.tool === 'threads-insights').every((item) => item.state === 'needs_auth'));
 
+  const chronologyBefore = (await (await fetch(`${base}/api/continuity`)).json()).continuity.recordCount;
   const localRunId = await startCommand(base, 'haz una tarea local sin herramienta');
   const localRun = await waitForRun(base, localRunId, new Set(['completed', 'failed', 'blocked']), 5_000);
   assert.equal(localRun.status, 'completed');
+
+  // Requisito 5: closure report (3 mandatory sections) is queryable and persisted in the chronology.
+  const closureResponse = await fetch(`${base}/api/runs/${encodeURIComponent(localRunId)}/closure`);
+  assert.equal(closureResponse.status, 200);
+  const closureBody = await closureResponse.json();
+  assert.equal(closureBody.ok, true);
+  assert.equal(closureBody.report.status, 'completed');
+  for (const heading of ['## RESUMEN EJECUTIVO', '## CONCLUSIONES TÉCNICAS Y OPERATIVAS', '## PRÓXIMOS PASOS']) {
+    assert.ok(closureBody.markdown.includes(heading), heading);
+  }
+  const closureContinuity = await (await fetch(`${base}/api/continuity`)).json();
+  assert.ok(
+    closureContinuity.continuity.recordCount >= chronologyBefore + 2,
+    'chronology must gain the task record AND the persisted closure report',
+  );
+  assert.equal((await fetch(`${base}/api/runs/run_does_not_exist/closure`)).status, 404);
 
   const decisionResponse = await fetch(
     `${base}/api/runs/${encodeURIComponent(localRunId)}/decisions`,
