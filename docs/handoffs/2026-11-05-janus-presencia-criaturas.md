@@ -43,3 +43,30 @@ Estado: implementación en PR #63 (borrador). No fusionada, no desplegada. Conse
 - **Alcance 3D actual:** el shader de `JanusFurWind` aplica deformación GPU real en los modelos procedurales. Los GLB externos no reciben automáticamente este cambio de forma, salvo que implementen una interfaz compatible; la calidad cinematográfica/4K real de los GLB aprobados sigue por validar.
 - **Pruebas:** `tests/kendra-identity.test.cjs` cubre vocativos, perfil correcto, renombres aislados, escapar el nombre en la tarjeta aprobada, apariencia propia por especie e independencia de estrellas. `tests/fur-wind.test.cjs` verifica uniformes de longitud y rizo. Ambas se ejecutan dentro de `.github/workflows/janus-creatures-ci.yml`.
 - **Próximo:** conservar esta regla de identidad en cualquier futuro adaptador de conversación, TTS, IA o animación facial. No fusionar personajes Founder/Kendra; revisar visualmente en dispositivos con WebGL real, sin presentar arte estático como 3D riggeado final.
+
+## Avance de la misma PR — experiencia viva en bordes, Nexo exclusivo, colección de moda
+
+### HECHO
+- Nuevo LEGO `lego/janus-edge-companion`: un renderer Three.js transparente, montado en `document.body`, paseo vertical limitado al margen de pantalla y arrastre de un lateral al otro, nombre visible, foco de teclado, mirada/pupilas reactivas, respuesta a toque, saludar/reír/celebrar, pausa de paseo, preferencias de movimiento reducido y límite de FPS/densidad. Al entrar en una lección o «Mi mundo» se oculta sin perder progreso; el motor existente `JanusStage3D` continúa con objetos, vehículos y minijuegos.
+- Kendra usa presencia 3D en borde **por defecto cuando WebGL es viable**; puede escoger «Escena» (antiguo 3D), «Arte» (imagen aprobada) o «3D vivo». Fallback a imagen si WebGL falla, sin romper los textos, actividades ni el Vestidor.
+- `JanusCreatures3D`: control de mirada sobre iris/pupilas/brillos, inclinación sutil de cabeza, el conjunto de expresiones faciales que ya existía y viento/movimiento de fibras.
+- **Separación de identidades:** Founder muestra exclusivamente el robot Nexo mediante `Janus3D` (procedural o GLB `robot`), en A/B, Sala y móvil. Kendra conserva sus cuatro criaturas. La vieja acción `presenceNext` queda como no-op para no volver a mezclar identidades.
+- Nuevos artículos comprables mediante **estrellas ganadas**: 8 prendas con formas 3D diferenciadas (2 vestidos, 2 chaquetas, 2 sudaderas, 2 capas) y 4 variantes de calzado; en Nimbo se representan como aros flotantes anatómicamente adaptados. Se mantienen casas, moto, coche, cohete, premios y economía idempotente sin dinero real. El Vestidor permite combinar ropa y zapatos; nombres, pelaje y artículos no se pierden al cambiar de criatura.
+- Limpieza incremental de geometrías y materiales al cambiar prendas y destruir rigs, para evitar acumulación en WebGL.
+- CI extendida: `tests/edge-companion.test.cjs` prueba con dobles de WebGL/DOM el lifecycle, arrastre y callbacks; `tests/kendra-fashion.test.cjs` prueba catálogo, precios, compra, propiedad, idempotencia y compatibilidad. Se mantienen tests de identidad, pelaje, presencia y builds offline.
+
+### EVIDENCIA
+- Commit de código `c1beaf896d2b813fc8505803d229c19b592d5b33`: [JANUS creatures 3D verification](https://github.com/jeanechandia-png/janus-core/actions/runs/42097430741) = success y [Janus Core CI](https://github.com/jeanechandia-png/janus-core/actions/runs/42097430647) = success.
+- HTML A/B descargados y abiertos mediante Chromium usando `page.set_content`. Verificado: vista «Compañero», Vista «Vestidor» con vestido de gala y zapatos, Founder con tarjeta Nexo, **sin errores JavaScript**. La política del navegador de pruebas bloquea WebGL: entrada 3D cae correctamente al arte estático. **No se afirma validación de render GPU real ni fidelidad visual 4K.**
+
+### PENDIENTE / BLOQUEADO
+- Nexo aprobado: sigue faltando el archivo GLB modelado/riggeado del robot para reproducir exactamente la imagen de referencia; el widget usa `Janus3D` procedural.
+- Criaturas Kendra: los modelos GLB finales con 4K, shaders de pelo, expresiones, calzado/conjuntos VFX, sockets y LOD, pendientes.
+- Revalidar en GPU real (iPhone/iPad/escritorio): oclusión de controles durante arrastre, sombras, FPS, memoria, audio y accesibilidad.
+- Reconciliar `vendor/companion.js` del prototipo con las fuentes TypeScript de avatar-look/star-shop; no están en la rama base de Claude. No promover a producción hasta reconciliación y pruebas del catálogo upstream.
+- Revisar dependencias de ramas y fusionar PR #63; no se ha desplegado.
+
+### PRÓXIMO
+1. Importar/ensayar GLB con contrato `JanusCreatureSlot`; medir rendimiento y corregir encaje de accesorios.
+2. Pruebas visuales en dispositivo físico antes de activar la experiencia GPU por defecto fuera de prototipos.
+3. Integración definitiva con backend local-first y perfiles Kendra/Founder diferenciados, preservando aprendizaje y compras.
