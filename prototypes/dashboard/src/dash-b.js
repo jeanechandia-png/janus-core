@@ -85,7 +85,7 @@ function renderDashB(M, X) {
 
   const pjs = PROJECTS.filter((p) => p.grp !== 'proximo').slice(0, 5);
   const sala = '<section class="' + C('cd') + '">' + lb('trabajo', 'Sala de trabajo', 'am', '📁', 'Proyectos', '<span class="go"' + goAttr('janus', 'Janus') + '>⚙ CI ' + REAL.ci.filter((c) => c[0].startsWith('2026-10-21')).length + ' · PR ' + REAL.prs.length + '</span>') +
-    '<div class="' + C('sala') + '">' + attChips() + '<div class="' + C('sr0') + '"><div class="' + C('mic') + ' go"' + goAttr('trabajo/voz', 'Hablar con Janus') + '><img src="' + IMG.mic + '" alt=""></div>' +
+    '<div class="' + C('sala') + '">' + attChips() + '<div class="' + C('sr0') + '">' + JanusPresence.render('founder', true) +
     '<div class="' + C('in') + '">' + attBtn('b') + '<textarea data-f="msg" rows="1" maxlength="2000" placeholder="Escribe…" aria-label="Mensaje para Janus">' + esc(UI.draft || '') + '</textarea><span class="' + C('send') + '"' + act('send', '', 'Enviar') + '>➤</span></div></div>' +
     '<div class="' + C('pj') + '">' + pjs.map((p) => '<span class="' + C('pjp') + ' ' + p.grp + ' go"' + goAttr('trabajo/' + p.id, p.n) + '>' + plBb(p.e, '', 's') + esc(p.s || p.n) + '<i></i></span>').join('') + '</div></div></section>';
 
