@@ -2512,6 +2512,24 @@ background:radial-gradient(50rem 28.75rem at 0% 0%,rgba(47,107,255,.22),transpar
  .stage main>.jnexo.jpresence--hero{height:12.5rem;min-height:12.5rem}
 }
 
+/* Nexo masculino/femenino — el selector funciona tanto en Sala como en A/B y móvil. */
+.jnexo{--jp-accent:#b5c7e1}
+.jnexo-display{background:radial-gradient(circle at 35% 30%,rgba(209,219,234,.21),transparent 55%),linear-gradient(145deg,#171722,#090a12)}
+.jnexo .jnexo-fallback{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:0.1875rem;background:radial-gradient(ellipse at 50% 40%,#d7dfe828,transparent 58%);color:#dfedff}
+.jnexo .jnexo-fallback b{font:600 clamp(0.875rem,1.5vw,1.25rem) 'Instrument Sans',sans-serif;letter-spacing:.1em}
+.jnexo .jnexo-fallback span{font:500 0.625rem 'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.1em;color:#b1c7e6}
+.jnexo.jpresence--mini .jnexo-fallback b{font-size:0.5625rem}
+.jnexo.jpresence--mini .jnexo-fallback span{font-size:0.5rem}
+.jnexo-variants{position:absolute;top:0.5625rem;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:0.25rem;padding:0.1875rem;border:0.0625rem solid rgba(212,225,250,.42);border-radius:0.8125rem;background:#0c101cdd;box-shadow:0 0.25rem 1rem #0008}
+.jnexo-variant-btn{appearance:none;cursor:pointer;padding:0.4375rem 0.625rem;border:0.0625rem solid transparent;border-radius:0.5625rem;background:transparent;color:#d7e5fb;font:600 0.6875rem 'Instrument Sans',sans-serif;min-height:2rem}
+.jnexo-variant-btn.active{background:#b9cce8;color:#111a2d;border-color:#e1ebf9}
+.jnexo-variant-btn:focus-visible{outline:0.125rem solid #fff;outline-offset:0.125rem}
+.jnexo-variant-btn.is-mini{position:absolute;z-index:10;top:0.125rem;right:0.125rem;padding:0;border:0.0625rem solid rgba(213,228,249,.85);border-radius:50%;width:1.5625rem;height:1.5625rem;min-height:1.5625rem;background:#18233df0;color:#f7f9ff;font-size:1.1875rem}
+@media(max-width:47.5em),(max-height:31.25em){
+  .jnexo-variants{top:0.4375rem;max-width:calc(100% - 0.625rem)}
+  .jnexo-variant-btn{padding:0.3125rem 0.5625rem;font-size:0.625rem}
+}
+
 /* LEGO Kendra Edge Companion — modelo Three.js transparente sobre el margen del viewport.
  * No interfiere con formulario/teclado: solo el canvas acepta gestos.
  * position:fixed desde <body>, no desde la tarjeta con overflow:hidden. */
