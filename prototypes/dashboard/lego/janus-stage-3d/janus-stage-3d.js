@@ -438,7 +438,7 @@ const JanusStage3D = (() => {
 
     const cam = new T.PerspectiveCamera(36, 1.4, 0.1, 300);
     const cb = {}; // callbacks del anfitrión
-    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null };
+    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null, wind: 0.3 };
     const wp = { home: null, homeKey: null, vehicle: null, vehKey: null, decor: new Map(), vehLap: null };
     const cre = { id: null, rig: null, rigs: {}, pos: [-4, 1.5], target: [-4, 1.5], pose: 'idle', point: null, yaw: 0, walk: 0, reactUntil: 0, reactPose: null, hop: 0, look: null, mood: null, moodUntil: 0, aspect: 'criatura', key: null };
     const FACE_COL = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
@@ -632,7 +632,7 @@ const JanusStage3D = (() => {
         const react = t < cre.reactUntil, pose = react ? cre.reactPose : cre.pose;
         const hopY = Math.max(0, Math.sin(clamp((t - cre.hop) / 0.5, 0, 1) * Math.PI)) * 0.35;
         cre.rig.root.position.set(cre.pos[0], DECK_Y + hopY, cre.pos[1]); cre.rig.root.rotation.y = cre.yaw;
-        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0, mood: t < cre.moodUntil ? cre.mood : null, camPos: cam.position });
+        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0, mood: t < cre.moodUntil ? cre.mood : null, camPos: cam.position, wind: Math.min(1, state.wind + (walk ? 0.18 : 0)), windYaw: cre.yaw });
       }
       // vuelos de fichas (canje)
       for (let i = flights.length - 1; i >= 0; i--) {
@@ -657,6 +657,7 @@ const JanusStage3D = (() => {
         h.appendChild(wrap); if (ro) ro.disconnect(); if (window.ResizeObserver) { ro = new ResizeObserver(() => resize()); ro.observe(h); } resize();
       },
       setCreature, setLook(look) { if (cre.rig) { cre.look = look; cre.rig.setLook(look); } }, setWorld, apply,
+      setWind(value) { if (Number.isFinite(value)) state.wind = Math.max(0, Math.min(1, value)); },
       setView(v) { state.viewOverride = v || null; computeGoal(); },
       setMode(m) { state.mode = m === 'mundo' ? 'mundo' : 'escena'; state.viewOverride = state.mode === 'mundo' ? 'mundo' : null; computeGoal(); },
       select(id) { select(id); },
