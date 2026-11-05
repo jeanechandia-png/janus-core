@@ -34,6 +34,10 @@ export class InfinityInterpreterToolAdapter implements ToolAdapter {
       },
     };
     const input = request.input;
+    // A model-authored flag alone is NOT consent; require a host-issued audited permit.
+    const approvedExternalProcessing = input.allowExternalProcessing === true
+      && request.authorization?.privileged === true
+      && /^[a-f0-9]{64}$/i.test(request.authorization.authorityDecisionHash ?? '');
     const model = this.modelGateway();
     const port: TranslationPort | undefined = model ? {
       location: this.processingLocation,
@@ -57,7 +61,7 @@ export class InfinityInterpreterToolAdapter implements ToolAdapter {
         ...(typeof input.speakerId === 'string' ? { speakerId: input.speakerId } : {}),
         ...(input.context && typeof input.context === 'object' && !Array.isArray(input.context)
           ? { context: input.context as InterpreterContext } : {}),
-        allowExternalProcessing: input.allowExternalProcessing === true,
+        allowExternalProcessing: approvedExternalProcessing,
       }, port);
       return { ok: true, output: { ...result, reply: result.translatedText } };
     } catch (error) {
