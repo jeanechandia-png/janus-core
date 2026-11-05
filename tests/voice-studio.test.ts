@@ -39,7 +39,7 @@ function fixture() {
     now: () => new Date('2026-11-05T15:00:00Z'),
   });
   const gateway = new DefaultToolGateway(); gateway.register(tool);
-  const execute = (action: string, input: Record<string, unknown> = {}, authorized = false, key = randomUUID()) =>
+  const execute = (action: string, input: Record<string, unknown> = {}, authorized = false, key: string = randomUUID()) =>
     gateway.execute({
       tool: 'voice-studio', action, input,
       ...(authorized ? { idempotencyKey: key, authorization: {
