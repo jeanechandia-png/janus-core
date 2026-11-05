@@ -16,15 +16,19 @@ const JanusPresence = (() => {
   const source = (id) => IMG[SPECIES[normalize(id)].image];
   function render(context, compact, creatureId) {
     const id = normalize(creatureId || current(context)), meta = SPECIES[id];
+    // Kendra nombra cada criatura a su gusto; no se sustituye por el nombre del adulto.
+    const name = context === 'kendra' && typeof Companion !== 'undefined' &&
+      typeof compProfile === 'function' ? Companion.displayName(compProfile(), id) : meta.name;
+    const safeName = String(name).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const glb = !!(window.JanusCreatureSlot && window.JanusCreatureSlot.has && window.JanusCreatureSlot.has(id));
     const cls = compact ? 'jpresence jpresence--mini' : 'jpresence jpresence--hero';
     const link = context === 'founder' ? 'trabajo/voz' : 'companero';
     return '<figure class="' + cls + '" data-jpresence="' + id + '" style="--jp-accent:' + meta.accent + '">' +
-      '<div class="jp-portrait" data-go="' + link + '" role="link" tabindex="0" aria-label="' + (context === 'founder' ? 'Hablar con Janus. ' : 'Compañero de Kendra. ') + meta.name + '">' +
-      '<img class="jp-image" src="' + source(id) + '" alt="' + meta.name + ', criatura original de InfinitySeed; arte de referencia" draggable="false" loading="eager" decoding="async">' +
+      '<div class="jp-portrait" data-go="' + link + '" role="link" tabindex="0" aria-label="' + (context === 'founder' ? 'Hablar con Janus. ' : 'Compañero de Kendra. ') + safeName + '">' +
+      '<img class="jp-image" src="' + source(id) + '" alt="' + safeName + ', criatura original de InfinitySeed; arte de referencia" draggable="false" loading="eager" decoding="async">' +
       '<span class="jp-light" aria-hidden="true"></span></div>' +
       (compact
-        ? '<figcaption class="jp-caption"><b>' + meta.name + '</b><span>Arte aprobado</span></figcaption><span class="jp-next" data-act="presenceNext" role="button" tabindex="0" aria-label="Cambiar criatura">✦</span>'
+        ? '<figcaption class="jp-caption"><b>' + safeName + '</b><span>Arte aprobado</span></figcaption><span class="jp-next" data-act="presenceNext" role="button" tabindex="0" aria-label="Cambiar criatura">✦</span>'
         : '<figcaption class="jp-caption"><b>' + meta.name + '</b><span>' + (glb ? 'Modelo GLB disponible · entrar a escena 3D' : 'Arte aprobado · modelo 3D cinematográfico pendiente') + '</span></figcaption>') +
       '</figure>';
   }
