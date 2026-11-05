@@ -47,3 +47,20 @@
 /* El dashboard Platino usa una fila flex sin altura fija: asegurar caja visible. */
 .stage.b .pl-sr0>.jpresence--mini{height:56px}
 .tsala>.jpresence--mini{height:100%}
+
+/* Founder: Nexo es el protagonista exclusivo; la malla 3D procede de Janus3D/robot
+ * o JanusCreatureSlot('robot') cuando exista un GLB aprobado. */
+.jnexo{--jp-accent:#B9CEEB;background:radial-gradient(ellipse at 48% 32%,#334053,#0b0d14 72%);border-radius:14px;isolation:isolate}
+.jnexo .jnexo-display{position:absolute;inset:0;display:block;overflow:hidden;cursor:grab}
+.jnexo .jnexo-fallback{position:absolute;inset:0;display:grid;place-items:center;
+  font-size:clamp(24px,4vw,58px);color:#B9CEEB;text-shadow:0 0 30px #a5ceff}
+.jnexo .jnexo-display:has(.j3d-cv) .jnexo-fallback{display:none}
+.jnexo .jp-caption{pointer-events:none}
+.jnexo.jpresence--mini{width:66px;min-width:54px;flex:none;height:100%}
+.jnexo.jpresence--hero{width:100%;height:100%}
+.jnexo.jpresence--mini .jp-caption span{display:none}
+.jnexo.jpresence--mini .jp-caption b{font-size:10px}
+@media(max-width:47.5em),(max-height:31.25em){
+ .jnexo.jpresence--mini{width:58px}
+ .stage main>.jnexo.jpresence--hero{height:200px;min-height:200px}
+}
