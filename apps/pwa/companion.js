@@ -2,6 +2,7 @@
  * JANUS companion — the approved-only selection, local-first.
  * Render actual user-approved assets only, never temporary replacement creatures.
  */
+import { mountLanguageButtons } from './language-buttons.js';
 import {
   restoreCompanionState, renameLocally, addStarsForChallenge,
   unlockAccessory, equipAccessory, activeName,
@@ -251,6 +252,7 @@ async function init() {
       throw new Error('El catálogo no coincide con la selección aprobada');
     }
     state = restore(); bind(); challenge(); renderAll();
+    mountLanguageButtons(q('#companionLanguageSwitch'), 'companion');
   } catch (error) {
     ui.options.replaceChildren(create('p', 'asset-pending', 'Selección no disponible: ' + error.message));
     report('Sin el catálogo aprobado no se muestran sustitutos.');
