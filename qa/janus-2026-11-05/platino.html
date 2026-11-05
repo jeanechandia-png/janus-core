@@ -6473,7 +6473,7 @@ function slotPanel() {
       '<div class="cpbtns"><label class="btn2 mono cpfile">⬆ Importar GLB<input type="file" accept=".glb,model/gltf-binary" data-slotfile="' + id + '" aria-label="Importar modelo GLB de ' + SLOT_NAMES[id] + '"></label>' + (i ? '<span class="btn2 mono"' + act('cpSlotDel', id, 'Quitar el modelo de ' + SLOT_NAMES[id]) + '>✕ Quitar</span>' : '') + '</div>' +
       (rep ? '<details class="cpbasis"><summary class="mono">Informe del contrato</summary><ul class="cpul">' + rep.checks.map((c) => '<li>' + (c.ok ? '✔' : c.level === 'error' ? '✖' : '⚠') + ' ' + esc(c.label) + ': ' + esc(c.detail) + '</li>').join('') + '</ul></details>' : '') + '</div>';
   };
-  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.filter(id => ['lumi','bombo','musgo','nimbo'].includes(id)).map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
+  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
 }
 function tabPapa(p, name) {
   const C = compState();
