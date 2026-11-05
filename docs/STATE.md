@@ -6,7 +6,7 @@ Fecha: 2026-11-06
 
 - **Rama:** `chatgpt/janus-approved-language-access-20261106`, sobre PR #59 @ `8120c00d`; **NO fusionada ni desplegada**.
 - **Implementado en GitHub:** botones compactos originales ES/NL de PR #65 para la navegación A/B de JANUS CORE, panel Founder y app independiente /kendra; icono dorado para ambos accesos con manifest separado, caché offline y pruebas nuevas de regresión. No se han sustituido pantallas ni los componentes 3D.
-- **Verificación:** lectura de archivos/commits registrada; CI, TypeScript, E2E y móviles físicos deben comprobarse antes de aceptar. Las etiquetas principales se localizan, **NO** todo el contenido dinámico, STT o TTS.
+- **Verificación:** Core CI #42131385129 superada para `a0b685be` (typecheck, pruebas incluido selector, sintaxis PWA y runtime smoke). Las pruebas E2E visuales, rendimiento GPU y móviles físicos **siguen pendientes**, así como la verificación de CI después de cambios documentales. Las etiquetas principales se localizan, **NO** todo el contenido dinámico, STT o TTS.
 - **Dependencias:** reconciliar después PR #63 (criaturas/escenas 3D posteriores), #60/#61/#64 (voz y costes) sin destruir la continuidad. PR #65, creada sobre main anterior, se conserva como fuente de arte y decisiones, no debe fusionarse directamente para reemplazar /kendra.
 - **Próximo paso:** CI de la nueva PR, revisión visual real de /dashboard/a, /dashboard/b y /kendra, Safari/iPhone, permisos y funcionamiento offline; después decisión de merge/despliegue.
 - **Handoff:** `docs/handoffs/2026-11-06-dashboard-language-app-access.md`.
