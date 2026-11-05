@@ -240,6 +240,7 @@ import { CREATURES } from '../../packages/modules/companion/src/index.js';
 import type { HomeDevice, HomeDeviceKind } from '../../packages/modules/kid-dashboard/src/index.js';
 import { createKidRoutes } from './kid-routes.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
+import { InfinityInterpreterToolAdapter } from '../../packages/adapters/src/infinity-interpreter-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
 import { policyForSpeaker, restrictBlueprintTools } from '../../packages/core/src/speaker-policy.js';
 import { fuseIdentityHints } from '../../packages/core/src/identity-fusion.js';
@@ -618,6 +619,17 @@ capabilities.register({
   tool: 'marcus-aurelius',
   actions: ['guidance.get', 'profile.get', 'quote.get', 'reflection.daily'],
   state: 'available',
+});
+
+// Reconciliación con el último main (#62): Infinity Interpreter continúa siendo
+// una pieza LEGO para Connect/Janus, no se pierde al integrar voz autónoma.
+toolGateway.register(new InfinityInterpreterToolAdapter(() => modelGateway));
+capabilities.register({ tool: 'interpreter', actions: ['capabilities.get'], state: 'available' });
+capabilities.register({
+  tool: 'interpreter',
+  actions: ['translate.text'],
+  state: resolveModelProviders(process.env).length > 0 ? 'available' : 'unavailable',
+  reason: 'Translation requires a configured model provider and explicit permission for external processing.',
 });
 
 // Conocimiento del negocio (precios, IVA, productos, equipo, instrucciones): se propone por voz/chat, se lee de vuelta
