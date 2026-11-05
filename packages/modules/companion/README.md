@@ -21,6 +21,12 @@ Pieza LEGO comercial: criaturas originales que acompañan a un niño o niña. Ca
 
 Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son diseños originales de InfinitySeed.
 
+## Implementación del selector (2026-11-05)
+
+La ruta \`/companion.html\` dispone de tres opciones aprobadas en orden inmutable, cambio de nombre del menor y del compañero, práctica aritmética con estrellas por acierto (máximo 5 bonificaciones/día, 3 estrellas por bonificación), armario con artículos de varias categorías, botones de gestos y movimiento dentro del escenario. Estado solamente en el dispositivo; el selector no usa red de terceros.
+
+Fuente aprobada: \`src/selection.ts\`, espejo estático para PWA \`apps/pwa/companion-catalog.json\` contrastado en pruebas. El sistema **no afirma ni simula 3D** cuando aún no hay modelos originales verificados. Al vincular archivos aprobados bajo \`/companion-assets/\`, la PWA puede mostrar vista estática; la rama de visor 3D requiere que se distribuya también un componente \`model-viewer\` local, aún pendiente. Los accesorios actuales funcionan en catálogo/economía, pero no tienen representaciones visuales 3D; no describirlos como ropa instalada en modelo.
+
 ## Qué hace
 - `companionTurn()`: primero la seguridad, después la respuesta del modelo filtrada y, como mucho, una frase de ánimo.
 - `pickEncouragement()`: ánimo **sutil y con límite de frecuencia** (por defecto ≤4 por hora y ≥25 min entre frases espontáneas).
