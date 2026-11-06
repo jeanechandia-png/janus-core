@@ -83,3 +83,13 @@
   .cpst3.cinematic .cp-cinematic .jp-image{object-position:center 43%}
 }
 @media(prefers-reduced-motion:reduce){.cp-approved-card,.cp-approved-item{animation:none;transition:none}}
+
+/* Actual approved 2D face studies. Clicking uses existing cpMood, not a fake morph target. */
+.cp-approved-faces{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+.cp-approved-expression{min-width:0;padding:4px;display:flex;flex-direction:column;gap:4px;align-items:stretch;cursor:pointer;
+  color:#fff0d8;border:1px solid rgba(255,217,150,.5);background:linear-gradient(180deg,#25172b,#0e0a14);
+  border-radius:13px;box-shadow:inset 0 1px 0 #ffffff16,0 5px 12px #0003}
+.cp-approved-expression img{display:block;width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:9px}
+.cp-approved-expression span{text-align:center;font:500 11px 'Instrument Sans',sans-serif}
+.cp-approved-expression:hover,.cp-approved-expression:focus-visible{outline:2px solid #ffe1a9;outline-offset:2px}
+@media(max-width:47.5em){.cp-approved-faces{gap:5px}.cp-approved-expression span{font-size:10px}}
