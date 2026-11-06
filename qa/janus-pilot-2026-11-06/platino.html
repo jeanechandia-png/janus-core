@@ -550,6 +550,24 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 .vh .tabs .tb2{flex:none}
 /* 15 días: tira desplazable (22-10) */
 .d7{display:grid!important;grid-auto-flow:column;grid-template-columns:none!important;grid-auto-columns:minmax(3.625rem,1fr);overflow-x:auto;scrollbar-width:thin;padding-bottom:0.25rem}
+
+
+/* FILTRO DE LEGIBILIDAD 24.375rem: la portada no puede ser 3D y las
+   pestañas convertirse en texto de 0.4375rem. Misma familia GOLD y contraste. */
+@media(max-width:47.5em){
+ #view .vh{padding:0.5rem 0.625rem;gap:0.5rem;box-shadow:0 0.5rem 1.25rem #0008}
+ #view .vh .tabs{display:flex;gap:0.5rem;min-height:4.1875rem;padding:0.3125rem 0 0.5rem;scroll-snap-type:x proximity}
+ #view .vh .tabs .tb2{flex:0 0 auto;min-width:4.75rem;min-height:4.0625rem;padding:0.375rem 0.5rem;scroll-snap-align:start;gap:0.3125rem}
+ #view .tb2 i{display:grid;place-items:center;min-height:1.9375rem}
+ #view .tb2 em{font:700 0.75rem/1.2 'Instrument Sans',system-ui,sans-serif;letter-spacing:0;color:#f4e4c7;text-shadow:0 0.0625rem 0.0625rem #000}
+ #view .tb2 .janus-icon-art .a2i{width:1.875rem;height:1.875rem}
+ #view .lb{font-size:0.8125rem!important;font-weight:750;line-height:1.35;letter-spacing:.025em;color:#ffefce}
+ #view .cd .pb{font-size:0.875rem;line-height:1.5}
+ #view .cd .dim,#view .cd .mono,#view .cd small{color:#ded2bf}
+ #view .cd .tx,#view .cd .li2,#view .cd .li2 b{font-size:0.8125rem;line-height:1.4}
+ #view .cd .tm{font-size:0.75rem;font-weight:650}
+ #view .cd .note{font-size:0.8125rem;line-height:1.45}
+}
 /* ===== Capa 3D y tipografía de alta definición (Obsidiana) ===== */
 /* Tipografía nítida: suavizado, kerning, cifras tabulares y pesos firmes */
 .a{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:geometricPrecision;font-kerning:normal;font-feature-settings:"kern" 1,"liga" 1}
@@ -1282,6 +1300,33 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .cpst3.cinematic .cp-cinematic .jp-caption{display:none!important}
 .cpst3.cinematic .cp-edge-tools .cp-edge-btn{background:rgba(16,10,25,.93);border:0.0625rem solid rgba(255,219,158,.82);color:#fff0cf;text-shadow:0 0.0625rem 0.125rem #000}
 .cpst3.cinematic .cp-edge-tools .cp-edge-btn.on{background:linear-gradient(150deg,rgba(105,64,139,.85),rgba(68,39,84,.94));border-color:#ffe0a4;color:#fff1d4;box-shadow:0 0 0.75rem rgba(248,190,114,.22)}
+
+
+/* VIGENTE: misma iconografía física GOLD.o/GOLD.i que las tarjetas del Founder.
+   En móvil, permitir desplazar pestañas en vez de reducirlas a letras de 0.5625rem. */
+.cptab .cp-3d-icon{display:grid;place-items:center;min-width:2rem;min-height:2.125rem}
+.cptab .cp-3d-icon .a2i{display:block;width:2rem;height:2rem;object-fit:contain;filter:drop-shadow(0 0.25rem 0.3125rem #0009)}
+.cptab:is(:active,.on) .cp-3d-icon .a2i{filter:drop-shadow(0 0 0.5rem #ffe6adba) brightness(1.13)}
+.cp-pilot-camera button{display:inline-flex;align-items:center;justify-content:center;gap:0.5rem;font-weight:700}
+.cp-pilot-camera button .a2i{width:1.625rem;height:1.625rem;object-fit:contain}
+@media(max-width:47.5em){
+ .kendra-only .cptabs{padding:0.75rem;gap:0.75rem}
+ .kendra-only .cptb{display:flex;overflow-x:auto;overflow-y:hidden;gap:0.5rem;padding:0.1875rem 0.125rem 0.625rem;scrollbar-width:thin;scroll-snap-type:x proximity}
+ .kendra-only .cptab{flex:0 0 5.125rem;min-height:4.875rem;align-items:center;justify-content:center;gap:0.3125rem;padding:0.5rem 0.3125rem;scroll-snap-align:start;border:0.0625rem solid #d5b47766}
+ .kendra-only .cptab i{min-height:2.125rem;display:grid;place-items:center}
+ .kendra-only .cptab em{font:700 0.8125rem/1.25 'Instrument Sans',system-ui,sans-serif;white-space:nowrap;letter-spacing:0;color:#ffe9c0;text-shadow:0 0.0625rem 0.0625rem #000}
+ .kendra-only .cp-3d-icon .a2i{width:2.125rem;height:2.125rem}
+ .kendra-only .cptc{gap:0.8125rem}
+ .kendra-only .cptc .cpmini,.kendra-only .cptc .dim,.kendra-only .cpstory{font-size:0.875rem;line-height:1.5;color:#eaddc8}
+ .kendra-only .cpgr h4{font-size:0.875rem;line-height:1.3;font-weight:750;letter-spacing:.025em;color:#ffe9bc}
+ .kendra-only .cp-approved-card b{font:700 0.8125rem/1.2 'Instrument Sans',system-ui,sans-serif;padding:0.4375rem 0.125rem}
+ .kendra-only .cp-approved-expression span{font:700 0.75rem/1.3 'Instrument Sans',system-ui,sans-serif}
+ .kendra-only .cpq{font-size:clamp(2.0625rem,9vw,3rem);font-weight:750}
+ .kendra-only .cpc em,.kendra-only .cpc b{font-size:0.75rem;font-weight:700}
+ .kendra-only .cptc .btn,.kendra-only .cptc .btn2,.kendra-only .cp-pilot-camera button{min-height:2.75rem;font-size:0.875rem;font-weight:700;line-height:1.35}
+ .kendra-only .cp-pilot-camera{display:flex;justify-content:flex-end}
+ .kendra-only .cpslot .mono,.kendra-only .cpslh,.kendra-only .cpul{font-size:0.8125rem;line-height:1.5}
+}
 /* ===== Compañero 3D · capa de controles sobre el escenario =====
  * El escenario es SIEMPRE una escena nocturna oscura, sea cual sea la piel. Por eso esta hoja NO va en A_FILES de build.cjs:
  * la piel B traduce los colores de A (negro → cristal claro) y dejaría texto azul oscuro sobre el 3D (contraste 1,1–1,8:1, lo cazó tests/skin.cjs).
@@ -1488,6 +1533,17 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .drs{display:grid;grid-auto-flow:column;gap:0.125rem;margin-top:0.5rem}.drs i{height:0.875rem;border-radius:0.1875rem}.drs i.ok{background:#5FD39A}.drs i.wa{background:#FFB454}.drs i.no{background:#FF6B5E}
 .drh{display:flex;justify-content:space-between;font-size:0.5625rem;color:var(--mute);margin-top:0.125rem}
 .wal{color:#FFB454;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+
+
+/* Contraste compartido portada/detalles sin sacrificar iconos Gold 3D. */
+@media(max-width:47.5em){
+ .pa2 .a2t span{font-size:0.75rem;font-weight:750;letter-spacing:.06em;color:#ffe9bf}
+ .pa2 .a2r .tx,.pa2 .a2pj .tx,.pa2 .a2pj small{font-size:0.8125rem;line-height:1.35;color:#f5e9d8}
+ .pa2 .a2t em,.pa2 .a2dr small,.pa2 .a2wxm small{font-size:0.6875rem;font-weight:650;color:#e1d4bd}
+ .pa2 .a2sb .btn2{min-height:2.625rem;font-weight:700;font-size:0.8125rem}
+ .pa2 .a2sala .a2say{font-size:0.875rem;line-height:1.5}
+ .pa2 .a2m{font-size:0.8125rem;line-height:1.45}
+}
 /* LEGO janus-3d: contenedores 3D y botón de enviar hiperrealista */
 [data-3d]{position:relative;cursor:grab;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
 [data-3d]:active{cursor:grabbing}
@@ -1882,6 +1938,9 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .stage.b .lnk:hover{background:rgba(74,120,245,0.06)}
 .stage.b .vb-correo select,.stage.b .vb-correo input[type=email],.stage.b .vb-correo input[type=text]{background:rgba(30,50,110,0.055);border:0.0625rem solid rgba(74,120,245,0.4)}
 .stage.b .vh .tabs{-webkit-mask-image:linear-gradient(90deg,transparent,#eef2fb 0.875rem,#eef2fb calc(100% - 0.875rem),transparent);mask-image:linear-gradient(90deg,transparent,#eef2fb 0.875rem,#eef2fb calc(100% - 0.875rem),transparent)}
+@media(max-width:47.5em){.stage.b #view .tb2 em{color:#0a3bc2;text-shadow:0 0.0625rem 0.0625rem rgba(255,255,255,.8)}
+.stage.b #view .lb{color:#0a3bc2}
+.stage.b #view .cd .dim,.stage.b #view .cd .mono,.stage.b #view .cd small{color:#0e1a33}}
 .stage.b .mono{font-weight:500;font-variant-numeric:tabular-nums slashed-zero;font-feature-settings:"zero" 1,"tnum" 1}
 .stage.b .serif{font-weight:700;font-variant-numeric:lining-nums;letter-spacing:-.005em}
 .stage.b .lb{font-weight:600;color:#0a3bc2;text-shadow:0 0.0625rem 0 rgba(255,255,255,.8)}
@@ -2094,6 +2153,11 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .stage.b .cp-approved-expression:hover,.stage.b .cp-approved-expression:focus-visible{outline:0.125rem solid #83a3f8}
 .stage.b .cpst3.cinematic .cp-edge-tools .cp-edge-btn{background:#eef2fb;border:0.0625rem solid rgba(122,156,248,0.82);color:#0a3bc2;text-shadow:0 0.0625rem 0.125rem rgba(255,255,255,.8)}
 .stage.b .cpst3.cinematic .cp-edge-tools .cp-edge-btn.on{background:linear-gradient(150deg,rgba(105,64,139,0.85),rgba(68,39,84,0.94));border-color:#7fa0f8;color:#0e1a33;box-shadow:0 0 0.75rem rgba(255,177,43,0.22)}
+.stage.b .cptab:is(:active,.on) .cp-3d-icon .a2i{filter:drop-shadow(0 0 0.5rem rgba(135,165,249,0.729)) brightness(1.13)}
+@media(max-width:47.5em){.stage.b .kendra-only .cptab{border:0.0625rem solid rgba(56,106,245,0.4)}
+.stage.b .kendra-only .cptab em{color:#0a3bc2;text-shadow:0 0.0625rem 0.0625rem rgba(255,255,255,.8)}
+.stage.b .kendra-only .cptc .cpmini,.stage.b .kendra-only .cptc .dim,.stage.b .kendra-only .cpstory{color:#0e1a33}
+.stage.b .kendra-only .cpgr h4{color:#0a3bc2}}
 @media (max-width:47.5em),(max-height:31.25em){.stage.b:has(.pa2){background:transparent!important;padding:0.625rem 0.75rem calc(1.125rem + env(safe-area-inset-bottom,0rem))!important}
 .stage.b .pa2{color:#0e1a33}
 .stage.b .a2c{border:0.0625rem solid rgba(124,157,248,0.55);background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.556));box-shadow:0 1.5rem 2.5rem -1.5rem rgba(30,50,110,0.4),inset 0 0.0625rem 0 rgba(255,255,255,0.875),inset 0 -0.0625rem 0 rgba(30,50,110,0.14)}
@@ -2180,6 +2244,9 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .stage.b .drs i.wa{background:#ffab19}
 .stage.b .drs i.no{background:#e1464b}
 .stage.b .wal{color:#945e00}
+@media(max-width:47.5em){.stage.b .pa2 .a2t span{color:#0a3bc2}
+.stage.b .pa2 .a2r .tx,.stage.b .pa2 .a2pj .tx,.stage.b .pa2 .a2pj small{color:#0e1a33}
+.stage.b .pa2 .a2t em,.stage.b .pa2 .a2dr small,.stage.b .pa2 .a2wxm small{color:#0e1a33}}
 .stage.b .gsend{background:radial-gradient(circle at 34% 28%,#f4f7fd 0 8%,#7799f8 18%,#1a54f3 42%,#0932a2 72%,#041951 100%);box-shadow:inset 0 0.125rem 0.125rem #ffffff,inset 0 -0.375rem 0.5625rem rgba(30,50,110,0.262),0 0 0 0.0938rem rgba(30,50,110,0.4),0 0 0 0.1875rem rgba(108,145,247,0.45),0 0.625rem 1rem -0.375rem rgba(30,50,110,0.4),0 0 1.125rem -0.25rem rgba(83,127,246,0.6)}
 .stage.b .gsend svg{filter:drop-shadow(0 0.0625rem 0 rgba(157,182,250,0.6))}
 .stage.b .gsend::before{background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,0.92) 50%,transparent 65%);background-size:250% 100%}
@@ -6912,22 +6979,32 @@ function tabPapa(p, name) {
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
     '<div class="dim mono cpmini">Las voces de las criaturas usan síntesis de voz del navegador y pueden silenciarse; no se activa reconocimiento de voz ni biometría. El código no envía datos a proveedores, aunque algunas voces del sistema operativo podrían necesitar un servicio del fabricante. La versión neuronal propia de alta fidelidad sigue pendiente.</div>';
 }
+/* Piezas GOLD reutilizadas de la portada A2: mismo material, luz y profundidad. */
+const KENDRA_ICON_OBJECTS = Object.freeze({
+  aprender: 'school', vestidor: 'sparkles', tienda: 'shopping-cart',
+  mundo: 'sun', hablar: 'mic', papa: 'lock'
+});
+function kendraTabIcon(tab) {
+  const key = KENDRA_ICON_OBJECTS[tab];
+  return key ? '<span class="cp-3d-icon" aria-hidden="true">' +
+    gIco(key, 'cp-3d-object') + '</span>' : '';
+}
 function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  // FILTRO VISUAL: esta vista demuestra lecciones con el arte original.
-  // El renderer procedural de la captura NO tiene la identidad ni el acabado 3D aprobados.
-  // Queda preservado como código técnico histórico, pero no se muestra a Kendra como producto final.
-  const edge = false, cinematic = true, scene3d = false;
-  const tools = '<div class="cp-edge-tools"><span class="cp-visual-pending" role="status">Arte original · modelo 3D hiperrealista pendiente de aprobación</span></div>';
+  // Activar la escena WebGL SOLO cuando el modelo 3D real superó el contrato
+  // de JanusCreatureSlot; nunca utilizar muñecos procedurales no aprobados.
+  const scene3d = Boolean(ok3d && window.JanusCreatureSlot?.has?.(C.creatureId));
+  const cinematic = !scene3d, edge = false;
+  const tools = '';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
     (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
-  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>📷 Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
+  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + kendraTabIcon(t[0]) + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>' + gIco('smartphone', 'cp-camera-object') + ' Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3, name);
 }
 VIEWS.companero = vCompanero;
