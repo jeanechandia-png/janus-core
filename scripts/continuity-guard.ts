@@ -81,7 +81,7 @@ console.log(`Repositorio: ${result.repository ?? '(no verificado)'}`);
 console.log(`Rama local: ${branch || '(sin rama)'}`);
 console.log(`HEAD: ${headSha ?? '(sin commit)'}`);
 console.log(`Base: origin/${base} ${baseSha ?? '(no verificada)'}`);
-console.log(`Cambios locales: ${dirty ? dirty.split('\\n').length : 0}`);
+console.log(`Cambios locales: ${dirty ? dirty.split(/\r?\n/).length : 0}`);
 console.log(`ESTADO: ${result.state.toUpperCase()}`);
 for (const reason of result.reasons) console.log(`- ${reason}`);
 if (result.state === 'ready') {
