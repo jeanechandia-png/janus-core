@@ -31,8 +31,9 @@ import { ApprovalDecisionError, ApprovalQueue } from '../../packages/core/src/ap
 import { applyToolCatalogSync, diffToolCatalog } from '../../packages/core/src/blueprint-tool-sync.js';
 import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model-gateway.js';
 import { FallbackModelRouter } from '../../packages/gateways/src/model-router.js';
+import { CreditGuardedModelGateway, ExternalCreditCallLedger } from '../../packages/gateways/src/credit-guarded-model-gateway.js';
 import { AnthropicMessagesModelAdapter } from '../../packages/adapters/src/anthropic-messages-model-adapter.js';
-import { describeModelProviders, resolveModelProviders } from '../../packages/core/src/model-provider-config.js';
+import { describeModelProviders, planModelExecution } from '../../packages/core/src/model-provider-config.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
@@ -1468,12 +1469,18 @@ function recordRunOutcome(snapshot: RunSnapshot): void {
   }
 }
 
+let externalCreditLedger: ExternalCreditCallLedger | undefined;
+
 function createConfiguredModelGateway(): ModelGateway | undefined {
-  // Provider-independent: every configured provider is a replaceable adapter;
-  // Janus Core routes between them (local/custom first unless JANUS_MODEL_ORDER says otherwise).
-  const providers = resolveModelProviders(process.env).map((config) => {
+  // JANUS CORE selects its OWN model first, regardless of configured order.
+  // API credentials alone never authorize credit spending. Third-party
+  // adapters are dormant until explicitly enabled and bounded.
+  const plan = planModelExecution(process.env);
+  externalCreditLedger = plan.maxExternalCalls > 0 && plan.external.length
+    ? new ExternalCreditCallLedger(plan.maxExternalCalls) : undefined;
+  const providers = [...plan.local, ...plan.external].map((config) => {
     const service = config.id === 'custom' ? 'model' : config.id;
-    const gateway: ModelGateway = config.protocol === 'anthropic-messages'
+    const inner: ModelGateway = config.protocol === 'anthropic-messages'
       ? new AnthropicMessagesModelAdapter({
           model: config.model,
           baseUrl: config.baseUrl,
@@ -1487,6 +1494,10 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
           supportsJsonMode: config.jsonMode,
           ...(config.chatPath ? { chatPath: config.chatPath } : {}),
         });
+    const isExternal = plan.external.some((external) => external.id === config.id);
+    const gateway = isExternal && externalCreditLedger
+      ? new CreditGuardedModelGateway(inner, externalCreditLedger)
+      : inner;
     return { id: config.id, gateway };
   });
   if (providers.length === 0) return undefined;
@@ -3009,7 +3020,9 @@ const server = createServer(async (request, response) => {
         googleConfigured,
         modelConfigured: Boolean(modelGateway),
         modelProviders: describeModelProviders(process.env),
-        modelRoute: resolveModelProviders(process.env).map((provider) => provider.id),
+        modelRoute: [...planModelExecution(process.env).local, ...planModelExecution(process.env).external].map((provider) => provider.id),
+        externalCreditLimit: externalCreditLedger?.usage() ?? { maxCalls: 0, attempted: 0, remaining: 0 },
+        externalProvidersBlocked: planModelExecution(process.env).blocked.map(({ id }) => id),
         provider: 'replaceable-broker',
       },
     });
