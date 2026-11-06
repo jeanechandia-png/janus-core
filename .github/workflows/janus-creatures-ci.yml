@@ -60,6 +60,7 @@ jobs:
           cd prototypes/dashboard
           node build.cjs
           node build.cjs --skin b
+          node build.cjs --skin b --profile kendra
           node --test tests/ios-quicklook.test.cjs
       - name: Verify generated HTML and JavaScript are self-contained
         run: |
@@ -67,7 +68,7 @@ jobs:
           const fs = require('node:fs');
           const vm = require('node:vm');
           const path = require('node:path');
-          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html']) {
+          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html', 'Janus-Kendra-Piloto.html']) {
             const html = fs.readFileSync(path.join('prototypes/dashboard/dist', file), 'utf8');
             for (const token of ['JanusPresence', 'JanusFurWind', 'JanusCreatures3D', 'JanusCreatureSlot', 'JanusPilotCamera']) {
               if (!html.includes(token)) throw new Error(file + ': missing ' + token);
@@ -107,5 +108,6 @@ jobs:
           path: |
             prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html
             prototypes/dashboard/dist/Janus-B-Platino-interactivo.html
+            prototypes/dashboard/dist/Janus-Kendra-Piloto.html
           retention-days: 7
           if-no-files-found: error
