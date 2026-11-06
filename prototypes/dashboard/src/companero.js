@@ -10,7 +10,7 @@ const CP_APPROVED = typeof APPROVED_ART !== 'undefined' ? APPROVED_ART : { creat
 const CREAT_IMG = { lumi: CP_APPROVED.creatures.lumi || IMG.cLumi, bombo: CP_APPROVED.creatures.bombo || IMG.cBombo, musgo: CP_APPROVED.creatures.musgo || IMG.cMusgo, nimbo: CP_APPROVED.creatures.nimbo || IMG.cNimbo };
 // Approved art takes visual priority; procedural 3D is explicitly technical preview.
 const cpArtIcon = (key, fallback) => {
-  const image = CP_APPROVED.accessories[key];
+  const image = (window.JanusOriginalArt && window.JanusOriginalArt.accessory(key)) || CP_APPROVED.accessories[key];
   return image ? '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">' : fallback;
 };
 const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
@@ -210,8 +210,8 @@ function tabVestidor(p, name) {
       '<button type="button" class="cp-approved-card' + (item.id === C.creatureId ? ' on' : '') +
       '"' + act('cpPick',item.id,'Elegir '+item.defaultName) +
       ' aria-pressed="' + (item.id === C.creatureId) + '">' +
-      '<img src="' + CREAT_IMG[item.id] + '" alt="' + esc(item.defaultName) + '" loading="lazy" decoding="async">' +
-      '<b>' + esc(item.name) + '</b></button>'
+      '<img src="' + ((window.JanusOriginalArt && window.JanusOriginalArt.creature(item.id)) || CREAT_IMG[item.id]) + '" alt="' + esc(item.defaultName) + '" loading="lazy" decoding="async">' +
+      '<b>' + esc(item.defaultName) + '</b></button>'
     ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
     '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
@@ -265,7 +265,8 @@ function tabHablar(p, name) {
     musgo: ['alegre','sorprendido','enojado'],
     nimbo: ['alegre','sorprendido','contento']
   };
-  const approvedFaces = (CP_APPROVED.expressions?.[C.creatureId] || []).map((src,index) => {
+  const approvedFaces = (CP_APPROVED.expressions?.[C.creatureId] || [null,null,null]).map((source,index) => {
+    const src = (window.JanusOriginalArt && window.JanusOriginalArt.expression(C.creatureId,index)) || source;
     const mood = faceMoods[C.creatureId]?.[index] || 'contento';
     const label = CP_MOODS.find((item) => item[0] === mood)?.[2] || mood;
     return src ? '<button type="button" class="cp-approved-expression"' +
@@ -297,14 +298,19 @@ function tabHablar(p, name) {
 }
 const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Nexo masculino', 'robot-femenino': 'Nexo femenino' };
 function slotPanel() {
-  const S = window.JanusCreatureSlot; if (!S || !S.supported()) return '';
+  const art = window.JanusOriginalArt, exact = art && art.hasComplete();
+  const importer = '<div class="cpgr cp-original-import"><h4 class="mono">Arte original privado · Lumi, Bombo, Musgo y Nimbo</h4>' +
+    '<p class="cpmini dim">Carga el paquete JSON original de InfinitySeed desde Archivos. Valida 26 ilustraciones y SHA-256 localmente; no se envía a internet ni a Kling.</p>' +
+    '<label class="btn2 mono cpfile">📂 Importar 26 originales <input type="file" accept="application/json,.json" data-original-art-file aria-label="Importar paquete original aprobado de las cuatro criaturas"></label>' +
+    '<span class="cpmini" role="status">' + (exact ? '26/26 originales correctos · ' + (art.persisted() ? 'guardados en este dispositivo' : 'solo esta sesión') : 'Originales exactos pendientes de importar') + '</span></div>';
+  const S = window.JanusCreatureSlot; if (!S || !S.supported()) return importer;
   const row = (id) => {
     const i = S.info(id), rep = S.report(id);
     return '<div class="cpslot"><div class="cpslh"><b>' + SLOT_NAMES[id] + '</b><span class="mono dim">' + (i ? 'GLB · ' + esc(i.name) + ' · ' + esc(i.summary) : 'Procedural (el de ahora)') + '</span></div>' +
       '<div class="cpbtns"><label class="btn2 mono cpfile">⬆ Importar GLB<input type="file" accept=".glb,model/gltf-binary" data-slotfile="' + id + '" aria-label="Importar modelo GLB de ' + SLOT_NAMES[id] + '"></label>' + (i ? '<span class="btn2 mono"' + act('cpSlotDel', id, 'Quitar el modelo de ' + SLOT_NAMES[id]) + '>✕ Quitar</span>' : '') + '</div>' +
       (rep ? '<details class="cpbasis"><summary class="mono">Informe del contrato</summary><ul class="cpul">' + rep.checks.map((c) => '<li>' + (c.ok ? '✔' : c.level === 'error' ? '✖' : '⚠') + ' ' + esc(c.label) + ': ' + esc(c.detail) + '</li>').join('') + '</ul></details>' : '') + '</div>';
   };
-  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.filter(id => ['lumi','bombo','musgo','nimbo'].includes(id)).map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
+  return importer + '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.filter(id => ['lumi','bombo','musgo','nimbo'].includes(id)).map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
 }
 function tabPapa(p, name) {
   const C = compState();
@@ -475,7 +481,21 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.targ
 
 /* ---- Módulo de criaturas (GLB): importar, refrescar la escena y recuperar lo guardado en este dispositivo ---- */
 document.addEventListener('change', async (ev) => {
-  const el = ev.target; if (!el.matches || !el.matches('input[data-slotfile]') || !window.JanusCreatureSlot) return;
+  const el = ev.target;
+  if (el.matches && el.matches('input[data-original-art-file]')) {
+    const f = el.files && el.files[0]; if (!f) return;
+    if (!window.JanusOriginalArt) { COMP_UI.slotMsg = 'Falta el módulo local de arte.'; rerender(); return; }
+    COMP_UI.slotMsg = 'Verificando las 26 ilustraciones originales…'; rerender();
+    try {
+      const result = await JanusOriginalArt.importJSON(await f.text());
+      COMP_UI.slotMsg = result.verified + ' originales verificados (SHA-256). ' +
+        (result.persisted ? 'Guardados para uso sin internet.' : 'Activos en esta sesión; importa otra vez si cierras Safari.');
+    } catch(e) {
+      COMP_UI.slotMsg = 'Paquete rechazado, sin cambios: ' + String(e && e.message || e).slice(0,140);
+    }
+    rerender(); return;
+  }
+  if (!el.matches || !el.matches('input[data-slotfile]') || !window.JanusCreatureSlot) return;
   const id = el.getAttribute('data-slotfile'), f = el.files && el.files[0]; if (!f) return;
   COMP_UI.slotMsg = 'Leyendo ' + f.name + '…'; rerender();
   try { const rep = await JanusCreatureSlot.load(id, await f.arrayBuffer(), { name: f.name }); COMP_UI.slotMsg = SLOT_NAMES[id] + ': ' + (rep.level === 'error' ? 'no se pudo usar ' + f.name + ' · ' + rep.summary : rep.summary + ' · ya está en la escena'); }
@@ -484,8 +504,14 @@ document.addEventListener('change', async (ev) => {
 });
 /* El módulo de criaturas se carga DESPUÉS de este archivo (orden de build.cjs), así que se conecta desde app.js al arrancar:
    antes estaba aquí a nivel de archivo, JanusCreatureSlot aún no existía y ni el refresco al importar ni la recuperación al recargar se registraban. */
-let SLOT_WIRED = false;
+let SLOT_WIRED = false, ART_WIRED = false;
 function slotWire() {
+  if (!ART_WIRED && window.JanusOriginalArt) {
+    ART_WIRED = true;
+    JanusOriginalArt.restore().then((ok) => {
+      if (ok && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender();
+    }).catch(() => {});
+  }
   if (SLOT_WIRED || !window.JanusCreatureSlot || !JanusCreatureSlot.supported()) return; SLOT_WIRED = true;
   JanusCreatureSlot.onChange((id) => { if (window.Janus3D && Janus3D.refresh) Janus3D.refresh(); const I = (window.JanusStage3D && JanusStage3D._inst) || {}; Object.keys(I).forEach((k) => { try { I[k].refreshRig(id); } catch (e) { /* escena aún sin criatura */ } }); });
   JanusCreatureSlot.restore().then(async (n) => {

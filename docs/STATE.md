@@ -1,5 +1,14 @@
 # JANUS — Estado vigente
 
+## 2026-11-06 · Kendra · originales oficiales PRIVADOS en iPhone
+- **HECHO EN CÓDIGO:** PR #70 añade importación SHA-256 desde un único JSON, validación de las **26 imágenes originales** (Lumi, Bombo, Musgo, Nimbo, 12 expresiones, 10 accesorios), guardado IndexedDB si el navegador lo permite, y conexión a las dashboards Obsidiana/Platino, vestidor y catálogo sin sustituir sus funciones.
+- **PROPIEDAD:** el repo GitHub es público; sólo se registran hashes y código, los originales exactos se entregan como `JANUS_KENDRA_26_ORIGINALES_PRIVADOS.json` de conversación, no se publican en GitHub Pages. El módulo no usa ninguna API ni proveedor para reproducir los activos.
+- **PRUEBA:** Core CI y Creatures 3D/E2E `success` para commit `ee5c013dbe2fa2e0a3a757d503c96c231c20f417`. Verificar nuevamente si el HEAD cambia y revisar en iPhone físico.
+- **MODELOS 3D HIPERREALISTAS:** 0/4 aún — el arte exacto es 2D; no es GLB animable. No declarar terminado. Kling Standard contratado sirve para vídeo, no genera por sí mismo GLB interactivos; los prompts se entregan sin gastar créditos.
+- **BLOQUEADO:** generación y rigging fotorrealista en exportación GLB, prueba Safari física y reconciliación con PR #63/#66. Mantener PR #70 draft, sin alterar main ni landing.
+- **Handoff:** `docs/handoffs/2026-11-06-kendra-private-originals.md`.
+
+
 ## AHORA — CRIATURAS KENDRA · 3D HIPERREALISTA FINAL (2026-11-06)
 - **Aprobado artísticamente:** Lumi/Bombo/Musgo/Nimbo de las dos láminas originales; no las figuras procedurales simplificadas.
 - **Estado comprobado de GLB finales en GitHub: 0/4**. La rama base PR #67 contiene sólo GLB sintéticos de tests, y los 26 WebP oficiales son un paquete de conversación, no binarios publicados en GitHub.
