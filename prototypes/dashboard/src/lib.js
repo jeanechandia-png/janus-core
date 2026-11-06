@@ -39,7 +39,7 @@ const STORE_KEY = typeof BUILD_PROFILE !== 'undefined' && BUILD_PROFILE === 'ken
   ? 'janus.preview.kendra.v1'
   : 'janus.preview.A.v1';
 const DEFAULT_ST = {
-  settings: { skin: (typeof BUILD_SKIN !== 'undefined' && BUILD_SKIN === 'b' ? 'b' : 'a'), ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
+  settings: { skin: (typeof BUILD_SKIN !== 'undefined' && BUILD_SKIN === 'b' ? 'b' : 'a'), ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: (typeof BUILD_PROFILE !== 'undefined' && BUILD_PROFILE === 'kendra' ? 'ejemplo' : 'vivo'), lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
   done: {}, lleva: {}, mail: {}, follow: {}, appr: {}, upd: {}, localEv: [], newFollow: [], kcheck: {}
 };
 let ST = JSON.parse(JSON.stringify(DEFAULT_ST));
