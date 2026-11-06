@@ -147,3 +147,15 @@
 .cp-adult-tools[open]{padding-bottom:12px}
 .cp-adult-tools[open]>.cpgr{margin:10px 12px}
 .cp-adult-tools summary:focus-visible{outline:2px solid #ffe4b4;outline-offset:3px}
+
+
+/* La niña nunca necesita descifrar texto de 9px en iPhone. */
+@media(max-width:47.5em){
+ #view .vb-companero .cptab em{font:750 13px/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#ffeed1!important;letter-spacing:0}
+ #view .vb-companero .cpgr h4{font:750 15px/1.3 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d0}
+ #view .vb-companero .cpmini,#view .vb-companero .dim,#view .vb-companero .cpstory{font-size:14px!important;font-weight:600;line-height:1.5;color:#f1e5cf}
+ #view .vb-companero .cp-approved-card b,#view .vb-companero .cp-approved-expression span{font-size:13px!important;font-weight:750}
+ #view .vb-companero .cpc em,#view .vb-companero .cpc b{font-size:12px!important;font-weight:700}
+ #view .vb-companero .cptc .btn2,#view .vb-companero .cptc .btn{font-size:14px!important;font-weight:750}
+ #view .vb-companero .janus-icon-art .janus-icon-3d{width:26px;height:26px;vertical-align:middle}
+}
