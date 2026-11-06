@@ -6556,7 +6556,7 @@ const JanusChildSafety = (() => {
 window.JanusChildSafety = JanusChildSafety;
 
 'use strict';
-/* ===== Compañero 3D =====
+/* ===== Criatura de Kendra — conserva ilustraciones originales y funciones heredadas =====
  * La criatura vive DENTRO de la escena 3D (lego/janus-stage-3d + lego/janus-creatures-3d), no como imagen encima.
  * Lógica: módulos LEGO componibles empaquetados en el global `Companion` (adaptador packages/adapters/src/companion-kit.ts):
  *   companion (carácter fijo, tutor, seguridad) · avatar-look (aspecto) · star-shop (estrellas, tienda, mundo) · scene-stage (escena y lecciones).
@@ -6576,12 +6576,13 @@ const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestido
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
   const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.voiceStyle) C.voiceStyle = C.voiceStyles[C.creatureId] || 'caricatura'; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
-  if (C.visualPolicyVersion !== 20261106) {
-    const verifiedGLB = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
-    if (!verifiedGLB) C.visualMode = 'cinematic';
-    C.visualPolicyVersion = 20261106;
+  // Triple filtro: los muñecos procedurales NO son los GLB hiperrealistas aprobados.
+  // Nunca migrar silenciosamente preferencias antiguas hacia esos sustitutos.
+  if (C.visualPolicyVersion !== '2026-11-06-approved-art-gate') {
+    C.visualMode = 'cinematic';
+    C.visualPolicyVersion = '2026-11-06-approved-art-gate';
   }
-  if (!['3d','edge','cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
+  if (C.visualMode !== 'cinematic') C.visualMode = 'cinematic';
   return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
@@ -6880,22 +6881,11 @@ function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  const world = C.tab === 'mundo' || !!COMP_UI.lesson;
-  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen del viewport.
-  // La escena de las lecciones conserva el antiguo motor, con casa/vehiculos/objetos.
-  // El arte estático es una alternativa explicita o fallback honesto cuando falla WebGL.
-  const edgeSupported = !!(window.JanusEdgeCompanion && JanusEdgeCompanion.supported());
-  const edge = !world && C.visualMode !== 'cinematic' && C.visualMode !== '3d' && edgeSupported;
-  const cinematic = !world && !edge && (C.visualMode !== '3d' || !ok3d);
-  const scene3d = !edge && !cinematic && ok3d;
-  const tools = world ? '' :
-    '<div class="cp-edge-tools">' +
-      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D prueba</button>' : '') +
-      (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
-      '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte aprobado</button>' +
-      (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
-        '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
-    '</div>';
+  // FILTRO VISUAL: esta vista demuestra lecciones con el arte original.
+  // El renderer procedural de la captura NO tiene la identidad ni el acabado 3D aprobados.
+  // Queda preservado como código técnico histórico, pero no se muestra a Kendra como producto final.
+  const edge = false, cinematic = true, scene3d = false;
+  const tools = '<div class="cp-edge-tools"><span class="cp-visual-pending" role="status">Arte original · modelo 3D hiperrealista pendiente de aprobación</span></div>';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
     (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
@@ -6903,10 +6893,10 @@ function vCompanero(M, X, sub) {
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
   const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>📷 Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
-  return frame('companero', sub, M, stage + panel3);
+  return frame('companero', sub, M, stage + panel3, name);
 }
 VIEWS.companero = vCompanero;
-TABS.push(['companero', '🦊', 'Compañero']);
+TABS.push(['companero', '🦊', 'Mi criatura']);
 
 const nowHM = () => { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
 const newSeed = () => (Date.now() % 9973) + 1;
@@ -6928,11 +6918,11 @@ function cpRenameCommit(raw) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; saveState(); },
+  cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: () => { const C = compState(); C.visualMode = 'cinematic'; COMP_UI.toast = 'El 3D procedural no cumple la aprobación visual. Se mantiene el arte original.'; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
-  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!window.JanusCreatureSlot?.has?.(id)) C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
+  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
   cpRename: () => cpRenameCommit(field('cpName')),
   cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
