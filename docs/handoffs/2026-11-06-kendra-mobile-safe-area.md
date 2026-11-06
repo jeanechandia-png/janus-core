@@ -4,7 +4,7 @@ Fecha: 2026-11-06 (Europe/Amsterdam)
 Proyecto: JANUS CORE — dashboard Kendra / Sala / móvil
 Rama: chatgpt/janus-presencia-criaturas-cinematica-20261105 (PR #63, sin fusionar)
 Línea base comprobada: ab2dbbecf924cc41213ccbfa305530c1b25ef182
-Último commit de código antes de documentar: dbd9e2e7ec869c21eb0094ffb6d3694732d4cf0b
+Último commit de código verificado: f896664ffc7b9561ef38213e77e0cf09934a6321
 
 ### Objetivo
 Las capturas reales del iPhone muestran que el avatar procedimental de Lumi interfiere con botón «Muéstramelo», selector de criaturas y zona de aprendizaje. El producto aprobado exige 3D expresivo, movimiento en margen y controles completamente funcionales. Preservar diseños aprobados (Lumi/Bombo/Musgo/Nimbo; Nexo 02 masculino/femenino), perfiles, autonomía, estrellas y catálogo; no crear otra dashboard.
@@ -16,8 +16,10 @@ Las capturas reales del iPhone muestran que el avatar procedimental de Lumi inte
 4. `.github/workflows/janus-creatures-ci.yml`: nueva puerta E2E con Playwright/Chromium, imágenes QA como artefactos retenidos 7 días.
 
 ### Verificación
-- Sintaxis y pruebas deterministas + builds A/B: el workflow especializado #42135721592 mostraba pasos correctos al registrar este documento; **verificar conclusión final antes de marcar E2E como superado**.
-- Core CI (commit anterior del ajuste) #42135106898: success, verificar nueva cabeza.
+- **VERIFICADO EN CI:** [JANUS creatures 3D #42136112233](https://github.com/jeanechandia-png/janus-core/actions/runs/42136112233) finalizó `success` para el último commit de código `f896664ffc7b9561ef38213e77e0cf09934a6321`. Sintaxis, tests deterministas, builds A/B y E2E Chromium (A/B a 390×844 y 430×932) superados, con pestañas utilizables, límites geométricos y capturas de pantalla.
+- **Core CI:** [#42136112224](https://github.com/jeanechandia-png/janus-core/actions/runs/42136112224) `success` en ese mismo commit de código. Comprobar CI de nuevo si se modifica el HEAD documental.
+- **Evidencia visual:** artefacto `janus-kendra-mobile-a-b-screens` #13466491024; cuatro PNG completos y foto de comparación revisados, sin invasión de los controles inferiores. Las capturas corresponden a Chromium con SwiftShader, no a Safari físico.
+- **Corrección adicional:** el texto decorativo `.cp-edge-prompt` se oculta únicamente en móvil para no solaparse con «Muéstramelo»; permanece la voz/saludo y sus controles reales. La primera prueba visual falló por asumir que `scrollTo` siempre alejaba por completo la escena; se corrigió para comprobar primero el rectángulo real antes de exigir ocultación.
 - No se han probado GPU real en iPhone, Face ID, ni modelos GLB 4K. La malla procedural sigue siendo distinta de las imágenes artísticas aprobadas. Importación de modelos cinematográficos con rig facial y ropa sigue PENDIENTE.
 
 ### Continuidad y restricciones
