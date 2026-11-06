@@ -1,5 +1,14 @@
 # JANUS — Estado vigente
 
+## AHORA · 2026-11-06 — Protección infantil / evidencia de Kendra
+- **IMPLEMENTADO EN RAMA PR #71 (DRAFT):** módulo offline `janus-child-safety.js` con reglas de no diagnóstico, priorización del adulto ante acoso/peligro y fuentes específicas (AAP, CDC, IES/WWC, WHO, StopBullying.gov). Incorporado al bundle de dashboards A/B.
+- **CI VERDE:** Janus Core #42276173897 y Creatures 3D/E2E #42276174169 en HEAD `993d67a57bf77ae34dec79ffb0d77443982747d1`.
+- **AUDITORÍA:** 20 actividades familiares/de etiqueta inventariadas en `ACTIVITY_REVIEW.json`, TODAS `pending` y fuera del bundle real hasta revisión. Tests impiden incluir accidentalmente material sin aprobar.
+- **ESTADO PENDIENTE CRÍTICO:** falta conectar la nueva evaluación al handler real `COMP_ACTS.cpSend` (la modificación fue bloqueada por controles de seguridad). Sigue operando `Companion.checkMessage` preexistente; no atribuir al nuevo gate protección integral en chat hasta enlazar y ensayar. No existen notificaciones a Jean confirmadas.
+- **OTRAS DEPENDENCIAS NO VERIFICADAS:** voz/rostro de Kendra, autenticación exclusiva Jean-Kendra del lado servidor y modelos GLB hiperrealistas 0/4; sin merge o despliegue.
+- **BASE REPRODUCIBLE:** `docs/kendra/CHILD_SAFETY_EVIDENCE_POLICY.md` y pruebas `tests/child-evidence-safety.test.cjs`, `tests/child-curriculum-review.test.cjs`. Conservar decisiones y rutas antiguas como historia.
+
+
 ## 2026-11-06 · Kendra · originales oficiales PRIVADOS en iPhone
 - **HECHO EN CÓDIGO:** PR #70 añade importación SHA-256 desde un único JSON, validación de las **26 imágenes originales** (Lumi, Bombo, Musgo, Nimbo, 12 expresiones, 10 accesorios), guardado IndexedDB si el navegador lo permite, y conexión a las dashboards Obsidiana/Platino, vestidor y catálogo sin sustituir sus funciones.
 - **PROPIEDAD:** el repo GitHub es público; sólo se registran hashes y código, los originales exactos se entregan como `JANUS_KENDRA_26_ORIGINALES_PRIVADOS.json` de conversación, no se publican en GitHub Pages. El módulo no usa ninguna API ni proveedor para reproducir los activos.

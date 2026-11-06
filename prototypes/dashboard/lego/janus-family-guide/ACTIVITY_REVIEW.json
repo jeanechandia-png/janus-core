@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "scope": "Kendra local-first family guidance",
+  "policyVersion": "2026-11-06",
+  "status": "draft-not-cleared-for-child-runtime",
+  "rules": {
+    "noClinicalDiagnosis": true,
+    "noShaming": true,
+    "optionalReligiousContent": true,
+    "noCompulsoryPrayer": true,
+    "noUnreviewedHealthAdvice": true,
+    "noUnsupervisedThirdPartyContact": true,
+    "keepSensitiveDisclosuresLocal": true,
+    "distinguishScientificEvidenceFromFamilyPractice": true,
+    "adultReviewBeforeRelease": true
+  },
+  "sources": {
+    "communication": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+    "activity": "https://www.who.int/europe/news-room/fact-sheets/item/physical-activity",
+    "math": "https://ies.ed.gov/ncee/wwc/PracticeGuide/26",
+    "socialEmotional": "https://ies.ed.gov/ncee/wwc/PracticeGuide/30",
+    "bullying": "https://www.stopbullying.gov/kids/what-you-can-do",
+    "catholicTradition": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html",
+    "hands": "https://www.cdc.gov/clean-hands/about/index.html",
+    "dental": "https://www.ada.org/resources/ada-library/oral-health-topics/toothbrushes",
+    "etiquette": "https://emilypost.com/advice/formal-place-setting"
+  },
+  "activities": {
+    "janus-family-guide.js:nochebuena": {
+      "module": "janus-family-guide.js",
+      "id": "nochebuena",
+      "classification": "family-tradition",
+      "primaryReference": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:navidad": {
+      "module": "janus-family-guide.js",
+      "id": "navidad",
+      "classification": "family-tradition",
+      "primaryReference": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:arbol": {
+      "module": "janus-family-guide.js",
+      "id": "arbol",
+      "classification": "family-tradition",
+      "primaryReference": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:regalos": {
+      "module": "janus-family-guide.js",
+      "id": "regalos",
+      "classification": "family-tradition",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:buenos-dias": {
+      "module": "janus-family-guide.js",
+      "id": "buenos-dias",
+      "classification": "family-preference",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:buenas-noches": {
+      "module": "janus-family-guide.js",
+      "id": "buenas-noches",
+      "classification": "family-tradition",
+      "primaryReference": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:bailar": {
+      "module": "janus-family-guide.js",
+      "id": "bailar",
+      "classification": "physical-activity",
+      "primaryReference": "https://www.who.int/europe/news-room/fact-sheets/item/physical-activity",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:aerobicos": {
+      "module": "janus-family-guide.js",
+      "id": "aerobicos",
+      "classification": "physical-activity",
+      "primaryReference": "https://www.who.int/europe/news-room/fact-sheets/item/physical-activity",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:comida-saludable": {
+      "module": "janus-family-guide.js",
+      "id": "comida-saludable",
+      "classification": "wellness-general",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:matematicas-concretas": {
+      "module": "janus-family-guide.js",
+      "id": "matematicas-concretas",
+      "classification": "education",
+      "primaryReference": "https://ies.ed.gov/ncee/wwc/PracticeGuide/26",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-family-guide.js:palabras": {
+      "module": "janus-family-guide.js",
+      "id": "palabras",
+      "classification": "education",
+      "primaryReference": "https://ies.ed.gov/ncee/wwc/PracticeGuide/30",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:presentacion": {
+      "module": "janus-etiquette.js",
+      "id": "presentacion",
+      "classification": "family-preference",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:zapatos": {
+      "module": "janus-etiquette.js",
+      "id": "zapatos",
+      "classification": "family-preference",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:manos-unas": {
+      "module": "janus-etiquette.js",
+      "id": "manos-unas",
+      "classification": "hygiene",
+      "primaryReference": "https://www.cdc.gov/clean-hands/about/index.html",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:dientes-cabello": {
+      "module": "janus-etiquette.js",
+      "id": "dientes-cabello",
+      "classification": "hygiene",
+      "primaryReference": "https://www.ada.org/resources/ada-library/oral-health-topics/toothbrushes",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:comer-modales": {
+      "module": "janus-etiquette.js",
+      "id": "comer-modales",
+      "classification": "social-etiquette",
+      "primaryReference": "https://emilypost.com/advice/formal-place-setting",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:cubiertos": {
+      "module": "janus-etiquette.js",
+      "id": "cubiertos",
+      "classification": "social-etiquette",
+      "primaryReference": "https://emilypost.com/advice/formal-place-setting",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:restaurante": {
+      "module": "janus-etiquette.js",
+      "id": "restaurante",
+      "classification": "social-etiquette",
+      "primaryReference": "https://emilypost.com/advice/formal-place-setting",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:saludar-presentarse": {
+      "module": "janus-etiquette.js",
+      "id": "saludar-presentarse",
+      "classification": "social-etiquette",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    },
+    "janus-etiquette.js:prepararse-salir": {
+      "module": "janus-etiquette.js",
+      "id": "prepararse-salir",
+      "classification": "family-preference",
+      "primaryReference": "https://www.healthychildren.org/Spanish/family-life/family-dynamics/communication-discipline/Paginas/Communication-Dos-and-Donts.aspx",
+      "reviewStatus": "pending",
+      "researchClaimApproved": false,
+      "adultReviewRequired": true,
+      "clinicalGuidanceAllowed": false
+    }
+  }
+}

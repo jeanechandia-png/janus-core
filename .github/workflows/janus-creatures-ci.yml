@@ -31,6 +31,7 @@ jobs:
             prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
             prototypes/dashboard/lego/janus-cartoon-voice/janus-cartoon-voice.js \
             prototypes/dashboard/lego/janus-original-art/janus-original-art.js \
+            prototypes/dashboard/lego/janus-family-guide/janus-child-safety.js \
             prototypes/dashboard/src/companero.js \
             prototypes/dashboard/src/phonev.js \
             prototypes/dashboard/src/sala.js \
@@ -47,6 +48,8 @@ jobs:
           node --test tests/approved-art.test.cjs
           node --test tests/verified-3d-gate.test.cjs
           node --test tests/private-original-art.test.cjs
+          node --test tests/child-evidence-safety.test.cjs
+          node --test tests/child-curriculum-review.test.cjs
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
           node --test tests/kendra-cartoon-voice.test.cjs
