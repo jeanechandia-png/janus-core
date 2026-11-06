@@ -31,6 +31,8 @@ function render() {
     $root.appendChild(launch);
   }
   decorate(ROUTE.v || '');
+  // A/B usan los mismos WebP Gold 3D también en vistas interiores y paneles heredados.
+  if (BUILD_PROFILE !== 'kendra' && typeof hydrateDetailIcons === 'function') hydrateDetailIcons(document);
   if (typeof avatarSync === 'function') avatarSync();
   if (window.JanusPresence) JanusPresence.hydrate(document);
   // El avatar de la cuenta Founder es Nexo, no una de las cuatro criaturas de Kendra.
