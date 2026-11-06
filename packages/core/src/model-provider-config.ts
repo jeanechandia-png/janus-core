@@ -137,7 +137,14 @@ export function modelExecutionTier(config: ModelProviderConfig, env: Env): Model
     if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'local';
     const trusted = (env.JANUS_TRUSTED_LOCAL_MODEL_ORIGINS ?? '')
       .split(',').map((origin) => origin.trim()).filter(Boolean);
-    if (trusted.includes(endpoint.origin)) return 'local';
+    // An allowlisted public host remains external: an environment typo must
+    // not silently reclassify a paid cloud API as a free local model.
+    const ipv4 = hostname.split('.').map((part) => /^\\d{1,3}$/.test(part) ? Number(part) : NaN);
+    const privateIpv4 = ipv4.length === 4 && ipv4.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)
+      && (ipv4[0] === 10 || (ipv4[0] === 192 && ipv4[1] === 168)
+      || (ipv4[0] === 172 && (ipv4[1] ?? -1) >= 16 && (ipv4[1] ?? 99) <= 31));
+    const localHostname = hostname.endsWith('.local');
+    if ((privateIpv4 || localHostname) && trusted.includes(endpoint.origin)) return 'local';
   } catch {
     // An invalid/unknown URL is never classified as cost-free.
   }
