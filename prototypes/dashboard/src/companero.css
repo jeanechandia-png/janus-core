@@ -56,3 +56,30 @@
 .cpslh b{color:var(--ivory)}
 .cpfile{position:relative;overflow:hidden;cursor:pointer}
 .cpfile input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0}
+
+/* Approved 2026-11-06 art: genuine illustrations only, not procedural stand-ins.
+ * Images stay inside existing tabs and never cover lesson buttons. */
+.cp-approved-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.cp-approved-card{min-width:0;position:relative;overflow:hidden;border:1px solid rgba(255,211,122,.45);padding:0;background:#130e19;
+  border-radius:14px;display:flex;flex-direction:column;color:#ffefcf;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.24)}
+.cp-approved-card img{width:100%;aspect-ratio:4/5;object-fit:cover;object-position:center 45%;display:block}
+.cp-approved-card b{padding:5px 2px 7px;text-align:center;font:600 11px 'Instrument Sans',sans-serif}
+.cp-approved-card.on{border-color:#ffe5aa;box-shadow:0 0 0 2px rgba(255,212,125,.63),0 0 18px rgba(255,192,114,.3)}
+.cp-approved-card:focus-visible{outline:3px solid #ffe5aa;outline-offset:2px}
+.cpc{min-width:70px}
+.cpc:has(.cp-approved-item){min-width:95px;max-width:125px;gap:4px}
+.cpc i:has(.cp-approved-item){width:100%;display:block;line-height:0}
+.cp-approved-item{width:100%;height:auto;max-height:93px;aspect-ratio:1/1;object-fit:cover;border-radius:9px;display:block}
+.cpc:has(.cp-approved-item) em{font-size:10px;line-height:1.3;text-wrap:balance;white-space:normal}
+.cpst3.cinematic{background:linear-gradient(145deg,#170e21,#080611)}
+.cpst3.cinematic .cpsay{z-index:6}
+.cpst3.cinematic .cp-cinematic{inset:0;overflow:hidden}
+@media(max-width:47.5em),(max-height:31.25em){
+  .cp-approved-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .cp-approved-card b{font-size:9px}
+  .cp-approved-card img{aspect-ratio:4/5}
+  .cp-approved-item{max-height:68px}
+  .cpc:has(.cp-approved-item){min-width:82px;max-width:112px}
+  .cpst3.cinematic .cp-cinematic .jp-image{object-position:center 43%}
+}
+@media(prefers-reduced-motion:reduce){.cp-approved-card,.cp-approved-item{animation:none;transition:none}}
