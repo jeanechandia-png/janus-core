@@ -289,7 +289,10 @@ function tabHablar(p, name) {
     '>▶ Escuchar muestra</button></div>' +
     (COMP_UI.voiceMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.voiceMsg) + '</p>' : '') +
     '</div>';
-  return voicePanel + '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4>' +
+  return voicePanel + '<div class="cpgr"><h4 class="mono">Mi cámara (opcional)</h4>' +
+    '<p class="cpmini dim">Solo vista previa local. No graba, no identifica a nadie ni envía imágenes. Al salir se detiene. Requiere permiso de Safari y HTTPS/localhost.</p>' +
+    '<button type="button" class="btn2 mono"' + act('cpCameraOpen', '', 'Activar vista previa local de cámara') + '>📷 Abrir cámara</button></div>' +
+    '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4>' +
     (approvedFaces ? '<div class="cp-approved-faces" aria-label="Expresiones originales aprobadas">' + approvedFaces + '</div>' : '') +
     '<div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
@@ -372,6 +375,7 @@ function cpRenameCommit(raw) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
+  cpCameraOpen: () => { if (window.JanusLocalCamera) JanusLocalCamera.open('kendra'); },
   cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
   cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
