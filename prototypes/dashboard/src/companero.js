@@ -203,6 +203,15 @@ function tabVestidor(p, name) {
   const C = compState(), asp = C.aspect, canFace = !!window.JanusFace3D;
   const species = C.creatureId, opts = CP_STYLES[species] || CP_STYLES.lumi;
   const style = C.furStyles[species] || 'natural';
+  const approvedGallery = '<div class="cpgr cp-approved-characters" aria-label="Criaturas aprobadas">' +
+    '<h4 class="mono">Criaturas oficiales · arte aprobado</h4>' +
+    '<div class="cp-approved-grid">' + Companion.CREATURES.map((item) =>
+      '<button type="button" class="cp-approved-card' + (item.id === C.creatureId ? ' on' : '') +
+      '"' + act('cpPick',item.id,'Elegir '+item.name) +
+      ' aria-pressed="' + (item.id === C.creatureId) + '">' +
+      '<img src="' + CREAT_IMG[item.id] + '" alt="' + esc(item.name) + '" loading="lazy" decoding="async">' +
+      '<b>' + esc(item.name) + '</b></button>'
+    ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
     '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
     '<div class="addf"><input type="text" data-f="cpNewName" maxlength="20" value="' + esc(name) + '" aria-label="Nombre de mi criatura" placeholder="Escribe el nombre que quieras">' +
@@ -211,7 +220,7 @@ function tabVestidor(p, name) {
   const furPanel = '<div class="cpgr"><h4 class="mono">' + (species === 'bombo' ? 'Forma de las branquias' : species === 'musgo' ? 'Estilo del musgo' : species === 'nimbo' ? 'Forma de la nube' : 'Estilo del pelaje') + '</h4>' +
     '<p class="cpmini dim">Personalízalo como más te guste. La forma cambia en la criatura 3D; su personalidad y sus recuerdos siguen siendo los mismos.</p>' +
     '<div class="cpchips">' + opts.map((item) => chip('cpStyle', item[0], '✦', item[1], style === item[0] ? 'on' : '')).join('') + '</div></div>';
-  return identity + furPanel + (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
+  return approvedGallery + identity + furPanel + (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
     '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
     '<div class="cpgr"><h4 class="mono">Viento en fibras 3D</h4><div class="cpchips">' +
       [[0, '🍃 Calma'], [0.3, '🌬 Brisa'], [0.7, '💨 Viento']].map((v) => chip('cpWind', v[0], v[1], v[1], String(Number.isFinite(compState().windStrength) ? compState().windStrength : 0.3) === String(v[0]) ? 'on' : '')).join('') +
