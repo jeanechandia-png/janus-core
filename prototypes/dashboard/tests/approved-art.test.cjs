@@ -57,3 +57,16 @@ test('official fashion art keeps real store identifiers, prices and purchase gat
   'acc:cara:gafas-redondas','acc:espalda:mochila','acc:espalda:alas-hada','acc:cuello:bufanda'])
   assert.ok(C.kitShop.item(key),'exists as a real purchase: '+key);
 });
+
+test('original facial expressions are image-backed and trigger existing mood actions',()=>{
+  assert.ok(build.includes('approvedExpressions'),'twelve samples packaged from the approved reference sheet');
+  assert.ok(companion.includes('CP_APPROVED.expressions?.[C.creatureId]'));
+  assert.ok(companion.includes("act('cpMood',mood"));
+  assert.ok(companion.includes('cp-approved-faces'));
+  assert.ok(css.includes('.cp-approved-expression'));
+  const hashes=JSON.parse(read('assets/approved/INDEX.json')).required_assets;
+  for(const id of ids) for(let i=1;i<=3;i++){
+    const name='expression-'+id+'-'+i+'.webp';
+    assert.match(hashes[name],/^[a-f0-9]{64}$/,'sha256 '+name);
+  }
+});
