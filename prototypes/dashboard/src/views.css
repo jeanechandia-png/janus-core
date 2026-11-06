@@ -350,3 +350,14 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
  #view .cd .tm{font-size:12px;font-weight:650}
  #view .cd .note{font-size:13px;line-height:1.45}
 }
+
+
+/* Filtro legibilidad: el texto se mide a escala de iPhone, no de escritorio. */
+@media(max-width:47.5em){
+ #view .vh h1{font:750 22px/1.22 'Instrument Sans',system-ui,sans-serif;color:#fff0ce}
+ #view .lb{font:750 15px/1.35 'Instrument Sans',system-ui,sans-serif!important;letter-spacing:0;color:#ffedca}
+ #view .cd .pb,#view .cd .dim,#view .cd .mono,#view .cd small{font-size:13.5px!important;font-weight:600;line-height:1.45;color:#f1e6d1}
+ #view .tabs .tb2 em{font:750 13px/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d7;letter-spacing:0}
+ #view .cd .btn2,#view .cd .btn,#view .cd .seg span{font-size:14px;font-weight:700;line-height:1.3}
+ #view .janus-icon-art .janus-icon-3d{width:30px;min-width:24px;height:30px;object-fit:contain}
+}
