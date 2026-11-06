@@ -1341,6 +1341,13 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
  #view .vb-companero .cp-approved-grid{width:100%;min-width:0}
  #view .vb-companero .cp-approved-card{min-width:0}
 }
+
+/* Configuración de importación: accesible pero secundaria en la pantalla infantil. */
+.cp-adult-tools{border:0.0625rem solid rgba(232,195,122,.4);border-radius:0.875rem;margin:0.5rem 0;background:rgba(24,17,31,.65)}
+.cp-adult-tools>summary{cursor:pointer;padding:0.75rem 0.875rem;font:700 0.875rem/1.35 'Instrument Sans',system-ui,sans-serif;color:#f7e3bf;list-style-position:inside}
+.cp-adult-tools[open]{padding-bottom:0.75rem}
+.cp-adult-tools[open]>.cpgr{margin:0.625rem 0.75rem}
+.cp-adult-tools summary:focus-visible{outline:0.125rem solid #ffe4b4;outline-offset:0.1875rem}
 /* ===== Compañero 3D · capa de controles sobre el escenario =====
  * El escenario es SIEMPRE una escena nocturna oscura, sea cual sea la piel. Por eso esta hoja NO va en A_FILES de build.cjs:
  * la piel B traduce los colores de A (negro → cristal claro) y dejaría texto azul oscuro sobre el 3D (contraste 1,1–1,8:1, lo cazó tests/skin.cjs).
@@ -2172,6 +2179,9 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .stage.b .kendra-only .cptab em{color:#0a3bc2;text-shadow:0 0.0625rem 0.0625rem rgba(255,255,255,.8)}
 .stage.b .kendra-only .cptc .cpmini,.stage.b .kendra-only .cptc .dim,.stage.b .kendra-only .cpstory{color:#0e1a33}
 .stage.b .kendra-only .cpgr h4{color:#0a3bc2}}
+.stage.b .cp-adult-tools{border:0.0625rem solid rgba(74,120,245,0.4);background:rgba(30,50,110,0.195)}
+.stage.b .cp-adult-tools>summary{color:#0a3bc2}
+.stage.b .cp-adult-tools summary:focus-visible{outline:0.125rem solid #8ca9f9}
 @media (max-width:47.5em),(max-height:31.25em){.stage.b:has(.pa2){background:transparent!important;padding:0.625rem 0.75rem calc(1.125rem + env(safe-area-inset-bottom,0rem))!important}
 .stage.b .pa2{color:#0e1a33}
 .stage.b .a2c{border:0.0625rem solid rgba(124,157,248,0.55);background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.556));box-shadow:0 1.5rem 2.5rem -1.5rem rgba(30,50,110,0.4),inset 0 0.0625rem 0 rgba(255,255,255,0.875),inset 0 -0.0625rem 0 rgba(30,50,110,0.14)}
