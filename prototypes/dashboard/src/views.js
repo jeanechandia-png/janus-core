@@ -12,16 +12,39 @@ function detailIcon(glyph, route) {
  return '<span class="janus-icon-art" aria-hidden="true">' + gIco(id,'janus-icon-3d') + '</span>';
 }
 function hydrateDetailIcons(root) {
- const view=(root||document).querySelector('#view');
- if (!view || view.hidden) return;
- view.querySelectorAll('.bb').forEach(node=>{
-  if (node.querySelector('img,svg,.janus-icon-art')) return;
-  const raw=node.textContent.trim();
-  const id=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]);
-  if (!id || !(GOLD.o[id]||GOLD.i[id])) return;
-  node.setAttribute('aria-label',raw);
-  node.innerHTML=detailIcon(raw);
- });
+  const view=(root||document).querySelector('#view');
+  if(!view || view.hidden) return;
+  // Triple filtro: emojis y dibujos planos nunca ocupan el lugar de un objeto
+  // fotométrico Gold.o. No se transforman los datos, nombres ni textos del usuario.
+  const glyphs={
+    '📚':'school','🎓':'school','🏫':'school','👗':'shopping-cart',
+    '🛒':'shopping-cart','🏬':'shopping-cart','⭐':'sparkles','🌟':'sparkles','✨':'sparkles',
+    '📷':'eye','📸':'eye','📹':'eye','💬':'mic','💭':'mic',
+    '🏠':'sun','🏡':'sun','🔒':'lock','🔐':'lock','👨':'lock',
+    '🚦':'target','🪄':'sparkles','🎁':'shopping-cart','🏆':'target',
+    '🎮':'settings','🧩':'settings','⚙':'settings','📦':'folder',
+    '⏱':'calendar-days','📅':'calendar-days','🔍':'eye',
+    '🎨':'sparkles','🎤':'mic','🔊':'mic','👑':'sparkles','🧥':'shopping-cart',
+    '🚗':'bike','🚲':'bike','✈':'plane','🏷':'tag','❤️':'heart','❤':'heart'
+  };
+  // Icon-only containers, plus specifically labelled in-product actions.
+  view.querySelectorAll('.bb,.cpc i,.cpgr h4,.cpbtns .btn2,.cptc .pill2,.cplights .btn2,.cp-pilot-camera button').forEach(node=>{
+    if(node.querySelector('img,svg,.janus-icon-art,.cp-3d-icon,input,canvas'))return;
+    const raw=node.textContent.trim();
+    const exact=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]) || glyphs[raw];
+    if(exact){
+      node.setAttribute('aria-label',raw);
+      node.innerHTML=detailIcon(raw, exact);
+      return;
+    }
+    const first=node.firstChild;
+    if(!first || first.nodeType!==3)return;
+    const m=/^\s*([\p{Extended_Pictographic}\uFE0F\u200D]+)\s*/u.exec(first.textContent);
+    if(!m)return;
+    const key=glyphs[m[1]] || (typeof EMO2ICO!=='undefined' && EMO2ICO[m[1]]) || 'sparkles';
+    first.textContent=first.textContent.slice(m[0].length);
+    node.insertAdjacentHTML('afterbegin','<span class="janus-icon-art" aria-hidden="true">'+gIco(key,'janus-icon-3d')+'</span>');
+  });
 }
 const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
 const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
