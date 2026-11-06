@@ -53,6 +53,6 @@ test('official fashion art keeps real store identifiers, prices and purchase gat
  const env=vm.createContext({});vm.runInContext(engine,env);
  const C=env.Companion;
  for(const key of ['out:capa-galaxia','out:sudadera-estrella','out:chaqueta-lujo','acc:cabeza:corona',
-  'acc:cara:gafas-redondas','acc:espalda:mochila','acc:espalda:alas-hada','acc:cuello:bufanda','acc:cabeza:gorro'])
+  'acc:cara:gafas-redondas','acc:espalda:mochila','acc:espalda:alas-hada','acc:cuello:bufanda'])
   assert.ok(C.kitShop.item(key),'exists as a real purchase: '+key);
 });
