@@ -84,6 +84,10 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.58.2
           npx playwright install --with-deps chromium
+      - name: Camera opt-in in both A/B dashboards (Chromium fake device, not iPhone)
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+        run: node prototypes/dashboard/tests/local-camera-browser.cjs
       - name: iPhone-sized A/B edge companion and learning controls
         env:
           PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
