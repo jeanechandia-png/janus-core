@@ -6,3 +6,29 @@
 .app-install-card ol{list-style:none;padding:0}.app-install-card li{display:flex;gap:12px;margin:16px 0}
 .app-install-step{flex:none;width:28px;height:28px;border:1px solid #8b98ae;border-radius:50%;text-align:center}
 .app-install-card button{font:inherit;padding:12px 18px;background:#202c41;border:1px solid #8b98ae;border-radius:10px;color:#fff}
+
+/* ES/NL approved medallions live in the existing JANUS A/B heading.
+ * No fixed bar, no replacement screen; menu opens only when requested. */
+.janus-header-tools{position:relative;display:inline-flex;align-items:center;gap:5px;flex:0 0 auto;margin-inline-start:auto;z-index:20}
+.janus-header-tools .janus-language-switch{display:inline-flex;flex:0 0 auto;gap:4px}
+.janus-header-tools .janus-language-button{inline-size:40px;block-size:40px;min-inline-size:40px;padding:4px;flex:0 0 40px}
+.janus-access-menu{position:relative;flex:0 0 auto}
+.janus-access-menu>summary{list-style:none;display:grid;place-items:center;cursor:pointer;width:40px;height:40px;border-radius:13px;border:1px solid rgba(183,197,236,.55);font:22px system-ui;color:inherit;background:rgba(110,130,192,.12);box-shadow:inset 0 1px 1px rgba(255,255,255,.19)}
+.janus-access-menu>summary::-webkit-details-marker{display:none}
+.janus-access-menu[open]>summary{box-shadow:0 0 0 1px rgba(160,181,255,.8),0 0 12px rgba(119,158,255,.28)}
+.janus-access-menu>summary:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
+.janus-access-links{position:absolute;right:0;top:calc(100% + 6px);z-index:100;display:flex;flex-direction:column;gap:5px;padding:10px;min-width:190px;max-width:min(80vw,250px);background:#111726f5;border:1px solid #8f9fca77;border-radius:15px;box-shadow:0 14px 30px #05071280;font:13px/1.3 system-ui}
+.janus-access-links a,.janus-access-links button{display:block;width:100%;padding:10px 12px;border-radius:9px;background:rgba(255,255,255,.065);color:#f0f5ff;text-align:left;text-decoration:none;font:inherit;border:1px solid rgba(167,185,231,.23);cursor:pointer}
+.janus-access-links a:focus-visible,.janus-access-links button:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
+.janus-access-links button[hidden]{display:none}
+.janus-access-status{font:11px/1.35 system-ui;color:#dfe7fb}
+@media(max-width:760px),(max-height:500px){
+  #view .vh{flex-wrap:wrap}
+  #view .vh .janus-header-tools{order:4;margin-left:auto}
+  #view .vh .tabs{order:5;flex:1 1 100%}
+  #dash .hd,#dash .pvh,#dash .a2h{flex-wrap:wrap}
+  #dash .janus-header-tools{margin-left:auto}
+  #dash .a2h .janus-header-tools{order:8;flex:0 0 auto}
+  .janus-access-links{right:0;top:calc(100% + 4px)}
+}
+@media(prefers-reduced-motion:reduce){.janus-access-menu>summary{transition:none}}
