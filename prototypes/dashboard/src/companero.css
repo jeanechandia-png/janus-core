@@ -93,3 +93,9 @@
 .cp-approved-expression span{text-align:center;font:500 11px 'Instrument Sans',sans-serif}
 .cp-approved-expression:hover,.cp-approved-expression:focus-visible{outline:2px solid #ffe1a9;outline-offset:2px}
 @media(max-width:47.5em){.cp-approved-faces{gap:5px}.cp-approved-expression span{font-size:10px}}
+
+/* Visual QA: the approved illustration's caption competed with 'Muéstramelo'
+ * in the 390px viewport; the name and mode already have proper controls. */
+.cpst3.cinematic .cp-cinematic .jp-caption{display:none!important}
+.cpst3.cinematic .cp-edge-tools .cp-edge-btn{background:rgba(16,10,25,.93);border:1px solid rgba(255,219,158,.82);color:#fff0cf;text-shadow:0 1px 2px #000}
+.cpst3.cinematic .cp-edge-tools .cp-edge-btn.on{background:linear-gradient(150deg,rgba(105,64,139,.85),rgba(68,39,84,.94));border-color:#ffe0a4;color:#fff1d4;box-shadow:0 0 12px rgba(248,190,114,.22)}
