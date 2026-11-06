@@ -38,3 +38,12 @@ Después pasar QA de glTF con este repositorio, pruebas E2E de A/B y Safari iPho
 
 ## LECCIÓN PREVENTIVA
 «CI verde» significa que el código funciona, NO que el arte hiperrealista se haya producido ni que exista una imagen GLB final en GitHub. Los manifiestos vacíos no equivalen a modelos. La opción `--require-approved-3d` impide repetir esa confusión.
+
+
+## ACTUALIZACIÓN: proveedor fal habilitado y comprobado (2026-11-06)
+- El usuario conectó **fal** a esta conversación. Se consultó el catálogo para generación 3D: Hunyuan3D v3.1 Pro, Trellis 2 y Tripo H3.1 admiten GLB según esquemas de salida (no acreditan rig ni fidelidad exacta).
+- La comprobación de cuenta autenticada `Jean Echandia` devolvió **`balance_exhausted`**: generación y subida de imágenes bloqueadas hasta disponer de créditos. **No se realizaron cargas ni generaciones de pago. No se intentó cambiar de cuenta.**
+- Recuperación oficial, si se autoriza gasto: https://fal.ai/dashboard/usage-billing/credits?utm_medium=fal_mcp&utm_campaign=balance_exhausted&utm_content=openai#buy-credits
+- **CI VERIFICADA:** commit `881acdd667f9727df07c3a32445eec6d1d338ea0` con Janus Core `success` en https://github.com/jeanechandia-png/janus-core/actions/runs/42260939875 y 3D/E2E `success` en https://github.com/jeanechandia-png/janus-core/actions/runs/42260939883. El primer ensayo de 3D falló por cambio de Ubuntu 26.04 del runner; el workflow se corrigió a Ubuntu 24.04 y pasó. No son pruebas físicas Safari.
+- **0/4 GLB finales** en el repositorio, no fusionar ni publicar como completado. Las cuatro referencias 2D separadas están cargadas en el proyecto InVideo existente, pero ese servicio también rechazó generación por plan gratuito.
+- **Reanudar únicamente cuando exista producción 3D real** vía proveedor ya habilitado con crédito autorizado o máquina local con GPU y motor image-to-3D instalado. Aplicar el control de firma y la revisión visual antes de poblar `REGISTRY.json`.
