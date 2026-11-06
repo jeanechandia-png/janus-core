@@ -1,5 +1,5 @@
 'use strict';
-/* LEGO JANUS Cartoon Voice v1 — voces diferenciadas de las criaturas de Kendra.
+/* LEGO JANUS Cartoon Voice v2 — una sola voz caricaturesca compartida por todas las criaturas.
  * No cambia la voz de Nexo ni la identidad de JANUS CORE.
  * Sin claves ni servicios externos: voz nativa del dispositivo/browser (Web Speech).
  * La calidad y la disponibilidad real dependen de las voces instaladas. "Caricatura"
@@ -13,15 +13,18 @@
  * NO se crean solicitudes de red ni se suben mensajes de Kendra.
  */
 const JanusCartoonVoice = (() => {
+  // Una identidad vocal, con un solo timbre/preset para todas las criaturas.
+  // El texto de muestra cambia por personaje; la voz y los controles no.
+  const SHARED_VOICE = Object.freeze({
+    voiceId: 'cartoon-shared-v1',
+    label: 'Voz caricaturesca compartida',
+    pitch: 1.58, rate: 1.12, volume: 0.94, voiceOffset: 0, lang: 'es-ES'
+  });
   const CARTOON = Object.freeze({
-    lumi: Object.freeze({ label: 'Lumi · voz de hada chispeante', pitch: 1.72, rate: 1.12, volume: 0.92, voiceOffset: 0,
-      sample: '¡Hola, Kendra! ¡Soy tu chispa de aventuras! ¡Tachán!' }),
-    bombo: Object.freeze({ label: 'Bombo · voz burbujeante y saltarina', pitch: 1.44, rate: 1.24, volume: 1, voiceOffset: 1,
-      sample: '¡Bloop bloop! ¡Hola, Kendra! ¡A saltar entre estrellas!' }),
-    musgo: Object.freeze({ label: 'Musgo · voz grave de duendecillo bromista', pitch: 0.77, rate: 0.91, volume: 0.98, voiceOffset: 2,
-      sample: '¡Jummm! ¡Hola, Kendra! ¡En el bosque hay aventuras!' }),
-    nimbo: Object.freeze({ label: 'Nimbo · voz suave de nube soñadora', pitch: 1.27, rate: 0.9, volume: 0.82, voiceOffset: 3,
-      sample: '¡Hola, Kendra! ¡Viajemos entre nubes brillantes!' })
+    lumi: Object.freeze({ sample: '¡Hola, Kendra! ¡Soy tu chispa de aventuras! ¡Tachán!' }),
+    bombo: Object.freeze({ sample: '¡Bloop bloop! ¡Hola, Kendra! ¡A saltar entre estrellas!' }),
+    musgo: Object.freeze({ sample: '¡Jummm! ¡Hola, Kendra! ¡En el bosque hay aventuras!' }),
+    nimbo: Object.freeze({ sample: '¡Hola, Kendra! ¡Viajemos entre nubes brillantes!' })
   });
   const STYLES = Object.freeze({
     caricatura: Object.freeze({ label: 'Caricatura', pitch: 0, rate: 0, volume: 0 }),
@@ -43,11 +46,11 @@ const JanusCartoonVoice = (() => {
       mood === 'sorprendido' ? { pitch: 0.12, rate: 0.09 } :
       mood === 'pensativo' ? { pitch: -0.05, rate: -0.06 } : { pitch: 0, rate: 0 };
     return Object.freeze({
-      id: k, style: s, label: c.label, sample: c.sample,
-      pitch: +clamp(c.pitch + mode.pitch + expression.pitch, 0.6, 1.95).toFixed(2),
-      rate: +clamp(c.rate + mode.rate + expression.rate, 0.7, 1.45).toFixed(2),
-      volume: +clamp(c.volume + mode.volume, 0.55, 1).toFixed(2),
-      voiceOffset: c.voiceOffset, lang: 'es-ES'
+      id: k, style: s, voiceId: SHARED_VOICE.voiceId, label: SHARED_VOICE.label, sample: c.sample,
+      pitch: +clamp(SHARED_VOICE.pitch + mode.pitch + expression.pitch, 0.6, 1.95).toFixed(2),
+      rate: +clamp(SHARED_VOICE.rate + mode.rate + expression.rate, 0.7, 1.45).toFixed(2),
+      volume: +clamp(SHARED_VOICE.volume + mode.volume, 0.55, 1).toFixed(2),
+      voiceOffset: SHARED_VOICE.voiceOffset, lang: SHARED_VOICE.lang
     });
   }
   function engine() {
@@ -76,7 +79,8 @@ const JanusCartoonVoice = (() => {
     const list = local.length ? local : spanish;
     if (!list.length) return null;
     list.sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
-    return list[p.voiceOffset % list.length] || list[0];
+    // Siempre el mismo timbre de voz del dispositivo, independientemente de la especie.
+    return list[0];
   }
   function setAdapter(next) {
     if (next != null && (typeof next.speak !== 'function' || typeof next.stop !== 'function'))
@@ -118,7 +122,7 @@ const JanusCartoonVoice = (() => {
     return speak(p.sample,id,{...o, mood:'alegre', force:true});
   }
   return Object.freeze({
-    profiles:CARTOON, styles:LABELS, profile, supported, speak, preview, stop, setAdapter
+    profiles:CARTOON, sharedVoice:SHARED_VOICE, styles:LABELS, profile, supported, speak, preview, stop, setAdapter
   });
 })();
 window.JanusCartoonVoice=JanusCartoonVoice;
