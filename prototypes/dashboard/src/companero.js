@@ -293,7 +293,7 @@ function tabHablar(p, name) {
     (approvedFaces ? '<div class="cp-approved-faces" aria-label="Expresiones originales aprobadas">' + approvedFaces + '</div>' : '') +
     '<div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
-    '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
+    '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a buscar un adulto de confianza. Los avisos se guardan solo aquí: no se envían a nadie automáticamente.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
 }
 const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Nexo masculino', 'robot-femenino': 'Nexo femenino' };
@@ -315,6 +315,7 @@ function slotPanel() {
 function tabPapa(p, name) {
   const C = compState();
   return slotPanel() + '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos si detecta tristeza, burlas o algo serio.</div>') + '</div>' +
+    '<div class="cpgr"><p class="cpmini mono dim">Avisos locales de este dispositivo. No hay envío a Jean, alarmas automáticas ni seguimiento de emergencias. La sección «Papá» todavía no tiene acceso autenticado: no guardar aquí mensajes privados.</p></div>' +
     '<div class="cpgr"><h4 class="mono">Qué hace y qué no hace</h4><ul class="cpul"><li>Practica con representaciones concretas (fichas, platos, tartas) y pasos cortos con «tu turno».</li><li><b>No sustituye a un profesional</b> (docente, psicopedagogo, terapeuta): sigue las mismas bases que ellos usan.</li><li>Las estrellas premian el esfuerzo, con tope diario; no hay castigos, temporizadores ni dinero real.</li><li>Nunca comenta el cuerpo ni el peso de la niña.</li></ul></div>' +
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
     '<div class="dim mono cpmini">Las voces de las criaturas usan síntesis de voz del navegador y pueden silenciarse; no se activa reconocimiento de voz ni biometría. El código no envía datos a proveedores, aunque algunas voces del sistema operativo podrían necesitar un servicio del fabricante. La versión neuronal propia de alta fidelidad sigue pendiente.</div>';
@@ -472,9 +473,15 @@ const COMP_ACTS = {
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
     const reply = '¡Te escucho, ' + CHILD + '! Cuéntame más, me encanta escucharte.';
-    const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
-    if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));
-    compSave(p); cpSay(t.say.join(' '), t.safety.parentAlert ? 'saluda' : 'habla');
+    // El guard de evidencia infantil rige la acción REAL de envío, no solo las pruebas.
+    // Nunca persistimos la divulgación original ni simulamos mensajes al tutor.
+    const t = window.JanusChildConversation
+      ? JanusChildConversation.respond(msg, () => Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now()))
+      : { say: ['Este modo no puede revisar el mensaje con seguridad. Busca a un adulto de confianza.'], safety: { parentAlert: null } };
+    if (t.safety && t.safety.parentAlert) {
+      C.alerts = JanusChildConversation.appendLocalAlert(C.alerts, t.safety.parentAlert, nowHM());
+    }
+    compSave(p); cpSay(t.say.join(' '), t.safety && t.safety.parentAlert ? 'saluda' : 'habla');
   }
 };
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } else if (ev.target.matches('[data-f="cpNewName"]')) { COMP_ACTS.cpRenameWardrobe(); rerender(); } else if (ev.target.matches('[data-f="cpName"]')) { COMP_ACTS.cpRename(); rerender(); } } });
