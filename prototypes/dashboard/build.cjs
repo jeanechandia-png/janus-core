@@ -34,12 +34,11 @@ const approvedAccessories = [
   ['out:sudadera-estrella','sudadera-estrella'],
   ['out:chaqueta-lujo','chaqueta-lujo'],
   ['acc:cabeza:corona','corona-estelar'],
-  ['acc:cara:gafas','gafas-glam'],
+  ['acc:cara:gafas-redondas','gafas-glam'],
   ['acc:espalda:mochila','mochila'],
-  ['acc:espalda:alas','alas'],
+  ['acc:espalda:alas-hada','alas'],
   ['acc:cuello:bufanda','bufanda'],
-  ['acc:cabeza:gorra','gorra'],
-  ['acc:cabeza:auriculares','auriculares']
+  ['acc:cabeza:gorro','gorra']
 ];
 const approvedImage = (name) => {
   const rel = 'assets/approved/' + name + '.webp';
