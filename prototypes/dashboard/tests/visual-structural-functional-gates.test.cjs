@@ -73,3 +73,26 @@ test('estructural: Nexo sin selectores Masculino/Femenino superpuestos a su retr
   assert.match(avatar,/AV_VARIANTS\.map/,'selector preservado en ajustes');
   assert.doesNotMatch(avatar,/act\('avVariantNext', '', 'Cambiar entre versión masculina/);
 });
+
+
+test('iPhone: escena de Kendra nunca supera los 390px por min-content heredado', () => {
+  const css = read('src/companero.css');
+  assert.ok(css.includes('grid-template-columns:minmax(0,1fr)!important'),
+    'la escena debe encajar sin scroll horizontal del documento');
+  assert.ok(css.includes('.vb-companero>.cpst3'));
+  assert.ok(css.includes('.vb-companero>.cptabs'));
+});
+
+test('coherencia visual: seis pestañas de Kendra y tabs de Jean comparten objetos 3D', () => {
+  const css = read('src/companero.css');
+  const detail = read('src/views.css');
+  assert.match(kid, /KENDRA_ICON_OBJECTS/);
+  for (const key of ['school','sparkles','shopping-cart','sun','mic','lock'])
+    assert.ok(kid.includes("'"+key+"'"), 'falta objeto Gold '+key);
+  assert.ok(kid.includes('kendraTabIcon(t[0])'));
+  assert.ok(kid.includes("gIco('smartphone'"));
+  assert.ok(css.includes('cp-3d-icon'));
+  assert.ok(css.includes('font:700 13px/1.25'), 'etiquetas infantiles legibles');
+  assert.ok(detail.includes('#view .tb2 em') && detail.includes('font:700 12px/1.2'),
+    'etiquetas interiores del Founder legibles');
+});
