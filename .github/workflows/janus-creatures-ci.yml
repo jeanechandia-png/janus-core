@@ -87,6 +87,11 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
           SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
         run: node prototypes/dashboard/tests/edge-mobile-visual.cjs
+      - name: Verify pilot cameras and child safety in A/B browsers
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
+        run: node prototypes/dashboard/tests/e2e-pilot-camera.cjs
       - name: Archive Kendra screenshots for visual review
         if: always()
         uses: actions/upload-artifact@v4
