@@ -9,6 +9,8 @@
 - Auditoría inicial: **32 PR abiertas antes de añadir el cambio de voz #75**; pasan a **33 abiertas** mientras todas permanezcan pendientes. Los recuentos son instantáneas y deben reconsultarse.
 - Verificado: el código visual de Kendra y las criaturas está en ramas del **mismo repositorio**; no está incorporado en el árbol principal en el commit observado. Por tanto, no deben tomarse una página HTML o un render de otra rama como prueba de producción.
 - Documentos `START_HERE.md` y `docs/PROJECT_MAP.md` tienen antecedentes de octubre: el estado principal puede ser anterior al trabajo reciente en PR. No inferir que su último handoff cubre todas las ramas abiertas.
+- **Divergencia documental constatada:** `config/founder-reference-library.json` de la rama base de Kendra #71/#75 tiene **7 registros** (`updatedAt` 2026-10-01), mientras `main` observado tenía **17** (`updatedAt` 2026-10-22). El PR de continuidad añade una política de voz compartida sobre la versión de 17, sin copiar el archivo antiguo. **No sustituir el registro canónico por el de la rama visual.** Antes de fusionar PR de ramas antiguas, comparar el diff real y hacer merge de tres vías verificando que los 17 registros anteriores siguen presentes.
+
 
 ## Ramas que **no** deben fusionarse a ciegas
 ### Pila visual/infantil
