@@ -2,25 +2,25 @@
 /* ===== Router, render y eventos ===== */
 const $root = document.getElementById('app');
 let ROUTE = { v: '', sub: '' };
-function parseHash() { const h = decodeURIComponent((location.hash || '').replace(/^#\/?/, '')); const i = h.indexOf('/'); return i < 0 ? { v: h, sub: '' } : { v: h.slice(0, i), sub: h.slice(i + 1) }; }
+function parseHash() { if (BUILD_PROFILE === 'kendra') return { v: 'companero', sub: '' }; const h = decodeURIComponent((location.hash || '').replace(/^#\/?/, '')); const i = h.indexOf('/'); return i < 0 ? { v: h, sub: '' } : { v: h.slice(0, i), sub: h.slice(i + 1) }; }
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   const skin = skinNow(), phone = isPhone(), isB = skin === 'b';
-  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '');
+  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '') + (BUILD_PROFILE === 'kendra' ? ' kendra-only' : '');
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
   // Important privacy boundary in the mobile view: never show the Founder
   // dashboard underneath Kendra's companion. aria-hidden alone does not hide it.
-  dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
-  dash.style.display = ROUTE.v === 'companero' ? 'none' : 'contents';
-  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
+  dash.innerHTML = BUILD_PROFILE === 'kendra' ? '' : phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
+  dash.style.display = BUILD_PROFILE === 'kendra' || ROUTE.v === 'companero' ? 'none' : 'contents';
+  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = BUILD_PROFILE === 'kendra' ? 'Kendra · JANUS' : 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   // One founder camera entry shared by Obsidiana and Platino; Kendra has
   // her own entry inside the companion (separate, strictly local session).
   const oldCameraLaunch = $root.querySelector('.jpc-launch');
   if (oldCameraLaunch) oldCameraLaunch.remove();
-  if (ROUTE.v !== 'companero') {
+  if (BUILD_PROFILE !== 'kendra' && ROUTE.v !== 'companero') {
     const launch = document.createElement('button');
     launch.type = 'button';
     launch.className = 'jpc-launch';
@@ -41,7 +41,7 @@ function render() {
 }
 function rerender() { render(); }
 function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
-function go(r) { const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
+function go(r) { if (BUILD_PROFILE === 'kendra') r = 'companero'; const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
