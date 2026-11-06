@@ -321,22 +321,32 @@ function tabPapa(p, name) {
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
     '<div class="dim mono cpmini">Las voces de las criaturas usan síntesis de voz del navegador y pueden silenciarse; no se activa reconocimiento de voz ni biometría. El código no envía datos a proveedores, aunque algunas voces del sistema operativo podrían necesitar un servicio del fabricante. La versión neuronal propia de alta fidelidad sigue pendiente.</div>';
 }
+/* Piezas GOLD reutilizadas de la portada A2: mismo material, luz y profundidad. */
+const KENDRA_ICON_OBJECTS = Object.freeze({
+  aprender: 'school', vestidor: 'sparkles', tienda: 'shopping-cart',
+  mundo: 'sun', hablar: 'mic', papa: 'lock'
+});
+function kendraTabIcon(tab) {
+  const key = KENDRA_ICON_OBJECTS[tab];
+  return key ? '<span class="cp-3d-icon" aria-hidden="true">' +
+    gIco(key, 'cp-3d-object') + '</span>' : '';
+}
 function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  // FILTRO VISUAL: esta vista demuestra lecciones con el arte original.
-  // El renderer procedural de la captura NO tiene la identidad ni el acabado 3D aprobados.
-  // Queda preservado como código técnico histórico, pero no se muestra a Kendra como producto final.
-  const edge = false, cinematic = true, scene3d = false;
-  const tools = '<div class="cp-edge-tools"><span class="cp-visual-pending" role="status">Arte original · modelo 3D hiperrealista pendiente de aprobación</span></div>';
+  // Activar la escena WebGL SOLO cuando el modelo 3D real superó el contrato
+  // de JanusCreatureSlot; nunca utilizar muñecos procedurales no aprobados.
+  const scene3d = Boolean(ok3d && window.JanusCreatureSlot?.has?.(C.creatureId));
+  const cinematic = !scene3d, edge = false;
+  const tools = '';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
     (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
-  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>📷 Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
+  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + kendraTabIcon(t[0]) + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>' + gIco('smartphone', 'cp-camera-object') + ' Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3, name);
 }
 VIEWS.companero = vCompanero;
