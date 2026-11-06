@@ -22,10 +22,11 @@ function compState() {
   // Triple filtro: los muñecos procedurales NO son los GLB hiperrealistas aprobados.
   // Nunca migrar silenciosamente preferencias antiguas hacia esos sustitutos.
   if (C.visualPolicyVersion !== '2026-11-06-approved-art-gate') {
-    C.visualMode = 'cinematic';
+    // Migración: portada original por defecto; el modo QA pedido expresamente no se pierde.
+    if (C.userSelectedVisualMode !== true) C.visualMode = 'cinematic';
     C.visualPolicyVersion = '2026-11-06-approved-art-gate';
   }
-  if (C.visualMode !== 'cinematic') C.visualMode = 'cinematic';
+  if (!['3d', 'edge', 'cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
   return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
@@ -362,7 +363,7 @@ function cpRenameCommit(raw) {
 const COMP_ACTS = {
   cpNoop: () => { },
   cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: () => { const C = compState(); C.visualMode = 'cinematic'; COMP_UI.toast = 'El 3D procedural no cumple la aprobación visual. Se mantiene el arte original.'; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; COMP_UI.toast = 'Preferencia QA guardada. Hasta aprobación visual solo se muestra el arte original.'; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
   cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
