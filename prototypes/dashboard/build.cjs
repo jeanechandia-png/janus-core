@@ -39,9 +39,18 @@ const approvedAccessories = [
   ['acc:espalda:alas-hada','alas'],
   ['acc:cuello:bufanda','bufanda']
 ];
+// SHA-256 blocks accidental replacement by visual approximations or older art.
+const approvedHashes = JSON.parse(rd('assets/approved/INDEX.json')).required_assets;
+const crypto = require('node:crypto');
 const approvedImage = (name) => {
   const rel = 'assets/approved/' + name + '.webp';
-  return has(rel) ? 'data:image/webp;base64,' + b64(rel) : null;
+  if (!has(rel)) return null;
+  const bytes = fs.readFileSync(path.join(D, rel));
+  const actual = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (approvedHashes[name + '.webp'] !== actual) {
+    throw new Error('El recurso ' + name + ' NO coincide con el arte aprobado (SHA-256). No se puede empaquetar.');
+  }
+  return 'data:image/webp;base64,' + bytes.toString('base64');
 };
 const APPROVED_ART = {
   version: '2026-11-06',
