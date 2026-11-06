@@ -140,3 +140,10 @@
  #view .vb-companero .cp-approved-grid{width:100%;min-width:0}
  #view .vb-companero .cp-approved-card{min-width:0}
 }
+
+/* Configuración de importación: accesible pero secundaria en la pantalla infantil. */
+.cp-adult-tools{border:1px solid rgba(232,195,122,.4);border-radius:14px;margin:8px 0;background:rgba(24,17,31,.65)}
+.cp-adult-tools>summary{cursor:pointer;padding:12px 14px;font:700 14px/1.35 'Instrument Sans',system-ui,sans-serif;color:#f7e3bf;list-style-position:inside}
+.cp-adult-tools[open]{padding-bottom:12px}
+.cp-adult-tools[open]>.cpgr{margin:10px 12px}
+.cp-adult-tools summary:focus-visible{outline:2px solid #ffe4b4;outline-offset:3px}
