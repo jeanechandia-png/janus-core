@@ -79,6 +79,62 @@ async function verifySkin(br, file, label) {
     await ctx.close();
   }
 }
+
+async function verifyKendraStandalone(br) {
+  const ctx = await br.newContext({
+    viewport:{width:390,height:844},isMobile:true,hasTouch:true,permissions:['camera']
+  });
+  const page = await ctx.newPage();
+  const errors=[];
+  page.on('pageerror',e=>errors.push(String(e)));
+  const pathname='file://'+path.join(root,'dist','Janus-Kendra-Piloto.html');
+  try {
+    // Simulate the same origin and a Founder preference/agenda from a prior visit.
+    // The child profile must not read this state or display Founder modules.
+    await page.goto(pathname);
+    await page.evaluate(() => localStorage.setItem('janus.preview.A.v1',JSON.stringify({
+      settings:{skin:'a',mode:'ejemplo'},localEv:[{t:'CONFIDENCIAL FOUNDER',id:'secret',day:0,h:'17:00'}]
+    })));
+    await page.reload();
+    await page.waitForSelector('#view .cp-pilot-camera button',{timeout:15000});
+    assert.equal(await page.evaluate(()=>BUILD_PROFILE),'kendra');
+    assert.equal(await page.evaluate(()=>STORE_KEY),'janus.preview.kendra.v1');
+    assert.equal(await page.evaluate(()=>ROUTE.v),'companero');
+    assert.equal(await page.locator('.jpc-launch').count(),0,'Founder camera must be absent');
+    assert.equal(await page.locator('#dash').innerText(),'','Founder dashboard must not be rendered');
+    assert.equal(await page.locator('.vh nav.tabs').isVisible(),false,'Founder navigation must be hidden');
+    assert.equal(await page.locator('.vh .back').isVisible(),false,'no jump to Founder dashboard');
+    assert.equal((await page.locator('body').innerText()).includes('CONFIDENCIAL FOUNDER'),false,
+      'private Founder calendar text must never appear');
+    await page.evaluate(()=>{ location.hash='#ingresos'; });
+    await page.waitForTimeout(250);
+    assert.equal(await page.evaluate(()=>ROUTE.v),'companero','cannot navigate to revenue from Kendra profile');
+    assert.equal(await page.locator('#view .cp-pilot-camera button').isVisible(),true);
+    await page.locator('#view .cp-pilot-camera button').click();
+    await page.waitForSelector('.jpc-backdrop');
+    const state=await page.evaluate(()=>JanusPilotCamera.state());
+    assert.equal(state.scope,'kendra');
+    assert.equal(state.localOnly,true);
+    assert.ok(/privada|no se comparte/i.test(await page.locator('.jpc-privacy').textContent()));
+    if (shots) {
+      fs.mkdirSync(shots,{recursive:true});
+      await page.screenshot({path:path.join(shots,'piloto-dashboard-kendra-independiente.png')});
+    }
+    await page.locator('[data-jpc="discard"]').click();
+    assert.equal((await page.evaluate(()=>JanusPilotCamera.state())).active,false);
+    await page.locator('#view [data-act="cpTab"][data-arg="hablar"]').click();
+    await page.locator('#view [data-f="cpMsg"]').fill('Están haciendo bullying en mi clase');
+    await page.locator('#view [data-act="cpSend"]').click();
+    assert.match(await page.locator('#view .cpsay').textContent(),/profesor|Jean|adulto/i);
+    await page.locator('#view [data-act="cpTab"][data-arg="papa"]').click();
+    assert.match(await page.locator('#view .cptc').textContent(),/Acoso o intimidación/);
+    assert.deepEqual(errors,[],'Standalone Kendra: no JavaScript page errors');
+    process.stdout.write('PASS Kendra-only · no Founder UI, own storage, own camera, local child safety\n');
+  } finally {
+    await ctx.close();
+  }
+}
+
 (async () => {
   const br = await chromium.launch({
     ...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{}),
@@ -89,5 +145,6 @@ async function verifySkin(br, file, label) {
   try {
     await verifySkin(br,'Janus-A-Obsidiana-interactivo.html','A-Obsidiana');
     await verifySkin(br,'Janus-B-Platino-interactivo.html','B-Platino');
+    await verifyKendraStandalone(br);
   } finally { await br.close(); }
 })().catch(e=>{console.error(e);process.exitCode=1;});
