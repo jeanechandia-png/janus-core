@@ -154,7 +154,10 @@ function vJanus(M, X, sub) {
   const ig = panel('', '🔌', 'Integraciones', 'verificado hoy: GitHub y Calendar', '<div class="igr">' + J.integ.map((i) => { const st = { GitHub: ['conectado', 'g'], 'Google Workspace': ['Calendar ✔ · Gmail ✕', ''] }[i[0]] || ['por confirmar', '']; return '<div class="igc"><span class="bb s">' + i[1] + '</span><span>' + i[0] + '</span>' + pill(st[0], st[1]) + '</div>'; }).join('') + '</div>');
   const sec = panel('', '🛡', 'Seguridad y memoria', '', '<div class="kv">' + [['💾', 'Memoria', 'SQLite local'], ['☁', 'Respaldo', 'Drive (sync)'], ['🔐', 'Secretos', 'fuera de código'], ['✋', 'Acciones externas', 'requieren aprobación'], ['📜', 'Auditoría', 'activa']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>');
   const ag = panel('', '🐝', 'Agentes', 'esfuerzo AUTO · ejemplo', [['🧭', 'Orquestador', 'activo', 'g'], ['🔎', 'Investigador', 'en espera', ''], ['💻', 'Programador', 'PR #42', ''], ['✅', 'Verificador', 'pruebas OK', 'g'], ['📝', 'Documentador', 'handoff listo', '']].map((a) => '<div class="li2"><span class="bb s">' + a[0] + '</span><span>' + a[1] + '</span>' + pill(a[2], a[3]) + '</div>').join(''));
-  return frame('janus', sub, M, '<div class="col3">' + log + ag + '</div><div class="col3">' + pr + ap + '</div><div class="col3">' + ig + sec + '</div>');
+  const cam = panel('', '📷', 'Cámara local', 'permiso explícito',
+    '<div class="dim mono cpmini">Solo vista previa en este dispositivo. No graba, no envía imágenes y no realiza reconocimiento facial.</div>' +
+    '<span class="btn" role="button" tabindex="0"' + act('localCameraOpen', '', 'Activar vista previa de cámara') + '>📷 Abrir cámara</span>');
+  return frame('janus', sub, M, '<div class="col3">' + log + ag + '</div><div class="col3">' + pr + ap + '</div><div class="col3">' + ig + sec + cam + '</div>');
 }
 
 /* ---------- INGRESOS ---------- */
