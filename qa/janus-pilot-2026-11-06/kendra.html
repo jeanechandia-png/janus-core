@@ -568,6 +568,17 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
  #view .cd .tm{font-size:0.75rem;font-weight:650}
  #view .cd .note{font-size:0.8125rem;line-height:1.45}
 }
+
+
+/* Filtro legibilidad: el texto se mide a escala de iPhone, no de escritorio. */
+@media(max-width:47.5em){
+ #view .vh h1{font:750 1.375rem/1.22 'Instrument Sans',system-ui,sans-serif;color:#fff0ce}
+ #view .lb{font:750 0.9375rem/1.35 'Instrument Sans',system-ui,sans-serif!important;letter-spacing:0;color:#ffedca}
+ #view .cd .pb,#view .cd .dim,#view .cd .mono,#view .cd small{font-size:0.8438rem!important;font-weight:600;line-height:1.45;color:#f1e6d1}
+ #view .tabs .tb2 em{font:750 0.8125rem/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d7;letter-spacing:0}
+ #view .cd .btn2,#view .cd .btn,#view .cd .seg span{font-size:0.875rem;font-weight:700;line-height:1.3}
+ #view .janus-icon-art .janus-icon-3d{width:1.875rem;min-width:1.5rem;height:1.875rem;object-fit:contain}
+}
 /* ===== Capa 3D y tipografía de alta definición (Obsidiana) ===== */
 /* Tipografía nítida: suavizado, kerning, cifras tabulares y pesos firmes */
 .a{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:geometricPrecision;font-kerning:normal;font-feature-settings:"kern" 1,"liga" 1}
@@ -1348,6 +1359,18 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .cp-adult-tools[open]{padding-bottom:0.75rem}
 .cp-adult-tools[open]>.cpgr{margin:0.625rem 0.75rem}
 .cp-adult-tools summary:focus-visible{outline:0.125rem solid #ffe4b4;outline-offset:0.1875rem}
+
+
+/* La niña nunca necesita descifrar texto de 0.5625rem en iPhone. */
+@media(max-width:47.5em){
+ #view .vb-companero .cptab em{font:750 0.8125rem/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#ffeed1!important;letter-spacing:0}
+ #view .vb-companero .cpgr h4{font:750 0.9375rem/1.3 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d0}
+ #view .vb-companero .cpmini,#view .vb-companero .dim,#view .vb-companero .cpstory{font-size:0.875rem!important;font-weight:600;line-height:1.5;color:#f1e5cf}
+ #view .vb-companero .cp-approved-card b,#view .vb-companero .cp-approved-expression span{font-size:0.8125rem!important;font-weight:750}
+ #view .vb-companero .cpc em,#view .vb-companero .cpc b{font-size:0.75rem!important;font-weight:700}
+ #view .vb-companero .cptc .btn2,#view .vb-companero .cptc .btn{font-size:0.875rem!important;font-weight:750}
+ #view .vb-companero .janus-icon-art .janus-icon-3d{width:1.625rem;height:1.625rem;vertical-align:middle}
+}
 /* ===== Compañero 3D · capa de controles sobre el escenario =====
  * El escenario es SIEMPRE una escena nocturna oscura, sea cual sea la piel. Por eso esta hoja NO va en A_FILES de build.cjs:
  * la piel B traduce los colores de A (negro → cristal claro) y dejaría texto azul oscuro sobre el 3D (contraste 1,1–1,8:1, lo cazó tests/skin.cjs).
@@ -1564,6 +1587,20 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
  .pa2 .a2sb .btn2{min-height:2.625rem;font-weight:700;font-size:0.8125rem}
  .pa2 .a2sala .a2say{font-size:0.875rem;line-height:1.5}
  .pa2 .a2m{font-size:0.8125rem;line-height:1.45}
+}
+
+
+/* Sala del Founder: micrófono de OBJETO 3D cuando Nexo aprobado aún no
+   tiene GLB; no mostrar nunca el robot genérico GOLD.o.bot. */
+.a2bot.a2bot--voice{display:grid!important;place-items:center;overflow:hidden;min-width:0;filter:none!important;cursor:default}
+.a2bot--voice .a2bot-voice-icon{width:min(100%,clamp(6.875rem,34vw,13.125rem));height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 0.5rem 0.875rem #0008)}
+@media(max-width:47.5em){
+ .pa2 .a2t span{font:750 0.9375rem/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d5!important;letter-spacing:.015em}
+ .pa2 .a2r .tx,.pa2 .a2pj .tx,.pa2 .a2pj small,.pa2 .a2say span{font-size:0.875rem!important;line-height:1.5!important;font-weight:600;color:#fff0df!important}
+ .pa2 .a2t em,.pa2 .a2dr small,.pa2 .a2wxm small{font-size:0.75rem!important;font-weight:700;color:#efe1cb!important}
+ .pa2 .a2m,.pa2 .a2th,.pa2 .a2h .dt{font-size:0.875rem;line-height:1.5;color:#ffebc9}
+ .pa2 .a2btn,.pa2 .a2sb .btn2,.pa2 .a2in textarea{font-size:0.875rem!important;font-weight:600}
+ .pa2 .a2i{image-rendering:auto;filter:drop-shadow(0 0.1875rem 0.3125rem #000b)}
 }
 /* LEGO janus-3d: contenedores 3D y botón de enviar hiperrealista */
 [data-3d]{position:relative;cursor:grab;touch-action:pan-y;-webkit-tap-highlight-color:transparent}
@@ -1962,6 +1999,10 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 @media(max-width:47.5em){.stage.b #view .tb2 em{color:#0a3bc2;text-shadow:0 0.0625rem 0.0625rem rgba(255,255,255,.8)}
 .stage.b #view .lb{color:#0a3bc2}
 .stage.b #view .cd .dim,.stage.b #view .cd .mono,.stage.b #view .cd small{color:#0e1a33}}
+@media(max-width:47.5em){.stage.b #view .vh h1{color:#0a3bc2}
+.stage.b #view .lb{color:#0a3bc2}
+.stage.b #view .cd .pb,.stage.b #view .cd .dim,.stage.b #view .cd .mono,.stage.b #view .cd small{color:#0e1a33}
+.stage.b #view .tabs .tb2 em{color:#0e1a33}}
 .stage.b .mono{font-weight:500;font-variant-numeric:tabular-nums slashed-zero;font-feature-settings:"zero" 1,"tnum" 1}
 .stage.b .serif{font-weight:700;font-variant-numeric:lining-nums;letter-spacing:-.005em}
 .stage.b .lb{font-weight:600;color:#0a3bc2;text-shadow:0 0.0625rem 0 rgba(255,255,255,.8)}
@@ -2182,6 +2223,9 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 .stage.b .cp-adult-tools{border:0.0625rem solid rgba(74,120,245,0.4);background:rgba(30,50,110,0.195)}
 .stage.b .cp-adult-tools>summary{color:#0a3bc2}
 .stage.b .cp-adult-tools summary:focus-visible{outline:0.125rem solid #8ca9f9}
+@media(max-width:47.5em){.stage.b #view .vb-companero .cptab em{color:#0a3bc2!important}
+.stage.b #view .vb-companero .cpgr h4{color:#0a3bc2}
+.stage.b #view .vb-companero .cpmini,.stage.b #view .vb-companero .dim,.stage.b #view .vb-companero .cpstory{color:#0e1a33}}
 @media (max-width:47.5em),(max-height:31.25em){.stage.b:has(.pa2){background:transparent!important;padding:0.625rem 0.75rem calc(1.125rem + env(safe-area-inset-bottom,0rem))!important}
 .stage.b .pa2{color:#0e1a33}
 .stage.b .a2c{border:0.0625rem solid rgba(124,157,248,0.55);background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.556));box-shadow:0 1.5rem 2.5rem -1.5rem rgba(30,50,110,0.4),inset 0 0.0625rem 0 rgba(255,255,255,0.875),inset 0 -0.0625rem 0 rgba(30,50,110,0.14)}
@@ -2271,6 +2315,10 @@ img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(
 @media(max-width:47.5em){.stage.b .pa2 .a2t span{color:#0a3bc2}
 .stage.b .pa2 .a2r .tx,.stage.b .pa2 .a2pj .tx,.stage.b .pa2 .a2pj small{color:#0e1a33}
 .stage.b .pa2 .a2t em,.stage.b .pa2 .a2dr small,.stage.b .pa2 .a2wxm small{color:#0e1a33}}
+@media(max-width:47.5em){.stage.b .pa2 .a2t span{color:#0e1a33!important}
+.stage.b .pa2 .a2r .tx,.stage.b .pa2 .a2pj .tx,.stage.b .pa2 .a2pj small,.stage.b .pa2 .a2say span{color:#0e1a33!important}
+.stage.b .pa2 .a2t em,.stage.b .pa2 .a2dr small,.stage.b .pa2 .a2wxm small{color:#0e1a33!important}
+.stage.b .pa2 .a2m,.stage.b .pa2 .a2th,.stage.b .pa2 .a2h .dt{color:#0a3bc2}}
 .stage.b .gsend{background:radial-gradient(circle at 34% 28%,#f4f7fd 0 8%,#7799f8 18%,#1a54f3 42%,#0932a2 72%,#041951 100%);box-shadow:inset 0 0.125rem 0.125rem #ffffff,inset 0 -0.375rem 0.5625rem rgba(30,50,110,0.262),0 0 0 0.0938rem rgba(30,50,110,0.4),0 0 0 0.1875rem rgba(108,145,247,0.45),0 0.625rem 1rem -0.375rem rgba(30,50,110,0.4),0 0 1.125rem -0.25rem rgba(83,127,246,0.6)}
 .stage.b .gsend svg{filter:drop-shadow(0 0.0625rem 0 rgba(157,182,250,0.6))}
 .stage.b .gsend::before{background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,0.92) 50%,transparent 65%);background-size:250% 100%}
@@ -2722,6 +2770,14 @@ background:radial-gradient(50rem 28.75rem at 0% 0%,rgba(47,107,255,.22),transpar
   .jnexo-variants{top:0.4375rem;max-width:calc(100% - 0.625rem)}
   .jnexo-variant-btn{padding:0.3125rem 0.5625rem;font-size:0.625rem}
 }
+
+
+/* Contrato Nexo: mostrar solo el modelo aprobado o la interfaz de voz.
+ * Nunca dibujar un robot procedural, cabeza aislada, ojos ni boca flotante. */
+.jnexo .jnexo-voice-standby{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.25rem;background:radial-gradient(ellipse at 50% 42%,#3a2d1b55,#0d0e17 70%);color:#f9e6bf;text-align:center}
+.jnexo .jnexo-voice-icon{display:block;width:clamp(2.375rem,12vw,5.75rem);height:clamp(2.375rem,12vw,5.75rem);object-fit:contain;filter:drop-shadow(0 0.25rem 0.9375rem #e7bb6778)}
+.jnexo .jnexo-voice-standby strong{font:750 clamp(0.8125rem,3.8vw,1.375rem)/1.1 'Instrument Sans',system-ui,sans-serif;letter-spacing:.08em}
+.jnexo .j3d-no-approved-robot{display:none!important}
 
 /* LEGO Kendra Edge Companion — modelo Three.js transparente sobre el margen del viewport.
  * No interfiere con formulario/teclado: solo el canvas acepta gestos.
@@ -3894,16 +3950,39 @@ function detailIcon(glyph, route) {
  return '<span class="janus-icon-art" aria-hidden="true">' + gIco(id,'janus-icon-3d') + '</span>';
 }
 function hydrateDetailIcons(root) {
- const view=(root||document).querySelector('#view');
- if (!view || view.hidden) return;
- view.querySelectorAll('.bb').forEach(node=>{
-  if (node.querySelector('img,svg,.janus-icon-art')) return;
-  const raw=node.textContent.trim();
-  const id=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]);
-  if (!id || !(GOLD.o[id]||GOLD.i[id])) return;
-  node.setAttribute('aria-label',raw);
-  node.innerHTML=detailIcon(raw);
- });
+  const view=(root||document).querySelector('#view');
+  if(!view || view.hidden) return;
+  // Triple filtro: emojis y dibujos planos nunca ocupan el lugar de un objeto
+  // fotométrico Gold.o. No se transforman los datos, nombres ni textos del usuario.
+  const glyphs={
+    '📚':'school','🎓':'school','🏫':'school','👗':'shopping-cart',
+    '🛒':'shopping-cart','🏬':'shopping-cart','⭐':'sparkles','🌟':'sparkles','✨':'sparkles',
+    '📷':'eye','📸':'eye','📹':'eye','💬':'mic','💭':'mic',
+    '🏠':'sun','🏡':'sun','🔒':'lock','🔐':'lock','👨':'lock',
+    '🚦':'target','🪄':'sparkles','🎁':'shopping-cart','🏆':'target',
+    '🎮':'settings','🧩':'settings','⚙':'settings','📦':'folder',
+    '⏱':'calendar-days','📅':'calendar-days','🔍':'eye',
+    '🎨':'sparkles','🎤':'mic','🔊':'mic','👑':'sparkles','🧥':'shopping-cart',
+    '🚗':'bike','🚲':'bike','✈':'plane','🏷':'tag','❤️':'heart','❤':'heart'
+  };
+  // Icon-only containers, plus specifically labelled in-product actions.
+  view.querySelectorAll('.bb,.cpc i,.cpgr h4,.cpbtns .btn2,.cptc .pill2,.cplights .btn2,.cp-pilot-camera button').forEach(node=>{
+    if(node.querySelector('img,svg,.janus-icon-art,.cp-3d-icon,input,canvas'))return;
+    const raw=node.textContent.trim();
+    const exact=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]) || glyphs[raw];
+    if(exact){
+      node.setAttribute('aria-label',raw);
+      node.innerHTML='<span class="janus-icon-art" aria-hidden="true">'+gIco(exact,'janus-icon-3d')+'</span>';
+      return;
+    }
+    const first=node.firstChild;
+    if(!first || first.nodeType!==3)return;
+    const m=/^\s*([\p{Extended_Pictographic}\uFE0F\u200D]+)\s*/u.exec(first.textContent);
+    if(!m)return;
+    const key=glyphs[m[1]] || (typeof EMO2ICO!=='undefined' && EMO2ICO[m[1]]) || 'sparkles';
+    first.textContent=first.textContent.slice(m[0].length);
+    node.insertAdjacentHTML('afterbegin','<span class="janus-icon-art" aria-hidden="true">'+gIco(key,'janus-icon-3d')+'</span>');
+  });
 }
 const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
 const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
@@ -7240,19 +7319,21 @@ const JanusPresence = (() => {
   const source = (id) => (window.JanusOriginalArt && window.JanusOriginalArt.creature(normalize(id))) || (typeof APPROVED_ART !== 'undefined' && APPROVED_ART.creatures?.[normalize(id)]) || IMG[SPECIES[normalize(id)].image];
   function renderNexo(compact) {
     // Nexo 02 es el protagonista del Founder, en dos versiones de la MISMA IA.
-    // GLB importado si existe; en otro caso se monta el rig procedural de plata.
+    // FILTRO VISUAL: solo el GLB de Nexo validado puede activar WebGL.
+    // El robot procedural anterior (caras/ojos/boca flotantes) queda histórico, invisible.
     const variant = ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
     const size = compact ? 'jpresence--mini' : 'jpresence--hero';
     const id = compact ? 'nexo-dashboard' : 'nexo-sala';
     // La variante es una preferencia de configuración, no un titular ni un botón sobre el robot.
     // El selector real sigue disponible dentro de Personalizar Nexo (src/avatar.js).
-    const controls = '';
+    const slotId = variant === 'femenino' ? 'robot-femenino' : 'robot';
+    const approved3d = !!(window.JanusCreatureSlot?.has?.(slotId));
+    const display = approved3d
+      ? '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" aria-label="Nexo 02 aprobado"></div>'
+      : '<div class="jnexo-voice-standby" role="status" aria-label="Janus: asistente de voz">' +
+        (typeof gIco === 'function' ? gIco('mic', 'jnexo-voice-icon') : '') + '<strong>JANUS</strong></div>';
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
-      '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
-      'aria-label="Nexo 02, robot de Janus, versión ' + variant + '">' +
-      '<div class="jnexo-fallback" aria-hidden="true"><b>NEXO 02</b></div></div>' +
-      controls +
-      '<figcaption class="jp-caption"><b>Nexo 02</b>' +
+      display + '<figcaption class="jp-caption"><b>Nexo 02</b>' +
       (compact ? '' : '<span>JANUS · asistente operativo</span>') +
       '</figcaption></figure>';
   }
@@ -7311,7 +7392,8 @@ const AV_MOODS = [['alegre','Alegre'],['contento','Contento'],['triste','Triste'
 const AV_EYES = [['#347DB8','Azul Nexo'],['#8EC8FF','Azul claro'],['#59E4D4','Turquesa'],['#FFD36A','Dorado'],['#FF8FB6','Rosa'],['#B79CFF','Lila']];
 const AV_VARIANTS = [['masculino', 'Masculino'], ['femenino', 'Femenino']];
 const avVariant = () => ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
-const avForm = () => AV_FORMS.some(x => x[0] === ST.settings.form) ? ST.settings.form : 'robot';
+// 'cabeza' y 'cara' provocaban ojos/boca flotantes; quedan solo en el código histórico.
+const avForm = () => 'robot';
 const avFormName = f => (AV_FORMS.find(x=>x[0]===f)||['robot','Robot completo'])[1];
 function avatarSync() {
   const J=window.Janus3D; if (!J || !J.setForm) return;
@@ -7345,7 +7427,7 @@ function avatarPanel() {
     AV_VARIANTS.map(x=>chip('avVariant',x[0],x[1],v===x[0])).join('') + '</div>' +
     '<p class="avn mono dim">Ambas versiones son Janus: misma memoria, acceso, tareas y decisiones. Solo cambia la apariencia del cuerpo.</p>' +
     '<div class="avh mono">Vista del robot</div><div class="avr">' +
-    AV_FORMS.map(x=>chip('avForm',x[0],x[1],cur===x[0])).join('') + '</div>' +
+    AV_FORMS.filter(x=>x[0]==='robot').map(x=>chip('avForm',x[0],x[1],cur===x[0])).join('') + '</div>' +
     '<div class="avh mono">Expresiones</div><div class="avr">' +
     AV_MOODS.map(x=>chip('avMood',x[0],x[1],mood===x[0])).join('') + '</div>' +
     '<div class="avh mono">Color de ojos</div><div class="avr">' +
@@ -7367,7 +7449,7 @@ const avOpen=()=>AV_UI.open===null?(typeof isPhone==='function'?isPhone():window
 const AV_ACTS={
   avToggle:()=>{AV_UI.open=!avOpen();if(typeof rerender==='function')rerender();},
   avForm:(f)=>{
-    if(!AV_FORMS.some(x=>x[0]===f))return;
+    if(f!=='robot')return;
     ST.settings.form=f;saveState();avatarSync();
     if(window.Janus3D)Janus3D.react(2.4,'alegre');
   },
@@ -11973,6 +12055,14 @@ const Janus3D = (() => {
   function hydrate(root) {
     (root || document).querySelectorAll('[data-3d]').forEach((host) => {
       const kind = host.getAttribute('data-3d'), id = host.getAttribute('data-id') || kind;
+      // Protección global: no permitir la cara procedural, ojos ni boca flotantes.
+      // Únicamente un GLB de Nexo validado puede crear un robot en el DOM.
+      const slotId = (typeof ST !== 'undefined' && ST.settings?.nexoVariant === 'femenino') ? 'robot-femenino' : 'robot';
+      if (kind === 'bot' && !window.JanusCreatureSlot?.has?.(slotId)) {
+        host.classList.add('j3d-no-approved-robot');
+        host.querySelectorAll('canvas.j3d-cv,.j3d-fb,.a2morph').forEach(n => n.remove());
+        return;
+      }
       let o = inst[id];
       if (!o) { try { o = inst[id] = create(kind, host); } catch (e) { host.classList.add('j3d-off'); if (host.getAttribute('data-tapact')) host.setAttribute('data-act', host.getAttribute('data-tapact')); if (host.getAttribute('data-tap')) host.setAttribute('data-go', host.getAttribute('data-tap').replace(/^#/, '')); return; } }
       o.host = host; if (kind === 'bot') host.setAttribute('data-form', o.formKey);
@@ -14606,13 +14696,19 @@ window.JanusEdgeCompanion = JanusEdgeCompanion;
  * Escritorio/tablet NO se tocan: este renderer solo se usa en el breakpoint de teléfono.
  */
 // Icono: primero el OBJETO 3D hiperrealista (GOLD.o); si no existe, la moneda acuñada (GOLD.i).
-const gIco = (n, cls) => GOLD.o[n] ? '<img class="a2i o ' + (cls || '') + '" src="' + GOLD.o[n] + '" alt="">' : GOLD.i[n] ? '<img class="a2i ' + (cls || '') + '" src="' + GOLD.i[n] + '" alt="">' : '';
+// Objeto PBR/WebP de referencia en TODAS las pantallas: nunca sustituir
+// un objeto 3D por la moneda plana GOLD.i ni por un emoji en interiores.
+const THREE_D_ICON_ALIASES = Object.freeze({ smartphone: 'eye', 'cloud-sun': 'sun', 'cloud-rain': 'umbrella', apple: 'heart', 'ferris-wheel': 'sparkles' });
+const gIco = (n, cls) => {
+  const key = GOLD.o[n] ? n : (THREE_D_ICON_ALIASES[n] || 'sparkles');
+  return '<img class="a2i o ' + (cls || '') + '" src="' + GOLD.o[key] + '" alt="" aria-hidden="true" loading="eager" decoding="async">';
+};
 function gNum(str, cls) {
   const s = String(str).replace(/-/g, '−');
   return '<span class="a2n ' + (cls || '') + '" aria-label="' + esc(String(str)) + '">' + [...s].map((ch) => GOLD.g[ch] ? '<img src="' + GOLD.g[ch] + '" alt="">' : ch === ' ' ? '<i class="sp"></i>' : '<b>' + esc(ch) + '</b>').join('') + '</span>';
 }
 const EMO2ICO = { '🎓': 'school', '📚': 'school', '🏫': 'school', '☔': 'umbrella', '🌂': 'umbrella', '🤖': 'bot', '⚙': 'settings', '⚙️': 'settings', '🏋': 'dumbbell', '🏋️': 'dumbbell', '💪': 'dumbbell', '🤸': 'dumbbell', '🩺': 'stethoscope', '🎬': 'clapperboard', '📧': 'mail', '✉': 'mail', '🤝': 'handshake', '📁': 'folder', '🌐': 'sun', '💶': 'euro', '❤': 'heart', '🎯': 'target', '🚴': 'bike', '✈': 'plane', '🛒': 'shopping-cart', '📱': 'smartphone', '⏱': 'calendar-days', '🗓': 'calendar-days', '🧩': 'settings', '🏠': 'sun', '📥': 'inbox', '👁': 'eye', '🌟': 'sparkles', '🔐': 'lock', '🏷': 'tag', '🎙': 'mic', '🏢': 'folder' };
-const eIco = (e) => EMO2ICO[e] ? gIco(EMO2ICO[e], 'r') : '<span class="a2e">' + e + '</span>';
+const eIco = (e) => gIco(EMO2ICO[e] || 'sparkles', 'r');
 const a2card = (route, icon, title, meta, body, cls) => '<section class="a2c ' + (cls || '') + '"><div class="a2t go"' + goAttr(route, title) + '>' + gIco(icon, 'c') + '<span>' + title + '</span><em>' + (meta || '') + '</em></div>' + body + '</section>';
 const a2row = (time, icon, txt, right, cls, route) => '<div class="a2r ' + (cls || '') + (route ? ' go"' + goAttr(route, txt.replace(/<[^>]+>/g, '')) : '"') + '><span class="tm">' + time + '</span>' + (icon || '') + '<span class="tx">' + txt + '</span>' + (right || '') + '</div>';
 const a2spark = (arr, col) => '<svg class="a2sp" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true"><path d="' + spk(arr, 100, 28) + '" fill="none" stroke="' + (col || '#F2C46A') + '" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -14622,14 +14718,21 @@ const a2spark = (arr, col) => '<svg class="a2sp" viewBox="0 0 100 28" preserveAs
 function renderPhoneA2(M, X) {
   const D = pvData(M, X), raw = M.raw, d0 = raw.daily[M.nowDay] || raw.daily[0], d1 = raw.daily[M.nowDay + 1] || d0;
   const wxMini = '<div class="a2wxm go"' + goAttr('clima', 'Clima 15 días') + '><span class="d"><small>HOY</small><img src="' + wxImg(M.nowE.k) + '" alt="">' + gNum(M.nowE.t + '°', 'w') + '</span><span class="d"><small>MAÑ</small><img src="' + wxImg(d1.k) + '" alt="">' + gNum(d1.tmax + '°', 'w') + '</span></div>';
-  const head = '<header class="a2c a2h"><img class="a2md go" src="' + IMG.medal + '" alt=""' + goAttr('datos', 'Datos') + '><div class="a2b"><img class="wm3" src="' + GOLD.wm + '" alt="JANUS"><div class="dt">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div><span class="a2sk mono"' + act('skin', skinNow() === 'b' ? 'a' : 'b', skinNow() === 'b' ? 'Cambiar a la piel A Obsidiana' : 'Cambiar a la piel B Platino') + '><i' + (skinNow() === 'a' ? ' class="on"' : '') + '>A</i><i' + (skinNow() === 'b' ? ' class="on"' : '') + '>B</i></span><span class="a2hl go"' + goAttr('janus', 'Janus') + '>' + gIco('bot') + '</span></header>' +
+  const head = '<header class="a2c a2h"><img class="a2md go" src="' + IMG.medal + '" alt=""' + goAttr('datos', 'Datos') + '><div class="a2b"><img class="wm3" src="' + GOLD.wm + '" alt="JANUS"><div class="dt">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div><span class="a2sk mono"' + act('skin', skinNow() === 'b' ? 'a' : 'b', skinNow() === 'b' ? 'Cambiar a la piel A Obsidiana' : 'Cambiar a la piel B Platino') + '><i' + (skinNow() === 'a' ? ' class="on"' : '') + '>A</i><i' + (skinNow() === 'b' ? ' class="on"' : '') + '>B</i></span><span class="a2hl go"' + goAttr('janus', 'Janus') + '>' + gIco('mic') + '</span></header>' +
     '<div class="a2hs"><span class="go"' + goAttr('correo', 'Correo') + '>' + gIco('mail') + '<b>' + X.mailsOpen.length + '</b><small>correo</small></span><span class="go"' + goAttr('ofertas', 'Ofertas') + '>' + gIco('tag') + '<b>' + OF.digest.alerts.length + '</b><small>ofertas</small></span><span class="go"' + goAttr('janus/aprob', 'Aprobaciones') + '>' + gIco('lock') + '<b>' + X.apprOpen.length + '</b><small>aprobar</small></span><span class="go ' + (M.ida.verdict === 'g' ? 'ok' : 'wa') + '"' + goAttr('clima/ida', 'Bici') + '>' + gIco('bike') + '<b>' + (M.ida.verdict === 'g' ? '✔' : '!') + '</b><small>bici</small></span></div>';
   // Sala: micrófono de Janus (estilo Melanie) protagonista + chat en el propio dashboard
   const P = projById(UI.pSel), thread = chatsOf(UI.pSel).slice(-2);
   const B = janusBriefing(M, X);
-  const sala = '<section class="a2c a2sala" data-js="' + UI.js + '"><div class="a2bot" data-3d="bot" data-id="bot-dash" data-tap="#trabajo/' + UI.pSel + '" role="button" aria-label="Abrir la Sala de Janus"><img class="j3d-fb" src="' + GOLD.o.bot + '" alt=""><span class="a2morph"' + act('avNext', '', 'Transformar a Janus (robot, cabeza, cara o criatura)') + '>' + gIco('sparkles') + '</span></div>' +
+  // Hero aprobado: el Nexo procedural y sus ojos/boca flotantes no se muestran.
+  // Con GLB validado se recupera el personaje tridimensional integrado.
+  const nexoId = ST.settings.nexoVariant === 'femenino' ? 'robot-femenino' : 'robot';
+  const nexoApproved = !!window.JanusCreatureSlot?.has?.(nexoId);
+  const nexoPresence = nexoApproved
+    ? '<div class="a2bot" data-3d="bot" data-id="bot-dash" data-tap="#trabajo/' + UI.pSel + '" role="button" aria-label="Abrir Sala de Janus y Nexo 3D"></div>'
+    : '<div class="a2bot a2bot--voice" role="presentation">' + gIco('mic', 'a2bot-voice-icon') + '</div>';
+  const sala = '<section class="a2c a2sala" data-js="' + UI.js + '">' + nexoPresence +
     '<div class="a2say"><b class="serif">' + esc(B.greet) + '</b><span>' + esc(B.lines[0] || '') + '</span><div class="a2sb"><span class="btn2 mono"' + act('brief', '', 'Escuchar resumen') + '>' + gIco('mic') + 'Resumen</span><span class="btn2 mono go"' + goAttr('trabajo/' + UI.pSel, 'Sala') + '>' + gIco('folder') + 'Sala · ' + esc(P.s || P.n) + '</span></div></div>' +
-    '<div class="a2th">' + (thread.length ? thread.map((m) => '<div class="a2m ' + m.who + '">' + attMsg(m) + esc(m.t) + '</div>').join('') : '<div class="a2m ja">Toca al robot para abrir la Sala, o háblame con el micrófono.</div>') + (UI.js !== 'listo' && UI.js !== 'escuchando' ? '<div class="a2m ja typing"><i></i><i></i><i></i></div>' : '') + '</div>' +
+    '<div class="a2th">' + (thread.length ? thread.map((m) => '<div class="a2m ' + m.who + '">' + attMsg(m) + esc(m.t) + '</div>').join('') : '<div class="a2m ja">Entra en la Sala o háblame con el micrófono.</div>') + (UI.js !== 'listo' && UI.js !== 'escuchando' ? '<div class="a2m ja typing"><i></i><i></i><i></i></div>' : '') + '</div>' +
     '<div class="a2inw">' + attChips() + '<div class="a2in">' + attBtn('p') + '<textarea data-f="msg" rows="1" maxlength="2000" placeholder="' + (UI.listening ? 'Te escucho… habla' : 'Escribe a Janus…') + '" aria-label="Mensaje para Janus">' + esc(UI.draft) + '</textarea>' +
     '<span class="a2micb' + (UI.listening ? ' on' : '') + '"' + act('mic', '', UI.listening ? 'Detener dictado' : 'Hablar') + '><img src="' + GOLD.o.mic + '" alt=""><i></i><i></i></span>' +
     '<span class="gsend"' + act('send', '', 'Enviar') + '><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="gsa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2408"/><stop offset="1" stop-color="#140b02"/></linearGradient></defs><path d="M20 12 5 5l4 7-4 7Z" fill="url(#gsa)" stroke="#FFF3C4" stroke-width=".6" stroke-linejoin="round"/></svg></span></div></div>' + (UI.micMsg ? '<div class="note mono">' + esc(UI.micMsg) + '</div>' : '') + '</section>';
@@ -15125,12 +15228,12 @@ function render() {
     launch.setAttribute('data-act', 'pilotCamera');
     launch.setAttribute('data-arg', 'founder');
     launch.setAttribute('aria-label', 'Abrir cámara local de JANUS');
-    launch.textContent = '📷 Cámara';
+    launch.innerHTML = gIco('eye', 'janus-camera-3d') + '<span>Cámara</span>';
     $root.appendChild(launch);
   }
   decorate(ROUTE.v || '');
   // A/B usan los mismos WebP Gold 3D también en vistas interiores y paneles heredados.
-  if (BUILD_PROFILE !== 'kendra' && typeof hydrateDetailIcons === 'function') hydrateDetailIcons(document);
+  if (typeof hydrateDetailIcons === 'function') hydrateDetailIcons(document);
   if (typeof avatarSync === 'function') avatarSync();
   if (window.JanusPresence) JanusPresence.hydrate(document);
   // El avatar de la cuenta Founder es Nexo, no una de las cuatro criaturas de Kendra.
