@@ -101,8 +101,9 @@ test('Kendra usa el arte aprobado y el módulo de margen permanece histórico; F
   const companion=fs.readFileSync(path.join(__dirname,'../src/companero.js'),'utf8');
   const presence=fs.readFileSync(path.join(__dirname,'../lego/janus-presence/janus-presence.js'),'utf8');
   const build=fs.readFileSync(path.join(__dirname,'../build.cjs'),'utf8');
-  assert.match(companion,/const edge = false, cinematic = true, scene3d = false/,
-    'ninguna malla procedural sustituye la identidad visual aprobada');
+  assert.match(companion,/const scene3d = Boolean\(ok3d && window\.JanusCreatureSlot\?\.has\?\.\(C\.creatureId\)\)/,
+    'solo un GLB real validado activa la escena tridimensional');
+  assert.match(companion,/const cinematic = !scene3d, edge = false/);
   assert.match(companion,/JanusPresence\.render\('kendra', false, C\.creatureId\)/);
   assert.match(companion,/JanusEdgeCompanion\.sync/,'conservar el código existente para pruebas y recuperación');
   assert.match(companion,/cpEdgeRoam/);assert.match(companion,/cpEdgeSide/);
