@@ -1,11 +1,17 @@
 # START HERE — Janus
 
-Last verified: 2026-10-21
+Last repository baseline verified: main 7ddfe245f15ec53438c2db98dbb7b137420ebcf9 (2026-11-06 audit; subsequent commits require revalidation)
 Owner: InfinitySeed Group
 Canonical operating identity: `jean.echandia@gmail.com`
 
+## Checkout security gate (2026-11-06)
+
+Before any code change, run `npm run continuity:guard` on a named working branch in **this repository**. For a stacked PR, run `npm run continuity:guard -- --base=<actual-parent-branch>` after identifying its current parent from GitHub. Exit code 2 means **stop changes**: wrong repo, detached/direct-main checkout, stale branch or unknown remote state. `--offline` permits local work only; do not push, merge or deploy until an online revalidation passes. The preflight does **not** merge other agents' work and is not proof of product completeness.
+
+See `docs/CONTINUITY_AUDIT_2026-11-06.md` for the initial audited divergence registry (snapshot, not real-time).
+
 ## Agent entry protocol (mandatory, any agent: Claude, ChatGPT, Codex…)
-1. Run `npm run continuity` (branch, LEGO modules, open-PR stack, ADR collisions, current handoff).
+1. Run `npm run continuity` and `npm run continuity:guard` with the active stack parent via `--base=...` when appropriate; stop on a failed gate.
 2. Read `docs/PROJECT_MAP.md`, `docs/STATE.md` and `docs/operating-norms.md`.
 3. Continue from the previous agent's last commit. Never restart, copy or rebuild what exists.
 4. Finish with branch/commit, tests, changes, pending items and a reproducible handoff in `docs/STATE.md`.

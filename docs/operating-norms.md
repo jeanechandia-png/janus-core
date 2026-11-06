@@ -35,3 +35,25 @@ Instrucción del Founder: «Siempre tenemos que poder trabajar al máximo sin ne
 5. **Nunca en dólares:** toda cifra al Founder, en euros.
 
 Cómo se cumple hoy: política `founder-policy:spend-last` en `config/founder-reference-library.json` (la leen todos los agentes); `SENSITIVE_TOOL_ACTIONS` obliga a aprobación en las acciones que gastan o escriben fuera; `planPhoneAccess` recomienda siempre la ruta sin gasto; `npm run integrations:check` muestra lo no activado como «en reposo» (no como fallo); `tests/spend-last-norm.test.ts` vigila la política, el registro y la ruta recomendada.
+
+## Norma 8 — Independencia tecnológica y cero créditos por defecto (Founder, 2026-11-06)
+
+**Orden de ejecución obligatorio para todos los proyectos de InfinitySeed Group:**
+
+1. **Motor propio / local-first:** JANUS CORE y módulos LEGO reutilizables; ejecutar en el equipo, incluso sin red, siempre que la tarea lo permita.
+2. **Libre o gratuito:** herramientas locales, licencias abiertas y soluciones gratuitas verificadas, manteniendo control de privacidad.
+3. **Recursos existentes:** reutilizar infraestructura y suscripciones ya disponibles **si no generan consumo adicional**. Una suscripción a ChatGPT, Claude o ElevenLabs **no autoriza consumo por API**: presupuestos, créditos y cargos por uso se tratan por separado.
+4. **Última alternativa:** API/plataforma de terceros con cobro por uso, créditos o tokens. Documentar por qué la solución propia no alcanza el criterio, precio y condiciones en euros, consentimiento específico del Founder, riesgo de datos y límite de gasto. No permitir fallbacks automáticos a proveedores de pago.
+
+**Implementación verificable del ámbito de modelos JANUS:**
+- `packages/core/src/model-provider-config.ts` distingue modelos alojados localmente de endpoints externos, y da precedencia a los primeros aunque `JANUS_MODEL_ORDER` indique lo contrario.
+- `apps/runtime/server.ts` excluye proveedores externos por defecto, incluso si hay claves API configuradas.
+- Solo habilitar los externos con **ambos** `JANUS_ALLOW_EXTERNAL_MODEL_CREDITS=true` y `JANUS_MAX_EXTERNAL_MODEL_CALLS` positivo y acotado (hasta 100); todo proveedor comparte el mismo límite de intentos en el proceso.
+- Cuando el proveedor local no responde y no hay permiso externo, JANUS utiliza el camino determinista disponible o informa que la capacidad falta, sin comprar ni cargar créditos.
+- Para un servidor propio accesible por LAN, clasificarlo como local exige registrar explícitamente el origen exacto en `JANUS_TRUSTED_LOCAL_MODEL_ORIGINS`.
+- El número de llamadas **no equivale a un techo monetario**, no sobrevive por sí solo a reinicios y no acredita identidad del Founder. El responsable de despliegue debe controlar el acceso a la configuración, autorizar el uso y revisar los límites del proveedor; persisten las autorizaciones y validaciones del CORE.
+
+**Para la voz de las criaturas:** una única identidad caricaturesca compartida. Preferir TTS propio/local y, donde exista, voz nativa confirmada como local. No seleccionar voces remotas silenciosamente ni utilizar clones de personas. Una voz genuinamente de caricatura no humana continúa **PENDIENTE DE VALIDACIÓN** mientras no exista motor/activo local aprobado y prueba auditiva de calidad.
+
+Esta norma complementa la 7: la autonomía tecnológica precede incluso al uso innecesario de créditos que ya estén disponibles.
+

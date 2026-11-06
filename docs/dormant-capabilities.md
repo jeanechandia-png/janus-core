@@ -26,6 +26,16 @@ Janus necesita unos 110 MB de memoria en reposo (medido por el agente el 2026-10
 
 Fuentes: hostinger.com/support/1583589 (periodos), hostinger.com/nl/vps-hosting, hostinger.com/es/servidor-vps, hostinger.com/vps-hosting.md, hetzner.com/cloud/regular-performance, docs.hetzner.com/cloud/billing/faq (2026-10-23). Si InfinitySeed puede deducir el IVA, el coste real es el neto (**POR CONFIRMAR** con el gestor).
 
+## Consumo de créditos de modelos externos — en reposo (2026-11-06)
+
+JANUS CORE dispone de modelo local compatible y un enrutador de proveedores reemplazables. Las API comerciales de modelos (incluidos créditos de una plataforma ya contratada) se clasifican por separado: **tener una clave o saldo no permite consumirlo**.
+
+- **Estado por defecto:** deshabilitado. Se prefiere modelo propio/local y, si no está disponible, ruta determinista. No hay fallback silencioso a proveedor metered.
+- **Activación técnica disponible:** `JANUS_ALLOW_EXTERNAL_MODEL_CREDITS=true` con `JANUS_MAX_EXTERNAL_MODEL_CALLS` entre 1 y 100; requiere autorización del Founder y configuración protegida en el host.
+- **Límite técnico:** cuenta intentos del proceso, no euros ni tokens facturados; un reinicio lo restablece. Para controlar gasto real se necesitan registros persistentes y límites financieros en la cuenta del proveedor; **PENDIENTE DE IMPLEMENTACIÓN**. No habilitar pagos automáticos.
+- **Voz de criaturas:** mismo perfil caricaturesco para todas; navegador usa solo voces que declaren ser locales, si no hay conserva respuesta escrita. Una voz no humana auténtica mediante motor TTS propio es objetivo pendiente de validación.
+- **Precios y créditos reales:** POR CONFIRMAR mediante fuentes primarias al momento de proponer su activación. No se solicita presupuesto ni plataforma adicional ahora.
+
 ## Cómo se activa algo (siempre a petición del Founder)
 1. El Founder lo pide con sus palabras.
 2. El agente presenta precio en euros (fuente primaria y fecha), IVA, plazo, baja y uso previsto; el Founder dice sí o no.
