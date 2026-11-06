@@ -158,3 +158,17 @@
  .pa2 .a2sala .a2say{font-size:14px;line-height:1.5}
  .pa2 .a2m{font-size:13px;line-height:1.45}
 }
+
+
+/* Sala del Founder: micrófono de OBJETO 3D cuando Nexo aprobado aún no
+   tiene GLB; no mostrar nunca el robot genérico GOLD.o.bot. */
+.a2bot.a2bot--voice{display:grid!important;place-items:center;overflow:hidden;min-width:0;filter:none!important;cursor:default}
+.a2bot--voice .a2bot-voice-icon{width:min(100%,clamp(110px,34vw,210px));height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 8px 14px #0008)}
+@media(max-width:47.5em){
+ .pa2 .a2t span{font:750 15px/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d5!important;letter-spacing:.015em}
+ .pa2 .a2r .tx,.pa2 .a2pj .tx,.pa2 .a2pj small,.pa2 .a2say span{font-size:14px!important;line-height:1.5!important;font-weight:600;color:#fff0df!important}
+ .pa2 .a2t em,.pa2 .a2dr small,.pa2 .a2wxm small{font-size:12px!important;font-weight:700;color:#efe1cb!important}
+ .pa2 .a2m,.pa2 .a2th,.pa2 .a2h .dt{font-size:14px;line-height:1.5;color:#ffebc9}
+ .pa2 .a2btn,.pa2 .a2sb .btn2,.pa2 .a2in textarea{font-size:14px!important;font-weight:600}
+ .pa2 .a2i{image-rendering:auto;filter:drop-shadow(0 3px 5px #000b)}
+}
