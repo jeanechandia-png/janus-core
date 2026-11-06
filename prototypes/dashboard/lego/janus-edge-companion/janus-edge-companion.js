@@ -21,13 +21,50 @@ const JanusEdgeCompanion = (() => {
   let nameNode = null;
 
   const smallScreen = () => window.innerWidth <= 760 || window.innerHeight <= 500;
+  // Restrict the roaming 3D companion to its OWN scene. On iPhone the previous
+  // body-fixed 230px canvas could hide answer fields, the shop and lesson controls.
+  // This remains a draggable 3D creature, not a replacement flat illustration.
   function box() {
     const vw = window.innerWidth || 1024, vh = window.innerHeight || 768, mobile = smallScreen();
-    const width = Math.min(mobile ? 230 : 415, Math.max(mobile ? 150 : 215, vw * (mobile ? 0.47 : 0.29)));
+    const stage = typeof document.querySelector === 'function'
+      ? document.querySelector('.vb-companero .cpst3') : null;
+    const rect = stage && typeof stage.getBoundingClientRect === 'function'
+      ? stage.getBoundingClientRect() : null;
+    let width = Math.min(mobile ? 174 : 340, Math.max(mobile ? 112 : 205, vw * (mobile ? 0.38 : 0.27)));
+    if (rect && rect.width > 120 && rect.height > 150) {
+      const pad = mobile ? 10 : 16;
+      const reserveTop = mobile ? 122 : 96;
+      const reserveBottom = mobile ? 104 : 84;
+      const tools = stage.querySelector && stage.querySelector('.cp-edge-tools');
+      const speech = stage.querySelector && stage.querySelector('.cpsay');
+      const footer = stage.querySelector && stage.querySelector('.cpbar');
+      const lesson = stage.querySelector && stage.querySelector('.cphud');
+      let top = rect.top + reserveTop;
+      for (const el of [tools, speech]) {
+        if (!el || typeof el.getBoundingClientRect !== 'function') continue;
+        const r = el.getBoundingClientRect();
+        if (r.height && r.bottom > rect.top && r.top < rect.bottom) top = Math.max(top, r.bottom + pad);
+      }
+      let floor = rect.bottom - reserveBottom;
+      for (const el of [footer, lesson]) {
+        if (!el || typeof el.getBoundingClientRect !== 'function') continue;
+        const r = el.getBoundingClientRect();
+        if (r.height && r.top < rect.bottom && r.bottom > rect.top) floor = Math.min(floor, r.top - pad);
+      }
+      const room = Math.max(96, floor - top);
+      width = Math.min(width, room / 1.33, Math.max(96, rect.width * 0.47));
+      const height = width * 1.33;
+      const left = limit(rect.left + pad, 6, Math.max(6, vw - width - 6));
+      const right = limit(rect.right - width - pad, left, Math.max(left, vw - width - 6));
+      const firstTop = Math.min(top, Math.max(rect.top + pad, floor - height));
+      const lastTop = Math.max(firstTop, floor - height);
+      const visible = rect.bottom > Math.max(70, vh * 0.08) && rect.top < vh - 64 && room >= 96;
+      return { width, height, left, right, top: firstTop, bottom: lastTop, visible, stageBound: true };
+    }
     const height = width * 1.33;
     return { width, height, left: 6, right: Math.max(6, vw - width - 6),
       top: Math.min(Math.max(78, vh * 0.13), Math.max(16, vh - height - 12)),
-      bottom: Math.max(16, vh - height - (mobile ? 18 : 12)) };
+      bottom: Math.max(16, vh - height - (mobile ? 18 : 12)), visible: true, stageBound: false };
   }
   function position(x, y) {
     const b = box();
@@ -148,6 +185,9 @@ const JanusEdgeCompanion = (() => {
     const dt = Math.min(0.05, Math.max(0, (ms - (last || ms)) / 1000));
     last = ms;
     const b = box();
+    // A floating avatar must not cover lesson controls once its scene is scrolled offscreen.
+    host.hidden = !b.visible;
+    if (!b.visible) return;
     if (!spot.drag && ms > spot.dragUntil) {
       // Paseo vertical por el margen; no atraviesa formularios del centro de pantalla.
       const anchor = spot.side === 'right' ? b.right : b.left;
