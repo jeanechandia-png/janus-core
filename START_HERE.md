@@ -18,7 +18,7 @@ Las comprobaciones `NOT_RUN` no se promueven mediante afirmaciones de otros agen
 
 ## Agent entry protocol (mandatory, any agent: Claude, ChatGPT, Codex…)
 1. Run `npm run continuity` and `npm run continuity:guard` with the active stack parent via `--base=...` when appropriate; stop on a failed gate.
-2. Read `docs/PROJECT_MAP.md`, `docs/STATE.md` and `docs/operating-norms.md`.
+2. Read **current** `docs/PROJECT_STATE.md` and `docs/AGENT_HANDOFF.md`, then `docs/PROJECT_MAP.md`, historical `docs/STATE.md` and `docs/operating-norms.md`.
 3. Continue from the previous agent's last commit. Never restart, copy or rebuild what exists.
 4. Finish with branch/commit, tests, changes, pending items and a reproducible handoff in `docs/STATE.md`.
 
