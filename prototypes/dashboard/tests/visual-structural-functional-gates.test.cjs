@@ -13,9 +13,11 @@ const kid = read('src/companero.js');
 const views = read('src/views.js');
 
 test('visual: solo arte ya existente, nunca modelos 3D procedurales como sustitutos aprobados', () => {
-  assert.match(kid, /const edge = false, cinematic = true, scene3d = false/);
+  assert.match(kid, /const scene3d = Boolean\(ok3d && window\.JanusCreatureSlot\?\.has\?\.\(C\.creatureId\)\)/);
+  assert.match(kid, /const cinematic = !scene3d, edge = false/);
   assert.match(kid, /JanusPresence\.render\('kendra', false, C\.creatureId\)/);
-  assert.match(kid, /Arte original · modelo 3D hiperrealista pendiente de aprobación/);
+  assert.match(kid, /\[data-stage3d\]/);
+  assert.match(kid, /JanusStage3D\.supported/);
   assert.match(kid, /C\.visualMode = 'cinematic'/);
   assert.doesNotMatch(kid, /C\.tab === 'mundo'\) C\.visualMode = '3d'/,
     'el mundo/las lecciones no deben activar un muñeco procedural automáticamente');
