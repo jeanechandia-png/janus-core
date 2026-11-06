@@ -93,7 +93,7 @@ test('el usuario selecciona y conserva variante en ST.settings; no altera Kendra
  vm.runInContext('AV_ACTS.avVariant("otro")',ctx);assert.equal(settings.nexoVariant,'masculino');
  assert.equal(vm.runInContext('AV_FORMS.some(x=>x[0]==="lumi")',ctx),false,'criaturas fuera del Founder');
 });
-test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
+test('render A/B mantiene la variante seleccionada de Nexo sin invadir el protagonista con el selector',()=>{
  const settings={nexoVariant:'femenino'},ST={settings,comp:{creatureId:'bombo'}};
  const ctx=vm.createContext({window:{},ST,IMG:{cLumi:'l',cBombo:'b',cMusgo:'m',cNimbo:'n'},compState:()=>ST.comp});
  vm.runInContext(read('lego/janus-presence/janus-presence.js'),ctx);
@@ -101,7 +101,8 @@ test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
   const html=vm.runInContext('JanusPresence.render("founder",'+size+')',ctx);
   assert.match(html,/data-nexo-variant="femenino"/);
   assert.match(html,/data-3d="bot"/);
-  assert.match(html,/data-act="avVariant"/);
+  assert.doesNotMatch(html,/data-act="avVariant"/,'selector solo en configuración, no sobre la figura');
+  assert.doesNotMatch(html,/>Masculino<|>Femenino</,'sin etiquetas gigantes sobre el robot');
   assert.doesNotMatch(html,/data-jpresence="bombo"/);
  }
  const glb=read('lego/janus-creature-slot/janus-creature-slot.js');
