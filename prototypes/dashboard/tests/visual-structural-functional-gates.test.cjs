@@ -98,3 +98,36 @@ test('coherencia visual: seis pestañas de Kendra y tabs de Jean comparten objet
   assert.ok(detail.includes('#view .tb2 em') && detail.includes('font:700 12px/1.2'),
     'etiquetas interiores del Founder legibles');
 });
+
+test('visual: ni robot procedural rechazado, ni ojos/boca flotantes en las dashboards', () => {
+  const presence=read('lego/janus-presence/janus-presence.js');
+  const phone=read('src/phonea2.js');
+  const robot=read('lego/janus-3d/janus-3d.js');
+  assert.match(presence,/const approved3d = !!\(window\.JanusCreatureSlot\?\.has\?\.\(slotId\)\)/);
+  assert.match(presence,/jnexo-voice-standby/);
+  assert.match(phone,/const nexoApproved = !!window\.JanusCreatureSlot\?\.has\?\.\(nexoId\)/);
+  assert.match(phone,/a2bot--voice/);
+  assert.doesNotMatch(phone,/src="' \+ GOLD\.o\.bot/,'no insertar figura robot de bajo detalle');
+  assert.match(robot,/j3d-no-approved-robot/,'no montar caras procedurales sin GLB');
+});
+
+test('visual: iconos sólo de objetos 3D e iconografía consistente en todos los módulos', () => {
+  const phone=read('src/phonea2.js');
+  const app=read('src/app.js');
+  assert.match(phone,/const THREE_D_ICON_ALIASES/);
+  assert.match(phone,/GOLD\.o\[key\]/);
+  assert.match(phone,/const eIco = \(e\) => gIco\(/);
+  assert.doesNotMatch(phone,/GOLD\.i\[n\] \? '<img/,'no usar moneda plana como fallback');
+  assert.match(views,/function hydrateDetailIcons\(root\)/);
+  assert.match(views,/\.cpc i,\.cpgr h4/);
+  assert.match(app,/hydrateDetailIcons\(document\)/);
+});
+
+test('tipografía accesible en teléfono: títulos y etiquetas >= 13px', () => {
+ const child=read('src/companero.css');
+ const detail=read('src/views.css');
+ const founder=read('src/phonea2.css');
+ assert.match(child,/cptab em\{font:750 13px/);
+ assert.match(detail,/tabs \.tb2 em\{font:750 13px/);
+ assert.match(founder,/a2t span\{font:750 15px/);
+});
