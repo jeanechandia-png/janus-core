@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-22T23:10:00.000Z",
+  "updatedAt": "2026-11-06T19:56:41.421Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -238,12 +238,17 @@
       "kind": "policy",
       "classification": "current",
       "label": "Continuidad entre agentes, sin duplicar",
-      "value": "Cuando llegue un agente (Claude, ChatGPT, Codex u otro) debe encontrar el proyecto central, leer START_HERE.md, docs/STATE.md y docs/PROJECT_MAP.md, revisar ramas y PR abiertos y continuar desde donde lo dejó el anterior. Prohibido crear copias, reiniciar o rehacer lo que ya existe; el producto debe evolucionar, mejorar y crecer.",
+      "value": "Al iniciar trabajo, recuperar estado vigente, cronología, evidencia, PR activos y handoff desde el mismo repositorio canónico `jeanechandia-png/janus-core`. Ejecutar el control de continuidad; nunca editar una copia/fork, partir de una rama obsoleta, rehacer funciones aprobadas ni sobrescribir cambios concurrentes. Reconocer dependencias entre PR y usar como base la rama activa verificada. El trabajo offline exige revalidación antes de cualquier publicación; los merges y despliegues requieren pruebas y autorización. Mantener la versión anterior como histórico y registrar la siguiente tarea exacta. Esta política complementa la Orden Maestra Universal de 2026-10-30 y las instrucciones de 2026-11-06.",
       "retention": "preserve",
       "tags": [
         "operating-norm",
         "continuity",
-        "founder-provided"
+        "founder-provided",
+        "universal-agent-continuity",
+        "canonical-repository",
+        "chronological",
+        "agent-handoff",
+        "founder-2026-11-06"
       ]
     },
     {
@@ -273,6 +278,25 @@
         "operating-norm",
         "spend",
         "founder-provided"
+      ]
+    },
+    {
+      "id": "policy-kendra-shared-cartoon-voice-20261106",
+      "subject": "founder-policy:kendra-shared-cartoon-voice",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Kendra — una sola voz caricaturesca compartida",
+      "value": "Instrucción vigente 2026-11-06: Lumi, Bombo, Musgo, Nimbo y las criaturas futuras deben compartir UNA sola identidad vocal caricaturesca, no una por especie. Nunca utilizar como voz de las criaturas la voz humana normal, la voz del Founder, la voz de Kendra ni clones de personas reales. Preservar muestras de texto, gestos y personalidades independientes. Un único estilo y voiceId compartidos por defecto; variaciones futuras requieren decisión posterior aprobada. El actual Web Speech modulado es únicamente aproximación, NO voz no humana verificada: falta activo/modelo realmente caricaturesco y validación auditiva en Safari/iPhone antes de declarar aceptación final. Priorizar TTS local-first y no contratar servicios innecesarios.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "kendra",
+        "cartoon-voice",
+        "shared-voice",
+        "child-safety",
+        "single-voice",
+        "founder-provided",
+        "2026-11-06"
       ]
     }
   ]
