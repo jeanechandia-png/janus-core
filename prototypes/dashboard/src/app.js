@@ -13,6 +13,20 @@ function render() {
   dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
+  // One founder camera entry shared by Obsidiana and Platino; Kendra has
+  // her own entry inside the companion (separate, strictly local session).
+  const oldCameraLaunch = $root.querySelector('.jpc-launch');
+  if (oldCameraLaunch) oldCameraLaunch.remove();
+  if (ROUTE.v !== 'companero') {
+    const launch = document.createElement('button');
+    launch.type = 'button';
+    launch.className = 'jpc-launch';
+    launch.setAttribute('data-act', 'pilotCamera');
+    launch.setAttribute('data-arg', 'founder');
+    launch.setAttribute('aria-label', 'Abrir cámara local de JANUS');
+    launch.textContent = '📷 Cámara';
+    $root.appendChild(launch);
+  }
   decorate(ROUTE.v || '');
   if (typeof avatarSync === 'function') avatarSync();
   if (window.JanusPresence) JanusPresence.hydrate(document);
@@ -60,6 +74,11 @@ const ACTS = {
   geoSearch: async () => { const q = field('geoQ'); if (!q) return; UI.geoMsg = 'Buscando…'; rerender(); try { UI.geo = await geocode(q); UI.geoMsg = UI.geo.length ? 'Toca un resultado' : 'Sin resultados'; } catch (e) { UI.geo = []; UI.geoMsg = 'No se pudo buscar (sin conexión)'; } rerender(); },
   geoPick: (a) => { const g = UI.geo[+a]; if (!g) return; Object.assign(ST.settings, { lat: g.lat, lon: g.lon, place: g.name, placeSrc: 'elegida', mode: 'vivo' }); UI.geo = []; UI.geoMsg = ''; saveState(); refreshWeather(); },
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
+  pilotCamera: (who) => {
+    if (window.JanusPilotCamera) JanusPilotCamera.open(who === 'kendra' ? 'kendra' : 'founder');
+    // Avoid rerendering the dashboard while the camera owns user focus.
+    return Promise.resolve();
+  },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
 Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS, JanusPresence.actions);
