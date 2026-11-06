@@ -41,11 +41,11 @@ function lineChart(o) {
 const roBox = (txt) => '<div class="ro mono">' + (txt || '☝ toca la gráfica') + '</div>';
 const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div class="hbr"><span class="hl">' + r[0] + '</span><div class="rtk"><div class="rfl" style="--c:' + (r[2] || 'var(--gold)') + ';width:' + Math.round(r[1] / max * 100) + '%;' + (r[2] ? 'background:' + r[2] : '') + '"></div></div><b class="mono">' + (fmtv ? fmtv(r[1]) : r[1]) + '</b></div>').join('') + '</div>';
 
-function frame(id, sub, M, body) {
-  const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
+function frame(id, sub, M, body, approvedTitle) {
+  const t = TABS.find((x) => x[0] === id), viewTitle = approvedTitle || t[2], live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
   const finC = id === 'plataformas' ? FinOps.counters() : null;
   const finKnown = finC && (finC.critical + finC.warning + finC.healthy) > 0;
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(viewTitle) + '" data-jg-depth="10">' + esc(viewTitle) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
     '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
     '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }
