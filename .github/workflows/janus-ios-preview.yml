@@ -44,6 +44,7 @@ jobs:
           if [ -f lego/janus-pilot-camera/janus-pilot-camera.js ]; then node build.cjs --skin b --profile kendra; fi
           node --test tests/ios-quicklook.test.cjs
           if [ -f tests/pilot-camera.test.cjs ]; then node --test tests/pilot-camera.test.cjs; fi
+          node --test tests/visual-structural-functional-gates.test.cjs
       - name: Publish only a new isolated directory to existing gh-pages branch
         run: |
           git fetch origin gh-pages
