@@ -37,8 +37,7 @@ const approvedAccessories = [
   ['acc:cara:gafas-redondas','gafas-glam'],
   ['acc:espalda:mochila','mochila'],
   ['acc:espalda:alas-hada','alas'],
-  ['acc:cuello:bufanda','bufanda'],
-  ['acc:cabeza:gorro','gorra']
+  ['acc:cuello:bufanda','bufanda']
 ];
 const approvedImage = (name) => {
   const rel = 'assets/approved/' + name + '.webp';
