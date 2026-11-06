@@ -899,6 +899,7 @@ let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   }),
 );
 
+let externalCreditLedger: ExternalCreditCallLedger | undefined;
 const modelGateway = createConfiguredModelGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
@@ -1468,8 +1469,6 @@ function recordRunOutcome(snapshot: RunSnapshot): void {
     });
   }
 }
-
-let externalCreditLedger: ExternalCreditCallLedger | undefined;
 
 function createConfiguredModelGateway(): ModelGateway | undefined {
   // JANUS CORE selects its OWN model first, regardless of configured order.
