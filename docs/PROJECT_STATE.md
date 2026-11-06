@@ -16,6 +16,7 @@ PR de este trabajo: https://github.com/jeanechandia-png/janus-core/pull/78
 - Registro de evidencia `docs/PILOT_READINESS.json` con `NOT_RUN` para las pruebas pendientes (sin verdades inventadas).
 - Pruebas para omisiones, privacidad, E2E, incongruencia de SHA y falsa evidencia PASS.
 - `npm test` incluye estas pruebas; GitHub Actions valida el registro.
+- Política existente `founder-policy:delivery-filters` ampliada con los 14 filtros y sus restricciones de evidencia para que el runtime la cargue por la biblioteca vigente; prueba `tests/universal-continuity-policy.test.ts` añadida. Esta última ampliación permanece pendiente de resultado CI al redactar el registro.
 - Protocolo universal condensado y handoff enlazados desde `START_HERE.md` y `docs/PROJECT_MAP.md`.
 - **GitHub Actions PASS** en la primera revisión de código `f8c011fcb035ef3d40e063f447871e5092853cca` y en la revisión con enlaces de entrada `898fd35e880e5ea59cf7efa91ff20b83a1374971` (Typecheck, PWA syntax, Node Tests, pilot record validation, runtime smoke).
 
