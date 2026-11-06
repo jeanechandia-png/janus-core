@@ -65,7 +65,9 @@ test('personalización 3D por criatura, sin afectar su identidad ni estrellas', 
   const o=setup();
   o.eval('COMP_ACTS.cpStyle("esponjoso")');
   assert.equal(o.ST.comp.furStyles.lumi,'esponjoso');
-  assert.equal(o.ST.comp.visualMode,'edge','el Vestidor previsualiza la criatura viva en el borde');
+  assert.equal(o.ST.comp.visualMode,'cinematic','cambiar pelo no sustituye las criaturas aprobadas por la malla procedural');
+  o.eval("COMP_ACTS.cpVisual('edge')");
+  assert.equal(o.ST.comp.visualMode,'edge','el modo de prueba 3D se mantiene disponible si se selecciona expresamente');
   assert.ok(o.styles.includes('esponjoso'));
   o.eval("COMP_ACTS.cpPick('bombo')");
   o.eval('COMP_ACTS.cpStyle("corto")');

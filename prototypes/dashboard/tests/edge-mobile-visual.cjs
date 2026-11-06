@@ -31,6 +31,11 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
         tab:rect('.cptabs')};
     });
     assert.ok(bounds.stage&&bounds.footer&&bounds.tab,'Kendra stage and learning panel exist');
+    const cinematicCaption = await page.evaluate(() => {
+      const el=document.querySelector('.cpst3.cinematic .cp-cinematic .jp-caption');
+      return !el || getComputedStyle(el).display==='none';
+    });
+    assert.ok(cinematicCaption,'approved artwork caption must not overlap Muéstramelo on iPhone');
     if(bounds.edge){
       assert.ok(bounds.edge.left>=bounds.stage.left-3 && bounds.edge.right<=bounds.stage.right+3,'avatar inside scene width');
       assert.ok(bounds.edge.top>=bounds.stage.top-3 && bounds.edge.bottom<=bounds.footer.top+3,'avatar above selection and learning');

@@ -43,6 +43,7 @@ jobs:
           node --test tests/fur-wind.test.cjs
           node --test tests/kendra-identity.test.cjs
           node --test tests/edge-companion.test.cjs
+          node --test tests/approved-art.test.cjs
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
           node --test tests/kendra-cartoon-voice.test.cjs

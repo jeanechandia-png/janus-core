@@ -103,7 +103,8 @@ test('Kendra predeterminada vive en el margen y Founder permanece robot Nexo',()
   const build=fs.readFileSync(path.join(__dirname,'../build.cjs'),'utf8');
   assert.match(companion,/edgeSupported/);assert.match(companion,/JanusEdgeCompanion\.sync/);
   assert.match(companion,/cpEdgeRoam/);assert.match(companion,/cpEdgeSide/);
-  assert.match(companion,/C\.visualMode = 'edge'/);
+  assert.match(companion,/C\.visualMode = 'cinematic'/,'default return is approved art, not procedural stand-in');
+  assert.match(companion,/cpVisual: \(mode\)/,'technical 3D remains selectable');
   assert.match(presence,/data-janus-founder="nexo"/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.js/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.css/);

@@ -1,5 +1,15 @@
 # JANUS — Estado vigente
 
+## AHORA — KENDRA: arte aprobado + biblioteca de accesorios (2026-11-06)
+- Rama de trabajo `chatgpt/kendra-approved-art-20261106`, PR #67 borrador, derivada de PR #63. **Código escrito en GitHub; sin fusionar, sin desplegar.**
+- DECISIÓN: Lumi, Bombo, Musgo y Nimbo de las dos láminas aprobadas por Jean son las identidades visuales vigentes. Los cuerpos 3D procedurales quedan como modo explícito de pruebas y **NO** equivalen a los personajes hiperrealistas aceptados.
+- IMPLEMENTADO: cambio de prioridad visual a `Arte aprobado` cuando falta GLB; los cuatro retratos ya existentes en el repositorio como respaldo; integración opcional offline de 26 WebP recortados fielmente de los dos originales y verificados SHA-256; vestidor, tienda, estrellas y selección de personajes intactos; expresiones ilustradas llaman a `cpMood`, no son morphs 3D.
+- **PENDIENTE DE ENTREGA REMOTA:** 26 WebP exactos se entregaron en `janus_kendra_arte_aprobado_20261106.zip` dentro del chat, **no están aún commiteados al repositorio GitHub**. El builder sabe incorporarlos y rechaza hashes diferentes. No declarar «arte exacto publicado» hasta comprobar su presencia.
+- PRUEBAS: ejecutar Core CI, tests de arte, builds A/B y E2E de iPhone-sizes sobre el HEAD final; un test Chromium exitoso no acredita Safari físico ni fidelidad GLB.
+- PRÓXIMO: incorporación binaria segura + imágenes A/B verificadas + modelos GLB faciales y pelaje realmente riggeados + conciliación con PR #63/#66, preservando accesos PWA y permisos.
+- TRANSFERENCIA: `docs/handoffs/2026-11-06-kendra-approved-creature-art.md`.
+
+
 ## 2026-11-06 — Dashboard Kendra: seguridad visual móvil VERIFICADA EN CI
 - **Rama:** `chatgpt/janus-presencia-criaturas-cinematica-20261105` (PR #63, sin fusionar ni publicar a producción); código probado `f896664ffc7b9561ef38213e77e0cf09934a6321`.
 - **Implementado:** Lumi/compañero 3D permanece arrastrable en el margen del escenario y evita tapar selectores, respuestas, botones y pestañas; desaparece cuando la escena está realmente fuera de pantalla. Texto decorativo redundante oculto en móvil, no las instrucciones operativas.

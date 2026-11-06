@@ -1,0 +1,46 @@
+{
+  "version": "2026-11-06",
+  "source": "Dos laminas originales aprobadas por el responsable del proyecto, adjuntas a la conversacion",
+  "nature": "26 crops WebP: 4 criaturas, 10 accesorios y 12 expresiones. No son GLB ni cuerpos animados.",
+  "characters": [
+    "lumi",
+    "bombo",
+    "musgo",
+    "nimbo"
+  ],
+  "source_mapping": {
+    "creatures": "A40EABCE-7ED9-4171-94B2-F79A5CDF0CFC.jpeg",
+    "accessories": "678E7C32-0BB0-4805-8BB5-64DB92B23722.jpeg"
+  },
+  "required_assets": {
+    "lumi.webp": "9ae721156891fd6cfdbc2372426708a3fb801679e1ab6382ccce4c2cc6feae80",
+    "bombo.webp": "c468bb84a64aeff8ff3fa878bd9bac8064a14960745f3e07cc0f60e463b33789",
+    "musgo.webp": "38ab77eee4fa7a5b8f32a23bdd854240868e5fd67ddd8ad8b2ab56860ee589db",
+    "nimbo.webp": "30252e543a4d2b3e86920394d9b02e5991a2447745679bef2d3342e4516d5680",
+    "capa-galaxia.webp": "2263fdb6c81b1b7e8e14911898215c3317e2e64a3439035cd3f5c2d30383f9fe",
+    "sudadera-estrella.webp": "c283555a76d4e1f81770c583d360e11903c9ab5a0ad6015be01710babf3a26b3",
+    "chaqueta-lujo.webp": "87d9c4d57d380397967ea4f579abdb4ef07763f0b2f1a9fed79b23bf5a9f2181",
+    "corona-estelar.webp": "920664109b43273865883109db81ad7b8cb10276113f82b79d36f11dfacdac6c",
+    "gafas-glam.webp": "de144082fd8117dee473f1f330e17b7b9d91f2f89ece59d6d42d33bde16f2454",
+    "mochila.webp": "e44c1cf4f168a0e7b572f3c345b8ce8973603a2256ce318b2c52685d2e666ad5",
+    "alas.webp": "5c55aaf4d0934410fe56f50989a46ffbbd608cda807a1192beeba488e6fc73c4",
+    "bufanda.webp": "f8f7baddc7ba7756bf710f1928283b07078d46087bf657326ff52926e5445a60",
+    "gorra.webp": "dae636028102dccef0b0e3e4cf7df6b3f39efd46207cf117500150891603976f",
+    "auriculares.webp": "976f148d780f5c77d8b2b8717ef116ba4f34a866cbca3b488377b86cafc0d44a",
+    "expression-bombo-1.webp": "cb7fa9b099140239f84d3ee1952934803d2f6b3205e88fd83528c3996bf089e0",
+    "expression-bombo-2.webp": "d07380f8e85c797e7be73deabf3fa2fff958a08b5fc3294196274b1bb98c1bc2",
+    "expression-bombo-3.webp": "2f9035681651638abeda3442760fb63db09ac50b6311d4e3dc9cbca5f6c0e4f2",
+    "expression-lumi-1.webp": "07800eca471fa78fc8339b070467ec4f258e5c271a4fdd0e5119bf26600a18b5",
+    "expression-lumi-2.webp": "2d62f9a08f4dcfbb10085ebb5292dec0437420ca25f4f863a36e6d65dce12ba9",
+    "expression-lumi-3.webp": "e26d77658c560ab6ed6e8436cbe2f2da965eb556153f8d9b5027dc8126cdeda7",
+    "expression-musgo-1.webp": "436b80b28fdb68a806ea74797affecf2c7bcaf5bd5137c6fffc319b999fd5f7f",
+    "expression-musgo-2.webp": "6775c75170fcecad69e5e9db3d56f3f882b1b6166a1a7467e57e3cb0e9df4ec2",
+    "expression-musgo-3.webp": "39c401c1347c0a56f1cc0d0bff887b741152ccd2ecf0c2c06b105487e2541d4c",
+    "expression-nimbo-1.webp": "aa04c0b940c287f28f40675eb4efdec1af82797f60264c7809432c54a1ffd135",
+    "expression-nimbo-2.webp": "6c1711519338da5021d5abed05091eec3826614c706c597eebc9c816a463457d",
+    "expression-nimbo-3.webp": "0e7e924d81a10a1e5f5489fb83b7c5ed4486bb4267a03eeef513c3ae8c8fdf81"
+  },
+  "sha_algorithm": "sha256",
+  "offline": true,
+  "note": "Las imagenes binarias se entregan en el ZIP del paquete de arte; no forman parte del HEAD de esta rama hasta que sean importadas a assets/approved/."
+}
