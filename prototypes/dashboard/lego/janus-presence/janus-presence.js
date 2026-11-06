@@ -20,23 +20,16 @@ const JanusPresence = (() => {
     const variant = ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
     const size = compact ? 'jpresence--mini' : 'jpresence--hero';
     const id = compact ? 'nexo-dashboard' : 'nexo-sala';
-    const vName = variant === 'femenino' ? 'Femenino' : 'Masculino';
-    const other = variant === 'femenino' ? 'masculino' : 'femenino';
-    const controls = compact
-      ? '<button type="button" class="jnexo-variant-btn is-mini" data-act="avVariant" data-arg="' + other +
-        '" aria-label="Cambiar Nexo a versión ' + other + '" title="Cambiar versión">⇄</button>'
-      : '<div class="jnexo-variants" role="group" aria-label="Versión del robot Nexo">' +
-        '<button type="button" data-act="avVariant" data-arg="masculino" aria-pressed="' + (variant==='masculino') + '"' +
-        ' class="jnexo-variant-btn' + (variant==='masculino'?' active':'') + '">Masculino</button>' +
-        '<button type="button" data-act="avVariant" data-arg="femenino" aria-pressed="' + (variant==='femenino') + '"' +
-        ' class="jnexo-variant-btn' + (variant==='femenino'?' active':'') + '">Femenino</button></div>';
+    // La variante es una preferencia de configuración, no un titular ni un botón sobre el robot.
+    // El selector real sigue disponible dentro de Personalizar Nexo (src/avatar.js).
+    const controls = '';
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
       '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
       'aria-label="Nexo 02, robot de Janus, versión ' + variant + '">' +
-      '<div class="jnexo-fallback" aria-hidden="true"><b>NEXO 02</b><span>' + vName + '</span></div></div>' +
+      '<div class="jnexo-fallback" aria-hidden="true"><b>NEXO 02</b></div></div>' +
       controls +
       '<figcaption class="jp-caption"><b>Nexo 02</b>' +
-      (compact ? '<span>' + vName + '</span>' : '<span>' + vName + ' · Avatar 3D de Janus</span>') +
+      (compact ? '' : '<span>JANUS · asistente operativo</span>') +
       '</figcaption></figure>';
   }
   function render(context, compact, creatureId) {
