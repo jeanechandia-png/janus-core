@@ -109,3 +109,58 @@ export function describeModelProviders(env: Env): Array<{ id: ModelProviderId; l
     missing: [preset.keyEnv, preset.modelEnv].filter((name) => !env[name]?.trim()),
   }));
 }
+
+/**
+ * Policy: independently-operated models first, external credit-consuming
+ * providers only with explicit runtime opt-in AND a positive bounded budget.
+ * Credential presence is configuration, NOT permission to spend.
+ *
+ * Only custom endpoints on loopback are self-hosted by default. A LAN model
+ * must have an explicitly trusted origin; this avoids calling a remote API
+ * 'local' because its provider label says so.
+ */
+export type ModelExecutionTier = 'local' | 'external-credit';
+
+export interface ModelExecutionPlan {
+  local: ModelProviderConfig[];
+  external: ModelProviderConfig[];
+  blocked: Array<{ id: ModelProviderId; reason: string }>;
+  maxExternalCalls: number;
+}
+
+export function modelExecutionTier(config: ModelProviderConfig, env: Env): ModelExecutionTier {
+  if (config.id !== 'custom') return 'external-credit';
+  try {
+    const endpoint = new URL(config.baseUrl);
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) return 'external-credit';
+    const hostname = endpoint.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]') return 'local';
+    const trusted = (env.JANUS_TRUSTED_LOCAL_MODEL_ORIGINS ?? '')
+      .split(',').map((origin) => origin.trim()).filter(Boolean);
+    if (trusted.includes(endpoint.origin)) return 'local';
+  } catch {
+    // An invalid/unknown URL is never classified as cost-free.
+  }
+  return 'external-credit';
+}
+
+export function planModelExecution(env: Env): ModelExecutionPlan {
+  const configured = resolveModelProviders(env);
+  const local = configured.filter((p) => modelExecutionTier(p, env) === 'local');
+  const remote = configured.filter((p) => modelExecutionTier(p, env) === 'external-credit');
+  // Invalid/absent permission or limit => zero credits. Hard limit prevents
+  // accidental unbounded charging even with a mistyped environment variable.
+  const rawLimit = env.JANUS_MAX_EXTERNAL_MODEL_CALLS?.trim() ?? '';
+  const n = /^\d+$/.test(rawLimit) ? Number(rawLimit) : 0;
+  const maxExternalCalls = env.JANUS_ALLOW_EXTERNAL_MODEL_CREDITS === 'true' && Number.isSafeInteger(n) && n > 0 && n <= 100
+    ? n : 0;
+  return {
+    local,
+    external: maxExternalCalls ? remote : [],
+    blocked: maxExternalCalls ? [] : remote.map(({ id }) => ({
+      id,
+      reason: 'Créditos externos en reposo: requieren autorización explícita y límite de llamadas.',
+    })),
+    maxExternalCalls,
+  };
+}
