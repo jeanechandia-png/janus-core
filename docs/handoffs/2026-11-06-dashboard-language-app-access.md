@@ -45,3 +45,13 @@ Ejecutar `npm ci && npm run typecheck && npm test && node prototypes/dashboard/b
 - PR de integración Core: https://github.com/jeanechandia-png/janus-core/pull/59
 - PR de criaturas/escenas posterior: https://github.com/jeanechandia-png/janus-core/pull/63
 - Rama: https://github.com/jeanechandia-png/janus-core/tree/chatgpt/janus-approved-language-access-20261106
+
+## 2026-11-06 — corrección adicional de las cabeceras reales
+- Tras contrastar capturas de móvil con código A/B, se eliminó la barra flotante `position:fixed` de `apps/pwa/dashboard-access.js`. Ese overlay competía con los controles originales y violaba la instrucción de no sustituir ni superponer elementos a la dashboard.
+- El mismo módulo `mountLanguageButtons` (con los medallones originales de PR #65) reside ahora dentro de las cabeceras reales: `#view .vh` en Sala/Compañero, `#dash .a2h/.pvh/.hd` en dashboards A/B y teléfono.
+- Observador limitado a la región `#app` reanexa el componente cuando el render sustituye el header; no crea ni duplica dashboards, autenticación o datos.
+- Los enlaces de identificación, control del Founder, Kendra e instalación siguen disponibles detrás de un menú compacto accionable (`<details>`) dentro del mismo header. Los dos PWA manifests mantienen identidades distintas y sus iconos originales.
+- `apps/pwa/dashboard-access.css`: tamaños táctiles y distribución responsive, panel de accesos solo al solicitarlo, sin barra fija permanente.
+- `tests/dashboard-language-access.test.ts`: prueba preventiva para impedir recuperar el overlay flotante.
+- **CI de Core verificada**: workflow #42135377617 concluyó `success` para commit `1c6660e6a02baf67449992f7754281aee71776c9`. Comprobar nuevamente si cambia la rama después de este registro documental.
+- La verificación visual e instalación física en Safari/iPhone sigue pendiente. No confundir CI con aprobación VFX, modelos GLB finales o localización completa.
