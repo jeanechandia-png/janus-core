@@ -11,6 +11,7 @@
 import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
 import { creatureSvg } from './kendra-creatures.js';
+import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
 const PREF_KEY = 'kendra.prefs.v1';
@@ -165,17 +166,21 @@ function rebuildTop() {
   const pet = creature();
   const access = view.access;
   const pill = access && access.allowed && access.minutesLeft !== undefined ? h('span', { class: 'pill' }, `⏳ ${access.minutesLeft} min`) : null;
+  const languageHost = h('div', { class: 'janus-language-switch' });
   topEl.replaceChildren(...[
     h('button', { type: 'button', class: 'who', onClick: openProfile, 'aria-label': 'Cambiar mi nombre, mi icono o mi compañero' },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, view.profile.icon),
       h('span', { style: 'min-inline-size:0' }, h('strong', {}, view.profile.displayName), h('small', {}, pet ? `con ${pet.name}` : ''))),
     pill,
-    h('button', { type: 'button', class: 'iconbtn', 'aria-pressed': String(prefs.speak), 'aria-label': 'Leer en voz alta las respuestas', onClick: () => { prefs.speak = !prefs.speak; savePrefs(); if (!prefs.speak) window.speechSynthesis?.cancel(); rebuildTop(); } }, prefs.speak ? '🔊' : '🔇'),
-    h('button', { type: 'button', class: 'iconbtn', 'aria-label': 'Zona de padres', onClick: openParent }, '🔒')].filter(Boolean));
+    languageHost,
+    h('button', { type: 'button', class: 'iconbtn', 'aria-pressed': String(prefs.speak), 'aria-label': uiLabel('kendra', 'voice'), onClick: () => { prefs.speak = !prefs.speak; savePrefs(); if (!prefs.speak) window.speechSynthesis?.cancel(); rebuildTop(); } }, prefs.speak ? '🔊' : '🔇'),
+    h('button', { type: 'button', class: 'iconbtn', 'aria-label': uiLabel('kendra', 'parent'), onClick: openParent }, '🔒')].filter(Boolean));
+  mountLanguageButtons(languageHost, 'kendra', { onChange: () => { rebuildNav(); rebuildTop(); } });
 }
 
 function rebuildNav() {
-  navEl.replaceChildren(...TABS.map(([id, icon, label]) => h('button', { type: 'button', 'aria-current': id === tab ? 'page' : null, onClick: () => go(id) }, h('span', { 'aria-hidden': 'true' }, icon), label)));
+  const keys = { inicio: 'home', chat: 'chat', dia: 'day', ver: 'watch', casa: 'house', cosas: 'things' };
+  navEl.replaceChildren(...TABS.map(([id, icon, label]) => h('button', { type: 'button', 'aria-current': id === tab ? 'page' : null, onClick: () => go(id) }, h('span', { 'aria-hidden': 'true' }, icon), uiLabel('kendra', keys[id], label))));
 }
 
 function go(next) {
