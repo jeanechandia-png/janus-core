@@ -32,6 +32,7 @@ window.addEventListener('popstate', onRoute);
 
 const field = (name) => { const el = document.querySelector('#view [data-f="' + name + '"]'); return el ? el.value.trim() : ''; };
 const ACTS = {
+  localCameraOpen: () => { if (window.JanusLocalCamera) JanusLocalCamera.open('janus'); },
   clH: (a) => { const M = model(); if (String(a)[0] === 'a') UI.clH = +String(a).slice(1); else UI.clH = clamp((UI.clH == null ? M.raw.nowIdx : UI.clH) + (+a), 0, M.raw.hourly.length - 1); UI.clDay = Math.floor(UI.clH / 24); ROUTE.sub = ''; },
   clDay: (a) => { UI.clDay = +a; UI.clH = UI.clDay * 24 + 8; ROUTE.sub = ''; },
   clMetric: (a) => { UI.clMetric = a; },
