@@ -1,5 +1,5 @@
 'use strict';
-/* Voces caricaturescas por criatura sin red ni GPU. Verifica navegador y adaptador. */
+/* Una voz caricaturesca compartida, sin red ni GPU. Verifica navegador y adaptador. */
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -27,19 +27,33 @@ function fixture(withTTS=true) {
   vm.runInContext(source,ctx,{filename:'janus-cartoon-voice.js'});
   return {V:window.JanusCartoonVoice,voices,speech,get queued(){return queue;},get cancellations(){return cancelCount;}};
 }
-test('cada criatura tiene una voz de caricatura con prosodia y timbre lógico propios',()=>{
+test('una sola identidad y un mismo timbre caricaturesco para todas las criaturas',()=>{
   const {V}=fixture();
   const ids=Object.keys(V.profiles);
   assert.deepEqual(ids,['lumi','bombo','musgo','nimbo']);
   const profiles=ids.map(id=>V.profile(id,'caricatura'));
-  assert.deepEqual([...new Set(profiles.map(p=>p.pitch))].length,4);
-  assert.deepEqual([...new Set(profiles.map(p=>p.rate))].length,4);
-  assert.ok(profiles.every(p=>p.sample.includes('Kendra') && p.lang==='es-ES'));
-  assert.ok(profiles.find(p=>p.id==='musgo').pitch<1,'Musgo más grave');
-  assert.ok(profiles.find(p=>p.id==='lumi').pitch>1.5,'Lumi más aguda');
-  assert.ok(profiles.find(p=>p.id==='bombo').rate>1.15,'Bombo salta al hablar');
-  assert.ok(profiles.find(p=>p.id==='nimbo').rate<1,'Nimbo habla suave');
+  assert.equal(V.sharedVoice.voiceId,'cartoon-shared-v1');
+  assert.equal(new Set(profiles.map(p=>p.voiceId)).size,1);
+  assert.equal(new Set(profiles.map(p=>p.pitch)).size,1);
+  assert.equal(new Set(profiles.map(p=>p.rate)).size,1);
+  assert.equal(new Set(profiles.map(p=>p.volume)).size,1);
+  assert.equal(new Set(profiles.map(p=>p.voiceOffset)).size,1);
+  assert.ok(profiles.every(p=>p.label==='Voz caricaturesca compartida' && p.lang==='es-ES'));
+  assert.ok(profiles.every(p=>p.sample.includes('Kendra')));
+  assert.equal(new Set(profiles.map(p=>p.sample)).size,4,'cada criatura mantiene frases propias');
   assert.ok(V.styles.length>=3);
+});
+
+test('todas las criaturas seleccionan la misma voz nativa para una misma emoción y estilo',()=>{
+  const f=fixture(), {V}=f;
+  const nativeNames=[];
+  for (const id of ['lumi','bombo','musgo','nimbo']) {
+    const output=V.speak('¡Hola!',id,{style:'caricatura',mood:'alegre'});
+    assert.equal(output.ok,true);
+    assert.equal(f.queued.length,1);
+    nativeNames.push(f.queued[0].voice.name);
+  }
+  assert.equal(new Set(nativeNames).size,1);
 });
 test('la voz selecciona español local si existe y permite estilos y emociones seguras',()=>{
   const f=fixture(), {V,voices}=f;
@@ -84,6 +98,7 @@ test('callbacks de sincronización facial y motor de voz reemplazable',()=>{
   assert.equal(r.engine,'adapter');
   assert.equal(adapterInput.profile.id,'nimbo');
   assert.equal(adapterInput.profile.style,'dulce');
+  assert.equal(adapterInput.profile.voiceId,'cartoon-shared-v1');
   assert.equal(adapterInput.text,'Hola Kendra');
   V.stop();assert.ok(calls>=1);
   V.setAdapter(null);
@@ -96,12 +111,14 @@ test('degradación sin TTS deja texto y controles intactos',()=>{
   assert.equal(r.reason,'unavailable');
   assert.ok(V.profile('lumi').label);
 });
-test('Kendra activa y guarda las voces por criatura; no cambia la voz de Janus Nexo',()=>{
+test('Kendra guarda un estilo común para todas las criaturas; no cambia la voz de Janus Nexo',()=>{
   const src=fs.readFileSync(path.join(root,'src/companero.js'),'utf8');
   const founder=fs.readFileSync(path.join(root,'src/avatar.js'),'utf8');
   const build=fs.readFileSync(path.join(root,'build.cjs'),'utf8');
   assert.match(src,/JanusCartoonVoice/);
-  assert.match(src,/C\.voiceStyles\[C\.creatureId\]/);
+  assert.match(src,/C\.voiceStyle = style/);
+  assert.match(src,/style: C\.voiceStyle \|\| 'caricatura'/);
+  assert.match(src,/La misma voz caricaturesca habla para todas las criaturas/);
   assert.match(src,/cpVoiceStyle:/);
   assert.match(src,/cpVoicePreview:/);
   assert.match(src,/cpVoiceToggle:/);
