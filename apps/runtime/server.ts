@@ -33,7 +33,7 @@ import { BudgetedModelGateway } from '../../packages/gateways/src/budgeted-model
 import { FallbackModelRouter } from '../../packages/gateways/src/model-router.js';
 import { CreditGuardedModelGateway, ExternalCreditCallLedger } from '../../packages/gateways/src/credit-guarded-model-gateway.js';
 import { AnthropicMessagesModelAdapter } from '../../packages/adapters/src/anthropic-messages-model-adapter.js';
-import { describeModelProviders, planModelExecution } from '../../packages/core/src/model-provider-config.js';
+import { describeModelProviders, planModelExecution, resolveModelProviders } from '../../packages/core/src/model-provider-config.js';
 import { AssistantConsumerStatusAdapter } from '../../packages/adapters/src/assistant-consumer-status-adapter.js';
 import {
   evaluateConsumerAcknowledgement,
