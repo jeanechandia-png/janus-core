@@ -1,0 +1,39 @@
+/* LEGO Kendra Edge Companion — modelo Three.js transparente sobre el margen del viewport.
+ * No interfiere con formulario/teclado: solo el canvas acepta gestos.
+ * position:fixed desde <body>, no desde la tarjeta con overflow:hidden. */
+.kedge-root{position:fixed;inset:0 auto auto 0;z-index:280;pointer-events:none;isolation:isolate;
+  width:300px;height:400px;filter:drop-shadow(0 20px 22px rgba(0,0,0,.44));
+  contain:layout style;will-change:transform}
+.kedge-root[hidden]{display:none!important}
+.kedge-canvas{display:block;width:100%!important;height:100%!important;pointer-events:auto;
+  cursor:grab;outline-offset:-5px;-webkit-user-select:none;user-select:none}
+.kedge-canvas:active{cursor:grabbing}
+.kedge-canvas:focus-visible{outline:3px solid #FFE3A1;border-radius:40px}
+.kedge-name{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);
+  padding:5px 13px;border:1px solid rgba(255,221,164,.72);border-radius:18px;
+  max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  background:linear-gradient(135deg,rgba(12,8,19,.88),rgba(38,20,44,.9));
+  color:#FFE9C5;font:600 14px 'Instrument Sans',sans-serif;text-align:center;
+  letter-spacing:.03em;box-shadow:0 6px 18px rgba(0,0,0,.4);pointer-events:none}
+.cpst3.edge-hero{background:radial-gradient(ellipse at 20% 68%,rgba(247,170,112,.14),transparent 40%),
+  radial-gradient(ellipse at 78% 33%,rgba(162,107,245,.18),transparent 46%),
+  linear-gradient(165deg,#161019,#08070d);overflow:hidden}
+.cp-edge-prompt{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;padding:22px 25%;text-align:center;opacity:.4}
+.cp-edge-prompt b{font-size:clamp(20px,2.2vw,38px);font-weight:500;color:#F8DFBC;
+  font-family:'Instrument Sans',sans-serif;line-height:1.25}
+.cpst3.edge-hero .cpviews{display:none}
+.cp-edge-tools{position:absolute;top:68px;right:10px;display:flex;gap:5px;z-index:5;max-width:calc(100% - 20px)}
+.cp-edge-tools .cp-edge-btn{border:1px solid rgba(255,220,159,.6);
+  border-radius:11px;padding:6px 9px;background:rgba(14,10,20,.86);
+  font:500 11px 'Instrument Sans',sans-serif;color:#FFF0D4;cursor:pointer}
+.cp-edge-tools .cp-edge-btn:focus-visible{outline:2px solid #FFF0D4;outline-offset:2px}
+.cp-edge-tools .cp-edge-btn.on{background:rgba(236,193,103,.25);border-color:#FFD58C}
+@media(max-width:47.5em),(max-height:31.25em){
+ .kedge-name{font-size:12px;padding:4px 10px}
+ .cp-edge-tools{top:81px;right:7px;gap:3px}
+ .cp-edge-tools .cp-edge-btn{padding:6px;font-size:10px}
+ .cp-edge-prompt{display:none} /* Avoid decorative sentence colliding with Muéstramelo and selectors on iPhone. */
+ .cp-edge-prompt b{font-size:18px}
+}
+@media(prefers-reduced-motion:reduce){.kedge-root{transition:none!important;animation:none!important}}

@@ -438,12 +438,13 @@ const JanusStage3D = (() => {
 
     const cam = new T.PerspectiveCamera(36, 1.4, 0.1, 300);
     const cb = {}; // callbacks del anfitrión
-    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null };
+    const props = new Map(); const state = { scene: null, view: 'amplia', viewOverride: null, mode: 'escena', selected: null, wind: 0.3, furStyle: 'natural' };
     const wp = { home: null, homeKey: null, vehicle: null, vehKey: null, decor: new Map(), vehLap: null };
     const cre = { id: null, rig: null, rigs: {}, pos: [-4, 1.5], target: [-4, 1.5], pose: 'idle', point: null, yaw: 0, walk: 0, reactUntil: 0, reactPose: null, hop: 0, look: null, mood: null, moodUntil: 0, aspect: 'criatura', key: null };
     const FACE_COL = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
     const view = { tx: 0, ty: 0.6, tz: 0, d: 18, yaw: 0, pitch: 0.5 }, goal = Object.assign({}, view), user = { yaw: 0, pitch: 0, zoom: 1 };
     const flights = []; let curHost = null, ro = null, tNow = 0, frames = 0, fpsAcc = 0, fps = 60, disposed = false, snapCam = true, drag = null, pinch = null;
+    let furDetail = 1, slowSamples = 0, fastSamples = 0; // perf: 0.2-1 sin recomponer mallas
     const selRing = haloMesh(1.0); selRing.material.color.set(0xFFFFFF); scene.add(selRing);
     const pts = new Map();
 
@@ -481,7 +482,7 @@ const JanusStage3D = (() => {
       if (id && (id !== cre.id || key !== cre.key)) {
         if (cre.rig) scene.remove(cre.rig.root);
         let rig = cre.rigs[key]; if (!rig) { rig = cre.rigs[key] = (key !== id ? window.JanusFace3D.build(id, FACE_COL[id]) : null) || (window.JanusCreatureSlot && window.JanusCreatureSlot.rigFor(id)) || window.JanusCreatures3D.build(id, '#FFD27A'); const hit = new T.Mesh(new T.CylinderGeometry(0.95, 0.95, 2.6, 10), new T.MeshBasicMaterial({ visible: false })); hit.position.y = 1.3; hit.userData.pickKind = 'creature'; rig.root.add(hit); }
-        cre.id = id; cre.key = key; cre.rig = rig; scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
+        cre.id = id; cre.key = key; cre.rig = rig; if (rig.setDetail) rig.setDetail(furDetail); if (rig.setFurStyle) rig.setFurStyle(state.furStyle); scene.add(rig.root); rig.root.position.set(cre.pos[0], DECK_Y, cre.pos[1]); fx.burst(cre.pos[0], 1.4, cre.pos[1], 16, '#FFE9A0', 2.6);
       }
       if (look && cre.rig) { cre.look = look; cre.rig.setLook(look); }
     }
@@ -632,7 +633,7 @@ const JanusStage3D = (() => {
         const react = t < cre.reactUntil, pose = react ? cre.reactPose : cre.pose;
         const hopY = Math.max(0, Math.sin(clamp((t - cre.hop) / 0.5, 0, 1) * Math.PI)) * 0.35;
         cre.rig.root.position.set(cre.pos[0], DECK_Y + hopY, cre.pos[1]); cre.rig.root.rotation.y = cre.yaw;
-        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0, mood: t < cre.moodUntil ? cre.mood : null, camPos: cam.position });
+        cre.rig.update(t, dt, { pose, walk, excite: pose === 'celebra' ? 1 : 0, mood: t < cre.moodUntil ? cre.mood : null, camPos: cam.position, wind: Math.min(1, state.wind + (walk ? 0.18 : 0)), windYaw: cre.yaw });
       }
       // vuelos de fichas (canje)
       for (let i = flights.length - 1; i >= 0; i--) {
@@ -657,6 +658,12 @@ const JanusStage3D = (() => {
         h.appendChild(wrap); if (ro) ro.disconnect(); if (window.ResizeObserver) { ro = new ResizeObserver(() => resize()); ro.observe(h); } resize();
       },
       setCreature, setLook(look) { if (cre.rig) { cre.look = look; cre.rig.setLook(look); } }, setWorld, apply,
+      setWind(value) { if (Number.isFinite(value)) state.wind = Math.max(0, Math.min(1, value)); },
+      setFurStyle(style) {
+        const next = ['natural', 'corto', 'esponjoso', 'rebelde'].includes(style) ? style : 'natural';
+        state.furStyle = next;
+        if (cre.rig && cre.rig.setFurStyle) cre.rig.setFurStyle(next);
+      },
       setView(v) { state.viewOverride = v || null; computeGoal(); },
       setMode(m) { state.mode = m === 'mundo' ? 'mundo' : 'escena'; state.viewOverride = state.mode === 'mundo' ? 'mundo' : null; computeGoal(); },
       select(id) { select(id); },
@@ -680,12 +687,29 @@ const JanusStage3D = (() => {
       },
       propIds() { return [...props.keys()]; },
       worldInfo() { return { home: wp.homeKey, vehicle: wp.vehKey, decor: [...wp.decor.keys()] }; },
-      stats() { return { fps: Math.round(fps), calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, props: props.size, creature: cre.id, kind: cre.rig ? (cre.rig.glb ? 'glb' : cre.rig.face === true ? 'cara' : 'procedural') : null, mood: cre.rig && cre.rig.face === true ? cre.rig.mood : undefined, view: state.viewOverride || state.view, mode: state.mode, camera: { d: +view.d.toFixed(2), yaw: +view.yaw.toFixed(2), pitch: +view.pitch.toFixed(2) }, size: [el.width, el.height] }; },
+      stats() { return { fps: Math.round(fps), calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, props: props.size, furDetailRatio: +furDetail.toFixed(2), creature: cre.id, kind: cre.rig ? (cre.rig.glb ? 'glb' : cre.rig.face === true ? 'cara' : 'procedural') : null, mood: cre.rig && cre.rig.face === true ? cre.rig.mood : undefined, view: state.viewOverride || state.view, mode: state.mode, camera: { d: +view.d.toFixed(2), yaw: +view.yaw.toFixed(2), pitch: +view.pitch.toFixed(2) }, size: [el.width, el.height] }; },
       _tick: tick, _visible: visible,
       _render() { renderer.render(scene, cam); frames++; },
       dispose() { disposed = true; if (ro) ro.disconnect(); renderer.dispose(); if (wrap.parentElement) wrap.parentElement.removeChild(wrap); }
     };
-    api._frame = (dt, t) => { tick(dt, t); renderer.render(scene, cam); frames++; fpsAcc += dt; if (fpsAcc > 0.5) { fps = frames / fpsAcc; frames = 0; fpsAcc = 0; } };
+    api._frame = (dt, t) => {
+      tick(dt, t); renderer.render(scene, cam); frames++; fpsAcc += dt;
+      if (fpsAcc > 0.5) {
+        fps = frames / fpsAcc; frames = 0; fpsAcc = 0;
+        // Cambiar solo el numero de hebras instanciadas (no el rig, ropa, contexto ni malla base).
+        // Histeresis evita oscilacion de calidad por picos de carga o cambios de pestana.
+        const rig = cre.rig;
+        if (rig && rig.setDetail) {
+          if (fps < 24) { slowSamples++; fastSamples = 0; }
+          else if (fps > 48) { fastSamples++; slowSamples = 0; }
+          else { slowSamples = 0; fastSamples = 0; }
+          let next = furDetail;
+          if (slowSamples >= 4) { next = Math.max(0.2, furDetail - 0.2); slowSamples = 0; }
+          if (fastSamples >= 12) { next = Math.min(1, furDetail + 0.1); fastSamples = 0; }
+          if (next !== furDetail) { furDetail = next; rig.setDetail(furDetail); }
+        }
+      }
+    };
     if (host) api.mount(host);
     computeGoal(); snapCam = true;
     return api;

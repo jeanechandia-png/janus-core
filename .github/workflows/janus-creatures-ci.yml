@@ -1,0 +1,97 @@
+name: JANUS creatures 3D — verification
+on:
+  push:
+    branches:
+      - chatgpt/janus-presencia-criaturas-cinematica-20261105
+  pull_request:
+    paths:
+      - 'prototypes/dashboard/**'
+      - '.github/workflows/janus-creatures-ci.yml'
+permissions:
+  contents: read
+jobs:
+  no-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate JavaScript syntax
+        run: |
+          for f in \
+            prototypes/dashboard/lego/janus-edge-companion/janus-edge-companion.js \
+            prototypes/dashboard/lego/janus-fur-wind/janus-fur-wind.js \
+            prototypes/dashboard/lego/janus-nexo-3d/janus-nexo-3d.js \
+            prototypes/dashboard/src/avatar.js \
+            prototypes/dashboard/lego/janus-presence/janus-presence.js \
+            prototypes/dashboard/lego/janus-presence/janus-presence.js \
+            prototypes/dashboard/lego/janus-creatures-3d/janus-creatures-3d.js \
+            prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
+            prototypes/dashboard/lego/janus-cartoon-voice/janus-cartoon-voice.js \
+            prototypes/dashboard/src/companero.js \
+            prototypes/dashboard/src/phonev.js \
+            prototypes/dashboard/src/sala.js \
+            prototypes/dashboard/src/app.js; do
+            node --check "$f"
+          done
+      - name: Deterministic unit tests
+        run: |
+          cd prototypes/dashboard
+          node tests/presence.test.cjs
+          node --test tests/fur-wind.test.cjs
+          node --test tests/kendra-identity.test.cjs
+          node --test tests/edge-companion.test.cjs
+          node --test tests/kendra-fashion.test.cjs
+          node --test tests/nexo-gender.test.cjs
+          node --test tests/kendra-cartoon-voice.test.cjs
+      - name: Offline self-contained dashboard builds
+        run: |
+          cd prototypes/dashboard
+          node build.cjs
+          node build.cjs --skin b
+          node --test tests/ios-quicklook.test.cjs
+      - name: Verify generated HTML and JavaScript are self-contained
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const vm = require('node:vm');
+          const path = require('node:path');
+          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html']) {
+            const html = fs.readFileSync(path.join('prototypes/dashboard/dist', file), 'utf8');
+            for (const token of ['JanusPresence', 'JanusFurWind', 'JanusCreatures3D', 'JanusCreatureSlot']) {
+              if (!html.includes(token)) throw new Error(file + ': missing ' + token);
+            }
+            const matches = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
+            if (!matches.length) throw new Error(file + ': missing JS');
+            for (const m of matches) new vm.Script(m[1], {filename:file});
+            console.log('PASS ' + file + ' (' + Math.round(html.length/1024) + ' KiB)');
+          }
+          NODE
+      - name: Install Chromium for layout / interaction verification
+        run: |
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: iPhone-sized A/B edge companion and learning controls
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
+        run: node prototypes/dashboard/tests/edge-mobile-visual.cjs
+      - name: Archive Kendra screenshots for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-kendra-mobile-a-b-screens
+          path: ${{ runner.temp }}/kendra-edge-screens/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Publish offline dashboard previews
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-creatures-a-b-offline
+          path: |
+            prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html
+            prototypes/dashboard/dist/Janus-B-Platino-interactivo.html
+          retention-days: 7
+          if-no-files-found: error

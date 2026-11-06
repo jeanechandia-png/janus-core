@@ -1,5 +1,14 @@
 # JANUS — Estado vigente
 
+## 2026-11-06 — Dashboard Kendra: seguridad visual móvil VERIFICADA EN CI
+- **Rama:** `chatgpt/janus-presencia-criaturas-cinematica-20261105` (PR #63, sin fusionar ni publicar a producción); código probado `f896664ffc7b9561ef38213e77e0cf09934a6321`.
+- **Implementado:** Lumi/compañero 3D permanece arrastrable en el margen del escenario y evita tapar selectores, respuestas, botones y pestañas; desaparece cuando la escena está realmente fuera de pantalla. Texto decorativo redundante oculto en móvil, no las instrucciones operativas.
+- **Verificado:** Core CI #42136112224 y CI 3D/E2E #42136112233 `success`. Cuatro capturas reales de Chromium/SwiftShader en A/B a 390×844 y 430×932; test de clic en pestañas y zonas seguras. No son pruebas en GPU física.
+- **Pendiente prioritario:** GLB cinematográficos fieles a los diseños aprobados, rig facial y accesorios, FPS y test Safari/iPhone/iPad. La interfaz se conserva; no se confunde el rig procedural con la referencia VFX.
+- **Rama hermana:** PR #66 contiene medallones aprobados ES/NL y accesos PWA sobre la integración Core de PR #59; reconciliar sin borrar componentes ni permisos.
+- **Traspaso:** `docs/handoffs/2026-11-06-kendra-mobile-safe-area.md`.
+
+
 Fecha: 2026-10-13
 
 ## DASHBOARD (2026-10-22)

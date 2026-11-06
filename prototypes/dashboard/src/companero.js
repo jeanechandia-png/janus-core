@@ -3,20 +3,20 @@
  * La criatura vive DENTRO de la escena 3D (lego/janus-stage-3d + lego/janus-creatures-3d), no como imagen encima.
  * Lógica: módulos LEGO componibles empaquetados en el global `Companion` (adaptador packages/adapters/src/companion-kit.ts):
  *   companion (carácter fijo, tutor, seguridad) · avatar-look (aspecto) · star-shop (estrellas, tienda, mundo) · scene-stage (escena y lecciones).
- * Personalizar es SOLO estético: el carácter, la voz y el comportamiento de cada criatura no cambian.
+ * Los cambios de apariencia y voz no alteran las normas de seguridad o el perfil de Kendra.
  * Las lecciones usan representaciones concretas (IES/WWC 2021006, Rec. 3); no sustituyen a un profesional (ver pestaña «Papá»).
  */
 const CREAT_IMG = { lumi: IMG.cLumi, bombo: IMG.cBombo, musgo: IMG.cMusgo, nimbo: IMG.cNimbo };
-const CHILD = '__HIJA__';
+const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
 const CP_STAGE = 'kendra';
 const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
-  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
+  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
 function compProfile() {
-  const C = compState(), p = Companion.newKitProfile('hija', CHILD, C.creatureId);
+  const C = compState(), p = Companion.newKitProfile('kendra', CHILD, C.creatureId);
   p.names = C.names; p.mathLevel = C.level; p.encourage = C.enc; p.looks = C.looks; if (C.world) p.world = C.world; Companion.worldOf(p); return p;
 }
 function compSave(p) { const C = compState(); C.names = p.names; C.enc = p.encourage; C.looks = p.looks || {}; C.world = p.world; saveState(); }
@@ -25,13 +25,20 @@ const todayStr = () => { const d = new Date(); return d.getFullYear() + '-' + pa
 const hexLook = (l) => ({ fur: Companion.SWATCHES[l.fur].hex, accent: Companion.SWATCHES[l.accent].hex, eyes: Companion.EYES[l.eyes].hex, outfit: l.outfit, outfitColor: Companion.SWATCHES[l.outfitColor].hex, accessoryColor: Companion.SWATCHES[l.accessoryColor].hex, accessories: l.accessories });
 const cpStage = () => (window.JanusStage3D ? JanusStage3D.get(CP_STAGE) : null);
 
-function speak(text) {
-  try {
-    if (!('speechSynthesis' in window)) return; speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/[^\p{L}\p{N}\s¿?¡!.,]/gu, ''));
-    const c = Companion.getCreature(compState().creatureId); u.lang = 'es-ES'; u.pitch = c.voice.pitch === 'aguda' ? 1.7 : 1.3; u.rate = 1.05;
-    speechSynthesis.speak(u);
-  } catch (e) { /* sin voz del navegador */ }
+function speak(text, opts) {
+  // Sólo las criaturas usan esta voz. Janus Nexo mantiene su sistema de voz independiente.
+  const C = compState(), V = window.JanusCartoonVoice;
+  if (!V) return { ok:false, reason:'unavailable' };
+  const o = opts || {};
+  return V.speak(text, C.creatureId, {
+    enabled: C.voiceEnabled !== false,
+    force: o.force === true,
+    style: C.voiceStyles[C.creatureId] || 'caricatura',
+    mood: o.mood || 'contento',
+    onStart: () => {
+      if (window.JanusEdgeCompanion) JanusEdgeCompanion.react('habla', 1.5, o.mood || 'contento');
+    }
+  });
 }
 
 /* ───────────── estrellas (por esfuerzo, con tope diario e idempotentes) ───────────── */
@@ -48,8 +55,10 @@ function cpEarn(reason, eventId) {
 /* ───────────── habla de la criatura ───────────── */
 function cpSay(text, pose, quiet, mood) {
   COMP_UI.say = text; const st = cpStage();
-  if (st) st.react(pose || 'habla', Math.min(8, Math.max(2, text.length * 0.055 + 1.2)), mood);
-  if (!quiet) speak(text);
+  const secs = Math.min(8, Math.max(2, text.length * 0.055 + 1.2));
+  if (st) st.react(pose || 'habla', secs, mood);
+  if (window.JanusEdgeCompanion) JanusEdgeCompanion.react(pose || 'habla', secs, mood);
+  if (!quiet) speak(text, { mood: mood || 'contento' });
   cpRefreshOv();
 }
 
@@ -59,6 +68,8 @@ function cpSyncStage(st) {
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   if (st.setAspect) st.setAspect(C.aspect);
   st.setCreature(C.creatureId, hexLook(Companion.lookOf(p)));
+  if (st.setWind) st.setWind(Number.isFinite(C.windStrength) ? C.windStrength : 0.3);
+  if (st.setFurStyle) st.setFurStyle(C.furStyles[C.creatureId] || 'natural');
   st.setWorld({ home: w.home, vehicle: w.vehicle, decor: w.decor });
   st.setMode(C.tab === 'mundo' ? 'mundo' : 'escena');
   if (C.tab !== 'mundo') st.setView(COMP_UI.view);
@@ -66,9 +77,24 @@ function cpSyncStage(st) {
   st.select(COMP_UI.sel);
 }
 function cpAfterRender() {
-  if (typeof ROUTE === 'undefined' || ROUTE.v !== 'companero') return;
+  if (typeof ROUTE === 'undefined' || ROUTE.v !== 'companero') {
+    if (window.JanusEdgeCompanion) JanusEdgeCompanion.hide();
+    return;
+  }
   document.querySelectorAll('#view [data-hex]').forEach((el) => el.style.setProperty('--c', el.getAttribute('data-hex')));
-  if (!window.JanusStage3D) return;
+  if (window.JanusEdgeCompanion) {
+    const C = compState(), p = compProfile(), edge = !!document.querySelector('#view .cpst3.edge-hero');
+    JanusEdgeCompanion.sync({
+      active: edge, id: C.creatureId, name: Companion.displayName(p),
+      look: hexLook(Companion.lookOf(p)), style: C.furStyles[C.creatureId] || 'natural',
+      wind: Number.isFinite(C.windStrength) ? C.windStrength : 0.3,
+      side: C.edgeSide || 'left', roam: C.edgeRoam !== false,
+      onTap: cpOnTapCreature,
+      onDock: (side) => { if (C.edgeSide !== side) { C.edgeSide = side; saveState(); } },
+      onError: () => { if (C.visualMode !== 'cinematic') { C.visualMode = 'cinematic'; saveState(); rerender(); } }
+    });
+  }
+  if (!window.JanusStage3D || !document.querySelector('#view [data-stage3d]')) return;
   const st = cpStage(); if (!st) return;
   if (!st._wired) { st._wired = true; st.on({ move: cpOnMove, tapProp: cpOnTapProp, tapCreature: cpOnTapCreature, tapHome: cpOnTapHome, tapVehicle: cpOnTapVehicle, tapDecor: cpOnTapDecor, tapEmpty: cpOnTapEmpty }); }
   cpSyncStage(st);
@@ -79,7 +105,7 @@ function cpApply(events) { const st = cpStage(); if (st) st.apply(COMP_UI.scn, e
 function cpOnMove(id, to) { try { COMP_UI.scn = Companion.userMove(COMP_UI.scn, id, to); } catch (e) { return; } COMP_UI.sel = id; cpApply(); cpRefreshOv(); }
 function cpOnTapProp(id) { COMP_UI.sel = id; const st = cpStage(); if (st) st.select(id); cpRefreshOv(); }
 function cpOnTapEmpty() { if (COMP_UI.sel) { COMP_UI.sel = null; const st = cpStage(); if (st) st.select(null); cpRefreshOv(); } }
-function cpOnTapCreature() { const cr = Companion.getCreature(compState().creatureId); cpSay(cr.catchphrases[Math.floor(Math.random() * cr.catchphrases.length)].replace('{n}', CHILD), 'saluda'); }
+function cpOnTapCreature() { const cr = Companion.getCreature(compState().creatureId); cpSay('¡Hola, ' + CHILD + '! ' + cr.catchphrases[Math.floor(Math.random() * cr.catchphrases.length)].replaceAll('{n}', CHILD), 'saluda'); }
 function cpOnTapHome() { cpSay('¡Esta es mi casa! Aquí descanso después de aprender contigo.', 'saluda'); }
 function cpOnTapVehicle() { const w = Companion.worldOf(compProfile()); cpSay(w.vehicle === 'veh:cohete' ? '¡Tres, dos, uno… despegue!' : '¡Brrrum! Vamos a dar una vuelta.', 'celebra'); }
 function cpOnTapDecor() { cpSay('¡Qué bonito se ve todo, ' + CHILD + '!', 'saluda', true); }
@@ -110,7 +136,7 @@ function cpCheckGoal() {
   const r = Companion.checkBuild(COMP_UI.scn, g), key = L.exerciseId + ':' + COMP_UI.si;
   if (r.done && !COMP_UI.goalDone[key]) {
     COMP_UI.goalDone[key] = true; cpEarn('leccion', 'leccion:' + key);
-    const st = cpStage(); if (st) st.celebrate(); cpSay('¡Lo lograste tú solita! Mira cómo queda.', 'celebra');
+    const st = cpStage(); if (st) st.celebrate(); cpSay('¡Lo lograste, ' + CHILD + '! Mira cómo queda.', 'celebra');
   }
 }
 
@@ -135,7 +161,7 @@ function cpHud() {
 }
 function cpOverlay() {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), w = Companion.worldOf(p);
-  const say = COMP_UI.say || cr.catchphrases[0].replace('{n}', CHILD), mundo = C.tab === 'mundo';
+  const say = COMP_UI.say || '¡Hola, ' + CHILD + '! ' + cr.catchphrases[0].replaceAll('{n}', CHILD), mundo = C.tab === 'mundo';
   const views = mundo ? '' : '<div class="cpviews">' + [['amplia', '🔭', 'Vista amplia'], ['mesa', '🍪', 'Vista de la mesa'], ['primer-plano', '🔍', 'Más cerca']].map((v) => '<span class="cpvb' + (COMP_UI.view === v[0] ? ' on' : '') + '"' + act('cpView', v[0], v[2]) + '>' + v[1] + '</span>').join('') + '<span class="cpvb"' + act('cpView', '', 'Que la cámara siga la lección') + '>🎯</span></div>';
   return '<div class="cpsay"><b>' + esc(name) + '</b><span>' + esc(say) + '</span><span class="mini mono"' + act('cpSpeak', '', 'Escuchar') + '>🔊</span></div>' +
     '<div class="cpstars mono" title="Estrellas: se ganan por esfuerzo, máximo ' + Companion.DAILY_CAP + ' al día">★ <b>' + w.stars + '</b><span class="hoy"> · hoy ' + w.earnedToday + '/' + Companion.DAILY_CAP + '</span>' + (COMP_UI.toast ? '<em>' + esc(COMP_UI.toast) + '</em>' : '') + '</div>' + views +
@@ -162,9 +188,22 @@ function tabVestidor(p, name) {
   const sw = (part, cur) => '<div class="cpsw">' + Companion.SWATCH_IDS.map((id) => dot('cpWear', part + '|' + id, S[id].hex, S[id].label, cur === id)).join('') + '</div>';
   const price = (k) => (Companion.kitShop.item(k) || { price: 0 }).price;
   const slotRow = (slot) => '<div class="cpgr"><h4 class="mono">' + esc(Companion.SLOT_LABEL[slot]) + '</h4><div class="cpchips">' + chip('cpWear', 'accessory|' + slot + '|', '∅', 'Ninguno', !look.accessories[slot] ? 'on' : '') + Companion.ACCESSORIES[slot].map((a) => { const k = Companion.accessoryKey(slot, a.id); return chip('cpWear', 'accessory|' + slot + '|' + a.id, a.icon, a.label, look.accessories[slot] === a.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div></div>';
-  const asp = compState().aspect, canFace = !!window.JanusFace3D;
-  return (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
+  const C = compState(), asp = C.aspect, canFace = !!window.JanusFace3D;
+  const species = C.creatureId, opts = CP_STYLES[species] || CP_STYLES.lumi;
+  const style = C.furStyles[species] || 'natural';
+  const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
+    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
+    '<div class="addf"><input type="text" data-f="cpNewName" maxlength="20" value="' + esc(name) + '" aria-label="Nombre de mi criatura" placeholder="Escribe el nombre que quieras">' +
+    '<span class="btn" role="button" tabindex="0"' + act('cpRenameWardrobe', '', 'Guardar el nombre de mi criatura') + '>Guardar nombre</span></div>' +
+    (COMP_UI.nameMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.nameMsg) + '</p>' : '') + '</div>';
+  const furPanel = '<div class="cpgr"><h4 class="mono">' + (species === 'bombo' ? 'Forma de las branquias' : species === 'musgo' ? 'Estilo del musgo' : species === 'nimbo' ? 'Forma de la nube' : 'Estilo del pelaje') + '</h4>' +
+    '<p class="cpmini dim">Personalízalo como más te guste. La forma cambia en la criatura 3D; su personalidad y sus recuerdos siguen siendo los mismos.</p>' +
+    '<div class="cpchips">' + opts.map((item) => chip('cpStyle', item[0], '✦', item[1], style === item[0] ? 'on' : '')).join('') + '</div></div>';
+  return identity + furPanel + (canFace ? '<div class="cpgr"><h4 class="mono">Cómo aparece ' + esc(name) + '</h4><div class="cpchips">' + chip('cpAspect', 'criatura', '🦊', 'Criatura', asp === 'criatura' ? 'on' : '') + chip('cpAspect', 'cara', '👀', 'Cara con expresiones', asp === 'cara' ? 'on' : '') + '</div>' + (asp === 'cara' ? '<p class="cpmini dim">Ojos y sonrisa flotantes, como la cara del robot de Janus. Aquí eliges el color de los ojos; las emociones están en «Hablar».</p>' : '') + '</div>' : '') +
     '<p class="cpmini dim">Tú decides cómo se ve ' + esc(name) + '. Cambiar su aspecto no cambia cómo es: sigue siendo ' + esc(name) + '.</p>' +
+    '<div class="cpgr"><h4 class="mono">Viento en fibras 3D</h4><div class="cpchips">' +
+      [[0, '🍃 Calma'], [0.3, '🌬 Brisa'], [0.7, '💨 Viento']].map((v) => chip('cpWind', v[0], v[1], v[1], String(Number.isFinite(compState().windStrength) ? compState().windStrength : 0.3) === String(v[0]) ? 'on' : '')).join('') +
+      '</div><p class="cpmini dim">Pelaje y musgo en geometría 3D con viento en GPU. Bombo mantiene piel húmeda sin pelo. En modelos GLB el viento depende del atributo COLOR_1 del contrato.</p></div>' +
     '<div class="cpgr"><h4 class="mono">Color del pelo</h4>' + sw('fur', look.fur) + '</div><div class="cpgr"><h4 class="mono">Detalles</h4>' + sw('accent', look.accent) + '</div>' +
     '<div class="cpgr"><h4 class="mono">Ojos</h4><div class="cpsw">' + Companion.EYE_IDS.map((id) => dot('cpWear', 'eyes|' + id, Companion.EYES[id].hex, Companion.EYES[id].label, look.eyes === id)).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Ropa</h4><div class="cpchips">' + Companion.OUTFITS.map((o) => { const k = Companion.outfitKey(o.id); return chip('cpWear', 'outfit|' + o.id, o.icon, o.label, look.outfit === o.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div>' + (look.outfit !== 'ninguna' ? '<h4 class="mono">Color de la ropa</h4>' + sw('outfitColor', look.outfitColor) : '') + '</div>' +
@@ -186,15 +225,38 @@ function tabMundo(p, name) {
     '<div class="cpgr"><h4 class="mono">Decoración (hasta ' + Companion.MAX_DECOR + ')</h4><div class="cpchips">' + (ownedOf(Companion.DECOR_KEYS).map((k) => chip('cpDecor', k, it(k).icon, it(k).label, w.decor.includes(k) ? 'on' : '')).join('') || '<span class="dim">Todavía no tienes. ¡Mira la Tienda!</span>') + '</div></div>' +
     '<div class="cpbtns"><span class="btn2 mono"' + act('cpTab', 'tienda', 'Ir a la tienda') + '>⭐ Ir a la tienda</span></div>';
 }
+const CP_STYLES = {
+  lumi: [['natural', 'Natural'], ['corto', 'Cortito'], ['esponjoso', 'Esponjoso'], ['rebelde', 'Despeinado']],
+  musgo: [['natural', 'Natural'], ['corto', 'Musgo corto'], ['esponjoso', 'Frondoso'], ['rebelde', 'Silvestre']],
+  nimbo: [['natural', 'Natural'], ['corto', 'Nube suave'], ['esponjoso', 'Nube esponjosa'], ['rebelde', 'Ondulado']],
+  bombo: [['natural', 'Branquias naturales'], ['corto', 'Compactas'], ['esponjoso', 'Abundantes'], ['rebelde', 'Onduladas']]
+};
 const CP_MOODS = [['alegre', '😄', 'Alegre'], ['contento', '🙂', 'Contento'], ['triste', '😢', 'Triste'], ['enojado', '😠', 'Enojado'], ['sorprendido', '😮', 'Sorprendido'], ['pensativo', '🤔', 'Pensativo']];
 function tabHablar(p, name) {
   const sc = Companion.SCENARIOS[compState().sc % Companion.SCENARIOS.length];
-  return '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4><div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
+  const C = compState(), V = window.JanusCartoonVoice;
+  const voice = V ? V.profile(C.creatureId, C.voiceStyles[C.creatureId] || 'caricatura') : null;
+  const soundOn = C.voiceEnabled !== false;
+  const voicePanel = '<div class="cpgr cp-voice" aria-label="Voz de caricatura de la criatura">' +
+    '<h4 class="mono">Voz caricaturesca · ' + esc(name) + '</h4>' +
+    '<p class="cpmini dim">' + esc(voice ? voice.label : 'Voz del dispositivo') +
+    '. Cada criatura habla de manera distinta. Usa la síntesis de voz disponible en el dispositivo, sin cuentas ni pagos.</p>' +
+    '<div class="cpchips">' + (V ? V.styles.map((item) =>
+      chip('cpVoiceStyle', item.id, '♪', item.label, (C.voiceStyles[C.creatureId] || 'caricatura') === item.id ? 'on' : '')
+    ).join('') : '') + '</div>' +
+    '<div class="cpbtns"><button type="button" class="btn2 mono"' +
+      act('cpVoiceToggle', '', soundOn ? 'Silenciar la criatura' : 'Activar la voz caricaturesca') + '>' +
+      (soundOn ? '🔊 Voz activada' : '🔇 Voz silenciada') + '</button>' +
+    '<button type="button" class="btn2 mono"' + act('cpVoicePreview', '', 'Escuchar una muestra de la voz de esta criatura') +
+    '>▶ Escuchar muestra</button></div>' +
+    (COMP_UI.voiceMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.voiceMsg) + '</p>' : '') +
+    '</div>';
+  return voicePanel + '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4><div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
 }
-const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Robot de Janus' };
+const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Nexo masculino', 'robot-femenino': 'Nexo femenino' };
 function slotPanel() {
   const S = window.JanusCreatureSlot; if (!S || !S.supported()) return '';
   const row = (id) => {
@@ -203,22 +265,41 @@ function slotPanel() {
       '<div class="cpbtns"><label class="btn2 mono cpfile">⬆ Importar GLB<input type="file" accept=".glb,model/gltf-binary" data-slotfile="' + id + '" aria-label="Importar modelo GLB de ' + SLOT_NAMES[id] + '"></label>' + (i ? '<span class="btn2 mono"' + act('cpSlotDel', id, 'Quitar el modelo de ' + SLOT_NAMES[id]) + '>✕ Quitar</span>' : '') + '</div>' +
       (rep ? '<details class="cpbasis"><summary class="mono">Informe del contrato</summary><ul class="cpul">' + rep.checks.map((c) => '<li>' + (c.ok ? '✔' : c.level === 'error' ? '✖' : '⚠') + ' ' + esc(c.label) + ': ' + esc(c.detail) + '</li>').join('') + '</ul></details>' : '') + '</div>';
   };
-  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
+  return '<div class="cpgr"><h4 class="mono">Criaturas 3D · módulo de modelos</h4><p class="cpmini dim">Aquí se conectan las criaturas hiperrealistas: un archivo GLB por criatura que cumpla el contrato (lego/janus-creature-slot/CONTRATO.md). Se guardan solo en este dispositivo y, si falta alguna pieza, se ve el informe.</p>' + S.ids.filter(id => ['lumi','bombo','musgo','nimbo'].includes(id)).map(row).join('') + (COMP_UI.slotMsg ? '<div class="note mono">' + esc(COMP_UI.slotMsg) + '</div>' : '') + '</div>';
 }
 function tabPapa(p, name) {
   const C = compState();
   return slotPanel() + '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos si detecta tristeza, burlas o algo serio.</div>') + '</div>' +
     '<div class="cpgr"><h4 class="mono">Qué hace y qué no hace</h4><ul class="cpul"><li>Practica con representaciones concretas (fichas, platos, tartas) y pasos cortos con «tu turno».</li><li><b>No sustituye a un profesional</b> (docente, psicopedagogo, terapeuta): sigue las mismas bases que ellos usan.</li><li>Las estrellas premian el esfuerzo, con tope diario; no hay castigos, temporizadores ni dinero real.</li><li>Nunca comenta el cuerpo ni el peso de la niña.</li></ul></div>' +
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
-    '<div class="dim mono cpmini">Voz y rostro: desactivados (solo en el dispositivo y con tu consentimiento). Voz actual: la del navegador, hasta diseñar la de ElevenLabs.</div>';
+    '<div class="dim mono cpmini">Las voces de las criaturas usan síntesis de voz del navegador y pueden silenciarse; no se activa reconocimiento de voz ni biometría. El código no envía datos a proveedores, aunque algunas voces del sistema operativo podrían necesitar un servicio del fabricante. La versión neuronal propia de alta fidelidad sigue pendiente.</div>';
 }
 function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
-    (ok3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' : '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
-    '<div class="cpov">' + cpOverlay() + '</div></section>';
+  const world = C.tab === 'mundo' || !!COMP_UI.lesson;
+  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen del viewport.
+  // La escena de las lecciones conserva el antiguo motor, con casa/vehiculos/objetos.
+  // El arte estático es una alternativa explicita o fallback honesto cuando falla WebGL.
+  const edgeSupported = !!(window.JanusEdgeCompanion && JanusEdgeCompanion.supported());
+  const edge = !world && C.visualMode !== 'cinematic' && C.visualMode !== '3d' && edgeSupported;
+  const cinematic = !world && !edge && (C.visualMode !== '3d' || !ok3d);
+  const scene3d = !edge && !cinematic && ok3d;
+  const tools = world ? '' :
+    '<div class="cp-edge-tools">' +
+      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D vivo</button>' : '') +
+      (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
+      '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte</button>' +
+      (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
+        '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
+    '</div>';
+  const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
+    (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
+      cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
+      scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
+        '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
+    tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
   const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3);
 }
@@ -232,29 +313,73 @@ function parseWear(arg) {
   if (part === 'accessory') return { part, slot: a[1], value: a[2] || null };
   return { part, value: a[1] };
 }
+function cpRenameCommit(raw) {
+  const C = compState(), p = compProfile();
+  try {
+    const name = Companion.renameCreature(p, C.creatureId, String(raw || ''));
+    compSave(p); COMP_UI.renaming = false; COMP_UI.nameMsg = 'Nombre guardado: ' + name;
+    cpSay('¡Me encanta mi nombre, ' + CHILD + '! Ahora puedes llamarme ' + name + '.', 'celebra', false, 'alegre');
+  } catch (e) {
+    COMP_UI.nameMsg = 'Prueba otro nombre (entre 1 y 20 letras, sin palabras inapropiadas).';
+    cpSay('Kendra, probemos con otro nombre que te guste.', 'piensa', true, 'pensativo');
+  }
+}
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; COMP_UI.renaming = false; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
+  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'edge'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'edge'; saveState(); },
+  cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
+  cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
+  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
-  cpRename: () => {
-    try { const C = compState(), p = compProfile(); Companion.renameCreature(p, C.creatureId, field('cpName')); compSave(p); COMP_UI.renaming = false; cpSay('¡Me encanta mi nombre nuevo! Gracias, ' + CHILD + '.', 'celebra'); }
-    catch (e) { if (/mejor no/.test(String(e && e.message))) { cpSay('Mmm, ese nombre mejor no. ¿Probamos con otro que nos guste a todos?', 'piensa'); } else COMP_UI.renaming = false; }
+  cpRename: () => cpRenameCommit(field('cpName')),
+  cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
+  cpStyle: (style) => {
+    const C = compState(), ids = (CP_STYLES[C.creatureId] || []).map((v) => v[0]);
+    if (!ids.includes(style)) return;
+    C.furStyles[C.creatureId] = style;
+    C.visualMode = 'edge'; // previsualizacion REAL en cuerpo 3D grande que vive en el borde
+    saveState();
+    const st = cpStage(); if (st && st.setFurStyle) st.setFurStyle(style);
+    cpSay('¡Mira, ' + CHILD + '! ¿Qué te parece mi nuevo estilo?', 'saluda', true, 'alegre');
   },
+  cpWind: (v) => { const C = compState(), x = Number(v); if (![0, 0.3, 0.7].includes(x)) return; C.windStrength = x; saveState(); const st = cpStage(); if (st && st.setWind) st.setWind(x); },
   cpAspect: (a) => { const C = compState(); C.aspect = a === 'cara' ? 'cara' : 'criatura'; saveState(); const st = cpStage(); if (st && st.setAspect) { st.setAspect(C.aspect); st.sparkle(-1.6, 1.8, '#FFE9A0'); } cpSay(C.aspect === 'cara' ? '¡Ahora me ves la cara! Mira cómo cambian mis ojos.' : '¡Vuelvo a ser yo, con cuerpo y todo!', 'saluda', true, 'alegre'); },
   cpMood: (m) => {
-    if (!CP_MOODS.some((x) => x[0] === m)) return; const st = cpStage(); if (!st) return;
+    if (!CP_MOODS.some((x) => x[0] === m)) return; const st = cpStage();
     const line = { alegre: '¡Qué alegría!', contento: 'Aquí estoy, contento.', triste: 'Mmm… me da un poquito de pena.', enojado: '¡Grrr! Es un enfado de mentira, ¿eh?', sorprendido: '¡Oooh! ¡No me lo esperaba!', pensativo: 'Mmm… déjame pensar.' }[m];
-    st.setMood(m, 7); cpSay(line, m === 'pensativo' ? 'piensa' : 'idle', true, m);
+    if (st) st.setMood(m, 7); cpSay(line, m === 'pensativo' ? 'piensa' : 'habla', false, m);
   },
   cpSlotDel: (id) => { if (window.JanusCreatureSlot) { JanusCreatureSlot.remove(id); COMP_UI.slotMsg = SLOT_NAMES[id] + ': vuelve la criatura procedural.'; } },
   cpGesture: (g) => { const t = { saludo: '¡Holaaa, ' + CHILD + '!', cara: '¡Bluuu! ¿Me salió graciosa la cara?', baile: '¡A bailar! Un pasito para aquí, otro para allá.', risa: '¡Jajaja! Me haces cosquillas.' }[g]; if (t) cpSay(t, { saludo: 'saluda', cara: 'piensa', baile: 'celebra', risa: 'habla' }[g]); },
-  cpSpeak: () => { speak(COMP_UI.say || Companion.getCreature(compState().creatureId).catchphrases[0]); },
+  cpVoiceStyle: (style) => {
+    const V = window.JanusCartoonVoice, C = compState();
+    if (!V || !V.styles.some((v) => v.id === style)) return;
+    C.voiceStyles[C.creatureId] = style; saveState();
+    COMP_UI.voiceMsg = 'Estilo guardado para ' + Companion.displayName(compProfile()) + '.';
+    if (C.voiceEnabled !== false) {
+      const result = V.preview(C.creatureId, { style });
+      if (!result.ok) COMP_UI.voiceMsg = 'Voz no disponible en el dispositivo. La configuración permanece guardada.';
+    }
+  },
+  cpVoiceToggle: () => {
+    const C = compState(); C.voiceEnabled = C.voiceEnabled === false; saveState();
+    if (!C.voiceEnabled && window.JanusCartoonVoice) JanusCartoonVoice.stop();
+    COMP_UI.voiceMsg = C.voiceEnabled ? 'Voz activada.' : 'Voz silenciada. Puedes seguir leyendo las respuestas.';
+  },
+  cpVoicePreview: () => {
+    const V = window.JanusCartoonVoice, C = compState();
+    if (!V) { COMP_UI.voiceMsg = 'El navegador no admite esta voz.'; return; }
+    const response = V.preview(C.creatureId, { style: C.voiceStyles[C.creatureId] || 'caricatura', force: true });
+    COMP_UI.voiceMsg = response.ok ? 'Muestra de ' + Companion.displayName(compProfile()) + ' · voz del dispositivo.' :
+      'La síntesis de voz no está disponible aquí.';
+  },
+  cpSpeak: () => { speak(COMP_UI.say || '¡Hola, ' + CHILD + '! ' + Companion.getCreature(compState().creatureId).catchphrases[0], { force: true }); },
   cpView: (v) => { COMP_UI.view = ['amplia', 'mesa', 'primer-plano'].includes(v) ? v : null; const st = cpStage(); if (st) { st.resetView(); st.setView(COMP_UI.view); } },
   cpTopic: (t) => { const C = compState(); C.topic = t; C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; cpReset(); saveState(); },
   cpNext: () => { const C = compState(); C.seed = newSeed(); C.fails = 0; COMP_UI.hint = ''; COMP_UI.ok = null; cpReset(); saveState(); },
-  cpShow: () => { COMP_UI.hint = ''; cpLessonStart(false); },
-  cpSolStart: () => { COMP_UI.hint = ''; cpLessonStart(true); },
+  cpShow: () => { const C = compState(); C.visualMode = '3d'; saveState(); COMP_UI.hint = ''; cpLessonStart(false); }, 
+  cpSolStart: () => { const C = compState(); C.visualMode = '3d'; saveState(); COMP_UI.hint = ''; cpLessonStart(true); }, 
   cpSol: () => { COMP_UI.sol = true; COMP_UI.ended = false; cpStep(); },
   cpStep: () => { cpStep(); },
   cpRetry: () => { cpLessonStart(COMP_UI.sol); },
@@ -301,13 +426,13 @@ const COMP_ACTS = {
   cpLight: (l) => { const C = compState(), sc = Companion.SCENARIOS[C.sc % Companion.SCENARIOS.length], r = Companion.answerScenario(sc, l); COMP_UI.scFb = (r.correct ? '✔ ' : '↺ ') + r.feedback; cpSay(r.feedback, r.correct ? 'celebra' : 'piensa'); if (r.correct) C.sc++; saveState(); },
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
-    const reply = '¡Qué interesante! Cuéntame más, me encanta escucharte.';
+    const reply = '¡Te escucho, ' + CHILD + '! Cuéntame más, me encanta escucharte.';
     const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
     if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));
     compSave(p); cpSay(t.say.join(' '), t.safety.parentAlert ? 'saluda' : 'habla');
   }
 };
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } } });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } else if (ev.target.matches('[data-f="cpNewName"]')) { COMP_ACTS.cpRenameWardrobe(); rerender(); } else if (ev.target.matches('[data-f="cpName"]')) { COMP_ACTS.cpRename(); rerender(); } } });
 
 /* ---- Módulo de criaturas (GLB): importar, refrescar la escena y recuperar lo guardado en este dispositivo ---- */
 document.addEventListener('change', async (ev) => {

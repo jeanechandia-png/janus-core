@@ -16,7 +16,7 @@
  */
 const JanusCreatureSlot = (() => {
   const T = window.THREE, G = window.JanusGLTF;
-  const IDS = ['lumi', 'bombo', 'musgo', 'nimbo', 'robot']; // 'robot' = el robot de Janus (hueco para el GLB hiperrealista)
+  const IDS = ['lumi', 'bombo', 'musgo', 'nimbo', 'robot', 'robot-femenino']; // robot masculino heredado; femenino independiente // 'robot' = el robot de Janus (hueco para el GLB hiperrealista)
   if (!T) return { supported: () => false, ids: IDS, has: () => false, rigFor: () => null, report: () => null, info: () => null, remove: () => false, restore: async () => 0, onChange() {}, guessId: () => null, load: async () => ({ level: 'error', checks: [], summary: 'three.js no está cargado' }), inspect: async () => ({ level: 'error', checks: [], summary: 'three.js no está cargado' }), CONTRACT: {} };
   const VISEMES = ['v_aa', 'v_ee', 'v_ih', 'v_oh', 'v_ou', 'v_pp', 'v_ff', 'v_th', 'v_dd', 'v_kk', 'v_ch', 'v_ss', 'v_nn', 'v_rr'];
   const CONTRACT = {
@@ -95,7 +95,7 @@ const JanusCreatureSlot = (() => {
   const report = (id) => (reg[id] ? reg[id].report : null);
   const info = (id) => (reg[id] ? { name: reg[id].name, at: reg[id].at, level: reg[id].report.level, summary: reg[id].report.summary, stats: reg[id].report.stats } : null);
   const onChange = (fn) => { listeners.push(fn); };
-  const guessId = (name) => IDS.find((i) => new RegExp('(^|[^a-z])' + i + '([^a-z]|$)', 'i').test(String(name || ''))) || null;
+  const guessId = (name) => [...IDS].sort((a,b)=>b.length-a.length).find((i) => new RegExp('(^|[^a-z])' + i + '([^a-z]|$)', 'i').test(String(name || ''))) || null; // robot-femenino antes de robot
 
   /* ---------- viento en pelo, plumas y musgo (COLOR_1.r = flexibilidad) ---------- */
   const WU = { uTime: { value: 0 }, uWind: { value: new T.Vector3() } };

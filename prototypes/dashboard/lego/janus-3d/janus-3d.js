@@ -11,14 +11,14 @@
  *   Un hueco 'robot' en JanusCreatureSlot sustituye al robot procedural (el robot hiperrealista que llegue en GLB).
  */
 const Janus3D = (() => {
-  const T = window.THREE; if (!T) return { hydrate() {}, state: {}, FORMS: ['robot'], MOODS: [], setForm() { return false; }, form: () => 'robot', setMood() {}, setLook() {}, setEyes() {}, refresh() {}, react() {} };
+  const T = window.THREE; if (!T) return { hydrate() {}, state: {}, FORMS: ['robot'], MOODS: [], setForm() { return false; }, form: () => 'robot', setVariant() { return false; }, variant: () => 'masculino', setMood() {}, setLook() {}, setEyes() {}, refresh() {}, react() {} };
   const state = { talking: false, listening: false, thinking: false, wave: 0, still: false }; // still: pose neutra fija (capturas de referencia)
   const inst = {};
   let raf = 0, t0 = performance.now();
   /* ---------- formas y emociones (compartidas por todas las instancias del robot) ---------- */
   const FORMS = ['robot', 'cabeza', 'cara', 'lumi', 'bombo', 'musgo', 'nimbo'], CREATURES = ['lumi', 'bombo', 'musgo', 'nimbo'];
   const MOODS = ['alegre', 'contento', 'triste', 'enojado', 'sorprendido', 'pensativo'];
-  const FORM = { key: 'robot', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#FFD36A', eyesGen: 0 };
+  const FORM = { key: 'robot', variant: 'masculino', gen: 0, look: null, lookKey: '', lookGen: 0, eyes: '#347DB8', eyesGen: 0 };
   const MOOD = { base: null, flash: null, until: 0 };
   const TINT = { alegre: '#FFE48A', contento: '#FFD36A', triste: '#6FA8FF', enojado: '#FF4A3D', sorprendido: '#FFFFFF', pensativo: '#B79CFF' };
   const nowMs = () => performance.now();
@@ -157,7 +157,7 @@ const Janus3D = (() => {
   }
   const EYE_HEX = { lumi: '#FFD36A', bombo: '#59E4D4', musgo: '#F2A63B', nimbo: '#8EC8FF' };
   function clearForm(o) {
-    if (o.alt) { o.fit.remove(o.alt.root); o.alt = null; }
+    if (o.alt) { o.fit.remove(o.alt.root); if (o.alt.nexo && o.alt.dispose) o.alt.dispose(); o.alt = null; }
     if (o.mount) { o.P.head.remove(o.mount.root); o.mount = null; }
     o.root.visible = true; o.P.bodyParts.forEach((m) => { m.visible = true; }); o.P.eyes.forEach((e) => { e.visible = true; e.userData.spr.visible = true; }); o.P.smile.visible = true; o.P.pl.visible = true;
     o.fit.scale.setScalar(1); o.fit.position.set(0, 0, 0); o.fitSpec = null;
@@ -166,7 +166,22 @@ const Janus3D = (() => {
     const f = FORM.key, slot = window.JanusCreatureSlot, FC = window.JanusFace3D, CR = window.JanusCreatures3D; o.formKey = f; o.formGen = FORM.gen; o.lookGen = FORM.lookGen; o.eyesGen = FORM.eyesGen;
     clearForm(o); if (o.host) o.host.setAttribute('data-form', f);
     try {
-      if (f === 'robot') { if (slot && slot.has && slot.has('robot')) { const rig = slot.rigFor('robot'); if (rig) { o.alt = rig; o.fit.add(rig.root); o.root.visible = false; rig.update(0, 0.016, {}); fitTo(o, rig.root, 3.5, 0.2); } } return; }
+      if (f === 'robot') {
+        // GLB masculino importado se conserva bajo "robot" para continuidad de datos;
+        // el femenino usa otro ID para NO sobrescribir el modelo aprobado.
+        const glbKey = FORM.variant === 'femenino' ? 'robot-femenino' : 'robot';
+        const gen = window.JanusNexo3D;
+        const rig = (slot && slot.has && slot.has(glbKey) && slot.rigFor ? slot.rigFor(glbKey) : null) ||
+          (gen && gen.supported() ? gen.build(FORM.variant) : null);
+        if (rig && rig.root) {
+          if (!rig.glb) rig.nexo = true;
+          o.alt = rig; o.fit.add(rig.root); o.root.visible = false;
+          if (rig.setLook) rig.setLook({ eyes: FORM.eyes });
+          if (rig.update) rig.update(0, 0.016, { mood: effMood() });
+          fitTo(o, rig.root, 3.6, 0.18);
+        }
+        return;
+      }
       if (f === 'cabeza' && FC) {
         o.P.bodyParts.forEach((m) => { m.visible = false; }); o.P.eyes.forEach((e) => { e.visible = false; e.userData.spr.visible = false; }); o.P.smile.visible = false; o.P.pl.visible = false; /* sin la luz puntual del pecho: no deja un brillo central en el visor que parezca una nariz */
         const fc = o.cache.cabeza || (o.cache.cabeza = FC.build('janus', FORM.eyes, { mount: true, scale: 0.6 })); fc.root.position.set(0, 0.07, 0.962); o.P.head.add(fc.root); o.mount = fc; fc.setLook({ eyes: FORM.eyes }); fc.update(0, 0.016, {});
@@ -196,12 +211,17 @@ const Janus3D = (() => {
     const tap = Math.max(0, o.tapT - t + 1.6), waving = !state.still && (tap > 0 || (t % 8) < 2.2 || state.wave > 0), mood = effMood();
     /* OJO: las criaturas procedurales también traen R.face (kit de cara); solo el módulo de cara flotante marca face === true */
     if (o.lookGen !== FORM.lookGen) { o.lookGen = FORM.lookGen; if (o.alt && o.alt.face !== true && FORM.look && o.alt.setLook) o.alt.setLook(FORM.look); }
-    if (o.eyesGen !== FORM.eyesGen) { o.eyesGen = FORM.eyesGen; [o.alt, o.mount].forEach((r) => { if (r && r.face === true) r.setLook({ eyes: FORM.eyes }); }); }
+    if (o.eyesGen !== FORM.eyesGen) { o.eyesGen = FORM.eyesGen; [o.alt, o.mount].forEach((r) => { if (r && (r.face === true || r.nexo) && r.setLook) r.setLook({ eyes: FORM.eyes }); }); }
     if (!o.alt && !o.mount) { if (o.formKey === 'robot') robotMood(o, mood, dt); return; }
     const ctl = { pose: tap > 0 ? 'celebra' : state.talking ? 'habla' : state.thinking ? 'piensa' : waving ? 'saluda' : 'idle', mood, talk: state.talking, listening: state.listening, excite: tap > 0 ? 1 : 0, walk: 0 };
     if (o.alt) o.alt.update(t, dt, ctl); if (o.mount) o.mount.update(t, dt, ctl);
   }
   function setForm(f) { if (!FORMS.includes(f)) return false; if (f !== FORM.key) { FORM.key = f; FORM.gen++; } return true; }
+  function setVariant(v) {
+    if (!['masculino', 'femenino'].includes(v)) return false;
+    if (FORM.variant !== v) { FORM.variant = v; FORM.gen++; }
+    return true;
+  }
   function setMood(m, secs) { if (m && !MOODS.includes(m)) return; if (secs > 0) { MOOD.flash = m; MOOD.until = nowMs() + secs * 1000; } else MOOD.base = m || null; }
   function setLook(l) { const k = JSON.stringify(l || null); if (k === FORM.lookKey) return; FORM.lookKey = k; FORM.look = l || null; FORM.lookGen++; }
   function setEyes(hex) { if (!hex || hex === FORM.eyes) return; FORM.eyes = hex; FORM.eyesGen++; }
@@ -215,7 +235,7 @@ const Janus3D = (() => {
     const cam = new T.PerspectiveCamera(kind === 'bot' ? 28 : 30, w / h, 0.1, 100);
     cam.position.set(0, kind === 'bot' ? 0.45 : 0.2, kind === 'bot' ? 9.3 : 8.2); cam.lookAt(0, kind === 'bot' ? 0.35 : 0.0, 0);
     const built = kind === 'bot' ? buildBot() : buildMic(), pivot = new T.Group(), fit = new T.Group(); fit.add(built.root); pivot.add(fit); scene.add(pivot);
-    const o = { kind, renderer, scene, cam, pivot, fit, formKey: 'robot', formGen: 0, lookGen: 0, alt: null, mount: null, cache: {}, lt: 0, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
+    const o = { kind, renderer, scene, cam, pivot, fit, formKey: 'robot', formGen: -1, lookGen: -1, alt: null, mount: null, cache: {}, lt: 0, root: built.root, P: built.P, rotY: kind === 'bot' ? -0.25 : 0.35, rotX: 0, vel: 0, drag: null, tapT: -10, onTap: null, w, h };
     const cv = renderer.domElement; cv.className = 'j3d-cv'; cv.style.touchAction = 'pan-y';
     cv.addEventListener('pointerdown', (e) => { o.drag = { x: e.clientX, y: e.clientY, moved: 0, lx: e.clientX, ly: e.clientY }; o.vel = 0; try { cv.setPointerCapture(e.pointerId); } catch (_) { } });
     cv.addEventListener('pointermove', (e) => { if (!o.drag) return; const dx = e.clientX - o.drag.lx, dy = e.clientY - o.drag.ly; o.drag.lx = e.clientX; o.drag.ly = e.clientY; o.drag.moved += Math.abs(dx) + Math.abs(dy); o.rotY += dx * 0.012; o.rotX = Math.max(-0.5, Math.min(0.5, o.rotX + dy * 0.006)); o.vel = dx * 0.012; });
@@ -251,6 +271,6 @@ const Janus3D = (() => {
     });
     if (!raf) frame();
   }
-  return { hydrate, state, _inst: inst, FORMS, MOODS, setForm, form: () => FORM.key, setMood, mood: effMood, setLook, setEyes, refresh, react, eyes: () => FORM.eyes };
+  return { hydrate, state, _inst: inst, FORMS, MOODS, setForm, form: () => FORM.key, setVariant, variant: () => FORM.variant, setMood, mood: effMood, setLook, setEyes, refresh, react, eyes: () => FORM.eyes };
 })();
 window.Janus3D = Janus3D;

@@ -414,10 +414,18 @@ var Companion = (() => {
     { id: "jersey", label: "Jersey", poss: "mi jersey", icon: "\u{1F9F6}", price: 8, tintable: true },
     { id: "vestido", label: "Vestido", poss: "mi vestido", icon: "\u{1F457}", price: 10, tintable: true },
     { id: "peto", label: "Peto", poss: "mi peto", icon: "\u{1F456}", price: 10, tintable: true },
-    { id: "capa", label: "Capa", poss: "mi capa", icon: "\u{1F9B8}", price: 14, tintable: true }
+    { id: "capa", label: "Capa", poss: "mi capa", icon: "\u{1F9B8}", price: 14, tintable: true },
+    { id: "vestido-gala", label: "Vestido de gala", poss: "mi vestido de gala", icon: "👑", price: 24, tintable: true },
+    { id: "vestido-aurora", label: "Vestido aurora", poss: "mi vestido aurora", icon: "🦋", price: 30, tintable: true },
+    { id: "chaqueta-bomber", label: "Chaqueta bomber", poss: "mi chaqueta bomber", icon: "🧥", price: 16, tintable: true },
+    { id: "chaqueta-lujo", label: "Chaqueta de lujo", poss: "mi chaqueta de lujo", icon: "💎", price: 28, tintable: true },
+    { id: "sudadera-estrella", label: "Sudadera estrella", poss: "mi sudadera estrella", icon: "⭐", price: 12, tintable: true },
+    { id: "sudadera-neon", label: "Sudadera futurista", poss: "mi sudadera futurista", icon: "⚡", price: 20, tintable: true },
+    { id: "capa-galaxia", label: "Capa galaxia", poss: "mi capa galaxia", icon: "🌌", price: 35, tintable: true },
+    { id: "capa-real", label: "Capa real", poss: "mi capa real", icon: "✨", price: 42, tintable: true }
   ];
-  var SLOTS = ["cabeza", "cara", "cuello", "espalda"];
-  var SLOT_LABEL = { cabeza: "Cabeza", cara: "Cara", cuello: "Cuello", espalda: "Espalda" };
+  var SLOTS = ["cabeza", "cara", "cuello", "espalda", "pies"];
+  var SLOT_LABEL = { cabeza: "Cabeza", cara: "Cara", cuello: "Cuello", espalda: "Espalda", pies: "Zapatos / patines" };
   var ACCESSORIES = {
     cabeza: [
       { id: "gorro", label: "Gorro de lana", poss: "mi gorro de lana", icon: "\u{1F9E2}", price: 0, tintable: true },
@@ -443,6 +451,12 @@ var Companion = (() => {
       { id: "mochila", label: "Mochila", poss: "mi mochila", icon: "\u{1F392}", price: 0, tintable: true },
       { id: "alas-hada", label: "Alas de hada", poss: "mis alas de hada", icon: "\u{1F9DA}", price: 14, tintable: true },
       { id: "estrellas", label: "Estrellas flotantes", poss: "mis estrellas flotantes", icon: "\u2728", price: 12, tintable: false }
+    ],
+    pies: [
+      { id: "zapatillas-estrella", label: "Zapatillas estrella", poss: "mis zapatillas estrella", icon: "👟", price: 12, tintable: true },
+      { id: "botas-aventura", label: "Botas aventureras", poss: "mis botas de aventura", icon: "🥾", price: 18, tintable: true },
+      { id: "botines-glam", label: "Botines glam", poss: "mis botines glam", icon: "👢", price: 28, tintable: true },
+      { id: "patines-aurora", label: "Patines aurora", poss: "mis patines aurora", icon: "🛼", price: 38, tintable: true }
     ]
   };
   var NEUTRAL_BASE = { fur: "crema", accent: "lila", eyes: "ambar" };

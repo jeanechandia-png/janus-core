@@ -86,4 +86,4 @@ function renderPhoneC(M, X) {
   ].map((r) => '<div class="pvr go"' + goAttr(r[0], r[2]) + '><span class="bb s">' + r[1] + '</span><div><b>' + r[2] + ' <span class="mono gold">' + esc(String(r[3])) + '</span></b><small>' + esc(r[4]) + '</small></div></div>').join('') + '</section>';
   return pvHead(M, X) + '<main class="pvCm">' + tl + kp + st + '</main>';
 }
-function renderPhoneV(M, X) { const html = PV === 'a2' ? renderPhoneA2(M, X) : PV === 'b' ? renderPhoneB(M, X) : PV === 'c' ? renderPhoneC(M, X) : renderPhoneA(M, X); return html.replace(/(<main[^>]*>)/, '$1' + FinOps.mobileChip()); }
+function renderPhoneV(M, X) { const html = PV === 'a2' ? renderPhoneA2(M, X) : PV === 'b' ? renderPhoneB(M, X) : PV === 'c' ? renderPhoneC(M, X) : renderPhoneA(M, X); return html.replace(/(<main[^>]*>)/, '$1' + JanusPresence.render('founder', false) + FinOps.mobileChip()); }

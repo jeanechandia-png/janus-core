@@ -47,6 +47,8 @@ const JanusCreatures3D = (() => {
       eg.add(at(ell(o.er * 0.4, 1, 1.1, 0.4, M.dark, 16, 12), 0, -o.er * 0.04, o.er * 0.4));
       eg.add(at(ell(o.er * 0.18, 1, 1, 0.5, M.hi, 10, 8), o.er * 0.22, o.er * 0.3, o.er * 0.5));
       eg.add(at(ell(o.er * 0.1, 1, 1, 0.5, M.hi, 8, 6), -o.er * 0.2, -o.er * 0.22, o.er * 0.48));
+      // La esclerotica permanece fija; iris, pupila y brillos siguen la mirada.
+      eg.userData.faceBase = eg.children.slice(1, 5).map((part) => part.position.clone());
       eyes.push(eg);
     });
     const smile = new T.Mesh(new T.TorusGeometry(o.mw, o.mt || 0.03, 8, 28, Math.PI), M.dark); smile.rotation.z = Math.PI; smile.position.set(0, o.my, o.mz); head.add(smile);
@@ -91,36 +93,81 @@ const JanusCreatures3D = (() => {
   }
   function outfitMesh(id, B, mat, acc) {
     const g = new T.Group(); if (id === 'ninguna') return g;
+    const kind = id.startsWith('vestido-') ? 'vestido'
+      : id.startsWith('chaqueta-') || id.startsWith('sudadera-') ? 'jersey'
+      : id.startsWith('capa-') ? 'capa' : id;
     const { r, sx, sy, sz } = B; // elipsoide del torso (en coordenadas del cuerpo)
     const k = 1.045, cut = B.cut || 0, flare = B.flare || 1.65; // cut: ángulo polar desde el que empieza la prenda (la cara queda libre)
     const sb = (rr, t0, t1) => shellBand(rr, sx, sy, sz, Math.max(t0, cut), Math.max(t1, cut + 0.12), mat);
-    if (id === 'camiseta') {
+    if (kind === 'camiseta') {
       g.add(sb(r * k, 0.55, 2.35));
       if (!cut) g.add(at(cast(new T.Mesh(new T.TorusGeometry(r * 0.46 * sx, r * 0.04, 8, 28), mat)), 0, r * sy * 0.73, 0)).children[1].rotation.x = Math.PI / 2;
-    } else if (id === 'jersey') {
+    } else if (kind === 'jersey') {
       g.add(sb(r * 1.07, 0.45, 2.5));
       if (!cut) { const c1 = cast(new T.Mesh(new T.TorusGeometry(r * 0.52 * sx, r * 0.1, 10, 28), mat)); c1.rotation.x = Math.PI / 2; c1.position.y = r * sy * 0.8; g.add(c1); }
       const c2 = cast(new T.Mesh(new T.TorusGeometry(r * 0.84 * sx, r * 0.07, 8, 32), acc)); c2.rotation.x = Math.PI / 2; c2.position.y = -r * sy * 0.55; g.add(c2);
       if (!cut) { const c3 = cast(new T.Mesh(new T.TorusGeometry(r * 0.99 * sx, r * 0.05, 8, 32), acc)); c3.rotation.x = Math.PI / 2; c3.position.y = r * sy * 0.1; g.add(c3); }
-    } else if (id === 'vestido') {
+    } else if (kind === 'vestido') {
       g.add(sb(r * k, 0.55, 1.9));
       const sk = cast(new T.Mesh(new T.CylinderGeometry(r * 0.95 * sx, r * flare * sx, r * sy * 0.8, 32, 1, true), mat)); sk.material.side = T.DoubleSide; sk.position.y = -r * sy * 0.42; sk.scale.z = sz / sx; g.add(sk);
       const hem = cast(new T.Mesh(new T.TorusGeometry(r * flare * sx, r * 0.045, 8, 36), acc)); hem.rotation.x = Math.PI / 2; hem.position.y = -r * sy * 0.82; hem.scale.y = sz / sx; g.add(hem);
-    } else if (id === 'peto') {
+    } else if (kind === 'peto') {
       g.add(sb(r * 1.05, 1.25, 2.75));
       if (!cut) {
       const bib = cast(new T.Mesh(new T.CylinderGeometry(r * 0.46 * sx, r * 0.56 * sx, r * sy * 0.62, 20, 1, true, -Math.PI * 0.32, Math.PI * 0.64), mat)); bib.material.side = T.DoubleSide; bib.rotation.y = 0; bib.position.set(0, r * sy * 0.12, r * sz * 0.2); bib.scale.z = sz / sx * 1.05; g.add(bib);
       [-1, 1].forEach((s) => { const st = cast(new T.Mesh(new T.BoxGeometry(r * 0.1, r * sy * 0.8, r * 0.05), mat)); st.position.set(s * r * sx * 0.38, r * sy * 0.45, r * sz * 0.64); st.rotation.z = s * -0.18; st.rotation.x = -0.3; g.add(st); const bt = at(ell(r * 0.075, 1, 1, 0.7, acc, 12, 8), s * r * sx * 0.4, r * sy * 0.13, r * sz * 0.9); g.add(bt); });
       }
-    } else if (id === 'capa') {
+    } else if (kind === 'capa') {
       const cp = cast(new T.Mesh(new T.CylinderGeometry(r * 0.92 * sx, r * 1.5 * sx, r * sy * 2.05, 32, 1, true, Math.PI * 0.62, Math.PI * 0.76 + 0.9), mat)); cp.material.side = T.DoubleSide; cp.position.set(0, -r * sy * 0.1, -r * sz * 0.1); cp.scale.z = sz / sx; g.add(cp);
       if (!cut) { const cl = cast(new T.Mesh(new T.TorusGeometry(r * 0.56 * sx, r * 0.085, 10, 28), mat)); cl.rotation.x = Math.PI / 2; cl.position.y = r * sy * 0.78; g.add(cl);
       g.add(at(ell(r * 0.11, 1, 1, 1, acc, 14, 10), 0, r * sy * 0.74, r * sz * 0.52)); }
     }
+    // Diseños de colección auténticamente diferentes; todos siguen r/sx/sy/sz
+    // de la fisonomia elegida, en lugar de reutilizar una talla humana.
+    const gem = (x, y, z, sc=0.11) => {
+      const m = cast(new T.Mesh(starGeo(sc, sc * 0.48, 0.035), acc));
+      m.position.set(x, y, z); g.add(m);
+    };
+    if (id === 'vestido-gala') {
+      const t = new T.Mesh(new T.TorusGeometry(r * flare * sx * 0.94, r * 0.065, 8, 40), acc);
+      t.rotation.x = Math.PI / 2; t.scale.y = sz / sx; t.position.y = -r * sy * 0.63; g.add(t);
+      for (let i = 0; i < 5; i++) gem((i - 2) * r * sx * 0.25, r * sy * 0.65, r * sz * 0.9, 0.09);
+    } else if (id === 'vestido-aurora') {
+      const ti = new T.MeshPhysicalMaterial({ color: 0xc89bff, metalness: 0.12, roughness: 0.28, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false });
+      const veil = cast(new T.Mesh(new T.CylinderGeometry(r * sx, r * flare * sx * 1.14, r * sy * 0.87, 40, 1, true), ti));
+      veil.position.y = -r * sy * 0.43; veil.scale.z = sz / sx; g.add(veil);
+      gem(0, r * sy * 0.67, r * sz * 0.88, 0.19);
+    } else if (id === 'chaqueta-bomber') {
+      // Cierre central, costuras y dos parches sobre la prenda.
+      g.add(at(cast(new T.Mesh(new T.BoxGeometry(r * 0.06, r * sy * 1.45, r * 0.045), acc)), 0, 0, r * sz * 1.07));
+      [-1, 1].forEach((side) => { const pl = cast(new T.Mesh(new T.BoxGeometry(r * sx * 0.26, r * sy * 0.28, r * 0.035), acc)); pl.position.set(side * r * sx * 0.55, r * sy * 0.24, r * sz * 0.82); pl.rotation.z = side * 0.23; g.add(pl); });
+    } else if (id === 'chaqueta-lujo') {
+      [-1, 1].forEach((side) => {
+        const lap = cast(new T.Mesh(new T.BoxGeometry(r * 0.17, r * sy * 0.86, r * 0.08), acc));
+        lap.position.set(side * r * sx * 0.25, r * sy * 0.34, r * sz * 1.04); lap.rotation.z = side * 0.38; g.add(lap);
+        for (let j = 0; j < 3; j++) g.add(at(ell(r * 0.055, 1, 1, 0.5, acc, 10, 8), side * r * 0.22, r * sy * (-0.1 - j * 0.26), r * sz * 1.1));
+      });
+    } else if (id === 'sudadera-estrella') {
+      if (!cut) {
+        const hood = new T.Mesh(new T.TorusGeometry(r * 0.6 * sx, r * 0.13, 10, 32, Math.PI), mat);
+        hood.rotation.x = Math.PI / 2; hood.position.set(0, r * sy * 0.85, -r * sz * 0.17); g.add(hood);
+      }
+      gem(0, r * sy * 0.1, r * sz * 1.08, 0.22);
+    } else if (id === 'sudadera-neon') {
+      const stripe = new T.Mesh(new T.TorusGeometry(r * 0.89 * sx, r * 0.045, 7, 36), acc);
+      stripe.rotation.x = Math.PI / 2; stripe.position.y = -r * sy * 0.21; stripe.scale.y = sz / sx; g.add(stripe);
+      for (let i = 0; i < 3; i++) gem(r * sx * (i - 1) * 0.21, r * sy * 0.22, r * sz * 1.03, 0.105);
+    } else if (id === 'capa-galaxia') {
+      [-1, 1].forEach((side) => gem(side * r * sx * 0.45, r * sy * 0.15, -r * sz * 0.85, 0.17));
+      gem(0, -r * sy * 0.45, -r * sz * 1.1, 0.22);
+    } else if (id === 'capa-real') {
+      [-1, 1].forEach((side) => g.add(at(ell(r * 0.2, 1.2, 0.55, 0.7, acc, 16, 12), side * r * sx * 0.82, r * sy * 0.68, -r * sz * 0.16)));
+      gem(0, r * sy * 0.7, r * sz * 0.63, 0.18);
+    }
     return g;
   }
 
-  function accessoryMesh(slot, id, mat, M) {
+  function accessoryMesh(slot, id, mat, M, species) {
     const g = new T.Group(), A = mat, dark = M.dark;
     const ring = (R, tube, m, ax) => { const t = cast(new T.Mesh(new T.TorusGeometry(R, tube, 10, 36), m || A)); if (ax === 'x') t.rotation.x = Math.PI / 2; return t; };
     if (slot === 'cabeza') {
@@ -183,6 +230,30 @@ const JanusCreatures3D = (() => {
       } else if (id === 'estrellas') {
         const ring3 = new T.Group(); for (let i = 0; i < 3; i++) { const st = new T.Mesh(starGeo(0.2, 0.09, 0.06), glowM(0xFFE08A)); const a = (i / 3) * Math.PI * 2; st.position.set(Math.cos(a) * 0.95, 0.15 + i * 0.1, Math.sin(a) * 0.95); ring3.add(st); } ring3.userData.spin = true; g.add(ring3); g.userData.orbit = ring3;
       }
+    } else if (slot === 'pies') {
+      const fx = species === 'musgo' ? 0.38 : species === 'bombo' ? 0.32 : species === 'nimbo' ? 0.28 : 0.26;
+      [-1, 1].forEach((side) => {
+        const shoe = new T.Group(); shoe.position.set(side * fx, species === 'nimbo' ? 0.19 : 0.10, species === 'musgo' ? 0.18 : 0.13);
+        if (species === 'nimbo') {
+          // Nimbo flota: calzado reinterpretado como aros de patinaje de nube.
+          const halo = ring(0.19, id === 'patines-aurora' ? 0.055 : 0.035, A, 'x');
+          halo.position.y = -0.11; shoe.add(halo);
+          const gem = new T.Mesh(starGeo(0.13, 0.06, 0.03), M.gem); gem.position.y = 0.06; shoe.add(gem);
+        } else {
+          const radius = species === 'musgo' ? 0.28 : species === 'bombo' ? 0.25 : 0.22;
+          const sole = ell(radius, 1.28, 0.34, 1.48, M.white, 20, 12); sole.position.y = -0.09; shoe.add(sole);
+          const upper = ell(radius, 1.16, id === 'botas-aventura' || id === 'botines-glam' ? 1.0 : 0.62, 1.34, A, 24, 14);
+          upper.position.set(0, 0.0, 0.02); shoe.add(upper);
+          const toe = at(ell(radius * 0.53, 1, 0.45, 0.6, M.gem, 14, 10), 0, -0.02, radius * 1.05);
+          if (id === 'botines-glam') shoe.add(toe);
+          if (id === 'zapatillas-estrella' || id === 'botines-glam') {
+            const star = new T.Mesh(starGeo(0.09, 0.043, 0.02), M.white); star.position.set(side * 0.04, 0.075, radius * 0.95); shoe.add(star);
+          }
+          if (id === 'patines-aurora') [-1, 1].forEach((x) => { const wheel = ring(radius * 0.33, 0.037, M.gem, 'x'); wheel.position.set(x * radius * 0.75, -0.15, radius * 0.2); shoe.add(wheel); });
+          if (id === 'botas-aventura') { const cuff = ring(radius * 1.05, 0.06, M.white, 'x'); cuff.position.y = 0.14; shoe.add(cuff); }
+        }
+        g.add(shoe);
+      });
     }
     g.traverse((o) => { if (o.isMesh && o.material !== M.white) o.castShadow = true; });
     return g;
@@ -224,14 +295,74 @@ const JanusCreatures3D = (() => {
     const sF = new T.Group(); sF.scale.setScalar(hr); R.slots.cara = sF; head.add(sF);
     const sN = new T.Group(); sN.scale.setScalar(sp.body.r * 0.95); R.slots.cuello = sN; body.add(sN);
     const sB = new T.Group(); sB.scale.setScalar(sp.body.r * 0.95); R.slots.espalda = sB; body.add(sB);
+    const sP = new T.Group(); R.slots.pies = sP; body.add(sP);
 
     if (id === 'lumi') buildLumi(R, M, glow); else if (id === 'bombo') buildBombo(R, M, glow); else if (id === 'musgo') buildMusgo(R, M, glow); else buildNimbo(R, M, glow);
+
+    // Fibras 3D ancladas a la superficie de la malla; deformacion GPU por viento.
+    // No hay pelo en Bombo (ajolote), para preservar su piel humeda.
+    R.furCoats = []; R.wind = 0.25; R.windYaw = 0.3;
+    const FW = window.JanusFurWind;
+    if (FW && FW.supported() && id !== 'bombo') {
+      const qt = FW.tier(), factor = qt === 'eco' ? 0.18 : qt === 'mobile' ? 0.38 : 1;
+      const coat = (mesh, n, length, part, seed) => {
+        if (!mesh || !mesh.geometry) return;
+        const color = part === 'accent' ? M.accent.color : M.fur.color;
+        const c = FW.attach(mesh, { count: Math.floor(n * factor), length, color,
+          quality: qt, seed: id + ':' + seed, roughness: part === 'accent' ? 0.95 : 0.78 });
+        if (c) R.furCoats.push({ coat: c, part });
+      };
+      if (id === 'lumi') {
+        coat(torso, 1300, 0.09, 'fur', 'torso');
+        coat(headMesh, 950, 0.065, 'fur', 'head');
+        R.parts.tail.children.forEach((m, i) => coat(m, i ? 500 : 850, i ? 0.085 : 0.13, i ? 'accent' : 'fur', 'tail' + i));
+      } else if (id === 'musgo') {
+        R.parts.moss.children.forEach((m, i) => coat(m, 240, 0.16, 'fur', 'moss' + i));
+      } else if (id === 'nimbo') {
+        coat(torso, 600, 0.055, 'fur', 'body');
+        coat(headMesh, 550, 0.058, 'fur', 'head');
+        R.parts.puffs.forEach((m, i) => coat(m, 130, 0.08, 'fur', 'puff' + i));
+      }
+    }
 
     const sc = sp.scale; root.scale.setScalar(sc);
     root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
     R.setLook = (look) => applyLook(R, look);
-    R.update = (t, dt, ctl) => animate(R, t, dt, ctl || {});
-    R.dispose = () => root.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+    R.setWind = (amount, yaw) => {
+      R.wind = Math.max(0, Math.min(1, Number(amount) || 0));
+      if (Number.isFinite(yaw)) R.windYaw = yaw;
+    };
+    // Un peinado por criatura; Bombo personaliza la longitud de las branquias,
+    // no un pelaje ficticio. Conserva el rig, la cara, ropa y accesorios.
+    R.setFurStyle = (style) => {
+      const allowed = ['natural', 'corto', 'esponjoso', 'rebelde'];
+      R.furStyle = allowed.includes(style) ? style : 'natural';
+      R.furCoats.forEach(({ coat }) => { if (coat.setStyle) coat.setStyle(R.furStyle); });
+      if (R.id === 'bombo' && R.parts.gills) {
+        const scale = { natural: 1, corto: 0.75, esponjoso: 1.23, rebelde: 1.15 }[R.furStyle];
+        R.parts.gills.forEach((side) => side.forEach((g) => g.scale.setScalar(scale)));
+      }
+    };
+    R.furDetailRatio = 1;
+    R.setDetail = (ratio) => {
+      R.furDetailRatio = Math.max(0.2, Math.min(1, Number(ratio) || 1));
+      R.furCoats.forEach(({ coat }) => { coat.mesh.count = Math.max(1, Math.round(coat.count * R.furDetailRatio)); });
+    };
+    R.update = (t, dt, ctl) => {
+      const c = ctl || {}; animate(R, t, dt, c);
+      const breeze = Number.isFinite(c.wind) ? c.wind : R.wind;
+      R.furCoats.forEach((e) => e.coat.update(t, breeze, c.windYaw == null ? R.windYaw : c.windYaw));
+    };
+    R.dispose = () => {
+      R.furCoats.forEach((e) => e.coat.dispose());
+      const done = new Set();
+      root.traverse((o) => {
+        if (o.geometry && !done.has(o.geometry)) { done.add(o.geometry); o.geometry.dispose(); }
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach((m) => { if (m && !done.has(m)) { done.add(m); if (m.dispose) m.dispose(); } });
+      });
+      if (M.wingTex && M.wingTex.dispose) M.wingTex.dispose();
+    };
     return R;
   }
 
@@ -320,25 +451,43 @@ const JanusCreatures3D = (() => {
   }
 
   /* ---------- aspecto ---------- */
+  // Evita acumulación de geometrías/materiales al probar distintos looks.
+  // Nunca se destruyen los materiales compartidos con el cuerpo o el pelaje.
+  function clearFashionSlot(slot, shared) {
+    const sharedValues = new Set(Object.values(shared));
+    const done = new Set();
+    slot.traverse((o) => {
+      if (o === slot || !o.isMesh) return;
+      if (o.geometry && !done.has(o.geometry)) { done.add(o.geometry); o.geometry.dispose(); }
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        if (m && !sharedValues.has(m) && !done.has(m)) {
+          done.add(m); if (typeof m.dispose === 'function') m.dispose();
+        }
+      });
+    });
+    slot.clear();
+  }
   function applyLook(R, look) {
     const M = R.M, c = (h) => col(h);
     M.fur.color.copy(c(look.fur)); M.fur.sheenColor.copy(c(look.fur).lerp(c('#ffffff'), 0.55));
     M.accent.color.copy(c(look.accent)); M.accent.sheenColor.copy(c(look.accent).lerp(c('#ffffff'), 0.55));
     M.belly.color.copy(c(look.fur).lerp(c('#ffffff'), 0.55)); M.belly.sheenColor.copy(M.belly.color);
     M.iris.color.copy(c(look.eyes)); M.outfit.color.copy(c(look.outfitColor)); M.acc.color.copy(c(look.accessoryColor));
+    (R.furCoats || []).forEach(({ coat, part }) => coat.setColor(part === 'accent' ? look.accent : look.fur));
     if (R.id === 'musgo') { /* la roca es el detalle (piedra) y el musgo el pelo */ }
     if (R.id === 'nimbo' && R.parts.rbMats) { const a = c(look.accent), hsl = {}; a.getHSL(hsl); R.parts.rbMats.forEach((m, i) => m.color.setHSL((hsl.h + (i - 1) * 0.1 + 1) % 1, Math.max(0.55, hsl.s), Math.min(0.68, Math.max(0.55, hsl.l)))); }
     if (R.parts.wings) R.parts.wings.forEach((w) => w.userData.mat.color.copy(c(look.accent).lerp(c('#ffffff'), 0.25)));
     // prenda
     const ok = look.outfit + '|' + look.outfitColor + '|' + look.accessoryColor;
-    if (R.outfitKey !== ok) { R.slots.outfit.clear(); R.outfitKey = ok; const o = outfitMesh(look.outfit, R.torsoB, M.outfit, M.acc); R.slots.outfit.add(o); R.outfitOn = look.outfit !== 'ninguna'; }
+    if (R.outfitKey !== ok) { clearFashionSlot(R.slots.outfit, M); R.outfitKey = ok; const o = outfitMesh(look.outfit, R.torsoB, M.outfit, M.acc); R.slots.outfit.add(o); R.outfitOn = look.outfit !== 'ninguna'; }
     // accesorios
-    ['cabeza', 'cara', 'cuello', 'espalda'].forEach((slot) => {
+    ['cabeza', 'cara', 'cuello', 'espalda', 'pies'].forEach((slot) => {
       const id = look.accessories && look.accessories[slot] || '', key = id + '|' + look.accessoryColor;
       if (R.accKey[slot] === key) return; R.accKey[slot] = key;
-      const sl = R.slots[slot]; sl.clear(); R.wingsAcc = slot === 'espalda' ? null : R.wingsAcc;
+      const sl = R.slots[slot]; clearFashionSlot(sl, M); R.wingsAcc = slot === 'espalda' ? null : R.wingsAcc;
       if (!id) return;
-      const mesh = accessoryMesh(slot, id, M.acc, M); sl.add(mesh);
+      const mesh = accessoryMesh(slot, id, M.acc, M, R.id); sl.add(mesh);
       if (slot === 'espalda') R.backAcc = mesh;
     });
     if (!look.accessories || !look.accessories.espalda) R.backAcc = null;
@@ -393,6 +542,22 @@ const JanusCreatures3D = (() => {
     const F = R.face;
     const mk = MOODS[ctl.mood] ? ctl.mood : think ? 'pensativo' : 'contento', MD = MOODS[mk]; F.mood = mk;
     F.eyes.forEach((e, i) => { const wk = R.id === 'musgo' && i === 0 && R.wink > 0 ? 0.08 : 1; e.scale.y = damp(e.scale.y, Math.min(bl, wk) * MD.eyeY * MD.eyeS, 40, dt); e.scale.x = damp(e.scale.x, MD.eyeS, 14, dt); });
+    // La emocion vive sobre todo en los ojos: desplazamiento real de iris/pupila,
+    // dos brillos sincronizados y giro sutil de cabeza, sin deformar el blanco.
+    const goalX = ctl.gaze && Number.isFinite(ctl.gaze.x) ? Math.max(-1, Math.min(1, ctl.gaze.x)) : Math.sin(ph * 0.43) * 0.15;
+    const goalY = ctl.gaze && Number.isFinite(ctl.gaze.y) ? Math.max(-1, Math.min(1, ctl.gaze.y)) : Math.sin(ph * 0.33) * 0.10;
+    R.gazeX = damp(R.gazeX || 0, goalX, 7, dt);
+    R.gazeY = damp(R.gazeY || 0, goalY, 7, dt);
+    F.eyes.forEach((eye) => {
+      const base = eye.userData.faceBase;
+      if (!base) return;
+      for (let j = 0; j < base.length; j++) {
+        const el = eye.children[j + 1];
+        el.position.x = base[j].x + R.gazeX * 0.029;
+        el.position.y = base[j].y + R.gazeY * 0.024;
+      }
+    });
+    R.head.rotation.y = damp(R.head.rotation.y, R.gazeX * 0.17, 5.5, dt);
     if (R.id === 'musgo') { R.wink = Math.max(0, R.wink - dt); if (R.wink <= 0 && Math.sin(ph * 0.31) > 0.995) R.wink = 0.45; if (cel && R.wink <= 0) R.wink = 0.6; }
     // cejas, mofletes y boca según la emoción
     F.brows.forEach((b) => { const u = b.userData; b.scale.y = damp(b.scale.y, MD.brow ? 1 : 0.001, 18, dt); b.rotation.z = damp(b.rotation.z, u.s * MD.browA, 14, dt); b.position.y = damp(b.position.y, u.y0 + MD.browY * u.er, 14, dt); });
