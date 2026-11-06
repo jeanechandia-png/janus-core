@@ -268,7 +268,7 @@ const Janus3D = (() => {
       if (kind === 'bot' && !window.JanusCreatureSlot?.has?.(slotId)) {
         host.classList.add('j3d-no-approved-robot');
         host.querySelectorAll('canvas.j3d-cv,.j3d-fb,.a2morph').forEach(n => n.remove());
-        continue;
+        return;
       }
       let o = inst[id];
       if (!o) { try { o = inst[id] = create(kind, host); } catch (e) { host.classList.add('j3d-off'); if (host.getAttribute('data-tapact')) host.setAttribute('data-act', host.getAttribute('data-tapact')); if (host.getAttribute('data-tap')) host.setAttribute('data-go', host.getAttribute('data-tap').replace(/^#/, '')); return; } }
