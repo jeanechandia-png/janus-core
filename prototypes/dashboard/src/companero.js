@@ -6,10 +6,11 @@
  * Los cambios de apariencia y voz no alteran las normas de seguridad o el perfil de Kendra.
  * Las lecciones usan representaciones concretas (IES/WWC 2021006, Rec. 3); no sustituyen a un profesional (ver pestaña «Papá»).
  */
-const CREAT_IMG = { lumi: APPROVED_ART.creatures.lumi || IMG.cLumi, bombo: APPROVED_ART.creatures.bombo || IMG.cBombo, musgo: APPROVED_ART.creatures.musgo || IMG.cMusgo, nimbo: APPROVED_ART.creatures.nimbo || IMG.cNimbo };
+const CP_APPROVED = typeof APPROVED_ART !== 'undefined' ? APPROVED_ART : { creatures:{}, accessories:{} };
+const CREAT_IMG = { lumi: CP_APPROVED.creatures.lumi || IMG.cLumi, bombo: CP_APPROVED.creatures.bombo || IMG.cBombo, musgo: CP_APPROVED.creatures.musgo || IMG.cMusgo, nimbo: CP_APPROVED.creatures.nimbo || IMG.cNimbo };
 // Approved art takes visual priority; procedural 3D is explicitly technical preview.
 const cpArtIcon = (key, fallback) => {
-  const image = APPROVED_ART.accessories[key];
+  const image = CP_APPROVED.accessories[key];
   return image ? '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">' : fallback;
 };
 const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
