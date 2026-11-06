@@ -32,11 +32,16 @@ jobs:
             exit 1
           fi
           test -f prototypes/dashboard/src/real.example.js
+          if find prototypes/dashboard/assets/approved -maxdepth 1 -type f -name '*.webp' | grep -q .; then
+            echo "BLOCKED: private original character art cannot be published in open QA."
+            exit 1
+          fi
       - name: Build example-only A/B previews and verify iPhone document fallback
         run: |
           cd prototypes/dashboard
           node build.cjs --skin a
           node build.cjs --skin b
+          if [ -f lego/janus-pilot-camera/janus-pilot-camera.js ]; then node build.cjs --skin b --profile kendra; fi
           node --test tests/ios-quicklook.test.cjs
           if [ -f tests/pilot-camera.test.cjs ]; then node --test tests/pilot-camera.test.cjs; fi
       - name: Publish only a new isolated directory to existing gh-pages branch
@@ -50,6 +55,7 @@ jobs:
           mkdir -p "/tmp/janus-pages/$QA_DIR"
           cp prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html "/tmp/janus-pages/$QA_DIR/obsidiana.html"
           cp prototypes/dashboard/dist/Janus-B-Platino-interactivo.html "/tmp/janus-pages/$QA_DIR/platino.html"
+          if [ -f prototypes/dashboard/dist/Janus-Kendra-Piloto.html ]; then cp prototypes/dashboard/dist/Janus-Kendra-Piloto.html "/tmp/janus-pages/$QA_DIR/kendra.html"; fi
           cat > "/tmp/janus-pages/$QA_DIR/index.html" <<'HTML'
           <!doctype html>
           <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -60,7 +66,7 @@ jobs:
           a{display:block;margin:13px 0;padding:20px 18px;background:#252b42;color:#fff;border:1px solid #d0b06b;border-radius:16px;font-weight:700;text-decoration:none}
           small{color:#a4a6b4}
           </style></head><body><main><h1>JANUS · iPhone</h1><p>Previsualización técnica con datos de ejemplo. Este enlace abre la aplicación en Safari, sin utilizar el visor de archivos.</p>
-          <a href="platino.html">Abrir dashboard Platino B</a><a href="obsidiana.html">Abrir dashboard Obsidiana A</a><a href="platino.html#companero">Abrir espacio de Kendra (demo)</a>
+          <a href="platino.html">Abrir dashboard Platino B</a><a href="obsidiana.html">Abrir dashboard Obsidiana A</a><a href="kendra.html">Abrir dashboard de Kendra (demo independiente)</a>
           <small>QA aislado · datos de ejemplo · no es una cuenta privada · cámara local con permiso · no es la web principal</small></main></body></html>
           HTML
           git -C /tmp/janus-pages config user.name "github-actions[bot]"
