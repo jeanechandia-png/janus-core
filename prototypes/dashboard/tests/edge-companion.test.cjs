@@ -46,7 +46,7 @@ function fixture(failWebGL) {
     cancelAnimationFrame:id=>queued.delete(id)});
   vm.runInContext(src,ctx,{filename:'janus-edge-companion.js'});
   return {
-    edge: window.JanusEdgeCompanion, document, canvas,
+    edge: window.JanusEdgeCompanion, window, document, canvas,
     get current(){return current;},get built(){return built;},
     count:()=>rendererCount, draws:()=>renderCount,
     advance(ms){now=ms;const a=queued.entries().next();assert.equal(a.done,false,'frame scheduled');queued.delete(a.value[0]);a.value[1](ms);},
@@ -107,4 +107,46 @@ test('Kendra predeterminada vive en el margen y Founder permanece robot Nexo',()
   assert.match(presence,/data-janus-founder="nexo"/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.js/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.css/);
+});
+
+
+test('iPhone: companion remains in its own scene, never on buttons or learning panel',()=>{
+  const f=fixture(false);
+  f.window.innerWidth=390;f.window.innerHeight=844;
+  let stageRect={left:12,right:378,top:155,bottom:645,width:366,height:490};
+  const rect=()=>stageRect;
+  const element=(left,top,right,bottom)=>({
+    getBoundingClientRect:()=>({left,top,right,bottom,width:right-left,height:bottom-top})
+  });
+  const stage={
+    getBoundingClientRect:rect,
+    querySelector:(s)=> ({
+      '.cpsay':element(22,163,310,215),
+      '.cp-edge-tools':element(190,224,367,263),
+      '.cpbar':element(24,568,367,630),
+      '.cphud':null
+    })[s] || null
+  };
+  f.document.querySelector=(selector)=> selector==='.vb-companero .cpst3' ? stage : null;
+  assert.equal(f.edge.sync({active:true,id:'lumi',name:'Lumi',side:'left'}),true);
+  const root=f.document.body.children[0];
+  const width=parseFloat(root.style.width),height=parseFloat(root.style.height);
+  assert.ok(width<=174 && width>=90,'avatar stays proportionate on iPhone');
+  const start=root.style.transform.match(/translate3d\(([\d.]+)px,([\d.]+)px,0\)/);
+  assert.ok(start,'positioned in scene');
+  assert.ok(+start[2]>=263 && +start[2]+height<=568,'respects toolbar and selection strip');
+  // A drag beyond the bottom of the viewport must not cover the answer form.
+  f.canvas.fire('pointerdown',{clientX:60,clientY:320});
+  f.canvas.fire('pointermove',{clientX:300,clientY:900});
+  f.canvas.fire('pointerup',{clientX:300,clientY:900});
+  const dragged=root.style.transform.match(/translate3d\(([\d.]+)px,([\d.]+)px,0\)/);
+  assert.ok(+dragged[2]+height<=568,'drag stays clear of bottom controls');
+  assert.ok(+dragged[1]+width<=378,'drag stays within stage horizontally');
+  f.advance(100);
+  assert.equal(root.hidden,false,'visible inside stage');
+  // After scrolling into learning section, do not leave avatar on top of inputs.
+  stageRect={left:12,right:378,top:-700,bottom:-210,width:366,height:490};
+  f.advance(200);
+  assert.equal(root.hidden,true,'hidden while stage is offscreen');
+  f.edge.hide();
 });
