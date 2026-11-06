@@ -33,7 +33,7 @@
  .kedge-name{font-size:12px;padding:4px 10px}
  .cp-edge-tools{top:81px;right:7px;gap:3px}
  .cp-edge-tools .cp-edge-btn{padding:6px;font-size:10px}
- .cp-edge-prompt{padding:30px 12%;align-items:flex-end}
+ .cp-edge-prompt{display:none} /* Avoid decorative sentence colliding with Muéstramelo and selectors on iPhone. */
  .cp-edge-prompt b{font-size:18px}
 }
 @media(prefers-reduced-motion:reduce){.kedge-root{transition:none!important;animation:none!important}}
