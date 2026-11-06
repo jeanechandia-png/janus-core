@@ -1,9 +1,9 @@
 # Mapa del proyecto Janus (punto de entrada para cualquier agente)
 
-Snapshot: 2026-10-21. Regenera lo variable con `npm run continuity` (módulos, PR abiertos como pila, colisiones de ADR, handoff vigente).
+Snapshot baseline: 2026-10-21; verified audit 2026-11-06 in `docs/CONTINUITY_AUDIT_2026-11-06.md`. Regenera lo variable con `npm run continuity` (módulos, PR abiertos como pila, colisiones de ADR, handoff vigente).
 
 ## Regla de oro
-**Continúa donde lo dejó el agente anterior. No crees copias, no reinicies, no rehagas lo que existe.** Antes de escribir código: (1) `npm run continuity`; (2) lee `START_HERE.md` y `docs/STATE.md`; (3) busca en este mapa si la capacidad ya existe; (4) si existe, extiéndela.
+**Continúa donde lo dejó el agente anterior. No crees copias, no reinicies, no rehagas lo que existe.** Antes de escribir código: (1) `npm run continuity` + `npm run continuity:guard` (usa `-- --base=rama-padre` si el PR es apilado); (2) lee `START_HERE.md` y `docs/STATE.md`; (3) revisa el registro de ramas abiertas y transferencias; (4) si la capacidad ya existe, extiéndela. El gate NO autoriza merges/despliegues; sin red, solo se permite editar localmente usando `--offline` y revalidar antes de publicar.
 
 ## Dónde vive cada cosa
 | Qué | Dónde |
