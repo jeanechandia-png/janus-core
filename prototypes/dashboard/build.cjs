@@ -71,6 +71,9 @@ const approvedModels = require('./tools/verified-creature-glb.cjs').collect();
 if (approvedModels.errors.length)
   throw new Error('GLB rechazado: ' + JSON.stringify(approvedModels.errors));
 const APPROVED_GLBS = approvedModels.models;
+if (process.argv.includes('--require-approved-3d') && !approvedModels.complete)
+  throw new Error('FALTAN GLB HIPERREALISTAS VALIDADOS: ' +
+    Object.keys(APPROVED_GLBS).length + '/4. No declarar el producto terminado.');
 
 const files = ['src/skin-map.js', 'src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/dash-b.js', 'src/phone.js', 'src/phonev.js', 'src/platform-finops.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'vendor/cited-answer.js', 'src/ofertas.js', 'vendor/companion.js', 'lego/janus-cartoon-voice/janus-cartoon-voice.js', 'src/companero.js', 'lego/janus-presence/janus-presence.js', 'src/avatar.js', 'vendor/home-scenes.js', 'src/casa.js', 'src/briefing.js', 'vendor/drone-weather.js', 'vendor/three-r160.min.js', 'vendor/gltf-kit.js', 'lego/janus-fur-wind/janus-fur-wind.js', 'lego/janus-nexo-3d/janus-nexo-3d.js', 'lego/janus-3d/janus-3d.js', 'lego/janus-creatures-3d/janus-creatures-3d.js', 'lego/janus-face-3d/janus-face-3d.js', 'lego/janus-creature-slot/janus-creature-slot.js', 'lego/janus-creature-slot/janus-approved-glb-bootstrap.js', 'lego/janus-model-gateway/janus-model-gateway.js', 'vendor/jsqr.js', 'lego/janus-attach/janus-attach.js', 'src/adjuntos.js', 'lego/janus-stage-3d/janus-stage-3d.js', 'lego/janus-edge-companion/janus-edge-companion.js', 'src/phonea2.js', 'src/clima2.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
 
@@ -165,6 +168,7 @@ const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
 console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', has('local/names.json') ? 'local' : 'genéricos');
+console.log('MODELOS 3D APROBADOS:',Object.keys(APPROVED_GLBS).length+'/4; acabado 3D final:',approvedModels.complete?'VERIFICADO':'PENDIENTE');
 // Variante para vista previa navegable alojada (Artifact): sin esqueleto propio.
 const artArg = process.argv.indexOf('--artifact');
 if (artArg > 0) {
