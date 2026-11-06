@@ -10,6 +10,12 @@ Before any code change, run `npm run continuity:guard` on a named working branch
 
 See `docs/CONTINUITY_AUDIT_2026-11-06.md` for the initial audited divergence registry (snapshot, not real-time).
 
+## Protocolo universal y control del piloto (2026-11-06)
+
+Antes de afirmar que JANUS está preparado para el piloto, consulta `docs/UNIVERSAL_CONTINUITY_PROTOCOL.md`, la última transferencia `docs/AGENT_HANDOFF.md` y el registro `docs/PILOT_READINESS.json`.
+Ejecuta `npm run pilot:validate` (integridad estructural del registro), `npm run pilot:gate` (pendientes y bloqueos) y, al proponer publicación, `npm run pilot:gate -- --require-review-ready`. Incluso `REVIEW_REQUIRED` exige verificación independiente de dispositivos, seguridad, E2E y despliegue; no significa aprobado ni publicado.
+Las comprobaciones `NOT_RUN` no se promueven mediante afirmaciones de otros agentes sin resultados rastreables. Las ramas visuales/voz #75/#65/#68 siguen separadas: revisar su línea base antes de integrar.
+
 ## Agent entry protocol (mandatory, any agent: Claude, ChatGPT, Codex…)
 1. Run `npm run continuity` and `npm run continuity:guard` with the active stack parent via `--base=...` when appropriate; stop on a failed gate.
 2. Read `docs/PROJECT_MAP.md`, `docs/STATE.md` and `docs/operating-norms.md`.
