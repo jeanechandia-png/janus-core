@@ -38,3 +38,36 @@ test('funcional: renombrar persiste por criatura, con lecciones, vestidor, tiend
   assert.match(kid, /'aprender'.*'vestidor'.*'tienda'.*'mundo'.*'hablar'.*'papa'/);
   assert.match(kid, /pilotCamera.*'kendra'/);
 });
+
+test('visual: portada y pestañas comparten exactamente el atlas Gold 3D, sin iconos SVG planos', () => {
+  const app=read('src/app.js');
+  const phone=read('src/phonea2.js');
+  const css=read('src/base.css');
+  const build=read('build.cjs');
+  assert.match(phone,/GOLD\.o\[n\]/);
+  assert.match(views,/function detailIcon\(glyph, route\)/);
+  assert.match(views,/gIco\(id,'janus-icon-3d'\)/);
+  assert.match(views,/detailIcon\(x\[1\],x\[0\]\)/);
+  assert.match(views,/detailIcon\(t\[1\],id\)/);
+  assert.match(views,/detailIcon\(e\)/);
+  assert.match(app,/hydrateDetailIcons\(document\)/);
+  assert.match(css,/#view \.janus-icon-art/);
+  assert.match(build,/const GOLD = \{ wm: gw\('janus.webp'\)/);
+  const panelIcons=[...views.matchAll(/panel\(\s*'[^']*'\s*,\s*'([^']+)'/g)].map(x=>x[1]);
+  const mapMatch=views.match(/const DETAIL_ICONS = Object\.freeze\((\{[^\n]*\})\)/);
+  assert.ok(mapMatch,'mapa de iconos compartidos declarado');
+  const map=JSON.parse(mapMatch[1]);
+  for (const icon of panelIcons) assert.ok(map[icon],'icono sin versión Gold: '+icon);
+  const tabs=[...views.matchAll(/\['(clima|dia|familia|prioridades|janus|plataformas|ingresos|alcance|chatbots|contenido|clientes|datos)',\s*'[^']+'/g)];
+  for(const t of tabs)assert.ok(map[t[1]],'tab sin versión Gold: '+t[1]);
+});
+
+test('estructural: Nexo sin selectores Masculino/Femenino superpuestos a su retrato', () => {
+  const presence=read('lego/janus-presence/janus-presence.js');
+  const avatar=read('src/avatar.js');
+  assert.match(presence,/const controls = '';/);
+  assert.doesNotMatch(presence, /class="jnexo-variants" role="group"/);
+  assert.doesNotMatch(presence, /<span>' \+ vName/);
+  assert.match(avatar,/AV_VARIANTS\.map/,'selector preservado en ajustes');
+  assert.doesNotMatch(avatar,/act\('avVariantNext', '', 'Cambiar entre versión masculina/);
+});
