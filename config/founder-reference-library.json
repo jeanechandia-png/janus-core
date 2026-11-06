@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-11-06T20:00:00.000Z",
+  "updatedAt": "2026-11-06T21:00:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -179,7 +179,7 @@
       "kind": "policy",
       "classification": "current",
       "label": "Filtros antes de entregar",
-      "value": "Antes de entregar cualquier trabajo, investigación o proyecto como terminado, Janus aplica los filtros estructural, ortográfico, de síntesis, de coherencia e i18n (traducción), además del visual y el arquitectónico. Después hace una segunda pasada completa e independiente sobre el mismo contenido. Solo si ambas pasan se pasa a la vista previa.",
+      "value": "Antes de entregar cualquier trabajo, investigación o proyecto como terminado, Janus aplica los filtros estructural, ortográfico, de síntesis, de coherencia e i18n (traducción), además del visual y el arquitectónico. Después hace una segunda pasada completa e independiente sobre el mismo contenido. Solo si ambas pasan se pasa a la vista previa. Contrato de aceptación adicional vigente 2026-11-06: evaluar explícitamente 14 dimensiones independientes: veracidad, ortografía e i18n, síntesis, estructura, coherencia visual, composición arquitectónica, arquitectura de software, funcionalidad, seguridad/privacidad, responsividad/compatibilidad, rendimiento/costes, integridad histórica, E2E y entrega final. Cada PASS requiere evidencia; lo no ejecutado nunca equivale a verificado. Los cambios deben conservar módulos y activos aprobados, usar rama canónica y transferencia cronológica. Para el piloto de JANUS, consultar docs/PILOT_READINESS.json y ejecutar npm run pilot:gate. Ningún resultado del gate sustituye verificación independiente, pruebas en dispositivo, autorización del Founder ni control de despliegue.",
       "retention": "preserve",
       "tags": [
         "operating-norm",
