@@ -66,6 +66,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
         accept: 'audio/pcm',
       },
       body: JSON.stringify({ text: cleanText, model_id: this.modelId }),
+      redirect: 'error',
       signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
 
