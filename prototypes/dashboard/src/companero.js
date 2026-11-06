@@ -366,7 +366,7 @@ function cpRenameCommit(raw) {
 const COMP_ACTS = {
   cpNoop: () => { },
   cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
   cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!window.JanusCreatureSlot?.has?.(id)) C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
@@ -488,5 +488,10 @@ let SLOT_WIRED = false;
 function slotWire() {
   if (SLOT_WIRED || !window.JanusCreatureSlot || !JanusCreatureSlot.supported()) return; SLOT_WIRED = true;
   JanusCreatureSlot.onChange((id) => { if (window.Janus3D && Janus3D.refresh) Janus3D.refresh(); const I = (window.JanusStage3D && JanusStage3D._inst) || {}; Object.keys(I).forEach((k) => { try { I[k].refreshRig(id); } catch (e) { /* escena aún sin criatura */ } }); });
-  JanusCreatureSlot.restore().then((n) => { if (n && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender(); });
+  JanusCreatureSlot.restore().then(async (n) => {
+    // Restore personal models first; approved bundled GLBs never overwrite them.
+    const result = window.JanusApproved3D
+      ? await JanusApproved3D.install() : {installed:[]};
+    if ((n || result.installed.length) && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender();
+  }).catch((e) => { console.warn('JANUS GLB: carga no completada',e); });
 }
