@@ -6,13 +6,19 @@
  * Escritorio/tablet NO se tocan: este renderer solo se usa en el breakpoint de teléfono.
  */
 // Icono: primero el OBJETO 3D hiperrealista (GOLD.o); si no existe, la moneda acuñada (GOLD.i).
-const gIco = (n, cls) => GOLD.o[n] ? '<img class="a2i o ' + (cls || '') + '" src="' + GOLD.o[n] + '" alt="">' : GOLD.i[n] ? '<img class="a2i ' + (cls || '') + '" src="' + GOLD.i[n] + '" alt="">' : '';
+// Objeto PBR/WebP de referencia en TODAS las pantallas: nunca sustituir
+// un objeto 3D por la moneda plana GOLD.i ni por un emoji en interiores.
+const THREE_D_ICON_ALIASES = Object.freeze({ smartphone: 'eye', 'cloud-sun': 'sun', 'cloud-rain': 'umbrella', apple: 'heart', 'ferris-wheel': 'sparkles' });
+const gIco = (n, cls) => {
+  const key = GOLD.o[n] ? n : (THREE_D_ICON_ALIASES[n] || 'sparkles');
+  return '<img class="a2i o ' + (cls || '') + '" src="' + GOLD.o[key] + '" alt="" aria-hidden="true" loading="eager" decoding="async">';
+};
 function gNum(str, cls) {
   const s = String(str).replace(/-/g, '−');
   return '<span class="a2n ' + (cls || '') + '" aria-label="' + esc(String(str)) + '">' + [...s].map((ch) => GOLD.g[ch] ? '<img src="' + GOLD.g[ch] + '" alt="">' : ch === ' ' ? '<i class="sp"></i>' : '<b>' + esc(ch) + '</b>').join('') + '</span>';
 }
 const EMO2ICO = { '🎓': 'school', '📚': 'school', '🏫': 'school', '☔': 'umbrella', '🌂': 'umbrella', '🤖': 'bot', '⚙': 'settings', '⚙️': 'settings', '🏋': 'dumbbell', '🏋️': 'dumbbell', '💪': 'dumbbell', '🤸': 'dumbbell', '🩺': 'stethoscope', '🎬': 'clapperboard', '📧': 'mail', '✉': 'mail', '🤝': 'handshake', '📁': 'folder', '🌐': 'sun', '💶': 'euro', '❤': 'heart', '🎯': 'target', '🚴': 'bike', '✈': 'plane', '🛒': 'shopping-cart', '📱': 'smartphone', '⏱': 'calendar-days', '🗓': 'calendar-days', '🧩': 'settings', '🏠': 'sun', '📥': 'inbox', '👁': 'eye', '🌟': 'sparkles', '🔐': 'lock', '🏷': 'tag', '🎙': 'mic', '🏢': 'folder' };
-const eIco = (e) => EMO2ICO[e] ? gIco(EMO2ICO[e], 'r') : '<span class="a2e">' + e + '</span>';
+const eIco = (e) => gIco(EMO2ICO[e] || 'sparkles', 'r');
 const a2card = (route, icon, title, meta, body, cls) => '<section class="a2c ' + (cls || '') + '"><div class="a2t go"' + goAttr(route, title) + '>' + gIco(icon, 'c') + '<span>' + title + '</span><em>' + (meta || '') + '</em></div>' + body + '</section>';
 const a2row = (time, icon, txt, right, cls, route) => '<div class="a2r ' + (cls || '') + (route ? ' go"' + goAttr(route, txt.replace(/<[^>]+>/g, '')) : '"') + '><span class="tm">' + time + '</span>' + (icon || '') + '<span class="tx">' + txt + '</span>' + (right || '') + '</div>';
 const a2spark = (arr, col) => '<svg class="a2sp" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true"><path d="' + spk(arr, 100, 28) + '" fill="none" stroke="' + (col || '#F2C46A') + '" stroke-width="1.6" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -27,9 +33,16 @@ function renderPhoneA2(M, X) {
   // Sala: micrófono de Janus (estilo Melanie) protagonista + chat en el propio dashboard
   const P = projById(UI.pSel), thread = chatsOf(UI.pSel).slice(-2);
   const B = janusBriefing(M, X);
-  const sala = '<section class="a2c a2sala" data-js="' + UI.js + '"><div class="a2bot" data-3d="bot" data-id="bot-dash" data-tap="#trabajo/' + UI.pSel + '" role="button" aria-label="Abrir la Sala de Janus"><img class="j3d-fb" src="' + GOLD.o.bot + '" alt=""><span class="a2morph"' + act('avNext', '', 'Transformar a Janus (robot, cabeza, cara o criatura)') + '>' + gIco('sparkles') + '</span></div>' +
+  // Hero aprobado: el Nexo procedural y sus ojos/boca flotantes no se muestran.
+  // Con GLB validado se recupera el personaje tridimensional integrado.
+  const nexoId = ST.settings.nexoVariant === 'femenino' ? 'robot-femenino' : 'robot';
+  const nexoApproved = !!window.JanusCreatureSlot?.has?.(nexoId);
+  const nexoPresence = nexoApproved
+    ? '<div class="a2bot" data-3d="bot" data-id="bot-dash" data-tap="#trabajo/' + UI.pSel + '" role="button" aria-label="Abrir Sala de Janus y Nexo 3D"></div>'
+    : '<div class="a2bot a2bot--voice" role="presentation">' + gIco('mic', 'a2bot-voice-icon') + '</div>';
+  const sala = '<section class="a2c a2sala" data-js="' + UI.js + '">' + nexoPresence +
     '<div class="a2say"><b class="serif">' + esc(B.greet) + '</b><span>' + esc(B.lines[0] || '') + '</span><div class="a2sb"><span class="btn2 mono"' + act('brief', '', 'Escuchar resumen') + '>' + gIco('mic') + 'Resumen</span><span class="btn2 mono go"' + goAttr('trabajo/' + UI.pSel, 'Sala') + '>' + gIco('folder') + 'Sala · ' + esc(P.s || P.n) + '</span></div></div>' +
-    '<div class="a2th">' + (thread.length ? thread.map((m) => '<div class="a2m ' + m.who + '">' + attMsg(m) + esc(m.t) + '</div>').join('') : '<div class="a2m ja">Toca al robot para abrir la Sala, o háblame con el micrófono.</div>') + (UI.js !== 'listo' && UI.js !== 'escuchando' ? '<div class="a2m ja typing"><i></i><i></i><i></i></div>' : '') + '</div>' +
+    '<div class="a2th">' + (thread.length ? thread.map((m) => '<div class="a2m ' + m.who + '">' + attMsg(m) + esc(m.t) + '</div>').join('') : '<div class="a2m ja">Entra en la Sala o háblame con el micrófono.</div>') + (UI.js !== 'listo' && UI.js !== 'escuchando' ? '<div class="a2m ja typing"><i></i><i></i><i></i></div>' : '') + '</div>' +
     '<div class="a2inw">' + attChips() + '<div class="a2in">' + attBtn('p') + '<textarea data-f="msg" rows="1" maxlength="2000" placeholder="' + (UI.listening ? 'Te escucho… habla' : 'Escribe a Janus…') + '" aria-label="Mensaje para Janus">' + esc(UI.draft) + '</textarea>' +
     '<span class="a2micb' + (UI.listening ? ' on' : '') + '"' + act('mic', '', UI.listening ? 'Detener dictado' : 'Hablar') + '><img src="' + GOLD.o.mic + '" alt=""><i></i><i></i></span>' +
     '<span class="gsend"' + act('send', '', 'Enviar') + '><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="gsa" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2408"/><stop offset="1" stop-color="#140b02"/></linearGradient></defs><path d="M20 12 5 5l4 7-4 7Z" fill="url(#gsa)" stroke="#FFF3C4" stroke-width=".6" stroke-linejoin="round"/></svg></span></div></div>' + (UI.micMsg ? '<div class="note mono">' + esc(UI.micMsg) + '</div>' : '') + '</section>';
