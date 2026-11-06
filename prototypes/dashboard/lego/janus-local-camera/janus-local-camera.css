@@ -1,0 +1,32 @@
+/* Local camera modal shared by Obsidiana, Platino and Kendra; no redesign. */
+.jlc-backdrop {
+  position: fixed; inset: 0; z-index: 2147483000;
+  display: flex; align-items: center; justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left));
+  background: rgba(2, 5, 12, .9); color: #fff;
+}
+.jlc-panel {
+  width: min(100%, 35rem); max-height: 100%; overflow-y: auto;
+  border: 1px solid rgba(255, 217, 151, .38); border-radius: 1.25rem;
+  padding: clamp(.875rem, 2vw, 1.5rem);
+  background: #111824; box-shadow: 0 1.5rem 5rem rgba(0,0,0,.5);
+  color: #f8f7f5; font-family: system-ui, sans-serif;
+}
+.jlc-title { margin: 0 0 .6rem; font: 700 clamp(1.15rem,3vw,1.5rem) system-ui,sans-serif; }
+.jlc-note,.jlc-status { font: 400 .9rem/1.5 system-ui,sans-serif; margin: .6rem 0; color: #e5e7eb; }
+.jlc-video {
+  display:block; width:100%; max-height:min(55vh,31rem); object-fit:cover;
+  aspect-ratio:4/3; border-radius:.8rem; background:#030506;
+  transform:scaleX(-1);
+}
+.jlc-close {
+  display:block; width:100%; min-height:2.75rem;
+  margin-top: .85rem; border:1px solid #e0b66d; border-radius:.7rem;
+  padding:.65rem 1rem; color:#0b1220; background:#f1d8ac;
+  font: 700 .95rem system-ui,sans-serif; cursor:pointer;
+}
+.jlc-close:focus-visible { outline: 3px solid #fff; outline-offset:3px; }
+@media (max-width: 32rem) {
+  .jlc-panel { padding: .85rem; }
+  .jlc-video { max-height:50vh; }
+}
