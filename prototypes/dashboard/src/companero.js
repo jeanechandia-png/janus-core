@@ -211,7 +211,7 @@ function tabVestidor(p, name) {
       '"' + act('cpPick',item.id,'Elegir '+item.defaultName) +
       ' aria-pressed="' + (item.id === C.creatureId) + '">' +
       '<img src="' + ((window.JanusOriginalArt && window.JanusOriginalArt.creature(item.id)) || CREAT_IMG[item.id]) + '" alt="' + esc(item.defaultName) + '" loading="lazy" decoding="async">' +
-      '<b>' + esc(item.name) + '</b></button>'
+      '<b>' + esc(item.defaultName) + '</b></button>'
     ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
     '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
