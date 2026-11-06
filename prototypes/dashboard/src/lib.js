@@ -33,7 +33,11 @@ const dateShort = (n) => { const o = fromDayNum(n); return WDL[o.wd] + ' ' + o.d
 const dateMid = (n) => { const o = fromDayNum(n); return WD[o.wd].toLowerCase() + ' ' + o.d; };
 
 /* ===== Estado local (solo este dispositivo) ===== */
-const STORE_KEY = 'janus.preview.A.v1';
+// Kendra never reads or writes the Founder dashboard's local state.
+// The public QA demo is still NOT an authenticated private account.
+const STORE_KEY = typeof BUILD_PROFILE !== 'undefined' && BUILD_PROFILE === 'kendra'
+  ? 'janus.preview.kendra.v1'
+  : 'janus.preview.A.v1';
 const DEFAULT_ST = {
   settings: { skin: (typeof BUILD_SKIN !== 'undefined' && BUILD_SKIN === 'b' ? 'b' : 'a'), ida: '07:30', vuelta: '17:00', rainBad: 50, rainWarn: 30, windBad: 30, windWarn: 22, feelCold: 14, feelGlove: 9, mode: 'vivo', lat: __LAT__, lon: __LON__, place: '__CLIMA_LUGAR__', placeSrc: 'por defecto', goal: 5000 },
   done: {}, lleva: {}, mail: {}, follow: {}, appr: {}, upd: {}, localEv: [], newFollow: [], kcheck: {}
