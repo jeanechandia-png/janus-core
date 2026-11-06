@@ -29,6 +29,8 @@ const IMG = { sun: svg('wx-sun.svg'), part: svg('wx-partly.svg'), cloud: svg('wx
 // The four existing audited creature JPEG portraits remain a safe fallback if
 // a project checkout has not yet imported the approved WebP art package.
 const approvedPortraits = ['lumi','bombo','musgo','nimbo'];
+const approvedExpressions = Object.fromEntries(approvedPortraits.map((id) =>
+  [id, [1,2,3].map((i) => 'expression-' + id + '-' + i)]));
 const approvedAccessories = [
   ['out:capa-galaxia','capa-galaxia'],
   ['out:sudadera-estrella','sudadera-estrella'],
@@ -57,7 +59,11 @@ const APPROVED_ART = {
   originals: 'Diseños aprobados de Lumi, Bombo, Musgo y Nimbo; sin recreación',
   creatures: Object.fromEntries(approvedPortraits.map((id) => [id, approvedImage(id) || IMG['c' + id[0].toUpperCase() + id.slice(1)]])),
   accessories: Object.fromEntries(approvedAccessories.map(([key,name]) => [key, approvedImage(name)]).filter(([,v]) => !!v)),
-  complete: approvedPortraits.every((id) => !!approvedImage(id)) && approvedAccessories.every(([,name]) => !!approvedImage(name))
+  expressions: Object.fromEntries(Object.entries(approvedExpressions).map(([id,names]) =>
+    [id,names.map(approvedImage)])),
+  complete: approvedPortraits.every((id) => !!approvedImage(id)) &&
+    approvedAccessories.every(([,name]) => !!approvedImage(name)) &&
+    Object.values(approvedExpressions).flat().every((name) => !!approvedImage(name))
 };
 
 const files = ['src/skin-map.js', 'src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/dash-b.js', 'src/phone.js', 'src/phonev.js', 'src/platform-finops.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'vendor/cited-answer.js', 'src/ofertas.js', 'vendor/companion.js', 'lego/janus-cartoon-voice/janus-cartoon-voice.js', 'src/companero.js', 'lego/janus-presence/janus-presence.js', 'src/avatar.js', 'vendor/home-scenes.js', 'src/casa.js', 'src/briefing.js', 'vendor/drone-weather.js', 'vendor/three-r160.min.js', 'vendor/gltf-kit.js', 'lego/janus-fur-wind/janus-fur-wind.js', 'lego/janus-nexo-3d/janus-nexo-3d.js', 'lego/janus-3d/janus-3d.js', 'lego/janus-creatures-3d/janus-creatures-3d.js', 'lego/janus-face-3d/janus-face-3d.js', 'lego/janus-creature-slot/janus-creature-slot.js', 'lego/janus-model-gateway/janus-model-gateway.js', 'vendor/jsqr.js', 'lego/janus-attach/janus-attach.js', 'src/adjuntos.js', 'lego/janus-stage-3d/janus-stage-3d.js', 'lego/janus-edge-companion/janus-edge-companion.js', 'src/phonea2.js', 'src/clima2.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
