@@ -1,52 +1,24 @@
-# JANUS Cartoon Voice · LEGO Kendra
+# JANUS Cartoon Voice — LEGO compartido para Kendra
 
-Módulo **local-first y reemplazable** que proporciona cuatro voces de personaje basadas en síntesis de voz del navegador, independientes de la voz de **JANUS Nexo**.
+## Decisión vigente · 2026-11-06
+**Una sola identidad de voz caricaturesca para todas las criaturas.** Lumi, Bombo, Musgo y Nimbo mantienen gestos, personalidad, respuestas, nombres y muestras de texto propios, pero **comparten el mismo timbre/preset de voz**. No se deben contratar ni generar cuatro voces distintas. Una variación individual futura requeriría una decisión posterior del Founder.
 
-## Identidades y tonos
+**Nunca usar la voz de JANUS/Nexo, una voz clonada del Founder o de una persona real como identidad vocal de estas criaturas.** El módulo es un LEGO independiente del runtime vocal de Janus.
 
-| Criatura | Voz caricaturesca | Pitch nativo | Rate nativo |
-|---|---|---:|---:|
-| Lumi | Hada aguda y chispeante | 1,72 | 1,12 |
-| Bombo | Ajolote burbujeante y saltarín | 1,44 | 1,24 |
-| Musgo | Duendecillo grave y bromista | 0,77 | 0,91 |
-| Nimbo | Nube suave y soñadora | 1,27 | 0,90 |
+## Implementación
+- `JanusCartoonVoice.sharedVoice.voiceId = "cartoon-shared-v1"` fija una identidad para todas las especies.
+- `profile(creatureId, style, mood)` conserva el ID para sincronizar gestos y frases, pero usa el mismo preset vocal base. Las emociones pueden modificar temporalmente prosodia, **no elegir otra voz**.
+- `voiceFor` escoge la misma voz española para cualquiera de las criaturas y prioriza una voz local del sistema operativo, cuando exista.
+- `ST.comp.voiceStyle` conserva **un estilo común**, con migración no destructiva desde el valor previo de `voiceStyles[creatureId]` cuando falta el campo nuevo. Los valores históricos no se borran.
+- `setAdapter({speak, stop})` mantiene el punto de integración para un único motor TTS local especializado. El adaptador recibe `profile.voiceId` y no debe asignar voces por especie.
+- Silenciar, escuchar una muestra, texto visible, gestos y callbacks se conservan.
 
-Cada criatura admite los estilos `caricatura`, `traviesa`, `dulce` y `teatral` con modulación por estado emocional; valores acotados para evitar distorsiones extremas. Los valores indican la **prosodia**, no un timbre grabado de estudio. El motor no imita voces reales ni clona voces humanas.
+## Diferenciar caricatura real de aproximación del navegador
+El proveedor actual es **Web Speech del navegador** con voz española y modulación de velocidad y tono: **aproximación caricaturesca**, no una voz neuronal/cartoon auténtica ni garantía de timbre no humano. Una voz de caricatura claramente no humana necesita un **activo o modelo TTS especializado**, la aprobación auditiva correspondiente y una prueba en Safari/iPhone. **No declarar cumplido el criterio de voz auténticamente no humana** hasta esa validación. No gastar en otro proveedor por defecto.
 
-## Integración de código
+La voz seleccionada por el navegador puede variar entre dispositivos, porque Janus no controla las voces instaladas del sistema. No se almacenan grabaciones infantiles, no se copian claves al navegador y el LEGO no hace llamadas de red por cuenta propia.
 
-```js
-const cartoon = window.JanusCartoonVoice;
-cartoon.speak('¡Hola, Kendra!', 'bombo', {
-  style: 'traviesa', mood: 'alegre', enabled: true,
-  onStart: () => JanusEdgeCompanion.react('habla', 1.5, 'alegre')
-});
-cartoon.preview('musgo', { style: 'caricatura', force: true });
-cartoon.stop();
-```
+## Pruebas y continuidad
+`node --test prototypes/dashboard/tests/kendra-cartoon-voice.test.cjs` cubre voz única, timbre y preset constantes, emociones, callbacks, limpieza, silencio, fallback, aislamiento del Founder y persistencia de estilo compartido. El pipeline de criaturas mantiene los builds de dashboards A/B sin sustituir diseños ni activos aprobados.
 
-`prototypes/dashboard/src/companero.js` conserva `ST.comp.voiceStyles[creatureId]` y `ST.comp.voiceEnabled` para aislar la selección de cada criatura y el control general de sonido. La pestaña «Hablar» permite elegir estilo, escuchar muestras y silenciar. La selección de Nexo masculino/femenino usa `ST.settings.nexoVariant`, **separado** de cualquier voz o dato de Kendra.
-
-La voz disponible procede del sistema operativo/navegador y se priorizan voces `es-*` con `localService === true`. Algunas voces pueden depender del fabricante de dispositivo: el código del LEGO no abre conexiones ni manda datos deliberadamente a la red, pero **no puede garantizar trabajo 100% offline** si el sistema selecciona una voz remota. Cuando SpeechSynthesis falla, los mensajes permanecen legibles y utilizables.
-
-### Motor reemplazable
-
-```js
-JanusCartoonVoice.setAdapter({
-  speak({text,id,profile,onStart,onEnd}) { /* TTS local/neuronal futuro */ },
-  stop() { /* cancelar el audio de esa sesión */ }
-});
-```
-
-Este contrato permitirá conectar en el futuro un motor de TTS neuronal local con voces realmente de dibujos animados, sin modificar perfiles, pantallas ni economía; los secretos nunca se almacenan en SQLite ni en el navegador.
-
-## Pruebas
-
-`tests/kendra-cartoon-voice.test.cjs` valida cuatro voces diferenciadas, español local preferido, emociones, silenciamiento, prueba voluntaria, cancelación sin solapamiento, limpieza de texto, degradación sin TTS y separación de Nexo. Se ejecuta en `.github/workflows/janus-creatures-ci.yml`, junto al build A/B offline.
-
-## Límites actuales
-
-- **Hecho:** diferenciación vocal audible mediante controles nativos de velocidad y tono, botón de prueba, persistencia por especie, animación facial vinculada al inicio de TTS.
-- **Por confirmar:** timbre real en Safari/iOS con voces instaladas, latencia y continuidad al re-renderizar en dispositivos físicos.
-- **Pendiente:** cuatro voces **neurales** caricaturescas de calidad estudio, con diseño de personajes y control de prosodia/timbre. No afirmar que el motor del navegador alcanza calidad cinematográfica.
-- **Pendiente gráfico independiente:** importar GLB masculino/femenino finales de Nexo aprobados con mallas/expresiones VFX, sin confundir cuerpos procedurales actuales con los renders definitivos.
+**Histórico (no vigente):** la primera implementación asignaba cuatro presets de pitch/rate/voz y estilos por especie. Se preserva su código anterior en el historial Git, pero **queda sustituido** por la decisión posterior de una voz compartida.
