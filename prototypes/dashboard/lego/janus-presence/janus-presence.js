@@ -13,7 +13,7 @@ const JanusPresence = (() => {
   const normalize = (id) => IDS.includes(id) ? id : 'lumi';
   const current = (context) => context === 'founder' ? 'robot' :
     normalize(typeof compState === 'function' ? compState().creatureId : 'lumi');
-  const source = (id) => IMG[SPECIES[normalize(id)].image];
+  const source = (id) => APPROVED_ART.creatures[normalize(id)] || IMG[SPECIES[normalize(id)].image];
   function renderNexo(compact) {
     // Nexo 02 es el protagonista del Founder, en dos versiones de la MISMA IA.
     // GLB importado si existe; en otro caso se monta el rig procedural de plata.
