@@ -28,7 +28,7 @@ const JanusPresence = (() => {
     const display = approved3d
       ? '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" aria-label="Nexo 02 aprobado"></div>'
       : '<div class="jnexo-voice-standby" role="status" aria-label="Janus: asistente de voz">' +
-        gIco('mic', 'jnexo-voice-icon') + '<strong>JANUS</strong></div>';
+        (typeof gIco === 'function' ? gIco('mic', 'jnexo-voice-icon') : '') + '<strong>JANUS</strong></div>';
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
       display + '<figcaption class="jp-caption"><b>Nexo 02</b>' +
       (compact ? '' : '<span>JANUS · asistente operativo</span>') +
