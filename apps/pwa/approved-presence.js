@@ -214,8 +214,9 @@ function mountModel(target, id) {
     const dt = Math.min(.05, (now - clock) / 1000 || .016);
     clock = now;
     if (document.visibilityState === 'visible') {
+      const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
       rig.root.rotation.y += (yaw - rig.root.rotation.y) * .12;
-      rig.update(now / 1000, dt, { pose: playing, mood: playing === 'celebra' ? 'alegre' : 'contento' });
+      if (!reducedMotion || down || playing !== 'idle') rig.update(now / 1000, dt, { pose: playing, mood: playing === 'celebra' ? 'alegre' : 'contento' });
       renderer.render(scene, camera);
     }
     frame = requestAnimationFrame(tick);
@@ -247,7 +248,11 @@ async function refreshViewer(viewer) {
   target.replaceChildren();
   await initApprovedPresence();
   if (version !== viewer.__janusVersion || !viewer.isConnected) return;
-  if (window.JanusCreatureSlot?.has?.(id) && mountModel(target, id)) return;
+  // Miniaturas: conservar la referencia exacta sin abrir múltiples contextos WebGL en iPhone.
+  if (!viewer.classList.contains('is-compact') && window.JanusCreatureSlot?.has?.(id) && mountModel(target, id)) {
+    viewer.__janusDispose = target.__janusDispose;
+    return;
+  }
   const [key] = referenceFor(id) || [];
   const url = key ? await artUrl(key) : null;
   if (version !== viewer.__janusVersion || !viewer.isConnected) return;
