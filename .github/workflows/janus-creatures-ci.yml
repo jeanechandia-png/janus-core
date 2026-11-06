@@ -49,6 +49,7 @@ jobs:
           node --test tests/verified-3d-gate.test.cjs
           node --test tests/private-original-art.test.cjs
           node --test tests/child-evidence-safety.test.cjs
+          node --test tests/child-curriculum-review.test.cjs
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
           node --test tests/kendra-cartoon-voice.test.cjs
