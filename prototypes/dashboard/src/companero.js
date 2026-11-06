@@ -208,9 +208,9 @@ function tabVestidor(p, name) {
     '<h4 class="mono">Criaturas oficiales · arte aprobado</h4>' +
     '<div class="cp-approved-grid">' + Companion.CREATURES.map((item) =>
       '<button type="button" class="cp-approved-card' + (item.id === C.creatureId ? ' on' : '') +
-      '"' + act('cpPick',item.id,'Elegir '+item.name) +
+      '"' + act('cpPick',item.id,'Elegir '+item.defaultName) +
       ' aria-pressed="' + (item.id === C.creatureId) + '">' +
-      '<img src="' + CREAT_IMG[item.id] + '" alt="' + esc(item.name) + '" loading="lazy" decoding="async">' +
+      '<img src="' + CREAT_IMG[item.id] + '" alt="' + esc(item.defaultName) + '" loading="lazy" decoding="async">' +
       '<b>' + esc(item.name) + '</b></button>'
     ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
