@@ -158,6 +158,30 @@ export class CreativeAssetVault {
     if (createHash('sha256').update(buffer).digest('hex') !== manifest.sha256) throw new Error('Creative asset SHA-256 mismatch');
     return manifest;
   }
+  /** An explicit human review is required before any public campaign. */
+  async approve(workspace: string, id: string, reviewer: string, rightsEvidenceUrl: string): Promise<CreativeAssetManifest> {
+    const m = await this.verify(workspace, id);
+    if (!reviewer.trim() || reviewer.length > 120 || !/^https:\/\//.test(rightsEvidenceUrl))
+      throw new Error('Reviewer and official rights evidence required');
+    if (!m.rights.commercialUse || !m.rights.offlineUseAfterCancellation ||
+      !m.rights.permissionToModify)
+      throw new Error('Commercial, modification and offline use rights not confirmed');
+    if (m.kind === 'model-3d')
+      throw new Error('Final 3D must additionally pass JANUS visual and GLB rig approval gate');
+    const updated: CreativeAssetManifest = {
+      ...m, state: 'approved',
+      rights: { ...m.rights, evidenceUrl: rightsEvidenceUrl, reviewBy: reviewer },
+    };
+    const dir = safeContentPath(this.root, workspace, id);
+    const temp = path.join(dir, '.approval-' + process.pid + '-' + Math.random().toString(16).slice(2));
+    try {
+      await writeExclusive(temp, Buffer.from(JSON.stringify(updated, null, 2) + '\n'));
+      await rename(temp, path.join(dir, 'manifest.json'));
+    } finally {
+      await rm(temp, { force: true });
+    }
+    return this.verify(workspace, id);
+  }
   /** Playback references only local bytes; no provider token, URL or subscription. */
   async localPath(workspace: string, id: string): Promise<string> {
     const m = await this.verify(workspace, id);
