@@ -27,10 +27,10 @@ COMMIT: el SHA exacto de cierre se obtiene de GitHub después de esta transferen
 ENTORNO: rama de trabajo de GitHub; sin checkout local autenticado ni despliegue.
 URL DE VERIFICACIÓN: no hay URL de producto final verificada.
 
-ARCHIVOS MODIFICADOS: `packages/core/src/pilot-readiness.mjs`, `tests/pilot-readiness.test.mjs`, `scripts/pilot-readiness.mjs`, `docs/PILOT_READINESS.json`, `package.json`, `.github/workflows/ci.yml`, este documento y `docs/UNIVERSAL_CONTINUITY_PROTOCOL.md`.
+ARCHIVOS MODIFICADOS: `packages/core/src/pilot-readiness.mjs`, `tests/pilot-readiness.test.mjs`, `scripts/pilot-readiness.mjs`, `docs/PILOT_READINESS.json`, `package.json`, `.github/workflows/ci.yml`, este documento y `docs/UNIVERSAL_CONTINUITY_PROTOCOL.md`, `docs/PROJECT_STATE.md`, `config/founder-reference-library.json`, `tests/universal-continuity-policy.test.ts`, `START_HERE.md`, `docs/PROJECT_MAP.md`.
 
-PRUEBAS EJECUTADAS: no se han ejecutado tests Node en esta sesión; solo se contrastó la existencia de archivos/ramas mediante acceso GitHub.
-RESULTADOS: PENDIENTE CI. El JSON inicial NO VERIFICA ninguna dimensión del piloto.
+PRUEBAS EJECUTADAS: CI remoto de GitHub Actions completó exitosamente npm test, typecheck, sintaxis PWA, validación del registro y runtime smoke en las revisiones `f8c011fc` (run 42292725494) y `898fd35e` (run 42292921282). La ampliación posterior de política runtime requiere nueva verificación del HEAD final.
+RESULTADOS: PASÓ la CI de código del gate hasta `898fd35e`. SIGUE PENDIENTE comprobar CI final de la política ampliada. El JSON inicial NO VERIFICA ninguna dimensión del piloto.
 
 RIESGOS Y BLOQUEOS: 33+ PR abiertas en pilas diferentes según auditoría del 06-11; ausencia de GLB finales aprobados; pruebas físicas, aprobación y despliegue no verificados. El repositorio es público: nunca subir imágenes/voz/datos infantiles privados.
 OTROS AGENTES ACTIVOS: no se ha confirmado quién está editando en tiempo real. PR simultáneas identificadas; no sobrescribirlas.
