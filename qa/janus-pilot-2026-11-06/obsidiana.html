@@ -6772,7 +6772,7 @@ function tabVestidor(p, name) {
       '<b>' + esc(item.defaultName) + '</b></button>'
     ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
-    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
+    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' puede participar en tus actividades y siempre te llamará Kendra por tu nombre.</p>' +
     '<div class="addf"><input type="text" data-f="cpNewName" maxlength="20" value="' + esc(name) + '" aria-label="Nombre de mi criatura" placeholder="Escribe el nombre que quieras">' +
     '<span class="btn" role="button" tabindex="0"' + act('cpRenameWardrobe', '', 'Guardar el nombre de mi criatura') + '>Guardar nombre</span></div>' +
     (COMP_UI.nameMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.nameMsg) + '</p>' : '') + '</div>';
