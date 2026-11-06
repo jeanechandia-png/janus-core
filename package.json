@@ -7,14 +7,16 @@
     "start": "node --import tsx apps/runtime/server.ts",
     "voice:start": "node scripts/start-local-voice.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts && node --test tests/pilot-readiness.test.mjs",
     "demo": "node --import tsx examples/observable-run.ts",
     "start:local": "node scripts/start-local.mjs",
     "integrations:check": "node scripts/check-integrations.mjs",
     "continuity": "node --import tsx scripts/continuity.ts",
     "flow-editor:build": "node scripts/build-flow-editor.mjs",
     "flow-editor:e2e": "node scripts/flow-editor-e2e.mjs",
-    "continuity:guard": "node --import tsx scripts/continuity-guard.ts"
+    "continuity:guard": "node --import tsx scripts/continuity-guard.ts",
+    "pilot:gate": "node scripts/pilot-readiness.mjs",
+    "pilot:validate": "node scripts/pilot-readiness.mjs --validate"
   },
   "dependencies": {
     "ws": "^8.21.3"

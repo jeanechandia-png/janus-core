@@ -10,6 +10,8 @@ Snapshot baseline: 2026-10-21; verified audit 2026-11-06 in `docs/CONTINUITY_AUD
 |---|---|
 | Código (fuente única) | GitHub `jeanechandia-png/janus-core` (público: nunca secretos ni datos personales) |
 | Estado vigente y handoffs | `docs/STATE.md`, y el Project «proyecto_janus» de claude.ai (`claude/janus-estado-*.md`) |
+| Protocolo universal + último handoff | `docs/UNIVERSAL_CONTINUITY_PROTOCOL.md` + `docs/AGENT_HANDOFF.md` |
+| Criterios del piloto (14 filtros + 8 flujos) | `docs/PILOT_READINESS.json`, `npm run pilot:gate`, `packages/core/src/pilot-readiness.mjs` |
 | Normas operativas del Founder | `docs/operating-norms.md` + `config/founder-reference-library.json` (políticas `founder-policy:*`) |
 | Decisiones de arquitectura | `docs/ADR-*.md` (comprueba el siguiente número libre con `npm run continuity`) |
 | Secretos | Entorno / gestor de secretos; plantilla en `.env.example` |
