@@ -67,7 +67,9 @@ test('visual: portada y pestañas comparten exactamente el atlas Gold 3D, sin ic
 test('estructural: Nexo sin selectores Masculino/Femenino superpuestos a su retrato', () => {
   const presence=read('lego/janus-presence/janus-presence.js');
   const avatar=read('src/avatar.js');
-  assert.match(presence,/const controls = '';/);
+  assert.match(presence,/const approved3d = !!\(window\.JanusCreatureSlot\?\.has\?\.\(slotId\)\)/);
+  assert.match(presence,/jnexo-voice-standby/);
+  assert.match(presence,/data-3d="bot"/, 'solo rama de GLB validado');
   assert.doesNotMatch(presence, /class="jnexo-variants" role="group"/);
   assert.doesNotMatch(presence, /<span>' \+ vName/);
   assert.match(avatar,/AV_VARIANTS\.map/,'selector preservado en ajustes');
