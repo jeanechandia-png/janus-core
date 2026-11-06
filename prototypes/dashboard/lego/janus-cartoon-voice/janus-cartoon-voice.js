@@ -9,7 +9,8 @@
  * JanusCartoonVoice.speak(text, id, {style, mood, enabled, force, onStart, onEnd});
  * .preview(id, opts), .profile(id, style), .stop(), .supported(), .setAdapter(adapter)
  *
- * Los adaptadores futuros deben ser reemplazables: speak({text,id,profile,...}) y stop().
+ * Los adaptadores futuros deben ser locales con localOnly:true y
+ * reemplazables: speak({text,id,profile,...}) y stop().
  * NO se crean solicitudes de red ni se suben mensajes de Kendra.
  */
 const JanusCartoonVoice = (() => {
@@ -75,15 +76,17 @@ const JanusCartoonVoice = (() => {
     const spanish = (Array.isArray(voices) ? voices : []).filter((v) => /^es(?:-|_)/i.test(v.lang || '') || /^es$/i.test(v.lang || ''));
     // Priorizar las voces que el SO declara locales. No garantiza independencia
     // si el navegador no informa de localService.
-    const local = spanish.filter((v) => v.localService === true);
-    const list = local.length ? local : spanish;
+    // Rechazamos la voz no local: podría delegarse al fabricante en la nube.
+    const list = spanish.filter((v) => v.localService === true);
     if (!list.length) return null;
     list.sort((a,b) => String(a.name || '').localeCompare(String(b.name || '')));
     // Siempre el mismo timbre de voz del dispositivo, independientemente de la especie.
     return list[0];
   }
   function setAdapter(next) {
-    if (next != null && (typeof next.speak !== 'function' || typeof next.stop !== 'function'))
+    // El backend/autorización del Founder decide los servicios remotos; este
+    // módulo infantil jamás activa un adaptador de gasto por su cuenta.
+    if (next != null && (next.localOnly !== true || typeof next.speak !== 'function' || typeof next.stop !== 'function'))
       return false;
     stop(); adapter=next || null; return true;
   }
@@ -107,7 +110,8 @@ const JanusCartoonVoice = (() => {
       const u=new window.SpeechSynthesisUtterance(phrase);
       u.lang=p.lang; u.pitch=p.pitch; u.rate=p.rate; u.volume=p.volume;
       const voice=voiceFor(e,p);
-      if (voice) {u.voice=voice; u.lang=voice.lang || p.lang;}
+      if (!voice) return { ok:false, reason:'local-voice-unavailable', profile:p };
+      u.voice=voice; u.lang=voice.lang || p.lang;
       u.onstart=()=>{if (current===active && typeof o.onStart==='function')o.onStart(p);};
       const end=()=>{if (current===active && typeof o.onEnd==='function')o.onEnd(p);};
       u.onend=end; u.onerror=end;
