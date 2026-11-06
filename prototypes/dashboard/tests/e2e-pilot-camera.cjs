@@ -97,9 +97,10 @@ async function verifyKendraStandalone(br) {
     })));
     await page.reload();
     await page.waitForSelector('#view .cp-pilot-camera button',{timeout:15000});
-    assert.equal(await page.evaluate(()=>BUILD_PROFILE),'kendra');
-    assert.equal(await page.evaluate(()=>STORE_KEY),'janus.preview.kendra.v1');
-    assert.equal(await page.evaluate(()=>ROUTE.v),'companero');
+    // The builder wraps all JS in an IIFE, so check public DOM behavior.
+    assert.equal(await page.title(),'Kendra · JANUS');
+    assert.equal(await page.locator('.stage.kendra-only').count(),1);
+    assert.equal(await page.locator('#view .cp-pilot-camera button').count(),1);
     assert.equal(await page.locator('.jpc-launch').count(),0,'Founder camera must be absent');
     assert.equal(await page.locator('#dash').innerText(),'','Founder dashboard must not be rendered');
     assert.equal(await page.locator('.vh nav.tabs').isVisible(),false,'Founder navigation must be hidden');
@@ -108,7 +109,8 @@ async function verifyKendraStandalone(br) {
       'private Founder calendar text must never appear');
     await page.evaluate(()=>{ location.hash='#ingresos'; });
     await page.waitForTimeout(250);
-    assert.equal(await page.evaluate(()=>ROUTE.v),'companero','cannot navigate to revenue from Kendra profile');
+    assert.equal(await page.locator('.stage.kendra-only').count(),1,'child profile remains active on direct hash changes');
+    assert.equal(await page.locator('#dash').innerText(),'','adult content stays absent after direct hash navigation');
     assert.equal(await page.locator('#view .cp-pilot-camera button').isVisible(),true);
     await page.locator('#view .cp-pilot-camera button').click();
     await page.waitForSelector('.jpc-backdrop');
@@ -123,6 +125,14 @@ async function verifyKendraStandalone(br) {
     await page.locator('[data-jpc="discard"]').click();
     assert.equal((await page.evaluate(()=>JanusPilotCamera.state())).active,false);
     await page.locator('#view [data-act="cpTab"][data-arg="hablar"]').click();
+    const saved = await page.evaluate(() => ({
+      founder: localStorage.getItem('janus.preview.A.v1'),
+      child: localStorage.getItem('janus.preview.kendra.v1')
+    }));
+    assert.ok(saved.founder && saved.founder.includes('CONFIDENCIAL FOUNDER'),
+      'Founder storage must be left untouched');
+    assert.ok(saved.child && !saved.child.includes('CONFIDENCIAL FOUNDER'),
+      'Child state must be stored separately, without Founder data');
     await page.locator('#view [data-f="cpMsg"]').fill('Están haciendo bullying en mi clase');
     await page.locator('#view [data-act="cpSend"]').click();
     assert.match(await page.locator('#view .cpsay').textContent(),/profesor|Jean|adulto/i);
