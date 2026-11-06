@@ -27,3 +27,11 @@
   .jpc-stage video,.jpc-stage img{max-height:52dvh}
 }
 @media(prefers-reduced-motion:reduce){.jpc-launch,.jpc-dialog button{transition:none}}
+
+/* Isolated child-profile pilot build: only the companion is rendered.
+   Remove Founder/navigation affordances without changing existing 3D art. */
+.stage.kendra-only .vh .back,
+.stage.kendra-only .vh nav.tabs,
+.stage.kendra-only .vh .nt,
+.stage.kendra-only .jpc-launch{display:none!important}
+.stage.kendra-only #dash{display:none!important}
