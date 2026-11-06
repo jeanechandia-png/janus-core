@@ -127,13 +127,17 @@ const JanusPilotCamera = (() => {
   }
   async function shoot() {
     if (!overlay || !stream) return;
+    const owner = overlay, capturedScope = scope;
     const video = overlay.querySelector('video');
     if (!video.videoWidth || !video.videoHeight) {
       status('Aún no hay imagen de la cámara. Intenta de nuevo.');
       return;
     }
-    try { const blob = await encode(video, video.videoWidth, video.videoHeight); if (overlay) setPhoto(blob); }
-    catch (_) { status('La captura falló; vuelve a intentarlo.'); }
+    try {
+      const blob = await encode(video, video.videoWidth, video.videoHeight);
+      // Never deliver a late photo from one account into another account's panel.
+      if (overlay === owner && scope === capturedScope) setPhoto(blob);
+    } catch (_) { if (overlay === owner) status('La captura falló; vuelve a intentarlo.'); }
   }
   async function chosen(file) {
     if (!overlay || !file) return;
