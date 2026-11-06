@@ -1,0 +1,113 @@
+{
+  "project": "JANUS",
+  "updatedAt": "2026-11-06",
+  "objective": "Piloto real de dashboards de Jean y Kendra; preservar activos y código de ramas existentes.",
+  "baseline": {
+    "ref": "chatgpt/canonical-continuity-guard-20261106",
+    "commit": "d5155beb778a0aab92ebdd9e354970f073fc261f"
+  },
+  "deployment": {
+    "state": "UNKNOWN",
+    "note": "No se ha verificado despliegue vigente, URL ni SHA de publicación en esta ejecución."
+  },
+  "sourceRefs": [
+    "https://github.com/jeanechandia-png/janus-core/pull/76",
+    "https://github.com/jeanechandia-png/janus-core/pull/75",
+    "https://github.com/jeanechandia-png/janus-core/pull/65",
+    "https://github.com/jeanechandia-png/janus-core/pull/68",
+    "https://github.com/jeanechandia-png/janus-core/pull/71"
+  ],
+  "filters": {
+    "veracidad": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "ortografia_i18n": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "sintesis": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "estructura": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "coherencia_visual": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "composicion_arquitectonica": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "arquitectura_software": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "funcionalidad": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "seguridad_privacidad": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "responsive_compatibilidad": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "rendimiento_costes": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "integridad_historica": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "e2e": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "entrega_final": {
+      "state": "NOT_RUN",
+      "evidence": []
+    }
+  },
+  "acceptance": {
+    "acceso_jean": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "acceso_kendra": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "aislamiento_perfiles": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "controles_funcionales": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "voz_criaturas_compartida": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "camara_y_permisos": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "iphone_safari": {
+      "state": "NOT_RUN",
+      "evidence": []
+    },
+    "persistencia_datos": {
+      "state": "NOT_RUN",
+      "evidence": []
+    }
+  },
+  "remarks": "No convertir capturas, maquetas, pruebas de Node o PRs sin merge en evidencia de acceso real. Las 26 imágenes infantiles aprobadas no se añaden al repositorio público. La voz nativa de dispositivo todavía no equivale a voz caricaturesca no humana aprobada."
+}
