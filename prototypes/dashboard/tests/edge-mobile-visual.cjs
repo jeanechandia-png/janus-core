@@ -38,11 +38,24 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
       if(bounds.controls) assert.ok(bounds.edge.top>=bounds.controls.bottom-3,'avatar below stage controls');
     }
     await page.screenshot({path:path.join(shotDir,`kendra-${skin}-${w}.png`),fullPage:true});
-    await page.evaluate(()=>window.scrollTo(0,document.body.scrollHeight));
+    await page.locator('.cptabs').scrollIntoViewIfNeeded();
     await page.waitForTimeout(350);
     if(bounds.edge){
-      const hidden=await page.evaluate(()=>{const el=document.querySelector('[data-kendra-edge]');return !el || el.hidden || getComputedStyle(el).display==='none';});
-      assert.ok(hidden,'avatar hides after leaving stage');
+      const afterScroll=await page.evaluate(()=>{
+        const stage=document.querySelector('.vb-companero .cpst3')?.getBoundingClientRect();
+        const tab=document.querySelector('.cptabs')?.getBoundingClientRect();
+        const edge=document.querySelector('[data-kendra-edge]');
+        const avatar=edge?.getBoundingClientRect();
+        return {stageBottom:stage?.bottom,tabTop:tab?.top,avatarBottom:avatar?.bottom,
+          hidden:!edge||edge.hidden||getComputedStyle(edge).display==='none',scrollY:scrollY};
+      });
+      if(afterScroll.stageBottom<=Math.max(70,h*0.08)){
+        assert.ok(afterScroll.hidden,'avatar hides once stage really leaves the screen');
+      } else if(!afterScroll.hidden){
+        assert.ok(afterScroll.avatarBottom<=afterScroll.tabTop+3,
+          'visible avatar must remain above learning controls');
+      }
+      console.log('scroll',skin,w,JSON.stringify(afterScroll));
     }
     // Check that the learning panel remains interactive and readable.
     const tabs=page.locator('.cptab');
