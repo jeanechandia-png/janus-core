@@ -68,6 +68,24 @@ function checkApproved(id,entry,sourceHashes) {
   for(const name of ['front','side','back','face','accessories']){
     must(isHash(entry.visualReview.screenshots?.[name]),'captura revisada sin hash: '+id+'/'+name);
   }
+  // No lock-in: commercial rights and a retained local license/receipt are
+  // mandatory. A credit balance, active subscription or cloud validation can
+  // NEVER be needed to display this character in JANUS CORE.
+  const rights=entry.rights;
+  must(rights && rights.commercialUse===true && rights.modification===true &&
+    rights.redistributionInProducts===true,'derechos comerciales completos sin acreditar: '+id);
+  must(rights.subscriptionRequiredForUse===false && rights.runtimeApiRequired===false &&
+    rights.perUseCredits===false,'dependencia de créditos o proveedor para usar el GLB: '+id);
+  must(typeof rights.provider==='string' && rights.provider.length>1 &&
+    /^https:\/\//.test(rights.termsUrl||''),'proveedor y condiciones oficiales no documentados: '+id);
+  const proofName='licenses/'+id+'.license.txt';
+  must(rights.licenseEvidencePath===proofName && isHash(rights.licenseEvidenceSha256),
+    'licencia comercial local faltante: '+id);
+  const proofPath=path.join(MODEL_DIR,proofName);
+  must(fs.existsSync(proofPath) && fs.statSync(proofPath).isFile(),
+    'no existe copia de la licencia o recibo: '+id);
+  must(sha256(fs.readFileSync(proofPath))===rights.licenseEvidenceSha256,
+    'copia de licencia alterada: '+id);
   must(entry.sourceArtSha256===sourceHashes[id+'.webp'],'la fuente visual difiere del arte aprobado: '+id);
   const original=path.join(ART,id+'.webp');
   must(fs.existsSync(original),'la imagen original aprobada no está instalada: '+id);
