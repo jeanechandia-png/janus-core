@@ -15,6 +15,8 @@ DECISIONES QUE DEBEN RESPETARSE: Nexo masculino = JANUS; Melanie independiente; 
 
 TRABAJO COMPLETADO: Se creó una rama nueva nacida de PR #76 y se añadieron un evaluador local, CLI, pruebas, registro JSON de los 14 filtros y ocho criterios, integración de pruebas en package.json y validación documental en CI. Este trabajo se conserva en su rama; NO se fusionó.
 
+CAMBIO ADICIONAL DE RUNTIME: sin duplicar IDs, la política vigente `founder-policy:delivery-filters` en `config/founder-reference-library.json` se amplió con las 14 dimensiones; `tests/universal-continuity-policy.test.ts` controla preservación de normas anteriores. Verificar el CI del último commit antes de clasificar como probado.
+
 TRABAJO IMPLEMENTADO NO VERIFICADO: El código del nuevo gate se registró en GitHub; la ejecución de CI y los tests remotos deben comprobarse contra el SHA final de la PR. El registro expresa explícitamente NOT_RUN para pruebas del piloto; no certifica ni cámara ni voz ni acceso real.
 
 TRABAJO PENDIENTE: Revisar CI de la nueva PR, integrar cuidadosamente las pilas #43→#53→#63→#67→#69→#70→#71→#75 y las alternativas #56/#65/#68; resolver divergencias; probar flujos reales Jean/Kendra, autenticación, privacidad, controles, acceso iPhone/Safari y voz no humana; obtener aprobación del responsable antes del despliegue.
