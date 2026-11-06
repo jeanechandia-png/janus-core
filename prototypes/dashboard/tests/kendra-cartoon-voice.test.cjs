@@ -91,8 +91,10 @@ test('callbacks de sincronización facial y motor de voz reemplazable',()=>{
   f.queued[0].onstart();f.queued[0].onend();
   assert.equal(start,1);assert.equal(end,1);assert.deepEqual(ids,['bombo']);
   let adapterInput=null,calls=0;
-  const adapter={speak(input){adapterInput=input;return 'played';},stop(){calls++;}};
+  const adapter={localOnly:true,speak(input){adapterInput=input;return 'played';},stop(){calls++;}};
   assert.equal(V.setAdapter({speak(){}}),false,'faltan acciones de cancelación');
+  assert.equal(V.setAdapter({speak(){},stop(){}}),false,'el adaptador sin garantía local no se admite');
+  assert.equal(V.setAdapter({localOnly:false,speak(){},stop(){}}),false,'nunca habilita adaptador externo');
   assert.equal(V.setAdapter(adapter),true);
   const r=V.speak('Hola Kendra','nimbo',{style:'dulce'});
   assert.equal(r.engine,'adapter');
@@ -103,6 +105,18 @@ test('callbacks de sincronización facial y motor de voz reemplazable',()=>{
   V.stop();assert.ok(calls>=1);
   V.setAdapter(null);
 });
+test('si solo hay voces no locales, no se sintetiza ni se consumen créditos',()=>{
+  const f=fixture();
+  f.voices.splice(0,f.voices.length,
+    {name:'Cloud Online',lang:'es-ES',localService:false},
+    {name:'No declarado',lang:'es-MX'}
+  );
+  const r=f.V.speak('Texto seguro','lumi');
+  assert.equal(r.ok,false);
+  assert.equal(r.reason,'local-voice-unavailable');
+  assert.equal(f.queued.length,0);
+});
+
 test('degradación sin TTS deja texto y controles intactos',()=>{
   const {V}=fixture(false);
   assert.equal(V.supported(),false);
