@@ -73,6 +73,11 @@ test('trust LAN model only with exact configured origin; reject lookalike and un
   assert.equal(modelExecutionTier(localModel, {
     ...base, JANUS_TRUSTED_LOCAL_MODEL_ORIGINS: 'http://192.168.1.30:11435',
   }), 'external-credit');
+  const publicConfig = { ...env, JANUS_MODEL_BASE_URL: 'https://api.remotevendor.example/v1' };
+  const publicModel = resolveModelProviders(publicConfig).find((x) => x.id === 'custom')!;
+  assert.equal(modelExecutionTier(publicModel, {
+    ...publicConfig, JANUS_TRUSTED_LOCAL_MODEL_ORIGINS: 'https://api.remotevendor.example',
+  }), 'external-credit', 'a remote paid API can never be trusted as local');
   const spoof = resolveModelProviders({ ...env, JANUS_MODEL_BASE_URL: 'https://localhost.evil.test' })[0]!;
   assert.equal(modelExecutionTier(spoof, env), 'external-credit');
 });
