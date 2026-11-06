@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-11-06T19:56:41.421Z",
+  "updatedAt": "2026-11-06T20:00:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -297,6 +297,26 @@
         "single-voice",
         "founder-provided",
         "2026-11-06"
+      ]
+    },
+    {
+      "id": "policy-independent-first-no-credits-20261106",
+      "subject": "founder-policy:independent-first-no-external-credits",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Independencia primero; APIs y créditos externos solo al final",
+      "value": "Norma global InfinitySeed Group (2026-11-06), posterior y complementaria a la norma de gasto del 2026-10-23: realizar el trabajo con capacidades propias de JANUS CORE y módulos reutilizables; preferir ejecución local/offline y software libre. Evaluar después herramientas gratuitas y recursos ya contratados sin cargos incrementales. Proveedores remotos de IA/voz/imagen u otros servicios con créditos, tokens o facturación por uso son SOLO último recurso, aun cuando exista una suscripción o una API key configurada. Nunca activar, consumir créditos o cambiar automáticamente a ellos por fallo del local sin una autorización explícita del Founder, límites verificables, control de privacidad, trazabilidad y evidencia de necesidad. Si no hay autorización, mantener el adaptador inactivo y degradar de forma segura. Clasificar lo no alcanzado como pendiente, no como funcional. El cap de llamadas no es un tope monetario; revisar condiciones, precio en euros y riesgo de excedentes antes de usar. Ningún agente puede sustituir esta política por un proveedor comercial sin nueva decisión posterior registrada.",
+      "retention": "preserve",
+      "tags": [
+        "operating-norm",
+        "founder-provided",
+        "2026-11-06",
+        "provider-independence",
+        "local-first",
+        "no-credits-by-default",
+        "approval-required",
+        "cross-product",
+        "spend-last"
       ]
     }
   ]
