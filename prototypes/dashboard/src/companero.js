@@ -345,7 +345,7 @@ function vCompanero(M, X, sub) {
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
-  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
+  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>📷 Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3);
 }
 VIEWS.companero = vCompanero;
@@ -471,6 +471,20 @@ const COMP_ACTS = {
   cpLight: (l) => { const C = compState(), sc = Companion.SCENARIOS[C.sc % Companion.SCENARIOS.length], r = Companion.answerScenario(sc, l); COMP_UI.scFb = (r.correct ? '✔ ' : '↺ ') + r.feedback; cpSay(r.feedback, r.correct ? 'celebra' : 'piensa'); if (r.correct) C.sc++; saveState(); },
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
+    // Child-safety evidence gate is executed BEFORE the normal companion reply.
+    // No sensitive raw input is written to the child state or sent to a model.
+    const evidence = window.JanusChildSafety && JanusChildSafety.assess(msg);
+    if (evidence) {
+      if (evidence.notifyAdult) {
+        const severity = evidence.level === 'urgent' ? 'urgente' : 'importante';
+        const topic = evidence.topic === 'bullying' ? 'Acoso o intimidación' : 'Seguridad de Kendra';
+        C.alerts.push({ at: nowHM(), severity, summary: topic + ': se recomienda hablar con un adulto de confianza.' });
+        C.alerts = C.alerts.slice(-20);
+      }
+      compSave(p);
+      cpSay(evidence.reply, evidence.notifyAdult ? 'saluda' : 'habla');
+      return;
+    }
     const reply = '¡Te escucho, ' + CHILD + '! Cuéntame más, me encanta escucharte.';
     const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
     if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));
