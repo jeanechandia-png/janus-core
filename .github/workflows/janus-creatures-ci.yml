@@ -21,6 +21,7 @@ jobs:
       - name: Validate JavaScript syntax
         run: |
           for f in \
+            prototypes/dashboard/lego/janus-edge-companion/janus-edge-companion.js \
             prototypes/dashboard/lego/janus-fur-wind/janus-fur-wind.js \
             prototypes/dashboard/lego/janus-nexo-3d/janus-nexo-3d.js \
             prototypes/dashboard/src/avatar.js \
@@ -68,6 +69,23 @@ jobs:
             console.log('PASS ' + file + ' (' + Math.round(html.length/1024) + ' KiB)');
           }
           NODE
+      - name: Install Chromium for layout / interaction verification
+        run: |
+          npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.58.2
+          npx playwright install --with-deps chromium
+      - name: iPhone-sized A/B edge companion and learning controls
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
+        run: node prototypes/dashboard/tests/edge-mobile-visual.cjs
+      - name: Archive Kendra screenshots for visual review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-kendra-mobile-a-b-screens
+          path: ${{ runner.temp }}/kendra-edge-screens/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Publish offline dashboard previews
         uses: actions/upload-artifact@v4
         with:
