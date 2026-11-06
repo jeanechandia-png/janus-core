@@ -69,6 +69,9 @@ function checkApproved(id,entry,sourceHashes) {
     must(isHash(entry.visualReview.screenshots?.[name]),'captura revisada sin hash: '+id+'/'+name);
   }
   must(entry.sourceArtSha256===sourceHashes[id+'.webp'],'la fuente visual difiere del arte aprobado: '+id);
+  const original=path.join(ART,id+'.webp');
+  must(fs.existsSync(original),'la imagen original aprobada no está instalada: '+id);
+  must(sha256(fs.readFileSync(original))===entry.sourceArtSha256,'la imagen original no coincide con el SHA oficial: '+id);
   const f = path.join(MODEL_DIR,id+'.glb');
   must(fs.existsSync(f),'no existe GLB '+id);
   const data=fs.readFileSync(f);
