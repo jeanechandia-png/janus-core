@@ -12,6 +12,7 @@ if (!key) {
   try {
     const response = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
       headers: { 'xi-api-key': key, accept: 'application/json' },
+      redirect: 'error',
       signal: AbortSignal.timeout(15000),
     });
     if (!response.ok) throw new Error('subscription API returned HTTP ' + response.status);
