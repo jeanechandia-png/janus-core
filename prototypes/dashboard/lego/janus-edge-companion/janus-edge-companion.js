@@ -51,14 +51,15 @@ const JanusEdgeCompanion = (() => {
         const r = el.getBoundingClientRect();
         if (r.height && r.top < rect.bottom && r.bottom > rect.top) floor = Math.min(floor, r.top - pad);
       }
-      const room = Math.max(96, floor - top);
+      const availableHeight = floor - top;
+      const room = Math.max(96, availableHeight);
       width = Math.min(width, room / 1.33, Math.max(96, rect.width * 0.47));
       const height = width * 1.33;
       const left = limit(rect.left + pad, 6, Math.max(6, vw - width - 6));
       const right = limit(rect.right - width - pad, left, Math.max(left, vw - width - 6));
       const firstTop = Math.min(top, Math.max(rect.top + pad, floor - height));
       const lastTop = Math.max(firstTop, floor - height);
-      const visible = rect.bottom > Math.max(70, vh * 0.08) && rect.top < vh - 64 && room >= 96;
+      const visible = rect.bottom > Math.max(70, vh * 0.08) && rect.top < vh - 64 && availableHeight >= 115;
       return { width, height, left, right, top: firstTop, bottom: lastTop, visible, stageBound: true };
     }
     const height = width * 1.33;
