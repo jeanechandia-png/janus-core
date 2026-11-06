@@ -2,9 +2,30 @@
 /* ===== Pestañas de detalle ===== */
 const UI = { clDay: null, clH: null, clMetric: 't', dDay: 0, dSel: null, kDay: 0, mFilter: 0, mSel: 'm0', fSel: null, iPer: 12, iSel: null, aPer: 30, bSel: null, cSort: 'views', cSel: 'r1', clCat: 'leads', clSel: 0, geo: [], geoMsg: '' };
 const TABS = [['clima', '🚴', 'Clima'], ['dia', '🗓', 'Mi día'], ['familia', '🌟', '__HIJA__'], ['prioridades', '🎯', 'Prioridades'], ['janus', '⚙', 'Janus'], ['plataformas', '◉', 'Costes'], ['ingresos', '💶', 'Ingresos'], ['alcance', '👁', 'Alcance'], ['chatbots', '🤖', 'Chatbots'], ['contenido', '🎬', 'Contenido'], ['clientes', '🤝', 'Clientes'], ['datos', '🛈', 'Datos']];
+/* Triple filtro visual/estructural: reutiliza objetos originales GOLD.o/GOLD.i de la portada A2, sin recrear assets. */
+const DETAIL_ICONS = Object.freeze({"clima":"bike","dia":"calendar-days","familia":"sparkles","prioridades":"target","janus":"bot","plataformas":"euro","ingresos":"euro","alcance":"eye","chatbots":"bot","contenido":"clapperboard","clientes":"handshake","datos":"folder","trabajo":"folder","correo":"mail","ofertas":"tag","🚴":"bike","🗓":"calendar-days","🌟":"sparkles","🎯":"target","⚙":"settings","◉":"euro","💶":"euro","👁":"eye","🤖":"bot","🎬":"clapperboard","🤝":"handshake","🛈":"folder","📁":"folder","✉":"mail","📧":"mail","🔐":"lock","🎙":"mic","📥":"inbox","🏷":"tag","🏠":"sun","📚":"school","🎓":"school","☔":"umbrella","🩺":"stethoscope","❤":"heart","✈":"plane","💼":"folder"});
+function detailIcon(glyph, route) {
+ const id = DETAIL_ICONS[route] || DETAIL_ICONS[glyph] ||
+   (typeof EMO2ICO !== 'undefined' && EMO2ICO[glyph]);
+ if (!id || typeof gIco!=='function' || typeof GOLD==='undefined' || !(GOLD.o[id] || GOLD.i[id]))
+   return '<span class="janus-icon-unmapped" aria-hidden="true">·</span>';
+ return '<span class="janus-icon-art" aria-hidden="true">' + gIco(id,'janus-icon-3d') + '</span>';
+}
+function hydrateDetailIcons(root) {
+ const view=(root||document).querySelector('#view');
+ if (!view || view.hidden) return;
+ view.querySelectorAll('.bb').forEach(node=>{
+  if (node.querySelector('img,svg,.janus-icon-art')) return;
+  const raw=node.textContent.trim();
+  const id=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]);
+  if (!id || !(GOLD.o[id]||GOLD.i[id])) return;
+  node.setAttribute('aria-label',raw);
+  node.innerHTML=detailIcon(raw);
+ });
+}
 const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
 const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
-const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + e + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
+const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + detailIcon(e) + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
 const ring = (p, col, txt, size) => '<span class="rg2" style="--sz:' + rem(size || 46) + ';background:conic-gradient(' + col + ' ' + clamp(p, 0, 100) * 3.6 + 'deg,rgba(255,255,255,.09) 0)"><span class="mono">' + (txt != null ? txt : p + '%') + '</span></span>';
 const pill = (txt, cls) => '<span class="pill2 mono ' + (cls || '') + '">' + txt + '</span>';
 const LVC = ['g', 'a', 'r'];
@@ -45,8 +66,8 @@ function frame(id, sub, M, body, approvedTitle) {
   const t = TABS.find((x) => x[0] === id), viewTitle = approvedTitle || t[2], live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
   const finC = id === 'plataformas' ? FinOps.counters() : null;
   const finKnown = finC && (finC.critical + finC.warning + finC.healthy) > 0;
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(viewTitle) + '" data-jg-depth="10">' + esc(viewTitle) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
-    '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + detailIcon(t[1],id) + '</span>') + '<h1 class="vt" data-jg="' + esc(viewTitle) + '" data-jg-depth="10">' + esc(viewTitle) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
+    '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + detailIcon(x[1],x[0]) + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
     '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }
 
