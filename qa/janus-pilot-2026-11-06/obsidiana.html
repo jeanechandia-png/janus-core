@@ -14742,7 +14742,7 @@ function renderPhoneA2(M, X) {
   const fam = a2card('familia', 'sparkles', 'Hija', D.cita ? 'cita en ' + D.cita.days + ' d' : '',
     D.kToday.map((k) => a2row(k.h, eIco(k.e), esc(k.t), '<span class="to">→ ' + k.to + '</span>')).join('') +
     (D.cita ? '<div class="a2r warn">' + gIco('stethoscope', 'r') + '<span class="tx"><b>Cita médica</b> · en ' + D.cita.days + ' días</span></div>' : '') +
-    '<div class="a2r go a2comp"' + goAttr('companero', 'Compañero') + '><img class="a2cp" src="' + CREAT_IMG[(ST.comp && ST.comp.creatureId) || 'lumi'] + '" alt=""><span class="tx"><b>Compañero</b> · mates, juegos y ánimo</span><span class="to">›</span></div>');
+    '<div class="a2r go a2comp"' + goAttr('companero', 'Criaturas de Kendra') + '><img class="a2cp" src="' + CREAT_IMG[(ST.comp && ST.comp.creatureId) || 'lumi'] + '" alt=""><span class="tx"><b>Criaturas</b> · aprendizaje, juegos y ánimo</span><span class="to">›</span></div>');
   const sev = (s) => '<i class="sv">' + [1, 2, 3].map((k) => '<b class="' + (k <= s ? 'on s' + s : '') + '"></b>').join('') + '</i>';
   const pri = a2card('prioridades', 'target', 'Prioridades', X.mailsOpen.length + ' abiertos · ' + DATA.mails.filter((m) => m.sev === 3).length + ' urgente',
     DATA.mails.slice(0, 3).map((m) => a2row(m.ini, '', '<b>' + esc(m.who) + '</b> · ' + esc(m.sj), sev(m.sev), '', 'prioridades/' + m.id)).join(''));
