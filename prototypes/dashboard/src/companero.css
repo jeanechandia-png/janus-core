@@ -126,3 +126,17 @@
  .kendra-only .cp-pilot-camera{display:flex;justify-content:flex-end}
  .kendra-only .cpslot .mono,.kendra-only .cpslh,.kendra-only .cpul{font-size:13px;line-height:1.5}
 }
+
+/* FIX VIGENTE 2026-11-07: el grid "1fr" heredaba 560px min-content del
+   héroe y cortaba escena, textos, selector y navegación en iPhone 390px.
+   minmax(0,1fr) evita overflow y mantiene el mismo producto original. */
+@media(max-width:47.5em){
+ #view .vb.vb-companero{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:clip}
+ #view .vb-companero>.cpst3,#view .vb-companero>.cptabs{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+ #view .vb-companero .cp-cinematic,#view .vb-companero .cpov{min-width:0;max-width:100%}
+ #view .vb-companero .cpsay{min-width:0;max-width:calc(100% - 56px);overflow-wrap:anywhere;word-break:normal;box-sizing:border-box}
+ #view .vb-companero .cpst3{height:min(58svh,540px);min-height:350px}
+ #view .vb-companero .cptb{width:100%;min-width:0;max-width:100%}
+ #view .vb-companero .cp-approved-grid{width:100%;min-width:0}
+ #view .vb-companero .cp-approved-card{min-width:0}
+}
