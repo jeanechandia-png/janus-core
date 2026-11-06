@@ -14973,7 +14973,10 @@ function render() {
   $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '');
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
+  // Important privacy boundary in the mobile view: never show the Founder
+  // dashboard underneath Kendra's companion. aria-hidden alone does not hide it.
   dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
+  dash.style.display = ROUTE.v === 'companero' ? 'none' : 'contents';
   if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   // One founder camera entry shared by Obsidiana and Platino; Kendra has
