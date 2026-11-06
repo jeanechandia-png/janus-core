@@ -18,6 +18,12 @@ test('real Core dashboards A/B receive approved language controls without replac
   assert.match(bridge, /iconSrc: '\/icons\/janus-icon-180\.png'/);
   assert.match(css, /language-buttons\.css/);
   assert.ok(!bridge.includes('innerHTML'));
+  assert.match(bridge, /mountInExistingHeader/);
+  assert.match(bridge, /#view:not\\(\\[hidden\\]\\) \\.vh/);
+  assert.match(bridge, /header\\.append\\(controls\\)/);
+  assert.doesNotMatch(bridge, /position:fixed/);
+  assert.match(css, /\\.janus-header-tools/);
+  assert.match(css, /\\.janus-access-menu/);
 });
 
 test('independent Kendra app retains its pairing, role isolation and original screen', () => {
