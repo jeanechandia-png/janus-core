@@ -29,7 +29,8 @@ test('without art pack, existing approved portraits are still visible, no synthe
  const P=boot(false);
  for(const id of ids)assert.ok(P.render('kendra',false,id).includes('jpeg-'+id),id);
  assert.ok(build.includes('const APPROVED_ART='));
- assert.ok(build.includes("has(rel) ? 'data:image/webp;base64,' + b64(rel) : null"));
+ assert.ok(build.includes("crypto.createHash('sha256')"),'the exact founder-approved SHA is checked before embedding');
+ assert.ok(build.includes("'data:image/webp;base64,' + bytes.toString('base64')"));;
 });
 test('migrate old procedural default to official art, but keep 3D as explicit optional mode',()=>{
  assert.ok(companion.includes('C.visualPolicyVersion !== 20261106'));
