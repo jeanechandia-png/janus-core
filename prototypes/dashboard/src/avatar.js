@@ -21,8 +21,8 @@ function avatarSync() {
 }
 function avatarGear() {
   const open=avOpen();
+  // La variante pertenece a ajustes, no al frente de la escena ni al control protagonista.
   return '<span class="avgear">' +
-    '<span class="avg"' + act('avVariantNext', '', 'Cambiar entre versión masculina y femenina de Nexo') + ' aria-label="Cambiar versión de Nexo">↔</span>' +
     '<span class="avg"' + act('avToggle', '', open ? 'Plegar personalización Nexo' : 'Personalizar Nexo') +
       ' aria-expanded="' + open + '">' + gIco('settings') + '</span></span>';
 }
@@ -37,8 +37,7 @@ function avatarPanel() {
   const mood=window.Janus3D&&Janus3D.mood?Janus3D.mood():'contento';
   const open=avOpen();
   const bar='<div class="avbar mono"' + act('avToggle','','Personalizar Nexo') +
-    ' aria-expanded="' + open + '"><span>Nexo 02 · ' + (v==='femenino'?'Femenino':'Masculino') +
-    ' · ' + esc(mood) + '</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
+    ' aria-expanded="' + open + '"><span>Nexo 02 · ' + esc(mood) + '</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
   if (!open) return bar;
   return '<div class="avc">' + bar + '<div class="avbody">' +
     '<div class="avh mono">Versión del robot</div><div class="avr">' +
