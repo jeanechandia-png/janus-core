@@ -18,7 +18,7 @@ const CP_STAGE = 'kendra';
 const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
-  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
+  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.voiceStyle) C.voiceStyle = C.voiceStyles[C.creatureId] || 'caricatura'; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
   if (C.visualPolicyVersion !== 20261106) {
     const verifiedGLB = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
     if (!verifiedGLB) C.visualMode = 'cinematic';
@@ -46,7 +46,7 @@ function speak(text, opts) {
   return V.speak(text, C.creatureId, {
     enabled: C.voiceEnabled !== false,
     force: o.force === true,
-    style: C.voiceStyles[C.creatureId] || 'caricatura',
+    style: C.voiceStyle || 'caricatura',
     mood: o.mood || 'contento',
     onStart: () => {
       if (window.JanusEdgeCompanion) JanusEdgeCompanion.react('habla', 1.5, o.mood || 'contento');
@@ -257,7 +257,7 @@ const CP_MOODS = [['alegre', '😄', 'Alegre'], ['contento', '🙂', 'Contento']
 function tabHablar(p, name) {
   const sc = Companion.SCENARIOS[compState().sc % Companion.SCENARIOS.length];
   const C = compState(), V = window.JanusCartoonVoice;
-  const voice = V ? V.profile(C.creatureId, C.voiceStyles[C.creatureId] || 'caricatura') : null;
+  const voice = V ? V.profile(C.creatureId, C.voiceStyle || 'caricatura') : null;
   const soundOn = C.voiceEnabled !== false;
   const faceMoods = {
     lumi: ['contento','sorprendido','alegre'],
@@ -278,9 +278,9 @@ function tabHablar(p, name) {
   const voicePanel = '<div class="cpgr cp-voice" aria-label="Voz de caricatura de la criatura">' +
     '<h4 class="mono">Voz caricaturesca · ' + esc(name) + '</h4>' +
     '<p class="cpmini dim">' + esc(voice ? voice.label : 'Voz del dispositivo') +
-    '. Cada criatura habla de manera distinta. Usa la síntesis de voz disponible en el dispositivo, sin cuentas ni pagos.</p>' +
+    '. La misma voz caricaturesca habla para todas las criaturas. Usa la síntesis disponible en el dispositivo, sin cuentas ni pagos.</p>' +
     '<div class="cpchips">' + (V ? V.styles.map((item) =>
-      chip('cpVoiceStyle', item.id, '♪', item.label, (C.voiceStyles[C.creatureId] || 'caricatura') === item.id ? 'on' : '')
+      chip('cpVoiceStyle', item.id, '♪', item.label, (C.voiceStyle || 'caricatura') === item.id ? 'on' : '')
     ).join('') : '') + '</div>' +
     '<div class="cpbtns"><button type="button" class="btn2 mono"' +
       act('cpVoiceToggle', '', soundOn ? 'Silenciar la criatura' : 'Activar la voz caricaturesca') + '>' +
@@ -400,8 +400,8 @@ const COMP_ACTS = {
   cpVoiceStyle: (style) => {
     const V = window.JanusCartoonVoice, C = compState();
     if (!V || !V.styles.some((v) => v.id === style)) return;
-    C.voiceStyles[C.creatureId] = style; saveState();
-    COMP_UI.voiceMsg = 'Estilo guardado para ' + Companion.displayName(compProfile()) + '.';
+    C.voiceStyle = style; saveState();
+    COMP_UI.voiceMsg = 'Estilo guardado para todas las criaturas.';
     if (C.voiceEnabled !== false) {
       const result = V.preview(C.creatureId, { style });
       if (!result.ok) COMP_UI.voiceMsg = 'Voz no disponible en el dispositivo. La configuración permanece guardada.';
@@ -415,8 +415,8 @@ const COMP_ACTS = {
   cpVoicePreview: () => {
     const V = window.JanusCartoonVoice, C = compState();
     if (!V) { COMP_UI.voiceMsg = 'El navegador no admite esta voz.'; return; }
-    const response = V.preview(C.creatureId, { style: C.voiceStyles[C.creatureId] || 'caricatura', force: true });
-    COMP_UI.voiceMsg = response.ok ? 'Muestra de ' + Companion.displayName(compProfile()) + ' · voz del dispositivo.' :
+    const response = V.preview(C.creatureId, { style: C.voiceStyle || 'caricatura', force: true });
+    COMP_UI.voiceMsg = response.ok ? 'Muestra de la voz caricaturesca compartida · voz del dispositivo.' :
       'La síntesis de voz no está disponible aquí.';
   },
   cpSpeak: () => { speak(COMP_UI.say || '¡Hola, ' + CHILD + '! ' + Companion.getCreature(compState().creatureId).catchphrases[0], { force: true }); },
