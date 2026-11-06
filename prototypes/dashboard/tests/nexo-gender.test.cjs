@@ -100,11 +100,15 @@ test('render A/B mantiene la variante seleccionada de Nexo sin invadir el protag
  for(const size of [false,true]){
   const html=vm.runInContext('JanusPresence.render("founder",'+size+')',ctx);
   assert.match(html,/data-nexo-variant="femenino"/);
-  assert.match(html,/data-3d="bot"/);
+  assert.match(html,/jnexo-voice-standby/,'sin GLB no se presenta robot procedural rechazado');
+  assert.doesNotMatch(html,/data-3d="bot"/,'sin Nexo aprobado no hay ojos o boca flotantes');
   assert.doesNotMatch(html,/data-act="avVariant"/,'selector solo en configuración, no sobre la figura');
   assert.doesNotMatch(html,/>Masculino<|>Femenino</,'sin etiquetas gigantes sobre el robot');
   assert.doesNotMatch(html,/data-jpresence="bombo"/);
  }
+ // Si aparece el GLB real para la variante elegida, el escenario se reactiva.
+ ctx.window.JanusCreatureSlot={has:(id)=>id==='robot-femenino'};
+ assert.match(vm.runInContext('JanusPresence.render("founder",false)',ctx),/data-3d="bot"/);
  const glb=read('lego/janus-creature-slot/janus-creature-slot.js');
  assert.match(glb,/robot-femenino/);
  assert.match(glb,/sort\(\(a,b\)=>b\.length-a\.length\)/);
