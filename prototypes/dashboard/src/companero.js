@@ -6,13 +6,25 @@
  * Los cambios de apariencia y voz no alteran las normas de seguridad o el perfil de Kendra.
  * Las lecciones usan representaciones concretas (IES/WWC 2021006, Rec. 3); no sustituyen a un profesional (ver pestaña «Papá»).
  */
-const CREAT_IMG = { lumi: IMG.cLumi, bombo: IMG.cBombo, musgo: IMG.cMusgo, nimbo: IMG.cNimbo };
+const CREAT_IMG = { lumi: APPROVED_ART.creatures.lumi || IMG.cLumi, bombo: APPROVED_ART.creatures.bombo || IMG.cBombo, musgo: APPROVED_ART.creatures.musgo || IMG.cMusgo, nimbo: APPROVED_ART.creatures.nimbo || IMG.cNimbo };
+// Approved art takes visual priority; procedural 3D is explicitly technical preview.
+const cpArtIcon = (key, fallback) => {
+  const image = APPROVED_ART.accessories[key];
+  return image ? '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">' : fallback;
+};
 const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
 const CP_STAGE = 'kendra';
 const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
-  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura'; return C;
+  const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
+  if (C.visualPolicyVersion !== 20261106) {
+    const verifiedGLB = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
+    if (!verifiedGLB) C.visualMode = 'cinematic';
+    C.visualPolicyVersion = 20261106;
+  }
+  if (!['3d','edge','cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
+  return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
 function compProfile() {
@@ -187,7 +199,7 @@ function tabVestidor(p, name) {
   const w = Companion.worldOf(p), look = Companion.lookOf(p), S = Companion.SWATCHES, own = (k) => w.owned.includes(k);
   const sw = (part, cur) => '<div class="cpsw">' + Companion.SWATCH_IDS.map((id) => dot('cpWear', part + '|' + id, S[id].hex, S[id].label, cur === id)).join('') + '</div>';
   const price = (k) => (Companion.kitShop.item(k) || { price: 0 }).price;
-  const slotRow = (slot) => '<div class="cpgr"><h4 class="mono">' + esc(Companion.SLOT_LABEL[slot]) + '</h4><div class="cpchips">' + chip('cpWear', 'accessory|' + slot + '|', '∅', 'Ninguno', !look.accessories[slot] ? 'on' : '') + Companion.ACCESSORIES[slot].map((a) => { const k = Companion.accessoryKey(slot, a.id); return chip('cpWear', 'accessory|' + slot + '|' + a.id, a.icon, a.label, look.accessories[slot] === a.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div></div>';
+  const slotRow = (slot) => '<div class="cpgr"><h4 class="mono">' + esc(Companion.SLOT_LABEL[slot]) + '</h4><div class="cpchips">' + chip('cpWear', 'accessory|' + slot + '|', '∅', 'Ninguno', !look.accessories[slot] ? 'on' : '') + Companion.ACCESSORIES[slot].map((a) => { const k = Companion.accessoryKey(slot, a.id); return chip('cpWear', 'accessory|' + slot + '|' + a.id, cpArtIcon(k,a.icon), a.label, look.accessories[slot] === a.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div></div>';
   const C = compState(), asp = C.aspect, canFace = !!window.JanusFace3D;
   const species = C.creatureId, opts = CP_STYLES[species] || CP_STYLES.lumi;
   const style = C.furStyles[species] || 'natural';
@@ -206,7 +218,7 @@ function tabVestidor(p, name) {
       '</div><p class="cpmini dim">Pelaje y musgo en geometría 3D con viento en GPU. Bombo mantiene piel húmeda sin pelo. En modelos GLB el viento depende del atributo COLOR_1 del contrato.</p></div>' +
     '<div class="cpgr"><h4 class="mono">Color del pelo</h4>' + sw('fur', look.fur) + '</div><div class="cpgr"><h4 class="mono">Detalles</h4>' + sw('accent', look.accent) + '</div>' +
     '<div class="cpgr"><h4 class="mono">Ojos</h4><div class="cpsw">' + Companion.EYE_IDS.map((id) => dot('cpWear', 'eyes|' + id, Companion.EYES[id].hex, Companion.EYES[id].label, look.eyes === id)).join('') + '</div></div>' +
-    '<div class="cpgr"><h4 class="mono">Ropa</h4><div class="cpchips">' + Companion.OUTFITS.map((o) => { const k = Companion.outfitKey(o.id); return chip('cpWear', 'outfit|' + o.id, o.icon, o.label, look.outfit === o.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div>' + (look.outfit !== 'ninguna' ? '<h4 class="mono">Color de la ropa</h4>' + sw('outfitColor', look.outfitColor) : '') + '</div>' +
+    '<div class="cpgr"><h4 class="mono">Ropa</h4><div class="cpchips">' + Companion.OUTFITS.map((o) => { const k = Companion.outfitKey(o.id); return chip('cpWear', 'outfit|' + o.id, cpArtIcon(k,o.icon), o.label, look.outfit === o.id ? 'on' : own(k) ? '' : 'lock', price(k)); }).join('') + '</div>' + (look.outfit !== 'ninguna' ? '<h4 class="mono">Color de la ropa</h4>' + sw('outfitColor', look.outfitColor) : '') + '</div>' +
     Companion.SLOTS.map(slotRow).join('') + (Object.keys(look.accessories).length ? '<div class="cpgr"><h4 class="mono">Color de los accesorios</h4>' + sw('accessoryColor', look.accessoryColor) + '</div>' : '') +
     '<div class="cpbtns"><span class="btn2 mono"' + act('cpSurprise', '', 'Sorpréndeme') + '>🎲 Sorpréndeme</span><span class="btn2 mono"' + act('cpResetLook', '', 'Como al principio') + '>↺ Como al principio</span></div>';
 }
@@ -214,7 +226,7 @@ function tabTienda(p, name) {
   const w = Companion.worldOf(p), sections = [['Ropa', (i) => i.kind === 'out'], ['Accesorios', (i) => i.kind === 'acc'], ['Casas', (i) => i.kind === 'home'], ['Vehículos', (i) => i.kind === 'veh'], ['Decoración', (i) => i.kind === 'dec']];
   const items = Companion.kitShop.catalog.filter((i) => i.price > 0);
   return '<div class="cpwal"><b>★ ' + w.stars + '</b> estrellas<small class="mono">se ganan por intentarlo y aprender · máximo ' + Companion.DAILY_CAP + ' al día · hoy ' + w.earnedToday + '</small></div>' +
-    sections.map((s) => { const list = items.filter(s[1]).sort((a, b) => a.price - b.price); return list.length ? '<div class="cpgr"><h4 class="mono">' + s[0] + '</h4><div class="cpchips">' + list.map((it) => { const have = w.owned.includes(it.key), can = w.stars >= it.price; return '<span class="cpc' + (have ? ' on' : can ? '' : ' dim2') + '"' + act(have ? 'cpNoop' : 'cpBuy', it.key, it.label + (have ? ' (ya es tuyo)' : ' · ' + it.price + ' estrellas')) + '><i>' + it.icon + '</i><em>' + esc(it.label) + '</em><b>' + (have ? '✔ tuyo' : it.price + '★') + '</b></span>'; }).join('') + '</div></div>' : ''; }).join('') +
+    sections.map((s) => { const list = items.filter(s[1]).sort((a, b) => a.price - b.price); return list.length ? '<div class="cpgr"><h4 class="mono">' + s[0] + '</h4><div class="cpchips">' + list.map((it) => { const have = w.owned.includes(it.key), can = w.stars >= it.price; return '<span class="cpc' + (have ? ' on' : can ? '' : ' dim2') + '"' + act(have ? 'cpNoop' : 'cpBuy', it.key, it.label + (have ? ' (ya es tuyo)' : ' · ' + it.price + ' estrellas')) + '><i>' + cpArtIcon(it.key,it.icon) + '</i><em>' + esc(it.label) + '</em><b>' + (have ? '✔ tuyo' : it.price + '★') + '</b></span>'; }).join('') + '</div></div>' : ''; }).join('') +
     '<p class="cpmini dim">Nada se pierde ni se acaba: fallar nunca quita estrellas ni objetos.</p>';
 }
 function tabMundo(p, name) {
@@ -288,9 +300,9 @@ function vCompanero(M, X, sub) {
   const scene3d = !edge && !cinematic && ok3d;
   const tools = world ? '' :
     '<div class="cp-edge-tools">' +
-      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D vivo</button>' : '') +
+      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D prueba</button>' : '') +
       (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
-      '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte</button>' +
+      '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte aprobado</button>' +
       (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
         '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
     '</div>';
@@ -326,11 +338,11 @@ function cpRenameCommit(raw) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'edge'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'edge'; saveState(); },
+  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
-  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
+  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!window.JanusCreatureSlot?.has?.(id)) C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
   cpRename: () => cpRenameCommit(field('cpName')),
   cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
@@ -338,7 +350,7 @@ const COMP_ACTS = {
     const C = compState(), ids = (CP_STYLES[C.creatureId] || []).map((v) => v[0]);
     if (!ids.includes(style)) return;
     C.furStyles[C.creatureId] = style;
-    C.visualMode = 'edge'; // previsualizacion REAL en cuerpo 3D grande que vive en el borde
+    // The approved illustration remains visible until a validated GLB is explicitly chosen.
     saveState();
     const st = cpStage(); if (st && st.setFurStyle) st.setFurStyle(style);
     cpSay('¡Mira, ' + CHILD + '! ¿Qué te parece mi nuevo estilo?', 'saluda', true, 'alegre');
