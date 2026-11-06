@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v14';
+const CACHE = 'janus-shell-v15';
 const SHELL = [
   '/',
   '/index.html',
@@ -13,6 +13,11 @@ const SHELL = [
   '/dashboard-access.css',
   '/language-buttons.js',
   '/language-buttons.css',
+  '/approved-presence.js',
+  '/approved-presence.css',
+  '/approved-3d/vendor/three-r160.min.js',
+  '/approved-3d/vendor/gltf-kit.js',
+  '/approved-3d/janus-creature-slot.js',
   '/language-art/nederland.webp.b64',
   '/language-art/espana.webp.b64',
   '/pcm-capture-worklet.js',

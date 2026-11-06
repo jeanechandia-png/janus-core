@@ -5,6 +5,7 @@ import { PcmTtsPlayer } from './pcm-tts-player.js';
 import { mountAttachMenu } from './attach.js';
 import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
@@ -12,6 +13,12 @@ const connection = document.querySelector('#connection');
 const capabilityList = document.querySelector('#capabilityList');
 const voiceButton = document.querySelector('#voiceButton');
 const presenceState = document.querySelector('#presenceState');
+// No sustituye la entrada de voz ni el dashboard existente.
+const approvedPresence = document.createElement('div');
+approvedPresence.className = 'janus-founder-presence';
+approvedPresence.append(createApprovedStage('nexo-masculino'));
+document.querySelector('section.presence')?.prepend(approvedPresence);
+void initApprovedPresence();
 const transcript = document.querySelector('#transcript');
 const command = document.querySelector('#command');
 const sendButton = document.querySelector('#sendButton');
@@ -1071,4 +1078,17 @@ kendraOpenPanel?.addEventListener('click', async () => {
 });
 
 refreshKendraSummary();
+const originalManagerButton = document.createElement('button');
+originalManagerButton.type = 'button'; originalManagerButton.className = 'secondary';
+originalManagerButton.textContent = 'Instalar JANUS 3D original';
+originalManagerButton.addEventListener('click', () => {
+  if (!sessionToken()) { setPresence('Identificación necesaria', 'Entra como Founder antes de instalar originales.'); return; }
+  const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
+  close.addEventListener('click', () => dialog.close());
+  dialog.append(createApprovedAssetControls({ family: 'janus' }), close);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog); dialog.showModal();
+});
+document.querySelector('section.presence')?.append(originalManagerButton);
 setInterval(() => { if (document.visibilityState === 'visible' && !kendraPanelHandle) refreshKendraSummary(); }, 60_000);

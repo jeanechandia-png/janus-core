@@ -1,0 +1,36 @@
+/* JANUS — presencia real en las PWA canónicas. No se sustituyen layouts. */
+.janus-approved-stage{position:relative;inline-size:100%;min-block-size:230px;block-size:min(52dvh,440px);overflow:hidden;isolation:isolate;border-radius:24px;background:radial-gradient(ellipse at 45% 20%,#483127 0%,#1b1621 48%,#0a0b11 90%);box-shadow:inset 0 1px 0 #ffffff43,inset 0 -1px 0 #ae764a44,0 12px 32px #0007;border:1px solid #ba865b74}
+.janus-approved-stage:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(155deg,#fff2 0%,transparent 26%,transparent 75%,#ba845c13 100%);z-index:2}
+.janus-approved-viewport{position:relative;width:100%;height:100%;display:grid;place-items:center;overflow:hidden}
+.janus-approved-viewport>canvas{display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+.janus-approved-poster{position:absolute;inset:0;block-size:100%;inline-size:100%;background-repeat:no-repeat;filter:none}
+.janus-asset-pending{max-inline-size:22rem;text-align:center;padding:1rem;line-height:1.5;color:#f3e2cb;font:600 .9rem/1.5 system-ui;letter-spacing:.01em;text-shadow:0 1px 6px #000}
+.janus-approval-label{position:absolute;bottom:8px;left:8px;background:#090a0ccb;color:#f8dfb6;border:1px solid #b18b58;border-radius:10px;padding:4px 8px;font:11px/1.4 system-ui}
+.janus-approved-stage.is-compact{min-block-size:78px;block-size:78px;inline-size:78px;border-radius:16px}
+.janus-approved-stage.is-compact .janus-asset-pending{font-size:9px;padding:5px}
+.janus-approved-stage.is-compact .janus-approval-label{display:none}
+.janus-asset-manager{display:grid;gap:12px;padding:14px;border:1px solid #b8956570;border-radius:18px;background:#1b1922;color:#f7eddf;font:14px/1.4 system-ui}
+.janus-asset-manager h3{margin:0;font-size:16px}
+.janus-asset-manager p{margin:0;overflow-wrap:anywhere}
+.janus-asset-manager label{display:grid;gap:6px}
+.janus-asset-manager input{max-width:100%;font:inherit}
+.janus-founder-presence{min-width:168px;width:min(30vw,230px);flex:0 0 auto}
+.janus-founder-presence .janus-approved-stage{block-size:250px;min-block-size:180px}
+.janus-3d-dialog{border:1px solid #d4aa74;border-radius:22px;padding:16px;background:#0e1018;color:#fff;max-inline-size:min(500px,92vw);width:100%;max-block-size:90dvh;overflow:auto;box-shadow:0 25px 100px #000b}
+.janus-3d-dialog::backdrop{background:#05050bcb}
+.janus-3d-dialog button{cursor:pointer;min-height:44px;padding:8px 12px;margin-top:10px;border-radius:12px;border:1px solid #cbb087;background:#2e2830;color:#fff}
+.janus-3d-dialog .janus-approved-stage{block-size:min(58dvh,500px)}
+.janus-3d-dialog h2{margin:0 0 10px;font:600 18px/1.4 system-ui}
+.janus-approved-stage.is-compact{max-inline-size:100%}
+.hero .creature-btn{border-radius:24px;inline-size:min(100%,300px);block-size:300px;min-block-size:300px;background:transparent;box-shadow:none;padding:0}
+.hero .creature-btn .janus-approved-stage{block-size:300px;min-block-size:300px}
+.hero:has(.janus-approved-stage){grid-template-columns:minmax(0, 1.1fr) minmax(110px,1fr)}
+.creatures .janus-approved-stage{margin:2px auto}
+.petrow .mini .janus-approved-stage{width:42px;height:42px;min-height:42px;border-radius:50%}
+@media(max-width:450px){
+ .janus-founder-presence{width:100%;max-width:210px}
+ .janus-founder-presence .janus-approved-stage{block-size:200px}
+ .hero:has(.janus-approved-stage){grid-template-columns:minmax(0,1fr) minmax(110px,1fr)}
+ .hero .creature-btn,.hero .creature-btn .janus-approved-stage{block-size:225px;min-block-size:225px}
+}
+@media(prefers-reduced-motion:reduce){.janus-approved-stage,.janus-approved-viewport{animation:none!important;transition:none!important}}

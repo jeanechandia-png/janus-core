@@ -10,7 +10,7 @@
  */
 import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
-import { creatureSvg } from './kendra-creatures.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
@@ -215,7 +215,7 @@ function tabInicio() {
   const out = [];
   const say = h('p', { class: 'muted' }, pet ? `${pet.name}: «${pet.catchphrase}»` : '');
   const stage = pet
-    ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, creatureSvg(pet.id, { primary: pet.primary, glow: pet.glow }))
+    ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, createApprovedStage(pet.id))
     : h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon);
   out.push(h('section', { class: 'card hero' }, stage, h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), say)));
 
@@ -282,7 +282,7 @@ function buildChat() {
   const pet = creature();
   const add = (who, text) => {
     const bubble = h('div', { class: `msg ${who}` }, text);
-    msgs.append(who === 'pet' && pet ? h('div', { class: 'petrow' }, h('span', { class: 'mini', 'aria-hidden': 'true' }, creatureSvg(pet.id, { primary: pet.primary, glow: pet.glow })), bubble) : bubble);
+    msgs.append(who === 'pet' && pet ? h('div', { class: 'petrow' }, h('span', { class: 'mini', 'aria-hidden': 'true' }, createApprovedStage(pet.id, { compact: true })), bubble) : bubble);
     msgs.scrollTop = msgs.scrollHeight;
   };
   add('pet', `¡Hola, ${view.profile.displayName}! Soy ${pet ? pet.name : 'tu compañero'}. ¿De qué hablamos?`);
@@ -459,7 +459,7 @@ function openProfile() {
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Personalizar' });
   const icons = h('div', { class: 'icons' }, ICONS.map((icon) => h('button', { type: 'button', 'aria-pressed': String(icon === draft.icon), 'aria-label': `Icono ${icon}`, onClick: (event) => { draft.icon = icon; icons.querySelectorAll('button').forEach((button) => button.setAttribute('aria-pressed', String(button === event.currentTarget))); } }, icon)));
   const themes = h('div', { class: 'themes' }, Object.entries(THEMES).map(([id, color]) => h('button', { type: 'button', style: `background:${color}`, 'aria-label': `Color ${id}`, 'aria-pressed': String(id === draft.theme), onClick: (event) => { draft.theme = id; themes.querySelectorAll('button').forEach((button) => button.setAttribute('aria-pressed', String(button === event.currentTarget))); } })));
-  const creatures = h('div', { class: 'creatures' }, (view.creatures ?? []).map((item) => h('button', { type: 'button', 'aria-pressed': String(item.id === draft.companionId), onClick: (event) => { draft.companionId = item.id; creatures.querySelectorAll('button').forEach((button) => button.setAttribute('aria-pressed', String(button === event.currentTarget))); } }, h('strong', {}, item.name), h('small', {}, item.catchphrase))));
+  const creatures = h('div', { class: 'creatures' }, (view.creatures ?? []).map((item) => h('button', { type: 'button', 'aria-pressed': String(item.id === draft.companionId), onClick: (event) => { draft.companionId = item.id; creatures.querySelectorAll('button').forEach((button) => button.setAttribute('aria-pressed', String(button === event.currentTarget))); } }, createApprovedStage(item.id, { compact: true }), h('strong', {}, item.name), h('small', {}, item.catchphrase))));
   sheet.append(h('div', {},
     h('h2', {}, 'Hazlo tuyo'),
     h('label', {}, 'Mi nombre', name), h('p', {}, 'Mi icono'), icons, h('p', {}, 'Mi color'), themes, h('p', {}, 'Mi compañero'), creatures, error,
@@ -494,6 +494,8 @@ function openParent() {
     const host = h('div');
     body.replaceChildren(host);
     mountKidParentPanel(host, { mode: 'pin', onClose: close, request: (method, path, payload) => api(method, path, payload, { 'x-janus-parent-unlock': unlockToken }) });
+    // Importación offline de originales verificados, solo después de validar PIN.
+    host.append(createApprovedAssetControls({ family: 'kendra' }));
   });
   body.append(form);
   document.body.append(sheet);
@@ -530,4 +532,5 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 setInterval(heartbeat, 30_000);
 setInterval(() => { if (document.visibilityState === 'visible' && view && tab !== 'chat') load(); }, 5 * 60_000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token) load(); });
+void initApprovedPresence();
 start();
