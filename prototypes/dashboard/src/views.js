@@ -34,7 +34,7 @@ function hydrateDetailIcons(root) {
     const exact=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]) || glyphs[raw];
     if(exact){
       node.setAttribute('aria-label',raw);
-      node.innerHTML=detailIcon(raw, exact);
+      node.innerHTML='<span class="janus-icon-art" aria-hidden="true">'+gIco(exact,'janus-icon-3d')+'</span>';
       return;
     }
     const first=node.firstChild;
