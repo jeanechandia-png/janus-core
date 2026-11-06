@@ -16,19 +16,21 @@ const JanusPresence = (() => {
   const source = (id) => (window.JanusOriginalArt && window.JanusOriginalArt.creature(normalize(id))) || (typeof APPROVED_ART !== 'undefined' && APPROVED_ART.creatures?.[normalize(id)]) || IMG[SPECIES[normalize(id)].image];
   function renderNexo(compact) {
     // Nexo 02 es el protagonista del Founder, en dos versiones de la MISMA IA.
-    // GLB importado si existe; en otro caso se monta el rig procedural de plata.
+    // FILTRO VISUAL: solo el GLB de Nexo validado puede activar WebGL.
+    // El robot procedural anterior (caras/ojos/boca flotantes) queda histórico, invisible.
     const variant = ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
     const size = compact ? 'jpresence--mini' : 'jpresence--hero';
     const id = compact ? 'nexo-dashboard' : 'nexo-sala';
     // La variante es una preferencia de configuración, no un titular ni un botón sobre el robot.
     // El selector real sigue disponible dentro de Personalizar Nexo (src/avatar.js).
-    const controls = '';
+    const slotId = variant === 'femenino' ? 'robot-femenino' : 'robot';
+    const approved3d = !!(window.JanusCreatureSlot?.has?.(slotId));
+    const display = approved3d
+      ? '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" aria-label="Nexo 02 aprobado"></div>'
+      : '<div class="jnexo-voice-standby" role="status" aria-label="Janus: asistente de voz">' +
+        gIco('mic', 'jnexo-voice-icon') + '<strong>JANUS</strong></div>';
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
-      '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
-      'aria-label="Nexo 02, robot de Janus, versión ' + variant + '">' +
-      '<div class="jnexo-fallback" aria-hidden="true"><b>NEXO 02</b></div></div>' +
-      controls +
-      '<figcaption class="jp-caption"><b>Nexo 02</b>' +
+      display + '<figcaption class="jp-caption"><b>Nexo 02</b>' +
       (compact ? '' : '<span>JANUS · asistente operativo</span>') +
       '</figcaption></figure>';
   }
