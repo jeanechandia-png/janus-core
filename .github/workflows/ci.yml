@@ -37,5 +37,7 @@ jobs:
         run: python3 -m py_compile sidecars/qwen3_tts_server.py
       - name: Tests
         run: npm test
+      - name: Pilot record validation (does not certify release)
+        run: npm run pilot:validate
       - name: Runtime smoke
         run: node tests/runtime-smoke.mjs
