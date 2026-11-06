@@ -33,6 +33,7 @@ jobs:
             prototypes/dashboard/lego/janus-original-art/janus-original-art.js \
             prototypes/dashboard/lego/janus-family-guide/janus-child-safety.js \
             prototypes/dashboard/lego/janus-family-guide/janus-child-conversation.js \
+            prototypes/dashboard/lego/janus-local-camera/janus-local-camera.js \
             prototypes/dashboard/src/companero.js \
             prototypes/dashboard/src/phonev.js \
             prototypes/dashboard/src/sala.js \
@@ -51,6 +52,7 @@ jobs:
           node --test tests/private-original-art.test.cjs
           node --test tests/child-evidence-safety.test.cjs
           node --test tests/child-conversation-integration.test.cjs
+          node --test tests/local-camera.test.cjs
           node --test tests/child-curriculum-review.test.cjs
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
