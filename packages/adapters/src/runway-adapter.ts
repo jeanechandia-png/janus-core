@@ -68,7 +68,11 @@ export class RunwayAdapter implements ToolAdapter {
           progress: typeof body.progress === 'number' ? body.progress : null,
           output: Array.isArray(body.output) ? body.output.filter((item) => typeof item === 'string') : [],
           failure: typeof body.failure === 'string' ? body.failure : null,
-          note: 'Las URLs de salida de Runway caducan en 24–48 h; guarda el resultado si lo necesitas.',
+          note: 'Las URLs de salida pueden caducar en 24–48 h. Exporta y archiva bytes completos en el CreativeAssetVault local antes de reutilizar.',
+          localArchiveRequired: Array.isArray(body.output) && body.output.length > 0,
+          archiveTarget: 'CreativeAssetVault',
+          commercialRightsReview: 'pending',
+          runtimeProviderRequiredAfterArchive: false,
         },
       };
     }
