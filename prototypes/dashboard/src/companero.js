@@ -259,6 +259,21 @@ function tabHablar(p, name) {
   const C = compState(), V = window.JanusCartoonVoice;
   const voice = V ? V.profile(C.creatureId, C.voiceStyles[C.creatureId] || 'caricatura') : null;
   const soundOn = C.voiceEnabled !== false;
+  const faceMoods = {
+    lumi: ['contento','sorprendido','alegre'],
+    bombo: ['alegre','sorprendido','contento'],
+    musgo: ['alegre','sorprendido','enojado'],
+    nimbo: ['alegre','sorprendido','contento']
+  };
+  const approvedFaces = (CP_APPROVED.expressions?.[C.creatureId] || []).map((src,index) => {
+    const mood = faceMoods[C.creatureId]?.[index] || 'contento';
+    const label = CP_MOODS.find((item) => item[0] === mood)?.[2] || mood;
+    return src ? '<button type="button" class="cp-approved-expression"' +
+      act('cpMood',mood,label + ' (expresión ilustrada aprobada)') +
+      '><img src="' + src + '" alt="' + esc(name) + ': ' + label + '" loading="lazy" decoding="async">' +
+      '<span>' + label + '</span></button>' : '';
+  }).join('');
+
   const voicePanel = '<div class="cpgr cp-voice" aria-label="Voz de caricatura de la criatura">' +
     '<h4 class="mono">Voz caricaturesca · ' + esc(name) + '</h4>' +
     '<p class="cpmini dim">' + esc(voice ? voice.label : 'Voz del dispositivo') +
@@ -273,7 +288,9 @@ function tabHablar(p, name) {
     '>▶ Escuchar muestra</button></div>' +
     (COMP_UI.voiceMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.voiceMsg) + '</p>' : '') +
     '</div>';
-  return voicePanel + '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4><div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
+  return voicePanel + '<div class="cpgr"><h4 class="mono">Cómo se siente ' + esc(name) + '</h4>' +
+    (approvedFaces ? '<div class="cp-approved-faces" aria-label="Expresiones originales aprobadas">' + approvedFaces + '</div>' : '') +
+    '<div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
