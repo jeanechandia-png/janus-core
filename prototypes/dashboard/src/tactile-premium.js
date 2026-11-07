@@ -5,8 +5,11 @@
  * El material y el brillo responden a puntero, toque y teclado.
  */
 const JanusTactile = (() => {
-  const BUTTONS = '[data-act],[data-go],.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg,.jg-cta,.jg-row,.jpc-launch,button:not([disabled]),.go[role="button"]';
-  const CARDS = '.a2c,.cd,.cptabs,.cpst3,.kpi,.hc,.dy,.ml,.fu,.ev,.tc,.kt,.jp,.rb,.a2stat,.a2sala';
+  // Política de coherencia aprobada: únicamente navegación y acciones principales.
+  // Un artículo de tienda NO pasa a ser botón decorativo por tener data-act.
+  const BUTTONS = '.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg,.jg-cta,.jpc-launch,.cp-pilot-camera button,.a2hl';
+  const CARDS = '.a2c,.cd,.cptabs';
+  const EXCLUDE = '.cpchips,.cpc,.cp-approved-grid,.cp-approved-card,.cp-approved-faces,.cp-approved-expression,.a2pj,.cpgr .cp-approved-card';
   // CORRECCIÓN VISUAL APROBADA: dos materiales, no un arcoíris.
   // Cada tarjeta comparte un borde neutro; las acciones destacan en bronce
   // respecto al fondo. Los indicadores de estado originales no se alteran.
@@ -38,7 +41,8 @@ const JanusTactile = (() => {
   });
   function hydrateActionIcons(root) {
     if (typeof gIco !== 'function') return;
-    root.querySelectorAll('button,[data-act],[data-go],.a2btn,.pill2,.cptab').forEach(el=>{
+    root.querySelectorAll(BUTTONS).forEach(el=>{
+      if(el.closest(EXCLUDE)) return;
       if(el.hasAttribute('data-janus-action-3d') || el.querySelector('img.a2i,canvas.janus-live-icon3d')) return;
       const first=el.firstChild;
       if(!first || first.nodeType!==3)return;
@@ -62,8 +66,11 @@ const JanusTactile = (() => {
     if (!root) return;
     document.documentElement.classList.add('janus-tactile-ui');
     hydrateActionIcons(root);
+    // Proteger el catálogo y restaurar clases erróneas del mismo DOM.
+    root.querySelectorAll('.cpchips .j3d-touch,.cp-approved-grid .j3d-touch,.a2pj.j3d-touch,.cpc.j3d-touch')
+      .forEach(el=>{el.classList.remove('j3d-touch','j3d-pressed','j3d-lit');el.removeAttribute('data-janus-tone');});
     root.querySelectorAll(BUTTONS).forEach((el, i) => {
-      if (el.matches('input,select,textarea,label,[disabled],[aria-hidden="true"]')) return;
+      if (el.closest(EXCLUDE) || el.matches('input,select,textarea,label,[disabled],[aria-hidden="true"]')) return;
       el.classList.add('j3d-touch');
       el.dataset.janusTone = tone('button');
       if (flash && flash.id === id(el) && Date.now() - flash.at < TOUCH_LIMIT) {
