@@ -86,7 +86,9 @@ test('el usuario selecciona y conserva variante en ST.settings; no altera Kendra
  assert.equal(J.form,'robot');assert.equal(calls.at(-1).v,'femenino');assert.equal(saved,1);
  assert.equal(comp.creatureId,'lumi');assert.equal(comp.names.lumi,'Estrellita');
  const html=vm.runInContext('avatarPanel()',ctx);
- assert.match(html,/Femenino/);
+ assert.match(html,/Personalización de Janus/);
+ assert.match(html,/Femenino/,'ambas variantes solo dentro del panel de personalización');
+ assert.doesNotMatch(vm.runInContext('avatarGear()',ctx),/avVariantNext|Cambiar versión/,'sin selector de género junto al robot');
  assert.match(html,/robot-femenino|alta fidelidad/);
  vm.runInContext('AV_ACTS.avVariantNext()',ctx);
  assert.equal(settings.nexoVariant,'masculino');assert.equal(saved,2);
@@ -101,7 +103,8 @@ test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
   const html=vm.runInContext('JanusPresence.render("founder",'+size+')',ctx);
   assert.match(html,/data-nexo-variant="femenino"/);
   assert.match(html,/data-3d="bot"/);
-  assert.match(html,/data-act="avVariant"/);
+  assert.doesNotMatch(html,/data-act="avVariant"/,'el encabezado nunca presenta selección de género');
+  assert.doesNotMatch(html,/>Masculino<|>Femenino</,'no se imprime género en portada');
   assert.doesNotMatch(html,/data-jpresence="bombo"/);
  }
  const glb=read('lego/janus-creature-slot/janus-creature-slot.js');
@@ -112,6 +115,8 @@ test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
  assert.match(engine,/formKey: 'robot', formGen: -1/,'Nexo inicial sin seleccionar manualmente');
  assert.match(engine,/setVariant\(v\)/);
  assert.match(engine,/robot-femenino/);
+ assert.doesNotMatch(read('src/phonev.js'),/JanusPresence\.render\('founder', false\)/,
+  'no duplicar una gran portada Nexo por encima del robot interactivo del chat');
  const build=read('build.cjs');
  assert.match(build,/janus-nexo-3d\/janus-nexo-3d.js/);
  const app=read('src/app.js');
