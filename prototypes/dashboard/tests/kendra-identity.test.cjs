@@ -121,7 +121,7 @@ test('la cabecera muestra el alias elegido y la criatura usa iconografía 3D exi
 });
 test('Kendra usa la escena WebGL nativa cuando está disponible, conservando la elección manual',()=>{
   const o=setup();
-  o.eval('window.JanusEdgeCompanion={supported:()=>true}');
+  o.eval('window.JanusEdgeCompanion={supported:()=>true}; var JanusEdgeCompanion=window.JanusEdgeCompanion;');
   o.eval('compState().visualPolicyVersion=20261106');
   assert.equal(o.eval('compState().visualMode'),'edge');
   o.eval('COMP_ACTS.cpVisual("cinematic")');
