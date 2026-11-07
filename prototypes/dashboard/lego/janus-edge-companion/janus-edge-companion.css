@@ -1,7 +1,7 @@
-/* LEGO Kendra Edge Companion — modelo Three.js transparente sobre el margen del viewport.
- * No interfiere con formulario/teclado: solo el canvas acepta gestos.
- * position:fixed desde <body>, no desde la tarjeta con overflow:hidden. */
-.kedge-root{position:fixed;inset:0 auto auto 0;z-index:280;pointer-events:none;isolation:isolate;
+/* LEGO Kendra Edge Companion — escena Three.js nativa dentro de Kendra.
+ * El canvas vive dentro de .cpst3.edge-hero: no es overlay del viewport.
+ * Los controles del escenario conservan prioridad táctil y visual. */
+.kedge-root{position:absolute;inset:0 auto auto 0;z-index:3;pointer-events:none;isolation:isolate;
   width:300px;height:400px;filter:drop-shadow(0 20px 22px rgba(0,0,0,.44));
   contain:layout style;will-change:transform}
 .kedge-root[hidden]{display:none!important}
