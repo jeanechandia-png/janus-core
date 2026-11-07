@@ -38,7 +38,13 @@ assert.equal(P.current('founder'), 'robot', 'la accion heredada no cambia al rob
 assert.equal(P.current('kendra'), 'bombo', 'Kendra sigue aislada');
 assert.equal(saves, 0, 'no se modifica ningun ajuste del Founder al cambiar identidad');
 const code = [read('src/dash.js'), read('src/dash-b.js'), read('src/sala.js'), read('src/phonev.js')];
-for (const [i, file] of code.entries()) assert.ok(file.includes("JanusPresence.render('founder'"), 'punto de montaje ' + i);
+for (const [i, file] of code.entries()) {
+  if (i === 3) {
+    assert.doesNotMatch(file, /JanusPresence\\.render\\('founder', false\\)/, 'el móvil NO duplica la cabeza del robot con otra portada');
+  } else {
+    assert.ok(file.includes("JanusPresence.render('founder'"), 'punto de montaje existente ' + i);
+  }
+}
 assert.ok(read('src/companero.js').includes("JanusPresence.render('kendra'"));
 assert.ok(read('src/companero.js').includes("C.visualMode = '3d'"));
 assert.ok(read('src/app.js').includes('JanusPresence.hydrate(document)'));
