@@ -1,6 +1,8 @@
 import { mountAppInstall } from './app-install.js';
 import './knowledge-review.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { sessionToken } from './founder-session.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
 // not a second navigation bar floating over Janus or Kendra's 3D scene.
@@ -39,6 +41,22 @@ install.type = 'button';
 install.textContent = uiLabel('founder', 'install');
 install.setAttribute('data-app-install', '');
 accessList.append(install);
+const robot = document.createElement('button');
+robot.type = 'button'; robot.textContent = 'JANUS 02 NEXO · 3D';
+robot.addEventListener('click', () => {
+  menu.open = false;
+  const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
+  const title = document.createElement('h2'); title.textContent = 'JANUS · 02 NEXO';
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
+  close.addEventListener('click', () => dialog.close());
+  dialog.append(title, createApprovedStage('nexo-masculino'));
+  if (sessionToken()) dialog.append(createApprovedAssetControls({ family: 'janus' }));
+  dialog.append(close);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog); dialog.showModal();
+  void initApprovedPresence();
+});
+accessList.append(robot);
 const status = document.createElement('span');
 status.setAttribute('role', 'status');
 status.className = 'janus-access-status';
