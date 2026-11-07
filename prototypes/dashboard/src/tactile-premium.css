@@ -15,23 +15,18 @@
  --j3d-shine-y: 42%;
  position: relative;
  isolation: isolate;
- border: 1.6pt solid rgb(var(--j3d-tone) / .74)!important;
+ border: 1.7pt solid rgb(205 184 150 / .76)!important;
  border-radius: max(7pt, 1em);
  background:
-   radial-gradient(ellipse 130% 100% at 20% 4%,rgb(255 255 255 / .28),transparent 44%),
-   linear-gradient(165deg,
-       rgb(var(--j3d-tone) / .60) 0%,
-       rgb(var(--j3d-tone) / .26) 10%,
-       rgb(44 38 45 / .92) 34%,
-       rgb(14 15 26 / .98) 74%,
-       rgb(var(--j3d-tone) / .34) 100%)!important;
+   radial-gradient(ellipse 120% 60% at 32% 0%,rgb(255 255 255 / .16),transparent 58%),
+   linear-gradient(170deg,#49433c 0%,#34312e 22%,#242327 60%,#28262a 100%)!important;
  color: #fff2dc!important;
  text-shadow: 0 1pt 2pt rgb(0 0 0 / .74);
  box-shadow:
    inset 0 1.5pt 0 rgb(255 255 255 / .47),
    inset 0 -2pt 0 rgb(0 0 0 / .54),
-   0 3.5pt 0 rgb(var(--j3d-tone) / .44),
-   0 6pt 13pt rgb(0 0 0 / .44),
+   0 2.6pt 0 rgb(111 91 67 / .68),
+   0 5pt 11pt rgb(0 0 0 / .36),
    0 0 0 1pt rgb(0 0 0 / .56);
  transform: perspective(640pt)
    rotateX(var(--j3d-tilt-x)) rotateY(var(--j3d-tilt-y))
@@ -48,26 +43,20 @@
  content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
  background:
    radial-gradient(circle at var(--j3d-shine-x) var(--j3d-shine-y),
-     rgb(var(--j3d-tone) / .50),transparent 42%),
+     rgb(245 220 174 / .30),transparent 48%),
    linear-gradient(128deg,transparent 12%,rgb(255 255 255 / .24) 26%,transparent 42%);
  mix-blend-mode:screen;
- opacity:.22;
+ opacity:.13;
  transition:opacity .2s ease;
 }
-.stage .j3d-touch[data-janus-tone="cobalt"]{--j3d-tone:75 165 247}
-.stage .j3d-touch[data-janus-tone="amethyst"]{--j3d-tone:182 116 252}
-.stage .j3d-touch[data-janus-tone="emerald"]{--j3d-tone:74 208 147}
-.stage .j3d-touch[data-janus-tone="coral"]{--j3d-tone:255 127 126}
-.stage .j3d-touch[data-janus-tone="rose"]{--j3d-tone:246 121 186}
-.stage .j3d-touch[data-janus-tone="teal"]{--j3d-tone:72 209 209}
-.stage .j3d-touch[data-janus-tone="copper"]{--j3d-tone:246 159 91}
-.stage .j3d-touch[data-janus-tone="indigo"]{--j3d-tone:140 153 255}
-.stage .j3d-touch[data-janus-tone="gold"]{--j3d-tone:245 190 88}
+/* Botones bronce uniforme: destacan sobre el fondo oscuro sin llenar
+   cada tarjeta de colores diferentes. El estado seleccionado conserva su semántica. */
+.stage .j3d-touch{--j3d-tone:184 157 115}
 /* Platino conserva su paleta clara pero NO pierde volumen ni iluminación. */
 .stage.b .j3d-touch {
  background:
   radial-gradient(ellipse at 25% 0%,rgb(255 255 255 / .98),transparent 47%),
-  linear-gradient(170deg,#fff 0%,rgb(var(--j3d-tone) / .30) 24%,#e4e9f5 60%,rgb(var(--j3d-tone) / .44) 100%)!important;
+  linear-gradient(168deg,#f8f2e6 0%,#d9cfc0 28%,#a99a87 72%,#8a7d70 100%)!important;
  color:#19223a!important;
  text-shadow:0 1pt 0 rgb(255 255 255 / .8);
  box-shadow:inset 0 2pt 0 #fff,inset 0 -2pt 0 #7e89a0,
@@ -88,14 +77,14 @@
  --j3d-tone: 235 190 108;
  --j3d-shine-x:50%;--j3d-shine-y:35%;
  position:relative;
- border:2pt solid rgb(var(--j3d-tone) / .72)!important;
- outline:1pt solid rgb(255 248 221 / .16);
+ border:2pt solid rgb(181 169 149 / .82)!important;
+ outline:1pt solid rgb(255 248 221 / .20);
  outline-offset:-3pt;
  border-radius:max(10pt,1.4em);
  box-shadow:inset 0 1pt 0 rgb(255 255 255 / .23),
   inset 0 -2pt 0 rgb(0 0 0 / .42),
-  0 4pt 0 rgb(var(--j3d-tone) / .25),
-  0 9pt 17pt rgb(0 0 0 / .35)!important;
+  0 2.3pt 0 rgb(111 104 91 / .35),
+  0 6pt 13pt rgb(0 0 0 / .28)!important;
  transform-style:preserve-3d;
  transition:border-color .21s ease,box-shadow .21s ease,filter .21s ease,
   transform .21s cubic-bezier(.2,.7,.2,1);
@@ -104,30 +93,24 @@
  content:"";position:absolute;inset:0;border-radius:inherit;
  pointer-events:none;z-index:0;
  background:radial-gradient(circle at var(--j3d-shine-x) var(--j3d-shine-y),
-   rgb(var(--j3d-tone) / .46),transparent 55%);
+   rgb(223 200 164 / .22),transparent 60%);
  opacity:0;transition:opacity .23s ease;
 }
-.stage .j3d-card[data-janus-tone="cobalt"]{--j3d-tone:75 165 247}
-.stage .j3d-card[data-janus-tone="amethyst"]{--j3d-tone:182 116 252}
-.stage .j3d-card[data-janus-tone="emerald"]{--j3d-tone:74 208 147}
-.stage .j3d-card[data-janus-tone="coral"]{--j3d-tone:255 127 126}
-.stage .j3d-card[data-janus-tone="rose"]{--j3d-tone:246 121 186}
-.stage .j3d-card[data-janus-tone="teal"]{--j3d-tone:72 209 209}
-.stage .j3d-card[data-janus-tone="copper"]{--j3d-tone:246 159 91}
-.stage .j3d-card[data-janus-tone="indigo"]{--j3d-tone:140 153 255}
-.stage .j3d-card[data-janus-tone="gold"]{--j3d-tone:245 190 88}
+/* Un único marco neutro para tarjetas, cuadros y paneles: no colorear
+   según título ni repartir tonos aleatorios por filas del producto. */
+.stage .j3d-card{--j3d-tone:174 164 146}
 @media (hover:hover){
  .stage .j3d-touch:hover,.stage .j3d-touch:focus-visible{
   transform:perspective(640pt) rotateX(var(--j3d-tilt-x))
     rotateY(var(--j3d-tilt-y)) translateY(-2pt) scale(1.018);
   border-color:rgb(255 244 218 / .96)!important;
   box-shadow:inset 0 1.5pt 0 rgb(255 255 255 / .65),
-    0 4pt 0 rgb(var(--j3d-tone) / .52),0 7pt 15pt rgb(0 0 0 / .5),
-    0 0 16pt rgb(var(--j3d-tone) / .55);
+    0 3pt 0 rgb(146 127 103 / .48),0 6pt 13pt rgb(0 0 0 / .42),
+    0 0 7pt rgb(213 186 150 / .30);
  }
- .stage .j3d-card:hover{filter:brightness(1.1);border-color:rgb(255 243 215 / .95)!important;
-  box-shadow:0 4pt 0 rgb(var(--j3d-tone) / .38),0 0 18pt rgb(var(--j3d-tone) / .43)!important}
- .stage .j3d-card:hover::after,.stage .j3d-touch:hover::after{opacity:.7}
+ .stage .j3d-card:hover{filter:brightness(1.045);border-color:rgb(237 222 196 / .90)!important;
+  box-shadow:0 2pt 0 rgb(123 114 98 / .44),0 0 7pt rgb(220 198 161 / .24)!important}
+ .stage .j3d-card:hover::after,.stage .j3d-touch:hover::after{opacity:.38}
  .stage .j3d-touch:hover :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji){
   transform:perspective(180pt) translateZ(10pt) rotateY(9deg) scale(1.085);
  }
@@ -136,20 +119,20 @@
 .stage .j3d-touch:active{
  transform:perspective(640pt) rotateX(4deg) translateY(3pt) scale(.977);
  box-shadow:inset 0 4pt 8pt rgb(0 0 0 / .48),inset 0 1pt 2pt rgb(255 255 255 / .22),
-  0 1pt 0 rgb(var(--j3d-tone) / .8),0 0 20pt rgb(var(--j3d-tone) / .72)!important;
- filter:brightness(1.16) saturate(1.15);
+  0 1pt 0 rgb(201 174 128 / .72),0 0 8pt rgb(225 200 163 / .38)!important;
+ filter:brightness(1.06);
 }
 .stage .j3d-touch.j3d-lit,
 .stage .j3d-card.j3d-lit,
 .stage .j3d-card:focus-within {
  border-color:rgb(255 248 219 / .95)!important;
  box-shadow:inset 0 1pt 0 rgb(255 255 255 / .65),
-   0 3pt 0 rgb(var(--j3d-tone) / .65),0 0 23pt rgb(var(--j3d-tone) / .77)!important;
- filter:brightness(1.15) saturate(1.14);
+   0 2pt 0 rgb(170 151 121 / .48),0 0 9pt rgb(224 197 159 / .40)!important;
+ filter:brightness(1.065);
 }
 .stage .j3d-touch.j3d-lit::after,
 .stage .j3d-card.j3d-lit::after,
-.stage .j3d-card:focus-within::after{opacity:.9}
+.stage .j3d-card:focus-within::after{opacity:.4}
 .stage .j3d-touch.j3d-lit :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji){
  transform:perspective(180pt) translateZ(14pt) rotateY(16deg) scale(1.13);
  filter:drop-shadow(0 0 9pt rgb(var(--j3d-tone) / .85)) saturate(1.37);
@@ -323,4 +306,31 @@
  html.janus-tactile-ui .stage #view .vb-companero .cptab .janus-live-icon3d{
   width:35px!important;height:35px!important;min-width:35px!important;
  }
+}
+
+/* JANUS: jerarquía visual discreta y contrastada — paneles sobrios,
+   botones bronce diferenciados, líneas divisoras definidas.
+   No se modifica la identidad 3D de los iconos ni la lógica de navegación. */
+.stage .j3d-card[data-janus-tone="frame"]{
+ --j3d-tone:174 164 146;
+ border-color:rgba(194,180,155,.83)!important;
+}
+.stage .j3d-touch[data-janus-tone="bronze"]{
+ --j3d-tone:184 157 115;
+}
+.stage .j3d-card > :is(.a2t,.lb,.vh){
+ border-bottom:2px solid rgba(207,187,157,.68)!important;
+}
+.stage .a2pj.j3d-touch{
+ border-color:rgba(176,165,148,.72)!important;
+}
+.stage .a2pj.j3d-touch + .a2pj.j3d-touch{
+ margin-top:7px;
+}
+.stage .j3d-card.j3d-lit,
+.stage .j3d-card:focus-within {
+ border-color:rgba(240,225,200,.92)!important;
+}
+@media(prefers-reduced-motion:reduce){
+ .stage .j3d-touch,.stage .j3d-card{transition:none!important}
 }
