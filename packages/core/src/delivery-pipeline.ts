@@ -41,6 +41,14 @@ export function checkPreview(html: string): PreviewCheck {
   const problems: string[] = [];
   if (!/<html[\s>]/i.test(html) || !/<body[\s>]/i.test(html)) problems.push('preview.not-a-document: the preview must be a complete HTML document.');
   if (!/<meta[^>]+name=["']viewport["']/i.test(html)) problems.push('preview.not-mobile-ready: missing viewport meta; the Founder reviews from an iPhone.');
+  // A Quick Look/file-viewer fallback is never the approved JANUS dashboard.
+  // The previous static-shell HTML contained buttons and a <script>, so it could
+  // pass the generic heuristic despite showing only the fake "Hola" screen on iPhone.
+  // Fail closed before the Founder sees a substitute UI as a real preview.
+  if (/<(?:div|main|section)\\b[^>]*\\bid=["']janus-static-preview["']/i.test(html) ||
+      /<(?:div|main|section)\\b[^>]*\\bclass=["'][^"']*\\bjanus-static\\b/i.test(html)) {
+    problems.push('preview.janus-fallback-shell: a static iPhone/file-viewer fallback is not the original interactive JANUS interface. Use a verified live dashboard preview instead.');
+  }
   const anchors = [...html.matchAll(/<a\s[^>]*href=["']#([^"']+)["']/gi)].map((m) => m[1]!);
   const targets = anchors.filter((id) => new RegExp(`id=["']${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`).test(html));
   const hasNav = /<nav[\s>]/i.test(html) && targets.length >= 2;
