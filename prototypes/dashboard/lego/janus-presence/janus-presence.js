@@ -24,7 +24,7 @@ const JanusPresence = (() => {
     // Se conserva exactamente el mismo slot WebGL y la interacción de voz.
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
       '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
-      'aria-label="Janus, cabeza robótica interactiva">' +
+      'aria-label="Janus Nexo, cabeza robótica interactiva">' +
       '<div class="jnexo-fallback" aria-hidden="true"><b>JANUS</b></div></div>' +
       '<figcaption class="jp-caption"><b>Janus</b></figcaption></figure>';
   }
