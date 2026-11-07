@@ -181,3 +181,49 @@
  .stage .j3d-touch:hover,.stage .j3d-touch.j3d-lit,
  .stage .j3d-card:hover,.stage .j3d-card.j3d-lit{transform:none!important}
 }
+
+/* Validación visual iPhone 390/430: seis opciones legibles.
+   No meter títulos largos en 6 columnas de ~52px; cuadrícula 3 × 2. */
+@media (max-width:47.5em){
+ html.janus-tactile-ui .stage.kendra-only #view .cptb{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-flow:row!important;
+  column-gap:8pt!important;
+  row-gap:9pt!important;
+  width:100%!important;
+  max-width:100%!important;
+  overflow:visible!important;
+  padding:4pt 2pt 9pt!important;
+  box-sizing:border-box!important;
+ }
+ html.janus-tactile-ui .stage.kendra-only #view .cptab.j3d-touch{
+  display:flex!important;
+  flex-direction:column!important;
+  flex:initial!important;
+  min-width:0!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-height:56pt!important;
+  padding:7pt 5pt!important;
+  box-sizing:border-box!important;
+  justify-content:center!important;
+  align-items:center!important;
+  text-align:center!important;
+ }
+ html.janus-tactile-ui .stage.kendra-only #view .cptab.j3d-touch em{
+  font-size:10.7pt!important;
+  font-weight:750!important;
+  line-height:1.25!important;
+  letter-spacing:0!important;
+  max-width:100%!important;
+  white-space:normal!important;
+  overflow-wrap:normal!important;
+  word-break:normal!important;
+  text-align:center!important;
+ }
+ html.janus-tactile-ui .stage.kendra-only #view .cptab.j3d-touch .cp-3d-icon{
+  margin:0 auto 3pt;
+  min-height:24pt;
+ }
+}
