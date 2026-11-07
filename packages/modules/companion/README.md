@@ -1,5 +1,15 @@
 # companion · Compañeros de Janus
 
+## Dirección visual VIGENTE — decisión 2026-11-05
+
+**Aprobado:** para el selector de personajes de Kendra se reservan las posiciones **1 y 2** a las criaturas diseñadas por ChatGPT y aprobadas por Jean. **La posición 3** corresponde al **primer robot original de Janus**: no se elimina, queda como opción histórica y testimonio de la evolución del diseño.
+
+**Rechazado:** no usar ni publicar criaturas propuestas por Claude. No confundir "creado con ayuda de IA" con "aprobado por Jean".
+
+**Código:** `src/selection.ts` define el catálogo aprobado y su orden (sin acoplarlo a proveedores). La lista anterior de `src/personas.ts` queda como **LEGACY/HISTÓRICO**, conservada para compatibilidad y sin aprobación automática para la nueva UI. Cualquier nueva interfaz debe usar `APPROVED_CHARACTER_SELECTION`, nunca inferir aprobación desde `CREATURES`.
+
+**Pendiente verificable:** enlazar los archivos exactos de las dos criaturas aprobadas y del robot inicial (imagen de referencia y modelo/animación 3D). No se han identificado esos archivos en este repositorio. Los slots carecen de rutas visuales deliberadamente: `isCharacterReady()` impide tratarlos como renderizables sin activos. Hasta asociarlos, **no afirmar que existen modelos 3D integrados o funcionando en pantalla**. Conservar expresividad facial, ojos y sonrisa, animación, desplazamiento por la escena, accesorios personalizables y nombre elegido por Kendra como requisitos de la siguiente integración.
+
 Pieza LEGO comercial: criaturas originales que acompañan a un niño o niña. Cada niño puede **cambiar de criatura cuando quiera** y **ponerle nombre**.
 
 | Criatura | Planeta | Carácter |
@@ -10,6 +20,12 @@ Pieza LEGO comercial: criaturas originales que acompañan a un niño o niña. Ca
 | Nimbo (nubecita) | Cielo Aurora | elegante, soñadora, alegre |
 
 Imágenes y clips generados con ElevenLabs (gpt-image-2.5, kling-3-pro). Son diseños originales de InfinitySeed.
+
+## Implementación del selector (2026-11-05)
+
+La ruta \`/companion.html\` dispone de tres opciones aprobadas en orden inmutable, cambio de nombre del menor y del compañero, práctica aritmética con estrellas por acierto (máximo 5 bonificaciones/día, 3 estrellas por bonificación), armario con artículos de varias categorías, botones de gestos y movimiento dentro del escenario. Estado solamente en el dispositivo; el selector no usa red de terceros.
+
+Fuente aprobada: \`src/selection.ts\`, espejo estático para PWA \`apps/pwa/companion-catalog.json\` contrastado en pruebas. El sistema **no afirma ni simula 3D** cuando aún no hay modelos originales verificados. Al vincular archivos aprobados bajo \`/companion-assets/\`, la PWA puede mostrar vista estática; la rama de visor 3D requiere que se distribuya también un componente \`model-viewer\` local, aún pendiente. Los accesorios actuales funcionan en catálogo/economía, pero no tienen representaciones visuales 3D; no describirlos como ropa instalada en modelo.
 
 ## Qué hace
 - `companionTurn()`: primero la seguridad, después la respuesta del modelo filtrada y, como mucho, una frase de ánimo.
