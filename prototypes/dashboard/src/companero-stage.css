@@ -55,3 +55,62 @@
 .stage .cpov .cpsay .mini{color:#2a1a08}
 .stage .cpov .cpname .mini{color:#FFE2A0;background:rgba(255,226,160,.14)}
 .stage .cpov .cpstars,.stage .cpov .cpstars b{color:#FFE2A0}.stage .cpov .cpstars b{color:#FFF1CC}
+
+/* Normativa InfinitySeed: separación física y controles 3D EN LOS CONTROLES EXISTENTES.
+ * No crea botones ni elementos y deja intactos los canvas/GLB aprobados. */
+.vb-companero .cpst3,.vb-companero .cptabs{
+ border:1.5px solid #cfaa72;
+ box-shadow:inset 0 1px 0 rgba(255,241,211,.4),
+            inset 0 -2px 0 rgba(0,0,0,.72),
+            0 0 0 2px rgba(7,6,11,.95),0 20px 28px -18px #000;
+}
+.vb-companero .cptab,.vb-companero .cpc,.vb-companero .cpslot{
+ border:1px solid #977446;
+ background:linear-gradient(152deg,#534434 0%,#292127 49%,#101018 100%);
+ box-shadow:inset 0 1px 1px rgba(255,245,216,.42),
+            inset 0 -3px 4px rgba(0,0,0,.68),0 6px 10px -5px #000;
+ color:#f8e8c9;
+}
+.vb-companero .cptab.on,.vb-companero .cpc.on{
+ border-color:#ffe4a8;
+ color:#fff6da;
+ background:linear-gradient(145deg,#795734,#443120 45%,#17131c 100%);
+ box-shadow:inset 0 2px 1px rgba(255,246,207,.62),
+            inset 0 -3px 5px rgba(0,0,0,.74),0 0 0 1px #8f682e,
+            0 8px 14px -7px rgba(249,199,105,.65);
+}
+.vb-companero .cptab i{
+ display:grid;place-items:center;width:27px;height:27px;flex:none;border-radius:10px;
+ color:#fff0d4;background:radial-gradient(circle at 29% 20%,#9a7a48,#574025 48%,#19151a 91%);
+ border:1px solid #d5b273;
+ box-shadow:inset 1px 2px 1px rgba(255,247,208,.6),
+            inset -3px -4px 5px rgba(0,0,0,.65),
+            0 5px 8px -4px #000;
+ filter:drop-shadow(0 2px 2px rgba(0,0,0,.55));
+ text-shadow:0 1px 2px #000,0 -1px 1px rgba(255,235,192,.4);
+}
+.cp-edge-tools .cp-edge-btn,.cpov .cpb,.cpov .cpvb{
+ border:1.5px solid #d5ac68;
+ color:#fff4d8;
+ background:linear-gradient(155deg,#715235 0%,#382716 40%,#15111a 100%);
+ box-shadow:inset 0 2px 1px rgba(255,241,201,.55),
+            inset 0 -3px 5px rgba(0,0,0,.75),
+            0 8px 12px -5px rgba(0,0,0,.85);
+ text-shadow:0 1px 2px #000;
+}
+.cp-edge-tools .cp-edge-btn.on,.cpov .cpb.go,.cpov .cpvb.on{
+ border-color:#ffeab6;color:#201408;
+ background:linear-gradient(160deg,#fff0c0,#e6b95e 40%,#996222 100%);
+ box-shadow:inset 0 2px 1px rgba(255,255,255,.75),
+            inset 0 -3px 4px rgba(57,27,6,.55),0 8px 13px -5px #000;
+ text-shadow:0 1px 0 rgba(255,244,203,.42);
+}
+.vb-companero :is(.cptab,.cpc,.cpb,.cpvb,.cp-edge-btn):focus-visible{
+ outline:2px solid #fff0c7;outline-offset:2px;
+}
+@media(prefers-reduced-motion:no-preference){
+ .vb-companero :is(.cptab,.cpc,.cpb,.cpvb,.cp-edge-btn):active{
+  transform:translateY(2px);
+  box-shadow:inset 0 3px 6px rgba(0,0,0,.6),0 2px 4px -2px #000;
+ }
+}
