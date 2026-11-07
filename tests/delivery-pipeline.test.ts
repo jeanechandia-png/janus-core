@@ -36,6 +36,25 @@ test('preview must be navigable and mobile-ready', () => {
   assert.equal(checkPreview('<!doctype html><html><head><meta name="viewport" content="width=device-width"></head><body><embed type="application/pdf" src="a.pdf"></body></html>').ok, false);
 });
 
+test('JANUS file viewer fallback is never a valid approved dashboard preview', async () => {
+  // Reproduces the actual failure class: a large HTML includes buttons/script
+  // but iPhone Quick Look exposes only #janus-static-preview.
+  const staticShell = '<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width"></head>' +
+    '<body><div id="janus-static-preview" class="janus-static"><button>Proyectos</button></div>' +
+    '<script>document.body.dataset.loaded = "true";</script></body></html>';
+  const verdict = checkPreview(staticShell);
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.problems.join(' '), /preview\\.janus-fallback-shell/);
+  const pipeline = new DeliveryPipeline(gate(), { founderPrincipalId: 'founder' });
+  let state = await pipeline.submit(good);
+  state = await pipeline.recheck(state, good);
+  assert.throws(
+    () => pipeline.attachPreview(state, { html: staticShell }),
+    (err: unknown) => err instanceof PipelineError && err.code === 'pipeline.preview-invalid',
+  );
+  assert.equal(checkPreview(PREVIEW).ok, true, 'legitimate navigable previews remain supported');
+});
+
 test('pipeline order: two passes, navigable preview, Founder decision, only then package', async () => {
   const pipeline = new DeliveryPipeline(gate(), { founderPrincipalId: 'founder', now: () => new Date('2026-10-21T10:00:00Z') });
   let state = await pipeline.submit(good);
