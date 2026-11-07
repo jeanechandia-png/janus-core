@@ -2819,6 +2819,190 @@ background:radial-gradient(50rem 28.75rem at 0% 0%,rgba(47,107,255,.22),transpar
 }
 @media(prefers-reduced-motion:reduce){.kedge-root{transition:none!important;animation:none!important}}
 
+/* JANUS · Tacto 3D v1 — compartido por Obsidiana, Platino y Kendra.
+   Se añade DESPUÉS de SkinMap y de todas las hojas, sin duplicar dashboards.
+   El objeto Gold original permanece intacto; la carcasa gana profundidad,
+   relieve, volumen, parallax y reflejos reales al contacto.
+   Respeta reduce-motion y no interfiere con Safari/controles externos. */
+:root {
+ --j3d-gold: 235 190 108;
+ --j3d-glass: 19 20 30;
+}
+.stage .j3d-touch {
+ --j3d-tone: 235 190 108;
+ --j3d-tilt-x: 0deg;
+ --j3d-tilt-y: 0deg;
+ --j3d-shine-x: 50%;
+ --j3d-shine-y: 42%;
+ position: relative;
+ isolation: isolate;
+ border: 1.6pt solid rgb(var(--j3d-tone) / .74)!important;
+ border-radius: max(7pt, 1em);
+ background:
+   radial-gradient(ellipse 130% 100% at 20% 4%,rgb(255 255 255 / .28),transparent 44%),
+   linear-gradient(165deg,
+       rgb(var(--j3d-tone) / .60) 0%,
+       rgb(var(--j3d-tone) / .26) 10%,
+       rgb(44 38 45 / .92) 34%,
+       rgb(14 15 26 / .98) 74%,
+       rgb(var(--j3d-tone) / .34) 100%)!important;
+ color: #fff2dc!important;
+ text-shadow: 0 1pt 2pt rgb(0 0 0 / .74);
+ box-shadow:
+   inset 0 1.5pt 0 rgb(255 255 255 / .47),
+   inset 0 -2pt 0 rgb(0 0 0 / .54),
+   0 3.5pt 0 rgb(var(--j3d-tone) / .44),
+   0 6pt 13pt rgb(0 0 0 / .44),
+   0 0 0 1pt rgb(0 0 0 / .56);
+ transform: perspective(640pt)
+   rotateX(var(--j3d-tilt-x)) rotateY(var(--j3d-tilt-y))
+   translate3d(0,0,0);
+ transform-style: preserve-3d;
+ transition: transform .19s cubic-bezier(.2,.7,.2,1),
+  box-shadow .21s ease,filter .21s ease,border-color .21s ease;
+ will-change: auto;
+ cursor: pointer;
+ -webkit-tap-highlight-color: transparent;
+ touch-action: manipulation;
+}
+.stage .j3d-touch::after {
+ content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+ background:
+   radial-gradient(circle at var(--j3d-shine-x) var(--j3d-shine-y),
+     rgb(var(--j3d-tone) / .50),transparent 42%),
+   linear-gradient(128deg,transparent 12%,rgb(255 255 255 / .24) 26%,transparent 42%);
+ mix-blend-mode:screen;
+ opacity:.22;
+ transition:opacity .2s ease;
+}
+.stage .j3d-touch[data-janus-tone="cobalt"]{--j3d-tone:75 165 247}
+.stage .j3d-touch[data-janus-tone="amethyst"]{--j3d-tone:182 116 252}
+.stage .j3d-touch[data-janus-tone="emerald"]{--j3d-tone:74 208 147}
+.stage .j3d-touch[data-janus-tone="coral"]{--j3d-tone:255 127 126}
+.stage .j3d-touch[data-janus-tone="rose"]{--j3d-tone:246 121 186}
+.stage .j3d-touch[data-janus-tone="teal"]{--j3d-tone:72 209 209}
+.stage .j3d-touch[data-janus-tone="copper"]{--j3d-tone:246 159 91}
+.stage .j3d-touch[data-janus-tone="indigo"]{--j3d-tone:140 153 255}
+.stage .j3d-touch[data-janus-tone="gold"]{--j3d-tone:245 190 88}
+/* Platino conserva su paleta clara pero NO pierde volumen ni iluminación. */
+.stage.b .j3d-touch {
+ background:
+  radial-gradient(ellipse at 25% 0%,rgb(255 255 255 / .98),transparent 47%),
+  linear-gradient(170deg,#fff 0%,rgb(var(--j3d-tone) / .30) 24%,#e4e9f5 60%,rgb(var(--j3d-tone) / .44) 100%)!important;
+ color:#19223a!important;
+ text-shadow:0 1pt 0 rgb(255 255 255 / .8);
+ box-shadow:inset 0 2pt 0 #fff,inset 0 -2pt 0 #7e89a0,
+  0 3.5pt 0 rgb(var(--j3d-tone) / .57),0 7pt 13pt rgb(35 50 95 / .22);
+}
+/* Contenido accesible: 3D sí, icono gris genérico no. */
+.stage .j3d-touch :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji,.j3d-ico){
+ transform:perspective(180pt) translateZ(7pt) rotateY(-5deg);
+ filter:drop-shadow(0 4pt 3pt rgb(0 0 0 / .68)) saturate(1.28) contrast(1.1);
+ transition:transform .25s ease,filter .25s ease;
+ backface-visibility:hidden;
+}
+.stage .j3d-touch :is(em,b,small,span):not(.janus-icon-art):not(.cp-3d-icon){
+ position:relative;
+}
+/* Tarjetas: perfil físico, divisores claros y luz al tocar. */
+.stage .j3d-card{
+ --j3d-tone: 235 190 108;
+ --j3d-shine-x:50%;--j3d-shine-y:35%;
+ position:relative;
+ border:2pt solid rgb(var(--j3d-tone) / .72)!important;
+ outline:1pt solid rgb(255 248 221 / .16);
+ outline-offset:-3pt;
+ border-radius:max(10pt,1.4em);
+ box-shadow:inset 0 1pt 0 rgb(255 255 255 / .23),
+  inset 0 -2pt 0 rgb(0 0 0 / .42),
+  0 4pt 0 rgb(var(--j3d-tone) / .25),
+  0 9pt 17pt rgb(0 0 0 / .35)!important;
+ transform-style:preserve-3d;
+ transition:border-color .21s ease,box-shadow .21s ease,filter .21s ease,
+  transform .21s cubic-bezier(.2,.7,.2,1);
+}
+.stage .j3d-card::after{
+ content:"";position:absolute;inset:0;border-radius:inherit;
+ pointer-events:none;z-index:0;
+ background:radial-gradient(circle at var(--j3d-shine-x) var(--j3d-shine-y),
+   rgb(var(--j3d-tone) / .46),transparent 55%);
+ opacity:0;transition:opacity .23s ease;
+}
+.stage .j3d-card[data-janus-tone="cobalt"]{--j3d-tone:75 165 247}
+.stage .j3d-card[data-janus-tone="amethyst"]{--j3d-tone:182 116 252}
+.stage .j3d-card[data-janus-tone="emerald"]{--j3d-tone:74 208 147}
+.stage .j3d-card[data-janus-tone="coral"]{--j3d-tone:255 127 126}
+.stage .j3d-card[data-janus-tone="rose"]{--j3d-tone:246 121 186}
+.stage .j3d-card[data-janus-tone="teal"]{--j3d-tone:72 209 209}
+.stage .j3d-card[data-janus-tone="copper"]{--j3d-tone:246 159 91}
+.stage .j3d-card[data-janus-tone="indigo"]{--j3d-tone:140 153 255}
+.stage .j3d-card[data-janus-tone="gold"]{--j3d-tone:245 190 88}
+@media (hover:hover){
+ .stage .j3d-touch:hover,.stage .j3d-touch:focus-visible{
+  transform:perspective(640pt) rotateX(var(--j3d-tilt-x))
+    rotateY(var(--j3d-tilt-y)) translateY(-2pt) scale(1.018);
+  border-color:rgb(255 244 218 / .96)!important;
+  box-shadow:inset 0 1.5pt 0 rgb(255 255 255 / .65),
+    0 4pt 0 rgb(var(--j3d-tone) / .52),0 7pt 15pt rgb(0 0 0 / .5),
+    0 0 16pt rgb(var(--j3d-tone) / .55);
+ }
+ .stage .j3d-card:hover{filter:brightness(1.1);border-color:rgb(255 243 215 / .95)!important;
+  box-shadow:0 4pt 0 rgb(var(--j3d-tone) / .38),0 0 18pt rgb(var(--j3d-tone) / .43)!important}
+ .stage .j3d-card:hover::after,.stage .j3d-touch:hover::after{opacity:.7}
+ .stage .j3d-touch:hover :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji){
+  transform:perspective(180pt) translateZ(10pt) rotateY(9deg) scale(1.085);
+ }
+}
+.stage .j3d-touch.j3d-pressed,
+.stage .j3d-touch:active{
+ transform:perspective(640pt) rotateX(4deg) translateY(3pt) scale(.977);
+ box-shadow:inset 0 4pt 8pt rgb(0 0 0 / .48),inset 0 1pt 2pt rgb(255 255 255 / .22),
+  0 1pt 0 rgb(var(--j3d-tone) / .8),0 0 20pt rgb(var(--j3d-tone) / .72)!important;
+ filter:brightness(1.16) saturate(1.15);
+}
+.stage .j3d-touch.j3d-lit,
+.stage .j3d-card.j3d-lit,
+.stage .j3d-card:focus-within {
+ border-color:rgb(255 248 219 / .95)!important;
+ box-shadow:inset 0 1pt 0 rgb(255 255 255 / .65),
+   0 3pt 0 rgb(var(--j3d-tone) / .65),0 0 23pt rgb(var(--j3d-tone) / .77)!important;
+ filter:brightness(1.15) saturate(1.14);
+}
+.stage .j3d-touch.j3d-lit::after,
+.stage .j3d-card.j3d-lit::after,
+.stage .j3d-card:focus-within::after{opacity:.9}
+.stage .j3d-touch.j3d-lit :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji){
+ transform:perspective(180pt) translateZ(14pt) rotateY(16deg) scale(1.13);
+ filter:drop-shadow(0 0 9pt rgb(var(--j3d-tone) / .85)) saturate(1.37);
+}
+.stage .j3d-touch:focus-visible {outline:2.2pt solid #fff9dc!important;outline-offset:3pt!important}
+/* Pestañas, paneles internos y acciones: sin etiquetas diminutas. */
+@media (max-width:47.5em){
+ .stage :is(.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg,.a2sb .btn2,.jpc-launch,.cp-pilot-camera button).j3d-touch{
+  min-height:33pt!important;padding:7pt 9pt!important;
+  font-size:10.6pt!important;font-weight:750!important;
+  line-height:1.25!important;letter-spacing:0!important;
+ }
+ .stage :is(.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg).j3d-touch :is(em,small,span){
+  font-size:inherit!important;font-weight:750!important;line-height:1.25!important;
+ }
+ .stage :is(.a2c,.cd,.cptabs,.cpst3,.a2stat,.kpi).j3d-card{border-width:2pt!important}
+ .stage :is(.cd,.a2c,.cptabs) :is(.lb,.a2t,.cpgr h4){font-weight:750!important}
+ .stage :is(.cd,.a2c,.cptabs) :is(.tx,.pb,.cpmini,.note,.dim,.a2m,.mono){
+  font-size:max(10pt,3.55vw)!important;line-height:1.44!important;
+ }
+ .stage :is(.a2i,.janus-icon-3d,.cp-3d-object){image-rendering:auto}
+}
+@media(prefers-reduced-motion:reduce){
+ .stage .j3d-touch,.stage .j3d-card,
+ .stage .j3d-touch::after,.stage .j3d-card::after,
+ .stage .j3d-touch :is(.a2i,.janus-icon-3d,.cp-3d-object,.ji){
+  animation:none!important;transition:none!important;
+ }
+ .stage .j3d-touch:hover,.stage .j3d-touch.j3d-lit,
+ .stage .j3d-card:hover,.stage .j3d-card.j3d-lit{transform:none!important}
+}
+
 
 /* JS ausente o restringido: primera pintura real en Quick Look y modo documento. */
 #janus-static-preview{display:block;position:relative;z-index:1;min-height:100dvh}
@@ -15350,6 +15534,149 @@ setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 6
   document.addEventListener('pointerup', (ev) => { if (ev.pointerType === 'touch') setTimeout(off, 350); }, { passive: true });
   document.addEventListener('pointerleave', off, { passive: true });
   window.addEventListener('hashchange', off);
+})();
+
+'use strict';
+/* JANUS · Tacto 3D — único motor compartido en A/B/Kendra.
+ * Sin librerías, sin red, sin telemetría, sin consumo de créditos.
+ * Conserva acciones y clases originales, solo añade atributos cosméticos.
+ * El material y el brillo responden a puntero, toque y teclado.
+ */
+const JanusTactile = (() => {
+  const BUTTONS = '[data-act],[data-go],.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg,.jg-cta,.jg-row,.jpc-launch,button:not([disabled]),.go[role="button"]';
+  const CARDS = '.a2c,.cd,.cptabs,.cpst3,.kpi,.hc,.dy,.ml,.fu,.ev,.tc,.kt,.jp,.rb,.a2stat,.a2sala';
+  const TONES = ['gold','cobalt','amethyst','emerald','rose','teal','copper','indigo','coral'];
+  const TOUCH_LIMIT = 780;
+  let active = null, flash = null, observer = null, scheduled = false;
+  const reduce = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const text = (node) => ((node.getAttribute('aria-label') || '') + ' ' +
+    (node.getAttribute('data-go') || '') + ' ' + (node.getAttribute('data-act') || '') +
+    ' ' + (node.textContent || '').slice(0, 110)).normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  function tone(node, i) {
+    const s = text(node);
+    const matches = [
+      [/aprend|escuela|matemat|estrell|premio/,'gold'],
+      [/vestidor|moda|ropa|estilo|accesori/,'rose'],
+      [/tienda|compra|oferta|bono/,'amethyst'],
+      [/mundo|casa|jardin|bosque|plantas/,'emerald'],
+      [/hablar|microfono|voz|escuchar|camar|foto/,'cobalt'],
+      [/papa|familia|privado|segur/,'copper'],
+      [/llegada|bienven|clima|nube/,'teal'],
+      [/navidad|corazon|celebr/,'rose'],
+      [/noche|descanso|luna/,'indigo'],
+      [/apagar|borrar|salir|eliminar|alerta/,'coral'],
+      [/resumen|agenda|dia|prioridad/,'teal'],
+      [/sala|janus|robot|nexo/,'indigo'],
+      [/cliente|seguimiento|contact/,'emerald'],
+      [/correo|mensaje|email/,'cobalt'],
+      [/dato|reporte|estadistic/,'amethyst'],
+      [/pago|costes|factura|ingreso/,'copper'],
+      [/camara/,'cobalt']
+    ];
+    for (const [pattern, name] of matches) if (pattern.test(s)) return name;
+    // Distribución reproducible, no monocromática ni aleatoria cada render.
+    const key = s.trim() || String(i);
+    let hash = 0;
+    for (let j = 0; j < key.length; j++) hash = (hash * 31 + key.charCodeAt(j)) | 0;
+    return TONES[Math.abs(hash) % TONES.length];
+  }
+  function id(node) {
+    return (node.getAttribute('data-act') || node.getAttribute('data-go') || '') + ':' +
+      (node.getAttribute('data-arg') || '') + ':' + (node.getAttribute('aria-label') || node.textContent?.trim().slice(0, 32) || '');
+  }
+  function scan() {
+    scheduled = false;
+    const root = document.getElementById('app');
+    if (!root) return;
+    document.documentElement.classList.add('janus-tactile-ui');
+    root.querySelectorAll(BUTTONS).forEach((el, i) => {
+      if (el.matches('input,select,textarea,label,[disabled],[aria-hidden="true"]')) return;
+      el.classList.add('j3d-touch');
+      if (!el.dataset.janusTone) el.dataset.janusTone = tone(el,i);
+      if (flash && flash.id === id(el) && Date.now() - flash.at < TOUCH_LIMIT) {
+        el.classList.add('j3d-lit');
+        window.setTimeout(() => el.classList.remove('j3d-lit'), TOUCH_LIMIT);
+      }
+    });
+    root.querySelectorAll(CARDS).forEach((el,i) => {
+      el.classList.add('j3d-card');
+      if (!el.dataset.janusTone) el.dataset.janusTone = tone(el,i);
+    });
+  }
+  function schedule() {
+    if (scheduled) return;
+    scheduled = true;
+    // MutationObserver ve la actualización de la dashboard tras cada acción,
+    // sin modificar render() ni reconstruir el producto.
+    queueMicrotask(scan);
+  }
+  function point(el, ev) {
+    const r = el.getBoundingClientRect();
+    if (!(r.width > 1 && r.height > 1)) return;
+    const x = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
+    const y = Math.max(0, Math.min(1, (ev.clientY - r.top) / r.height));
+    el.style.setProperty('--j3d-shine-x', (100 * x).toFixed(1) + '%');
+    el.style.setProperty('--j3d-shine-y', (100 * y).toFixed(1) + '%');
+    if (!reduce() && el.classList.contains('j3d-touch')) {
+      el.style.setProperty('--j3d-tilt-x', ((.5 - y) * 6).toFixed(2) + 'deg');
+      el.style.setProperty('--j3d-tilt-y', ((x - .5) * 8).toFixed(2) + 'deg');
+    }
+  }
+  function target(ev) {
+    const el = ev.target;
+    return el instanceof Element ? el.closest('.j3d-touch,.j3d-card') : null;
+  }
+  function light(el) {
+    if (!el) return;
+    const card = el.closest('.j3d-card');
+    for (const item of [el,card]) {
+      if (!item) continue;
+      item.classList.add('j3d-lit');
+      window.setTimeout(() => item.classList.remove('j3d-lit'), TOUCH_LIMIT);
+    }
+  }
+  function start(ev) {
+    const el=target(ev);
+    if (!el || !document.getElementById('app')?.contains(el)) return;
+    active = el; point(el,ev);
+    if (el.classList.contains('j3d-touch')) el.classList.add('j3d-pressed');
+    light(el);
+    if (el.classList.contains('j3d-touch')) flash = { id: id(el), at: Date.now() };
+  }
+  function finish() {
+    if (!active) return;
+    active.classList.remove('j3d-pressed');
+    active.style.removeProperty('--j3d-tilt-x');
+    active.style.removeProperty('--j3d-tilt-y');
+    active = null;
+  }
+  function keyboard(ev) {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const el=target(ev);
+    if (!el || !document.getElementById('app')?.contains(el)) return;
+    light(el);
+  }
+  function attach() {
+    const app = document.getElementById('app');
+    if (!app) return;
+    scan();
+    observer = new MutationObserver(schedule);
+    observer.observe(app,{subtree:true,childList:true});
+    document.addEventListener('pointerdown',start,{passive:true});
+    document.addEventListener('pointerup',finish,{passive:true});
+    document.addEventListener('pointercancel',finish,{passive:true});
+    document.addEventListener('pointermove',ev=>{
+      const el=target(ev);
+      if(!el || !app.contains(el) || (ev.pointerType==='touch' && active!==el)) return;
+      point(el,ev);
+    },{passive:true});
+    document.addEventListener('keydown',keyboard);
+    window.addEventListener('blur',finish);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',attach,{once:true});
+  else attach();
+  return Object.freeze({ refresh: schedule });
 })();
 
 })();
