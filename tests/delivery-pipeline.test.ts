@@ -44,7 +44,7 @@ test('JANUS file viewer fallback is never a valid approved dashboard preview', a
     '<script>document.body.dataset.loaded = "true";</script></body></html>';
   const verdict = checkPreview(staticShell);
   assert.equal(verdict.ok, false);
-  assert.match(verdict.problems.join(' '), /preview\\.janus-fallback-shell/);
+  assert.ok(verdict.problems.some((message) => message.startsWith('preview.janus-fallback-shell:')));
   const pipeline = new DeliveryPipeline(gate(), { founderPrincipalId: 'founder' });
   let state = await pipeline.submit(good);
   state = await pipeline.recheck(state, good);
