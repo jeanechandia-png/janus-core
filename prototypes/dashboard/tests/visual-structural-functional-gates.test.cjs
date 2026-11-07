@@ -131,3 +131,33 @@ test('tipografía accesible en teléfono: títulos y etiquetas >= 13px', () => {
  assert.match(detail,/tabs \.tb2 em\{font:750 13px/);
  assert.match(founder,/a2t span\{font:750 15px/);
 });
+
+test('visual: mismo acabado 3D animado en cada botón, tarjeta y pestaña A/B/Kendra',()=>{
+ const css=read('src/tactile-premium.css');
+ const js=read('src/tactile-premium.js');
+ const build=read('build.cjs');
+ for(const target of ['.j3d-touch','.j3d-card','.j3d-pressed','.j3d-lit',
+   'perspective(', 'rotateY(', 'translateZ(', 'radial-gradient', 'rgb(var(--j3d-tone)'])
+   assert.ok(css.includes(target),'falta acabado físico '+target);
+ for(const variant of ['cobalt','amethyst','emerald','rose','teal','copper','indigo','gold'])
+   assert.ok(css.includes('data-janus-tone="'+variant+'"'),'falta paleta '+variant);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(css,/focus-visible/,'accesibilidad de teclado');
+ assert.match(js,/MutationObserver/,'se aplica también tras navegar por pestañas');
+ assert.match(js,/pointerdown/);
+ assert.match(js,/pointerup/);
+ assert.match(js,/keydown/);
+ assert.match(js,/BUILD_PROFILE|\.cptab/);
+ assert.ok(build.includes("'src/tactile-premium.css'"));
+ assert.ok(build.includes("'src/tactile-premium.js'"));
+ const vm=require('node:vm');
+ assert.doesNotThrow(()=>new vm.Script(js),'sin errores de sintaxis en la interacción');
+});
+test('estructural: sin rediseñar ni duplicar dashboard; tipografía legible en todos los controles móviles',()=>{
+ const css=read('src/tactile-premium.css');
+ assert.match(css,/\.stage\.b \.j3d-touch/,'Platino conserva diseño propio');
+ assert.match(css,/\.stage \.j3d-card/,'mismas tarjetas en todas las versiones');
+ assert.match(css,/\.stage :is\(\.btn,\.btn2,\.tb2,\.cptab/);
+ assert.match(css,/font-size:10\.6pt!important/,'botones más grandes en iPhone');
+ assert.match(css,/min-height:33pt!important/,'44px físicos de altura táctil');
+});
