@@ -161,3 +161,12 @@ test('estructural: sin rediseñar ni duplicar dashboard; tipografía legible en 
  assert.match(css,/font-size:10\.6pt!important/,'botones más grandes en iPhone');
  assert.match(css,/min-height:33pt!important/,'44px físicos de altura táctil');
 });
+
+test('iPhone: seis pestañas 3D en cuadrícula legible 3×2, sin texto superpuesto',()=>{
+ const css=read('src/tactile-premium.css');
+ assert.match(css,/stage\.kendra-only #view \.cptb/);
+ assert.match(css,/grid-template-columns:repeat\(3,minmax\(0,1fr\)\)!important/);
+ assert.match(css,/stage\.kendra-only #view \.cptab\.j3d-touch em/);
+ assert.match(css,/white-space:normal!important/);
+ assert.match(css,/font-size:10\.7pt!important/);
+});
