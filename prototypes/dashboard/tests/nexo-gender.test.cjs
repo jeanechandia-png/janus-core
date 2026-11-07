@@ -122,3 +122,29 @@ test('render A/B mantiene la variante seleccionada de Nexo sin invadir el protag
  const app=read('src/app.js');
  assert.doesNotMatch(app,/ROUTE\.v !== 'companero' && window\.Janus3D/);
 });
+
+test('la cabeza y el rostro aprobados permanecen seleccionables; no hay ojos flotantes',()=>{
+ const ST={settings:{nexoVariant:'masculino',form:'robot',eyes:'#347DB8'},comp:{creatureId:'lumi'}};
+ const selected=[];
+ const J={setVariant(){},setEyes(){},setLook(){},setForm(f){selected.push(f);},react(){},setMood(){},mood:()=> 'contento'};
+ let saves=0;
+ const ctx=vm.createContext({ST,Janus3D:J,window:{Janus3D:J,innerWidth:390,JanusCreatureSlot:{supported:()=>false}},
+   saveState:()=>saves++,act:()=>'',esc:String,gIco:()=>'',isPhone:()=>true,rerender:()=>{}});
+ vm.runInContext(read('src/avatar.js'),ctx);
+ assert.match(vm.runInContext('avatarPanel()',ctx),/Cabeza/);
+ assert.match(vm.runInContext('avatarPanel()',ctx),/Rostro/);
+ vm.runInContext('AV_ACTS.avForm("cabeza")',ctx);
+ assert.equal(ST.settings.form,'cabeza');
+ assert.equal(selected.at(-1),'cabeza');
+ vm.runInContext('AV_ACTS.avForm("cara")',ctx);
+ assert.equal(ST.settings.form,'cara');
+ assert.equal(selected.at(-1),'cara');
+ assert.ok(saves>=2,'selección guardada localmente');
+ const engine=read('lego/janus-3d/janus-3d.js');
+ assert.match(engine,/if \(f === 'robot' \|\| f === 'cabeza' \|\| f === 'cara'\)/);
+ assert.match(engine,/const approved = !!\(slot && slot\.has && slot\.has\(glbKey\)\)/);
+ assert.match(engine,/if \(f === 'cabeza'\) fitTo\(o, rig\.root/);
+ assert.match(engine,/else if \(f === 'cara'\) fitTo\(o, rig\.root/);
+ assert.doesNotMatch(engine,/if \(f === 'cara' && FC\)/,'prohibido usar cara procedural flotante');
+ assert.doesNotMatch(engine,/if \(f === 'cabeza' && FC\)/,'prohibido montar otra cara encima de la cabeza');
+});
