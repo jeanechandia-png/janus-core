@@ -45,8 +45,8 @@ export function checkPreview(html: string): PreviewCheck {
   // The previous static-shell HTML contained buttons and a <script>, so it could
   // pass the generic heuristic despite showing only the fake "Hola" screen on iPhone.
   // Fail closed before the Founder sees a substitute UI as a real preview.
-  if (/<(?:div|main|section)\\b[^>]*\\bid=["']janus-static-preview["']/i.test(html) ||
-      /<(?:div|main|section)\\b[^>]*\\bclass=["'][^"']*\\bjanus-static\\b/i.test(html)) {
+  if (/<(?:div|main|section)\b[^>]*\bid=["']janus-static-preview["']/i.test(html) ||
+      /<(?:div|main|section)\b[^>]*\bclass=["'][^"']*\bjanus-static\b/i.test(html)) {
     problems.push('preview.janus-fallback-shell: a static iPhone/file-viewer fallback is not the original interactive JANUS interface. Use a verified live dashboard preview instead.');
   }
   const anchors = [...html.matchAll(/<a\s[^>]*href=["']#([^"']+)["']/gi)].map((m) => m[1]!);
