@@ -95,6 +95,20 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
     // Check that the learning panel remains interactive and readable.
     const tabs=page.locator('.cptab');
     assert.ok(await tabs.count()>=6,'all six companion tabs remain');
+    const grid=await tabs.evaluateAll(nodes=>nodes.slice(0,6).map(el=>{
+      const r=el.getBoundingClientRect();
+      const label=el.querySelector('em')?.getBoundingClientRect();
+      return {x:r.x,y:r.y,width:r.width,right:r.right,labelRight:label?.right};
+    }));
+    assert.ok(Math.abs(grid[0].y-grid[1].y)<4 && Math.abs(grid[1].y-grid[2].y)<4,
+      'tres botones en primera fila');
+    assert.ok(Math.abs(grid[3].y-grid[4].y)<4 && Math.abs(grid[4].y-grid[5].y)<4,
+      'tres botones en segunda fila');
+    assert.ok(grid[3].y>grid[0].y+50,'segunda fila no superpuesta');
+    for(const pair of [[0,1],[1,2],[3,4],[4,5]])
+      assert.ok(grid[pair[0]].right<=grid[pair[1]].x+2,'botones no se solapan');
+    for(const t of grid)
+      assert.ok(t.labelRight<=t.right+3,'etiqueta no se sale del botón');
     const touched=await tabs.nth(1).evaluate(el=>{
       const rect=el.getBoundingClientRect();
       el.dispatchEvent(new PointerEvent('pointerdown',{
