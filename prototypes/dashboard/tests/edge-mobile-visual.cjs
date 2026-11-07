@@ -31,6 +31,34 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
         tab:rect('.cptabs')};
     });
     assert.ok(bounds.stage&&bounds.footer&&bounds.tab,'Kendra stage and learning panel exist');
+    // Real 3D mesh icon regression, not an image with a CSS rotation.
+    const icons3D=await page.evaluate(()=>{
+      const tabs=Array.from(document.querySelectorAll('.cptab'));
+      const tones=[...new Set(tabs.map(x=>x.dataset.janusTone).filter(Boolean))];
+      const canvases=Array.from(document.querySelectorAll('canvas.janus-live-icon3d'));
+      const drawn=canvases.filter(c=>{
+        const ctx=c.getContext('2d');
+        if(!ctx)return false;
+        const data=ctx.getImageData(35,35,82,82).data;
+        for(let p=3;p<data.length;p+=4)if(data[p]>20)return true;
+        return false;
+      });
+      return {
+        runtime: typeof JanusLiveObjects3D==='object' && JanusLiveObjects3D.available,
+        total:canvases.length,
+        drawn:drawn.length,
+        tones,
+        webgl:typeof THREE!=='undefined' && !!document.createElement('canvas').getContext('webgl')
+      };
+    });
+    assert.ok(icons3D.tones.length>=4,'botones multicolor, no todos dorados');
+    if(icons3D.runtime && icons3D.webgl){
+      assert.ok(icons3D.total>=4,'varios iconos deben ser objetos Three.js');
+      assert.ok(icons3D.drawn>=3,'iconos WebGL deben tener píxeles renderizados');
+    }else{
+      console.log('WebGL unavailable: approved Gold WebP remains visible');
+    }
+    console.log('Live3D',skin,w,JSON.stringify(icons3D));
     const cinematicCaption = await page.evaluate(() => {
       const el=document.querySelector('.cpst3.cinematic .cp-cinematic .jp-caption');
       return !el || getComputedStyle(el).display==='none';
