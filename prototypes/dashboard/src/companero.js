@@ -11,7 +11,15 @@ const CREAT_IMG = { lumi: CP_APPROVED.creatures.lumi || IMG.cLumi, bombo: CP_APP
 // Approved art takes visual priority; procedural 3D is explicitly technical preview.
 const cpArtIcon = (key, fallback) => {
   const image = CP_APPROVED.accessories[key];
-  return image ? '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">' : fallback;
+  if (image) return '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">';
+  // No inventar una imagen específica del artículo: símbolo de categoría 3D
+  // real del inventario, con estado honesto hasta que exista su render/GLB.
+  const kind = String(key).split(':')[0];
+  const assetKey = { out:'tag', acc:'sparkles', home:'folder', veh:'bike', dec:'sparkles' }[kind];
+  const asset = assetKey && typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[assetKey];
+  if (asset) return '<img class="cp-approved-item cp-category-art" src="' + asset + '" alt="" ' +
+    'title="Icono de categoría 3D. Render definitivo del accesorio pendiente" decoding="async">';
+  return '<span class="cp-model-pending" title="Icono 3D del artículo pendiente">3D</span>';
 };
 const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
 const CP_STAGE = 'kendra';
