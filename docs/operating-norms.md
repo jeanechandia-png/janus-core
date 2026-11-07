@@ -35,3 +35,11 @@ Instrucción del Founder: «Siempre tenemos que poder trabajar al máximo sin ne
 5. **Nunca en dólares:** toda cifra al Founder, en euros.
 
 Cómo se cumple hoy: política `founder-policy:spend-last` en `config/founder-reference-library.json` (la leen todos los agentes); `SENSITIVE_TOOL_ACTIONS` obliga a aprobación en las acciones que gastan o escriben fuera; `planPhoneAccess` recomienda siempre la ruta sin gasto; `npm run integrations:check` muestra lo no activado como «en reposo» (no como fallo); `tests/spend-last-norm.test.ts` vigila la política, el registro y la ruta recomendada.
+
+## Norma de integridad del producto único — 2026-11-07
+
+- JANUS tiene un solo repositorio canónico: `jeanechandia-png/janus-core`. No presentar ramas, prototipos, HTML offline, pruebas o landings como la versión visual oficial. Las ramas históricas son evidencia de trabajo pendiente, no autorización de nuevas interfaces.
+- Antes de cambiar la interfaz, identificar por evidencia el commit y los componentes aprobados de Janus 02 Nexo y Kendra. Si la identidad visual vigente no se puede acreditar, **detener los cambios visuales**; se permiten verificaciones y reparaciones no destructivas del núcleo central sin inventar aprobaciones.
+- Conservar módulos aprobados: cabeza Nexo, micrófono integrado, proyectos, estadísticas, perfiles/permisos y criaturas. Prohibidos elementos de relleno, botones o variantes no solicitadas.
+- Fallo documentado: el HTML con `#janus-static-preview` muestra una pantalla estática en el visor de archivos del iPhone. El guard central `DeliveryPipeline.checkPreview` rechaza ese HTML como preview aprobable; CI y capturas en Chromium no equivalen a prueba del dashboard real en Safari físico.
+- Secuencia: recuperar estado cronológico → contrastar línea aprobada → ejecutar cambio mínimo → filtros estructural/visual/arquitectónico/coherencia + pruebas → **preview del producto real** → evaluación del Founder → publicación solo si existe autorización. Si no existe preview real, no declarar la interfaz terminada.
