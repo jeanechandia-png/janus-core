@@ -47,3 +47,27 @@ Después pasar QA de glTF con este repositorio, pruebas E2E de A/B y Safari iPho
 - **CI VERIFICADA:** commit `881acdd667f9727df07c3a32445eec6d1d338ea0` con Janus Core `success` en https://github.com/jeanechandia-png/janus-core/actions/runs/42260939875 y 3D/E2E `success` en https://github.com/jeanechandia-png/janus-core/actions/runs/42260939883. El primer ensayo de 3D falló por cambio de Ubuntu 26.04 del runner; el workflow se corrigió a Ubuntu 24.04 y pasó. No son pruebas físicas Safari.
 - **0/4 GLB finales** en el repositorio, no fusionar ni publicar como completado. Las cuatro referencias 2D separadas están cargadas en el proyecto InVideo existente, pero ese servicio también rechazó generación por plan gratuito.
 - **Reanudar únicamente cuando exista producción 3D real** vía proveedor ya habilitado con crédito autorizado o máquina local con GPU y motor image-to-3D instalado. Aplicar el control de firma y la revisión visual antes de poblar `REGISTRY.json`.
+
+
+## ACTUALIZACIÓN CRONOLÓGICA — 2026-11-07, normas estrictas de arte/UI
+
+Instrucción actual: continuar ÚNICAMENTE en JANUS CORE / PR #69 y conservar dashboards Obsidiana/Platino, Janus Nexo 02, micrófono, voz, proyectos y estadísticas. Los controles de Kendra no pueden ser una ventana flotante del viewport ni se agregan botones o tarjetas de relleno.
+
+### Código modificado en la misma rama
+- `lego/janus-edge-companion/janus-edge-companion.js`: `stageHost()` localiza la tarjeta real `.vb-companero .cpst3.edge-hero`; el canvas WebGL se añade como hijo del escenario existente, no al `document.body`. Posicionamiento/arrastre medidos en coordenadas LOCALES, respetando la zona de diálogo, selección y ejercicios. Tras una reconstrucción del dashboard reanexa EL MISMO renderer al nuevo escenario; no clona la criatura ni abre un contexto WebGL adicional.
+- `lego/janus-edge-companion/janus-edge-companion.css`: `position:absolute` y `z-index:1` dentro del escenario, por debajo de controles; desaparece el overlay de pantalla completa.
+- `src/companero.js`: etiquetas del modo de escena corregidas, sin modificar permisos, lecciones, botón de voz ni estructura del panel.
+- `src/companero-stage.css`: refuerzo de bordes, divisorias de escenario/panel y relieve/contraste de controles EXISTENTES, con estados activos, foco accesible y pulsación; sin añadir botones ni sustituir iconos/GLB.
+- `tests/edge-companion.test.cjs`: comprueba que no exista overlay en `body`, que el canvas sea hijo del stage, los límites en iPhone y que no aparezca un renderer duplicado al reconstruir la vista.
+
+### Evidencia y límites
+- Se realizó una modificación directa en la rama EXISTENTE `chatgpt/kendra-verified-hyperreal-glb-gate-20261106`; PR #69 permanece en borrador. No se crearon ramas, repositorios, duplicaciones de producto ni despliegues.
+- Janus Core CI pasó para la revisión de código `77ea6120249efd7fe2c54bbb8ef051c95e49edb3`: https://github.com/jeanechandia-png/janus-core/actions/runs/42364398980. Verificar de nuevo tras la incorporación de este addendum.
+- Ejecución CI 3D/E2E iPhone emulado para esa revisión: https://github.com/jeanechandia-png/janus-core/actions/runs/42364398995. Consultar conclusión final; un navegador emulado NO acredita funcionamiento en Safari iPhone físico.
+- El repositorio todavía posee **0 de 4 GLB aprobados**. Aunque exista renderer Three.js, NO significa que Lumi/Bombo/Musgo/Nimbo tengan malla esculpida 4K PBR final, expresiones y gestos producidos o aceptados. Nexo 02 es un rig procedural real, no un GLB hiperrealista final aprobado.
+- La capa de iconografía 3D existente (`premium.css`/`janus-gold`) permanece preservada, pero no se certifica un reemplazo de todos los iconos por iconos PBR; exige auditoría por vista y aprobación.
+
+### Reanudación exacta por siguiente agente
+1. Verificar HEAD exacto, `npm run continuity`, pruebas de `prototypes/dashboard/tests` y conclusiones de los workflows del HEAD.
+2. Revisar capturas generadas por CI de Obsidiana/Platino a 390/430px y probar iPhone Safari físico; verificar que la criatura nunca bloquea botones ni lecciones.
+3. Cuando existan GLB originales reales y permiso del Founder, validar contratos y QA visual en `tools/verified-creature-glb.cjs`, registrar modelos aprobados y usar `node prototypes/dashboard/build.cjs --require-approved-3d`; reconciliar PR #63 y #66 antes de fusionar; no desplegar ni etiquetar como final hasta aprobación.
