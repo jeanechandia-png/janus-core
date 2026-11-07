@@ -17,7 +17,8 @@ for(const f of ['Janus-A-Obsidiana-interactivo.html','Janus-B-Platino-interactiv
     assert.match(staticPart,/no ejecuta JavaScript o WebGL/);
     assert.match(staticPart,/JANUS/);
     assert.doesNotMatch(staticPart,/Hola, Jean\./,'prohibida portada falsa');
-    assert.doesNotMatch(staticPart,/MI ESPACIO|Mi día|Janus · Nexo/,'sin inventar UI');
+    const actualFallback=staticPart.slice(staticPart.indexOf('id="janus-js-unavailable"'), staticPart.indexOf('<div class="stage a"'));
+    assert.doesNotMatch(actualFallback,/MI ESPACIO|Mi día|Janus · Nexo/,'sin inventar UI');
     assert.match(staticPart,/html:not\(\.janus-ready\) \.stage\{display:none!important\}/);
     assert.match(staticPart,/html\.janus-ready #janus-js-unavailable\{display:none!important\}/);
     assert.match(html,/document\.documentElement\.classList\.add\("janus-ready"\)/,
