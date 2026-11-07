@@ -139,8 +139,13 @@ test('visual: mismo acabado 3D animado en cada botón, tarjeta y pestaña A/B/Ke
  for(const target of ['.j3d-touch','.j3d-card','.j3d-pressed','.j3d-lit',
    'perspective(', 'rotateY(', 'translateZ(', 'radial-gradient', 'rgb(var(--j3d-tone)'])
    assert.ok(css.includes(target),'falta acabado físico '+target);
- for(const variant of ['cobalt','amethyst','emerald','rose','teal','copper','indigo','gold'])
-   assert.ok(css.includes('data-janus-tone="'+variant+'"'),'falta paleta '+variant);
+ // Contrato visual vigente: neutralizar bordes de tarjetas y mantener
+ // un solo tono bronce para botones, en vez del arcoíris rechazado.
+ assert.match(js,/tone = \(kind\) => kind === 'card' \? 'frame' : 'bronze'/);
+ assert.match(css,/\.stage \.j3d-card\{--j3d-tone:174 164 146\}/);
+ assert.match(css,/\.stage \.j3d-touch\{--j3d-tone:184 157 115\}/);
+ assert.doesNotMatch(css,/data-janus-tone="(?:cobalt|amethyst|emerald|rose|teal|coral)"/);
+ assert.doesNotMatch(js,/const TONES =/);
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/focus-visible/,'accesibilidad de teclado');
  assert.match(js,/MutationObserver/,'se aplica también tras navegar por pestañas');
