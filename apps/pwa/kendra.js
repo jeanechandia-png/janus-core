@@ -62,6 +62,7 @@ function unpair() {
   token = '';
   writeStorage(TOKEN_KEY, '');
   view = null;
+  document.title = 'Kendra';
   chat = null;
   player = null;
   topEl = null;
@@ -119,7 +120,7 @@ function renderPair(message = '') {
   const form = h('form', { class: 'pair' },
     h('div', { class: 'avatar', style: 'margin-inline:auto;inline-size:84px;block-size:84px;font-size:48px' }, '🦄'),
     h('h1', {}, '¡Hola! Vamos a conocernos'),
-    h('p', { class: 'muted' }, 'Pídele a papá el código para activar tu compañero en este aparato.'),
+    h('p', { class: 'muted' }, 'Pídele a papá el código para activar Kendra en este aparato.'),
     code, error,
     h('button', { type: 'submit', class: 'primary' }, 'Activar'));
   form.addEventListener('submit', async (event) => {
@@ -141,6 +142,8 @@ async function load() {
     return;
   }
   view = result.body;
+  const activeCreature = creature();
+  document.title = activeCreature ? `Kendra · ${activeCreature.name}` : 'Kendra';
   applyTheme();
   if (!topEl) buildShell(); else { rebuildTop(); if (tab !== 'chat') renderMain(); }
 }
@@ -168,7 +171,7 @@ function rebuildTop() {
   const pill = access && access.allowed && access.minutesLeft !== undefined ? h('span', { class: 'pill' }, `⏳ ${access.minutesLeft} min`) : null;
   const languageHost = h('div', { class: 'janus-language-switch' });
   topEl.replaceChildren(...[
-    h('button', { type: 'button', class: 'who', onClick: openProfile, 'aria-label': 'Cambiar mi nombre, mi icono o mi compañero' },
+    h('button', { type: 'button', class: 'who', onClick: openProfile, 'aria-label': 'Cambiar mi nombre, mi icono o mi criatura' },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, view.profile.icon),
       h('span', { style: 'min-inline-size:0' }, h('strong', {}, view.profile.displayName), h('small', {}, pet ? `con ${pet.name}` : ''))),
     pill,
@@ -285,7 +288,7 @@ function buildChat() {
     msgs.append(who === 'pet' && pet ? h('div', { class: 'petrow' }, h('span', { class: 'mini', 'aria-hidden': 'true' }, createApprovedStage(pet.id, { compact: true })), bubble) : bubble);
     msgs.scrollTop = msgs.scrollHeight;
   };
-  add('pet', `¡Hola, ${view.profile.displayName}! Soy ${pet ? pet.name : 'tu compañero'}. ¿De qué hablamos?`);
+  add('pet', pet ? `¡Hola, ${view.profile.displayName}! Soy ${pet.name}. ¿De qué hablamos?` : `¡Hola, ${view.profile.displayName}! Tu criatura aún no está disponible. ¿De qué hablamos?`);
   const attachHost = h('div');
   const input = h('input', { type: 'text', placeholder: 'Escribe o dicta…', maxlength: '500', autocomplete: 'off', 'aria-label': 'Mensaje' });
   const send = h('button', { type: 'submit', class: 'primary' }, 'Enviar');
@@ -462,7 +465,7 @@ function openProfile() {
   const creatures = h('div', { class: 'creatures' }, (view.creatures ?? []).map((item) => h('button', { type: 'button', 'aria-pressed': String(item.id === draft.companionId), onClick: (event) => { draft.companionId = item.id; creatures.querySelectorAll('button').forEach((button) => button.setAttribute('aria-pressed', String(button === event.currentTarget))); } }, createApprovedStage(item.id, { compact: true }), h('strong', {}, item.name), h('small', {}, item.catchphrase))));
   sheet.append(h('div', {},
     h('h2', {}, 'Hazlo tuyo'),
-    h('label', {}, 'Mi nombre', name), h('p', {}, 'Mi icono'), icons, h('p', {}, 'Mi color'), themes, h('p', {}, 'Mi compañero'), creatures, error,
+    h('label', {}, 'Mi nombre', name), h('p', {}, 'Mi icono'), icons, h('p', {}, 'Mi color'), themes, h('p', {}, 'Elige tu criatura'), creatures, error,
     h('div', { class: 'row' },
       h('button', { type: 'button', class: 'primary', onClick: async () => {
         const result = await api('PUT', '/api/kid/profile', { displayName: name.value, icon: draft.icon, theme: draft.theme, companionId: draft.companionId });
