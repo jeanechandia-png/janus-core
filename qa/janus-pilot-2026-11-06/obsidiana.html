@@ -3049,6 +3049,67 @@ background:radial-gradient(50rem 28.75rem at 0% 0%,rgba(47,107,255,.22),transpar
  }
 }
 
+/* Geometría real: canvas 2D muestra un cuadro renderizado por un ÚNICO contexto
+   WebGL compartido. Cada icono es THREE.Mesh con bevel, profundidad y material.
+   El original WebP permanece en DOM y se restablece si falla WebGL. */
+.stage .janus-live-icon3d{
+ display:inline-block;
+ aspect-ratio:1 / 1;
+ width:2rem; height:2rem;
+ max-width:100%; min-width:1.5rem;
+ vertical-align:middle; object-fit:contain;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ pointer-events:none;
+ image-rendering:auto;
+ filter:drop-shadow(0 0.1875rem 0.25rem rgba(0,0,0,.5));
+ transform:none!important;
+}
+.stage .janus-action-icon-3d{
+ display:inline-flex;align-items:center;justify-content:center;
+ flex:0 0 auto;
+ width:2.0625rem;height:2.0625rem;
+ margin-inline-end:0.375rem;vertical-align:middle;
+}
+.stage .janus-action-icon-3d :is(img,canvas){
+ display:block;
+ width:1.875rem!important;height:1.875rem!important;
+ max-width:1.875rem!important;
+ filter:drop-shadow(0 0.1875rem 0.25rem rgba(0,0,0,.55));
+}
+/* Tarjetas y botones táctiles: distintas familias de color, misma profundidad.
+   Los divisores señalan límites físicos y no desaparecen en ninguna piel. */
+.stage .j3d-card + .j3d-card{
+ margin-top:max(0.4375rem,.45rem);
+}
+.stage .j3d-card::before{
+ content:"";position:absolute;inset:0.075rem;
+ border-radius:inherit;pointer-events:none;z-index:0;
+ border:0.0625rem solid rgba(255,245,221,.21);
+ box-shadow:inset 0 0.0625rem rgba(255,255,255,.21);
+}
+.stage .j3d-card:active,
+.stage .j3d-card:focus-within{
+ transform:translateY(-0.0625rem);
+ border-color:rgb(var(--j3d-tone)/.98)!important;
+}
+.stage :is(.j3d-touch,.j3d-card) .janus-live-icon3d{
+ filter:drop-shadow(0 0.25rem 0.3125rem rgba(0,0,0,.54));
+}
+.stage :is(.j3d-touch,.j3d-card).j3d-lit .janus-live-icon3d{
+ filter:drop-shadow(0 0 0.625rem rgb(var(--j3d-tone)/.92));
+}
+.stage .j3d-touch:focus-visible{outline:0.1875rem solid #fff2c0!important;outline-offset:0.1875rem}
+@media(max-width:47.5em){
+ .stage .j3d-touch :is(.janus-live-icon3d,.janus-action-icon-3d){
+  width:1.9375rem;height:1.9375rem;min-width:1.9375rem;
+ }
+ .stage .j3d-touch .janus-action-icon-3d{margin-inline-end:0.25rem}
+ .stage .j3d-card{border-width:0.1375rem!important}
+ .stage .j3d-card > :is(.a2t,.lb,.vh){border-bottom:0.1rem solid rgba(245,211,157,.58)}
+}
+
 
 /* JS ausente o restringido: primera pintura real en Quick Look y modo documento. */
 #janus-static-preview{display:block;position:relative;z-index:1;min-height:100dvh}
