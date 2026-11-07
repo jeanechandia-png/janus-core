@@ -409,3 +409,25 @@ No considerar una landing actualizada solo porque el bundle llegó al repositori
 ## Regla de continuidad
 
 Este documento representa el VIGENTE de esta rama. Git y la cronología local preservan el HISTÓRICO. Antes de ejecutar trabajo nuevo, Janus sincroniza código/pruebas + cronología + Error Ledger + Blueprints + outcomes + estado vigente. Si existe contradicción, PRESENTE gobierna ejecución y PASADO se conserva para aprendizaje y previsión.
+
+## Handoff 2026-11-07 — JANUS CORE: bloqueo de previews sustitutos y continuidad de una única interfaz
+
+**Repositorio autorizado:** `jeanechandia-png/janus-core`, rama central `main`. No se creó ningún repositorio, rama, sitio, panel, tema o copia. Cambios únicamente en núcleo, pruebas y políticas existentes.
+
+### HECHO EN CÓDIGO
+- `packages/core/src/delivery-pipeline.ts`: `checkPreview` rechaza HTML que incluya el fallback `#janus-static-preview` o `.janus-static` como interfaz presentable para aprobación. Previene repetir el HTML engañoso visto en Quick Look del iPhone.
+- `tests/delivery-pipeline.test.ts`: regresión contra vista estática que incorpora botones y script; exige error `pipeline.preview-invalid` y comprueba que un preview navegable legítimo sigue pasando.
+- `config/founder-reference-library.json`: se actualizaron dos políticas **existentes** sin añadir/eliminar registros (17 totales): continuidad/no duplicación y preview navegable real del producto. No se modificaron secretos.
+- `docs/operating-norms.md`: se incorpora la regla expresa de producto único y se separa prueba de CI de aceptación real en Safari.
+
+### APROBADO / NO VERIFICADO / PROHIBIDO
+- Aprobado por instrucción del Founder: mantener un único producto, no crear variantes ni añadir componentes sin autorización, conservar Nexo/Kendra, paneles y micrófono.
+- **NO VERIFICADO**: commit de UI que representa íntegramente la última interfaz aprobada; no se publican builds, vistas visuales, versiones PWA ni GLB finales. `main` contiene el núcleo real pero los componentes visuales de desarrollo siguen en PR sin fusionar. No concluir que una PR es la pantalla oficial.
+- **PROHIBIDO**: reenviar HTML offline con `janus-static-preview` como preview funcional; utilizar demos/landings, temas o prototipos como reemplazos del producto; fusionar ramas divergentes sin autorización y revisión; autoaprobar el arte.
+
+### PRÓXIMO AGENTE — ORDEN OBLIGATORIO
+1. Leer este handoff, `START_HERE.md`, `docs/PROJECT_MAP.md` y `docs/operating-norms.md`; recuperar historial de aprobaciones y diferencias entre `main` y PR visuales sin atribuir aprobación por nombre de rama.
+2. Comprobar el HEAD exacto y el resultado **actual** de Janus Core CI, con especial atención a la prueba `JANUS file viewer fallback is never a valid approved dashboard preview`. No dar por aprobada la vista a partir de tests del núcleo.
+3. Identificar y verificar la versión visual aprobada del Founder antes de tocar `apps/pwa` o integrar GLB. Una vez confirmada, ejecutar QA Safari/iPhone y entregar preview navegable real ANTES de pedir autorización de publicación.
+
+**Seguridad**: GitHub público; no guardar datos personales o de menor, credenciales, biometría o muestras de voz. No se modificó producción.
