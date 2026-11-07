@@ -208,7 +208,7 @@ const JanusLiveObjects3D = (() => {
       if(drawn++>=24)break; // cap WebGL work on low-power iPhones
       const control=img.closest('.j3d-touch,.j3d-card');
       const lit=!!control?.classList.contains('j3d-lit');
-      const shouldAnimate=!reduce() && (lit || time-last>160);
+      const shouldAnimate=!reduce(); // visible 3D meshes move subtly; touch boosts their rotation
       if(item.drawn && !shouldAnimate)continue;
       const tone=control?.dataset.janusTone || item.tone;
       const key=item.name+':'+tone;
