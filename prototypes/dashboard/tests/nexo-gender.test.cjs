@@ -85,6 +85,9 @@ test('el usuario selecciona y conserva variante en ST.settings; no altera Kendra
  assert.equal(settings.nexoVariant,'femenino');
  assert.equal(J.form,'robot');assert.equal(calls.at(-1).v,'femenino');assert.equal(saved,1);
  assert.equal(comp.creatureId,'lumi');assert.equal(comp.names.lumi,'Estrellita');
+ assert.doesNotMatch(vm.runInContext('avatarPanel()',ctx), /Femenino|Masculino/,
+   'en la portada y al entrar al chat, la personalización empieza plegada');
+ vm.runInContext('AV_ACTS.avToggle()',ctx);
  const html=vm.runInContext('avatarPanel()',ctx);
  assert.match(html,/Personalización de Janus/);
  assert.match(html,/Femenino/,'ambas variantes solo dentro del panel de personalización');
