@@ -18,6 +18,34 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
     page.on('pageerror',e=>errors.push(String(e)));
     await page.route('**/api.open-meteo.com/**',route=>route.abort());
     const file=path.resolve(__dirname,'../dist/Janus-'+(skin==='a'?'A-Obsidiana':'B-Platino')+'-interactivo.html');
+    // Reproduce la pantalla principal que motivó la corrección: PROYECTOS.
+    await page.goto('file://'+file,{waitUntil:'domcontentloaded'});
+    await page.locator('.a2pj.j3d-touch').first().waitFor({state:'visible',timeout:30000});
+    const visual=await page.locator('.a2pj.j3d-touch').evaluateAll(rows=>{
+      const items=rows.slice(0,5).map(el=>({
+        tone:el.dataset.janusTone,
+        bg:getComputedStyle(el).backgroundImage,
+        border:getComputedStyle(el).borderTopColor,
+        shadow:getComputedStyle(el).boxShadow
+      }));
+      const cards=[...document.querySelectorAll('.a2c.j3d-card')].slice(0,7).map(el=>({
+        tone:el.dataset.janusTone,
+        border:getComputedStyle(el).borderTopColor,
+        width:getComputedStyle(el).borderTopWidth
+      }));
+      return {rows:items,cards};
+    });
+    assert.ok(visual.rows.length>=4,'la sección Proyectos conserva sus cinco filas existentes');
+    assert.ok(visual.rows.every(x=>x.tone==='bronze'),'las filas NO reciben colores aleatorios');
+    assert.equal(new Set(visual.rows.map(x=>x.border)).size,1,'divisores neutros coherentes');
+    assert.equal(new Set(visual.rows.map(x=>x.bg)).size,1,'rellenos coherentes sin arcoíris');
+    assert.ok(visual.cards.length>=3 && visual.cards.every(x=>x.tone==='frame'),
+      'paneles de un solo marco neutro, independiente de los botones');
+    assert.ok(visual.cards.every(x=>parseFloat(x.width)>=2),
+      'líneas divisorias visibles y marcadas');
+    await page.locator('.a2pj').first().scrollIntoViewIfNeeded();
+    await page.screenshot({path:path.join(shotDir,`proyectos-${skin}-${w}.png`),fullPage:true});
+    console.log('PROJECTS_NEUTRAL',skin,w,visual.rows.map(x=>x.tone).join(','),visual.rows[0].border);
     await page.goto('file://'+file+'#companero',{waitUntil:'domcontentloaded'});
     await page.locator('.vb-companero .cpst3').waitFor({state:'visible',timeout:30000});
     await page.waitForTimeout(1300);
