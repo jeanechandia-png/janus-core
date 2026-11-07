@@ -16021,7 +16021,7 @@ const JanusLiveObjects3D = (() => {
   function schedule(){
     if(pending)return;pending=true;queueMicrotask(scan);
   }
-  let lastRender=0;
+  let lastRender=0, cursor=0;
   function tick(time){
     animation=0;
     if(document.visibilityState!=='visible'){animation=requestAnimationFrame(tick);return;}
@@ -16029,10 +16029,14 @@ const JanusLiveObjects3D = (() => {
     lastRender=time;
     if(!init())return;
     let drawn=0;
-    for (const [img,item] of targets) {
+    const all=Array.from(targets);
+    // Reparto circular: TODOS los iconos tienen oportunidad de actualizarse;
+    // limita renders por fotograma en lugar de dejar invisibles los últimos.
+    for (let k=0;k<all.length && drawn<10;k++) {
+      const [img,item]=all[(cursor+k)%all.length];
       if (!img.isConnected || !item.canvas.isConnected){targets.delete(img);continue;}
       if(!item.visible)continue;
-      if(drawn++>=24)break; // cap WebGL work on low-power iPhones
+      drawn++;
       const control=img.closest('.j3d-touch,.j3d-card');
       const lit=!!control?.classList.contains('j3d-lit');
       const shouldAnimate=!reduce(); // visible 3D meshes move subtly; touch boosts their rotation
@@ -16044,6 +16048,8 @@ const JanusLiveObjects3D = (() => {
       group.rotation.y=-.26+(reduce()?0:Math.sin(time*.0016+item.phase)*.22)+(lit?.19:0);
       group.rotation.x=-.16+(reduce()?0:Math.cos(time*.0014+item.phase)*.095);
       group.rotation.z=lit?.08:0;
+      const speaking=(item.name==='mic'||item.name==='bot') && !!window.Janus3D?.state?.talking;
+      group.scale.setScalar(speaking && !reduce()?1+.085*Math.sin(time*.014):1);
       scene.add(group);
       renderer.render(scene,camera);
       scene.remove(group);
@@ -16053,6 +16059,7 @@ const JanusLiveObjects3D = (() => {
       ctx.drawImage(renderer.domElement,0,0,152,152);
       if(!item.drawn){img.style.display='none';item.drawn=true;}
     }
+    cursor=all.length ? (cursor+Math.max(1,drawn))%all.length : 0;
     last=time;
     if(targets.size)animation=requestAnimationFrame(tick);
   }
