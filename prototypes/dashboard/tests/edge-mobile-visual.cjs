@@ -52,7 +52,9 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
       };
     });
     assert.ok(icons3D.tones.length>=4,'botones multicolor, no todos dorados');
-    if(icons3D.runtime && icons3D.webgl){
+    if(icons3D.webgl && icons3D.total>0){
+      // El runtime reside en el bundle encapsulado; no exigir variable global.
+      // El único criterio válido es que existan canvas con PÍXELES reales.
       assert.ok(icons3D.total>=4,'varios iconos deben ser objetos Three.js');
       assert.ok(icons3D.drawn>=3,'iconos WebGL deben tener píxeles renderizados');
     }else{
