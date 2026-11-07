@@ -15688,42 +15688,13 @@ setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 6
 const JanusTactile = (() => {
   const BUTTONS = '[data-act],[data-go],.btn,.btn2,.tb2,.cptab,.pill2,.avchip,.sg,.jg-cta,.jg-row,.jpc-launch,button:not([disabled]),.go[role="button"]';
   const CARDS = '.a2c,.cd,.cptabs,.cpst3,.kpi,.hc,.dy,.ml,.fu,.ev,.tc,.kt,.jp,.rb,.a2stat,.a2sala';
-  const TONES = ['gold','cobalt','amethyst','emerald','rose','teal','copper','indigo','coral'];
+  // CORRECCIÓN VISUAL APROBADA: dos materiales, no un arcoíris.
+  // Cada tarjeta comparte un borde neutro; las acciones destacan en bronce
+  // respecto al fondo. Los indicadores de estado originales no se alteran.
   const TOUCH_LIMIT = 780;
   let active = null, flash = null, observer = null, scheduled = false;
   const reduce = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  const text = (node) => ((node.getAttribute('aria-label') || '') + ' ' +
-    (node.getAttribute('data-go') || '') + ' ' + (node.getAttribute('data-act') || '') +
-    ' ' + (node.textContent || '').slice(0, 110)).normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  function tone(node, i) {
-    const s = text(node);
-    const matches = [
-      [/aprend|escuela|matemat|estrell|premio/,'gold'],
-      [/vestidor|moda|ropa|estilo|accesori/,'rose'],
-      [/tienda|compra|oferta|bono/,'amethyst'],
-      [/mundo|casa|jardin|bosque|plantas/,'emerald'],
-      [/hablar|microfono|voz|escuchar|camar|foto/,'cobalt'],
-      [/papa|familia|privado|segur/,'copper'],
-      [/llegada|bienven|clima|nube/,'teal'],
-      [/navidad|corazon|celebr/,'rose'],
-      [/noche|descanso|luna/,'indigo'],
-      [/apagar|borrar|salir|eliminar|alerta/,'coral'],
-      [/resumen|agenda|dia|prioridad/,'teal'],
-      [/sala|janus|robot|nexo/,'indigo'],
-      [/cliente|seguimiento|contact/,'emerald'],
-      [/correo|mensaje|email/,'cobalt'],
-      [/dato|reporte|estadistic/,'amethyst'],
-      [/pago|costes|factura|ingreso/,'copper'],
-      [/camara/,'cobalt']
-    ];
-    for (const [pattern, name] of matches) if (pattern.test(s)) return name;
-    // Distribución reproducible, no monocromática ni aleatoria cada render.
-    const key = s.trim() || String(i);
-    let hash = 0;
-    for (let j = 0; j < key.length; j++) hash = (hash * 31 + key.charCodeAt(j)) | 0;
-    return TONES[Math.abs(hash) % TONES.length];
-  }
+  const tone = (kind) => kind === 'card' ? 'frame' : 'bronze';
   function id(node) {
     return (node.getAttribute('data-act') || node.getAttribute('data-go') || '') + ':' +
       (node.getAttribute('data-arg') || '') + ':' + (node.getAttribute('aria-label') || node.textContent?.trim().slice(0, 32) || '');
@@ -15775,7 +15746,7 @@ const JanusTactile = (() => {
     root.querySelectorAll(BUTTONS).forEach((el, i) => {
       if (el.matches('input,select,textarea,label,[disabled],[aria-hidden="true"]')) return;
       el.classList.add('j3d-touch');
-      if (!el.dataset.janusTone) el.dataset.janusTone = tone(el,i);
+      el.dataset.janusTone = tone('button');
       if (flash && flash.id === id(el) && Date.now() - flash.at < TOUCH_LIMIT) {
         el.classList.add('j3d-lit');
         window.setTimeout(() => el.classList.remove('j3d-lit'), TOUCH_LIMIT);
@@ -15783,7 +15754,7 @@ const JanusTactile = (() => {
     });
     root.querySelectorAll(CARDS).forEach((el,i) => {
       el.classList.add('j3d-card');
-      if (!el.dataset.janusTone) el.dataset.janusTone = tone(el,i);
+      el.dataset.janusTone = tone('card');
     });
   }
   function schedule() {
