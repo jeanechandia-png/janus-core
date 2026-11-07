@@ -11,7 +11,7 @@
 const THREE_D_ICON_ALIASES = Object.freeze({ smartphone: 'eye', 'cloud-sun': 'sun', 'cloud-rain': 'umbrella', apple: 'heart', 'ferris-wheel': 'sparkles' });
 const gIco = (n, cls) => {
   const key = GOLD.o[n] ? n : (THREE_D_ICON_ALIASES[n] || 'sparkles');
-  return '<img class="a2i o ' + (cls || '') + '" src="' + GOLD.o[key] + '" alt="" aria-hidden="true" loading="eager" decoding="async">';
+  return '<img class="a2i o ' + (cls || '') + '" data-gold-object="' + key + '" src="' + GOLD.o[key] + '" alt="" aria-hidden="true" loading="eager" decoding="async">';
 };
 function gNum(str, cls) {
   const s = String(str).replace(/-/g, '−');
