@@ -170,3 +170,31 @@ test('iPhone: seis pestañas 3D en cuadrícula legible 3×2, sin texto superpues
  assert.match(css,/white-space:normal!important/);
  assert.match(css,/font-size:10\.7pt!important/);
 });
+
+test('iconos 3D auténticos: el runtime usa geometría Three.js y un solo WebGLRenderer',()=>{
+ const live=read('src/live-icons-3d.js');
+ const build=read('build.cjs');
+ const a2=read('src/phonea2.js');
+ const tactile=read('src/tactile-premium.js');
+ assert.match(live,/new T\.WebGLRenderer/);
+ assert.match(live,/new T\.ExtrudeGeometry/);
+ assert.match(live,/new T\.SphereGeometry/);
+ assert.match(live,/new T\.TubeGeometry/);
+ assert.match(live,/new T\.MeshPhysicalMaterial/);
+ assert.match(live,/const cache = new Map/);
+ assert.match(live,/new T\.HemisphereLight/);
+ assert.match(live,/canvas\.getContext\('2d'\)/);
+ assert.match(live,/new IntersectionObserver/);
+ assert.match(live,/img\.style\.display='none'/);
+ assert.match(live,/img\.style\.display=''/,'original visual restored on WebGL loss');
+ assert.match(live,/prefers-reduced-motion: reduce/);
+ assert.match(a2,/data-gold-object/);
+ assert.match(tactile,/hydrateActionIcons/);
+ assert.match(tactile,/data-janus-action-3d/);
+ assert.ok(build.includes("'src/live-icons-3d.js'"));
+ assert.ok(build.includes("'src/tactile-premium.css'"));
+ assert.doesNotMatch(live,/fetch\(|XMLHttpRequest|http[s]?:\/\//,'sin dependencias de pago ni solicitudes externas');
+ const vm=require('node:vm');
+ assert.doesNotThrow(()=>new vm.Script(live));
+ assert.doesNotThrow(()=>new vm.Script(tactile));
+});
