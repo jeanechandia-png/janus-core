@@ -227,3 +227,64 @@
   min-height:24pt;
  }
 }
+
+/* Geometría real: canvas 2D muestra un cuadro renderizado por un ÚNICO contexto
+   WebGL compartido. Cada icono es THREE.Mesh con bevel, profundidad y material.
+   El original WebP permanece en DOM y se restablece si falla WebGL. */
+.stage .janus-live-icon3d{
+ display:inline-block;
+ aspect-ratio:1 / 1;
+ width:32px; height:32px;
+ max-width:100%; min-width:24px;
+ vertical-align:middle; object-fit:contain;
+ background:transparent!important;
+ border:0!important;
+ box-shadow:none!important;
+ pointer-events:none;
+ image-rendering:auto;
+ filter:drop-shadow(0 3px 4px rgba(0,0,0,.5));
+ transform:none!important;
+}
+.stage .janus-action-icon-3d{
+ display:inline-flex;align-items:center;justify-content:center;
+ flex:0 0 auto;
+ width:33px;height:33px;
+ margin-inline-end:6px;vertical-align:middle;
+}
+.stage .janus-action-icon-3d :is(img,canvas){
+ display:block;
+ width:30px!important;height:30px!important;
+ max-width:30px!important;
+ filter:drop-shadow(0 3px 4px rgba(0,0,0,.55));
+}
+/* Tarjetas y botones táctiles: distintas familias de color, misma profundidad.
+   Los divisores señalan límites físicos y no desaparecen en ninguna piel. */
+.stage .j3d-card + .j3d-card{
+ margin-top:max(7px,.45rem);
+}
+.stage .j3d-card::before{
+ content:"";position:absolute;inset:1.2px;
+ border-radius:inherit;pointer-events:none;z-index:0;
+ border:1px solid rgba(255,245,221,.21);
+ box-shadow:inset 0 1px rgba(255,255,255,.21);
+}
+.stage .j3d-card:active,
+.stage .j3d-card:focus-within{
+ transform:translateY(-1px);
+ border-color:rgb(var(--j3d-tone)/.98)!important;
+}
+.stage :is(.j3d-touch,.j3d-card) .janus-live-icon3d{
+ filter:drop-shadow(0 4px 5px rgba(0,0,0,.54));
+}
+.stage :is(.j3d-touch,.j3d-card).j3d-lit .janus-live-icon3d{
+ filter:drop-shadow(0 0 10px rgb(var(--j3d-tone)/.92));
+}
+.stage .j3d-touch:focus-visible{outline:3px solid #fff2c0!important;outline-offset:3px}
+@media(max-width:47.5em){
+ .stage .j3d-touch :is(.janus-live-icon3d,.janus-action-icon-3d){
+  width:31px;height:31px;min-width:31px;
+ }
+ .stage .j3d-touch .janus-action-icon-3d{margin-inline-end:4px}
+ .stage .j3d-card{border-width:2.2px!important}
+ .stage .j3d-card > :is(.a2t,.lb,.vh){border-bottom:1.6px solid rgba(245,211,157,.58)}
+}
