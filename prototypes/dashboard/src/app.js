@@ -2,18 +2,37 @@
 /* ===== Router, render y eventos ===== */
 const $root = document.getElementById('app');
 let ROUTE = { v: '', sub: '' };
-function parseHash() { const h = decodeURIComponent((location.hash || '').replace(/^#\/?/, '')); const i = h.indexOf('/'); return i < 0 ? { v: h, sub: '' } : { v: h.slice(0, i), sub: h.slice(i + 1) }; }
+function parseHash() { if (BUILD_PROFILE === 'kendra') return { v: 'companero', sub: '' }; const h = decodeURIComponent((location.hash || '').replace(/^#\/?/, '')); const i = h.indexOf('/'); return i < 0 ? { v: h, sub: '' } : { v: h.slice(0, i), sub: h.slice(i + 1) }; }
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   const skin = skinNow(), phone = isPhone(), isB = skin === 'b';
-  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '');
+  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '') + (BUILD_PROFILE === 'kendra' ? ' kendra-only' : '');
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
-  dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
-  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
+  // Important privacy boundary in the mobile view: never show the Founder
+  // dashboard underneath Kendra's companion. aria-hidden alone does not hide it.
+  dash.innerHTML = BUILD_PROFILE === 'kendra' ? '' : phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
+  dash.style.display = BUILD_PROFILE === 'kendra' || ROUTE.v === 'companero' ? 'none' : 'contents';
+  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = BUILD_PROFILE === 'kendra' ? 'Kendra · JANUS' : 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
+  // One founder camera entry shared by Obsidiana and Platino; Kendra has
+  // her own entry inside the companion (separate, strictly local session).
+  const oldCameraLaunch = $root.querySelector('.jpc-launch');
+  if (oldCameraLaunch) oldCameraLaunch.remove();
+  if (BUILD_PROFILE !== 'kendra' && ROUTE.v !== 'companero') {
+    const launch = document.createElement('button');
+    launch.type = 'button';
+    launch.className = 'jpc-launch';
+    launch.setAttribute('data-act', 'pilotCamera');
+    launch.setAttribute('data-arg', 'founder');
+    launch.setAttribute('aria-label', 'Abrir cámara local de JANUS');
+    launch.innerHTML = gIco('eye', 'janus-camera-3d') + '<span>Cámara</span>';
+    $root.appendChild(launch);
+  }
   decorate(ROUTE.v || '');
+  // A/B usan los mismos WebP Gold 3D también en vistas interiores y paneles heredados.
+  if (typeof hydrateDetailIcons === 'function') hydrateDetailIcons(document);
   if (typeof avatarSync === 'function') avatarSync();
   if (window.JanusPresence) JanusPresence.hydrate(document);
   // El avatar de la cuenta Founder es Nexo, no una de las cuatro criaturas de Kendra.
@@ -24,7 +43,7 @@ function render() {
 }
 function rerender() { render(); }
 function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
-function go(r) { const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
+function go(r) { if (BUILD_PROFILE === 'kendra') r = 'companero'; const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
@@ -60,6 +79,11 @@ const ACTS = {
   geoSearch: async () => { const q = field('geoQ'); if (!q) return; UI.geoMsg = 'Buscando…'; rerender(); try { UI.geo = await geocode(q); UI.geoMsg = UI.geo.length ? 'Toca un resultado' : 'Sin resultados'; } catch (e) { UI.geo = []; UI.geoMsg = 'No se pudo buscar (sin conexión)'; } rerender(); },
   geoPick: (a) => { const g = UI.geo[+a]; if (!g) return; Object.assign(ST.settings, { lat: g.lat, lon: g.lon, place: g.name, placeSrc: 'elegida', mode: 'vivo' }); UI.geo = []; UI.geoMsg = ''; saveState(); refreshWeather(); },
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
+  pilotCamera: (who) => {
+    if (window.JanusPilotCamera) JanusPilotCamera.open(who === 'kendra' ? 'kendra' : 'founder');
+    // Avoid rerendering the dashboard while the camera owns user focus.
+    return Promise.resolve();
+  },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
 Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS, JanusPresence.actions);
@@ -101,12 +125,15 @@ $root.addEventListener('change', (ev) => {
 loadState();
 ROUTE = parseHash(); if (!VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' };
 render();
-FinOps.load().then(() => rerender());
-// Consumo y alertas: consultar el runtime fundador cada 15 minutos sin recargar la página.
+if (BUILD_PROFILE !== 'kendra') {
+  // Founder-only background refresh. Child dashboard never fetches adult runtime.
+  FinOps.load().then(() => rerender());
+  // Consumo y alertas: consultar el runtime fundador cada 15 minutos sin recargar la página.
 setInterval(() => { FinOps.load(true).then(() => { if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); }); }, 15 * 60_000);
 if (ST.settings.mode === 'vivo') refreshWeather();
 setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);
+}
 
 /* Inclinación 3D de paneles de detalle: sigue al puntero (ratón/lápiz) o al dedo mientras se toca. */
 (function tilt() {

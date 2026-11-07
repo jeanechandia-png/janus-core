@@ -166,28 +166,26 @@ const Janus3D = (() => {
     const f = FORM.key, slot = window.JanusCreatureSlot, FC = window.JanusFace3D, CR = window.JanusCreatures3D; o.formKey = f; o.formGen = FORM.gen; o.lookGen = FORM.lookGen; o.eyesGen = FORM.eyesGen;
     clearForm(o); if (o.host) o.host.setAttribute('data-form', f);
     try {
-      if (f === 'robot') {
-        // GLB masculino importado se conserva bajo "robot" para continuidad de datos;
-        // el femenino usa otro ID para NO sobrescribir el modelo aprobado.
+      if (f === 'robot' || f === 'cabeza' || f === 'cara') {
+        // Las tres vistas pertenecen a la MISMA cabeza/cuerpo original de Nexo 02.
+        // El modelo se exige GLB auténtico: JanusNexo3D y JanusFace3D quedan
+        // históricos, jamás se montan como caras/ojos/bocas procedurales.
         const glbKey = FORM.variant === 'femenino' ? 'robot-femenino' : 'robot';
-        const gen = window.JanusNexo3D;
-        const rig = (slot && slot.has && slot.has(glbKey) && slot.rigFor ? slot.rigFor(glbKey) : null) ||
-          (gen && gen.supported() ? gen.build(FORM.variant) : null);
-        if (rig && rig.root) {
-          if (!rig.glb) rig.nexo = true;
-          o.alt = rig; o.fit.add(rig.root); o.root.visible = false;
-          if (rig.setLook) rig.setLook({ eyes: FORM.eyes });
-          if (rig.update) rig.update(0, 0.016, { mood: effMood() });
-          fitTo(o, rig.root, 3.6, 0.18);
-        }
+        const approved = !!(slot && slot.has && slot.has(glbKey));
+        const rig = approved && slot.rigFor ? slot.rigFor(glbKey) : null;
+        o.root.visible = false;
+        if (!rig || !rig.root) return;
+        o.alt = rig;
+        o.fit.add(rig.root);
+        if (rig.setLook) rig.setLook({ eyes: FORM.eyes });
+        if (rig.update) rig.update(0, 0.016, { mood: effMood() });
+        // "Cabeza" y "Rostro" son encuadres/crops del MISMO GLB completo.
+        // Nunca se reconstruye ni separa la cara del robot.
+        if (f === 'cabeza') fitTo(o, rig.root, 6.1, -1.6);
+        else if (f === 'cara') fitTo(o, rig.root, 8.8, -2.8);
+        else fitTo(o, rig.root, 3.6, 0.18);
         return;
       }
-      if (f === 'cabeza' && FC) {
-        o.P.bodyParts.forEach((m) => { m.visible = false; }); o.P.eyes.forEach((e) => { e.visible = false; e.userData.spr.visible = false; }); o.P.smile.visible = false; o.P.pl.visible = false; /* sin la luz puntual del pecho: no deja un brillo central en el visor que parezca una nariz */
-        const fc = o.cache.cabeza || (o.cache.cabeza = FC.build('janus', FORM.eyes, { mount: true, scale: 0.6 })); fc.root.position.set(0, 0.07, 0.962); o.P.head.add(fc.root); o.mount = fc; fc.setLook({ eyes: FORM.eyes }); fc.update(0, 0.016, {});
-        fitTo(o, o.root, 3.7, 0.2); return;
-      }
-      if (f === 'cara' && FC) { const fc = o.cache.cara || (o.cache.cara = FC.build('janus', FORM.eyes)); fc.setLook({ eyes: FORM.eyes }); o.alt = fc; o.fit.add(fc.root); o.root.visible = false; fc.update(0, 0.016, {}); fitTo(o, fc.root, 2.5, 0.3); return; }
       if (CREATURES.includes(f)) {
         const rig = (slot && slot.has && slot.has(f) && slot.rigFor(f)) || (CR && (o.cache[f] || (o.cache[f] = CR.build(f, EYE_HEX[f])))); if (!rig) throw new Error('sin criatura ' + f);
         if (FORM.look && rig.setLook) rig.setLook(FORM.look); o.alt = rig; o.fit.add(rig.root); o.root.visible = false; rig.update(0, 0.016, {}); fitTo(o, rig.root, 3.4, 0.15); return;
@@ -262,6 +260,14 @@ const Janus3D = (() => {
   function hydrate(root) {
     (root || document).querySelectorAll('[data-3d]').forEach((host) => {
       const kind = host.getAttribute('data-3d'), id = host.getAttribute('data-id') || kind;
+      // Protección global: no permitir la cara procedural, ojos ni boca flotantes.
+      // Únicamente un GLB de Nexo validado puede crear un robot en el DOM.
+      const slotId = (typeof ST !== 'undefined' && ST.settings?.nexoVariant === 'femenino') ? 'robot-femenino' : 'robot';
+      if (kind === 'bot' && !window.JanusCreatureSlot?.has?.(slotId)) {
+        host.classList.add('j3d-no-approved-robot');
+        host.querySelectorAll('canvas.j3d-cv,.j3d-fb,.a2morph').forEach(n => n.remove());
+        return;
+      }
       let o = inst[id];
       if (!o) { try { o = inst[id] = create(kind, host); } catch (e) { host.classList.add('j3d-off'); if (host.getAttribute('data-tapact')) host.setAttribute('data-act', host.getAttribute('data-tapact')); if (host.getAttribute('data-tap')) host.setAttribute('data-go', host.getAttribute('data-tap').replace(/^#/, '')); return; } }
       o.host = host; if (kind === 'bot') host.setAttribute('data-form', o.formKey);

@@ -97,14 +97,18 @@ test('sin WebGL recupera la alternativa estática y no deja un bucle activo',()=
   assert.equal(f.edge.state().unavailable,true);
   assert.equal(f.remaining(),0);
 });
-test('Kendra predeterminada vive en el margen y Founder permanece robot Nexo',()=>{
+test('Kendra usa el arte aprobado y el módulo de margen permanece histórico; Founder sigue siendo Nexo',()=>{
   const companion=fs.readFileSync(path.join(__dirname,'../src/companero.js'),'utf8');
   const presence=fs.readFileSync(path.join(__dirname,'../lego/janus-presence/janus-presence.js'),'utf8');
   const build=fs.readFileSync(path.join(__dirname,'../build.cjs'),'utf8');
-  assert.match(companion,/edgeSupported/);assert.match(companion,/JanusEdgeCompanion\.sync/);
+  assert.match(companion,/const scene3d = Boolean\(ok3d && window\.JanusCreatureSlot\?\.has\?\.\(C\.creatureId\)\)/,
+    'solo un GLB real validado activa la escena tridimensional');
+  assert.match(companion,/const cinematic = !scene3d, edge = false/);
+  assert.match(companion,/JanusPresence\.render\('kendra', false, C\.creatureId\)/);
+  assert.match(companion,/JanusEdgeCompanion\.sync/,'conservar el código existente para pruebas y recuperación');
   assert.match(companion,/cpEdgeRoam/);assert.match(companion,/cpEdgeSide/);
   assert.match(companion,/C\.visualMode = 'cinematic'/,'default return is approved art, not procedural stand-in');
-  assert.match(companion,/cpVisual: \(mode\)/,'technical 3D remains selectable');
+  assert.match(companion,/cpVisual: \(mode\)/,'technical 3D preferences remain stored without misrepresenting the user-facing art');
   assert.match(presence,/data-janus-founder="nexo"/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.js/);
   assert.match(build,/lego\/janus-edge-companion\/janus-edge-companion.css/);

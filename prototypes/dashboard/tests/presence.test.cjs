@@ -29,7 +29,8 @@ assert.equal(P.current('founder'), 'robot', 'El Founder usa a Nexo, no una criat
 for (const mode of [false, true]) {
   const html = P.render('founder', mode, 'musgo');
   assert.match(html, /data-janus-founder="nexo"/);
-  assert.match(html, /data-3d="bot"/);
+  assert.match(html, /jnexo-voice-standby/, 'sin modelo aprobado mostrar solo control de voz');
+  assert.doesNotMatch(html, /data-3d="bot"/, 'prohibir avatar procedural rechazado');
   assert.match(html, /Nexo/);
   assert.doesNotMatch(html, /data-jpresence="musgo"/);
 }

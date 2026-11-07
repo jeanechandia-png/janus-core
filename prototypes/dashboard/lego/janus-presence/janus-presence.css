@@ -82,3 +82,11 @@
   .jnexo-variants{top:7px;max-width:calc(100% - 10px)}
   .jnexo-variant-btn{padding:5px 9px;font-size:10px}
 }
+
+
+/* Contrato Nexo: mostrar solo el modelo aprobado o la interfaz de voz.
+ * Nunca dibujar un robot procedural, cabeza aislada, ojos ni boca flotante. */
+.jnexo .jnexo-voice-standby{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:radial-gradient(ellipse at 50% 42%,#3a2d1b55,#0d0e17 70%);color:#f9e6bf;text-align:center}
+.jnexo .jnexo-voice-icon{display:block;width:clamp(38px,12vw,92px);height:clamp(38px,12vw,92px);object-fit:contain;filter:drop-shadow(0 4px 15px #e7bb6778)}
+.jnexo .jnexo-voice-standby strong{font:750 clamp(13px,3.8vw,22px)/1.1 'Instrument Sans',system-ui,sans-serif;letter-spacing:.08em}
+.jnexo .j3d-no-approved-robot{display:none!important}

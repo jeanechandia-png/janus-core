@@ -16,27 +16,22 @@ const JanusPresence = (() => {
   const source = (id) => (window.JanusOriginalArt && window.JanusOriginalArt.creature(normalize(id))) || (typeof APPROVED_ART !== 'undefined' && APPROVED_ART.creatures?.[normalize(id)]) || IMG[SPECIES[normalize(id)].image];
   function renderNexo(compact) {
     // Nexo 02 es el protagonista del Founder, en dos versiones de la MISMA IA.
-    // GLB importado si existe; en otro caso se monta el rig procedural de plata.
+    // FILTRO VISUAL: solo el GLB de Nexo validado puede activar WebGL.
+    // El robot procedural anterior (caras/ojos/boca flotantes) queda histórico, invisible.
     const variant = ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
     const size = compact ? 'jpresence--mini' : 'jpresence--hero';
     const id = compact ? 'nexo-dashboard' : 'nexo-sala';
-    const vName = variant === 'femenino' ? 'Femenino' : 'Masculino';
-    const other = variant === 'femenino' ? 'masculino' : 'femenino';
-    const controls = compact
-      ? '<button type="button" class="jnexo-variant-btn is-mini" data-act="avVariant" data-arg="' + other +
-        '" aria-label="Cambiar Nexo a versión ' + other + '" title="Cambiar versión">⇄</button>'
-      : '<div class="jnexo-variants" role="group" aria-label="Versión del robot Nexo">' +
-        '<button type="button" data-act="avVariant" data-arg="masculino" aria-pressed="' + (variant==='masculino') + '"' +
-        ' class="jnexo-variant-btn' + (variant==='masculino'?' active':'') + '">Masculino</button>' +
-        '<button type="button" data-act="avVariant" data-arg="femenino" aria-pressed="' + (variant==='femenino') + '"' +
-        ' class="jnexo-variant-btn' + (variant==='femenino'?' active':'') + '">Femenino</button></div>';
+    // La variante es una preferencia de configuración, no un titular ni un botón sobre el robot.
+    // El selector real sigue disponible dentro de Personalizar Nexo (src/avatar.js).
+    const slotId = variant === 'femenino' ? 'robot-femenino' : 'robot';
+    const approved3d = !!(window.JanusCreatureSlot?.has?.(slotId));
+    const display = approved3d
+      ? '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" aria-label="Nexo 02 aprobado"></div>'
+      : '<div class="jnexo-voice-standby" role="status" aria-label="Janus: asistente de voz">' +
+        (typeof gIco === 'function' ? gIco('mic', 'jnexo-voice-icon') : '') + '<strong>JANUS</strong></div>';
     return '<figure class="jpresence jnexo ' + size + '" data-janus-founder="nexo" data-nexo-variant="' + variant + '">' +
-      '<div class="jnexo-display" data-3d="bot" data-id="' + id + '" data-tap="#trabajo/voz" role="img" ' +
-      'aria-label="Nexo 02, robot de Janus, versión ' + variant + '">' +
-      '<div class="jnexo-fallback" aria-hidden="true"><b>NEXO 02</b><span>' + vName + '</span></div></div>' +
-      controls +
-      '<figcaption class="jp-caption"><b>Nexo 02</b>' +
-      (compact ? '<span>' + vName + '</span>' : '<span>' + vName + ' · Avatar 3D de Janus</span>') +
+      display + '<figcaption class="jp-caption"><b>Nexo 02</b>' +
+      (compact ? '' : '<span>JANUS · asistente operativo</span>') +
       '</figcaption></figure>';
   }
   function render(context, compact, creatureId) {
@@ -50,7 +45,7 @@ const JanusPresence = (() => {
     const cls = compact ? 'jpresence jpresence--mini' : 'jpresence jpresence--hero';
     const link = context === 'founder' ? 'trabajo/voz' : 'companero';
     return '<figure class="' + cls + '" data-jpresence="' + id + '" style="--jp-accent:' + meta.accent + '">' +
-      '<div class="jp-portrait" data-go="' + link + '" role="link" tabindex="0" aria-label="' + (context === 'founder' ? 'Hablar con Janus. ' : 'Compañero de Kendra. ') + safeName + '">' +
+      '<div class="jp-portrait" data-go="' + link + '" role="link" tabindex="0" aria-label="' + (context === 'founder' ? 'Hablar con Janus. ' : 'Criatura de Kendra. ') + safeName + '">' +
       '<img class="jp-image" src="' + source(id) + '" alt="' + safeName + ', criatura original de InfinitySeed; arte de referencia" draggable="false" loading="eager" decoding="async">' +
       '<span class="jp-light" aria-hidden="true"></span></div>' +
       (compact

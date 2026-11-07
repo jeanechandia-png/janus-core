@@ -30,6 +30,7 @@ jobs:
             prototypes/dashboard/lego/janus-creatures-3d/janus-creatures-3d.js \
             prototypes/dashboard/lego/janus-stage-3d/janus-stage-3d.js \
             prototypes/dashboard/lego/janus-cartoon-voice/janus-cartoon-voice.js \
+            prototypes/dashboard/lego/janus-pilot-camera/janus-pilot-camera.js \
             prototypes/dashboard/lego/janus-original-art/janus-original-art.js \
             prototypes/dashboard/lego/janus-family-guide/janus-child-safety.js \
             prototypes/dashboard/src/companero.js \
@@ -53,11 +54,13 @@ jobs:
           node --test tests/kendra-fashion.test.cjs
           node --test tests/nexo-gender.test.cjs
           node --test tests/kendra-cartoon-voice.test.cjs
+          node --test tests/pilot-camera.test.cjs
       - name: Offline self-contained dashboard builds
         run: |
           cd prototypes/dashboard
           node build.cjs
           node build.cjs --skin b
+          node build.cjs --skin b --profile kendra
           node --test tests/ios-quicklook.test.cjs
       - name: Verify generated HTML and JavaScript are self-contained
         run: |
@@ -65,9 +68,9 @@ jobs:
           const fs = require('node:fs');
           const vm = require('node:vm');
           const path = require('node:path');
-          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html']) {
+          for (const file of ['Janus-A-Obsidiana-interactivo.html', 'Janus-B-Platino-interactivo.html', 'Janus-Kendra-Piloto.html']) {
             const html = fs.readFileSync(path.join('prototypes/dashboard/dist', file), 'utf8');
-            for (const token of ['JanusPresence', 'JanusFurWind', 'JanusCreatures3D', 'JanusCreatureSlot']) {
+            for (const token of ['JanusPresence', 'JanusFurWind', 'JanusCreatures3D', 'JanusCreatureSlot', 'JanusPilotCamera']) {
               if (!html.includes(token)) throw new Error(file + ': missing ' + token);
             }
             const matches = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
@@ -85,6 +88,11 @@ jobs:
           PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
           SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
         run: node prototypes/dashboard/tests/edge-mobile-visual.cjs
+      - name: Verify pilot cameras and child safety in A/B browsers
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+          SHOTS_DIR: ${{ runner.temp }}/kendra-edge-screens
+        run: node prototypes/dashboard/tests/e2e-pilot-camera.cjs
       - name: Archive Kendra screenshots for visual review
         if: always()
         uses: actions/upload-artifact@v4
@@ -100,5 +108,6 @@ jobs:
           path: |
             prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html
             prototypes/dashboard/dist/Janus-B-Platino-interactivo.html
+            prototypes/dashboard/dist/Janus-Kendra-Piloto.html
           retention-days: 7
           if-no-files-found: error

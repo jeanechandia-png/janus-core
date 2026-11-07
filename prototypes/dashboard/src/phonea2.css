@@ -147,3 +147,28 @@
 .drs{display:grid;grid-auto-flow:column;gap:2px;margin-top:8px}.drs i{height:14px;border-radius:3px}.drs i.ok{background:#5FD39A}.drs i.wa{background:#FFB454}.drs i.no{background:#FF6B5E}
 .drh{display:flex;justify-content:space-between;font-size:9px;color:var(--mute);margin-top:2px}
 .wal{color:#FFB454;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+
+
+/* Contraste compartido portada/detalles sin sacrificar iconos Gold 3D. */
+@media(max-width:47.5em){
+ .pa2 .a2t span{font-size:12px;font-weight:750;letter-spacing:.06em;color:#ffe9bf}
+ .pa2 .a2r .tx,.pa2 .a2pj .tx,.pa2 .a2pj small{font-size:13px;line-height:1.35;color:#f5e9d8}
+ .pa2 .a2t em,.pa2 .a2dr small,.pa2 .a2wxm small{font-size:11px;font-weight:650;color:#e1d4bd}
+ .pa2 .a2sb .btn2{min-height:42px;font-weight:700;font-size:13px}
+ .pa2 .a2sala .a2say{font-size:14px;line-height:1.5}
+ .pa2 .a2m{font-size:13px;line-height:1.45}
+}
+
+
+/* Sala del Founder: micrófono de OBJETO 3D cuando Nexo aprobado aún no
+   tiene GLB; no mostrar nunca el robot genérico GOLD.o.bot. */
+.a2bot.a2bot--voice{display:grid!important;place-items:center;overflow:hidden;min-width:0;filter:none!important;cursor:default}
+.a2bot--voice .a2bot-voice-icon{width:min(100%,clamp(110px,34vw,210px));height:auto;max-height:100%;object-fit:contain;filter:drop-shadow(0 8px 14px #0008)}
+@media(max-width:47.5em){
+ .pa2 .a2t span{font:750 15px/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d5!important;letter-spacing:.015em}
+ .pa2 .a2r .tx,.pa2 .a2pj .tx,.pa2 .a2pj small,.pa2 .a2say span{font-size:14px!important;line-height:1.5!important;font-weight:600;color:#fff0df!important}
+ .pa2 .a2t em,.pa2 .a2dr small,.pa2 .a2wxm small{font-size:12px!important;font-weight:700;color:#efe1cb!important}
+ .pa2 .a2m,.pa2 .a2th,.pa2 .a2h .dt{font-size:14px;line-height:1.5;color:#ffebc9}
+ .pa2 .a2btn,.pa2 .a2sb .btn2,.pa2 .a2in textarea{font-size:14px!important;font-weight:600}
+ .pa2 .a2i{image-rendering:auto;filter:drop-shadow(0 3px 5px #000b)}
+}

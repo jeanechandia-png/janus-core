@@ -2,9 +2,53 @@
 /* ===== Pestañas de detalle ===== */
 const UI = { clDay: null, clH: null, clMetric: 't', dDay: 0, dSel: null, kDay: 0, mFilter: 0, mSel: 'm0', fSel: null, iPer: 12, iSel: null, aPer: 30, bSel: null, cSort: 'views', cSel: 'r1', clCat: 'leads', clSel: 0, geo: [], geoMsg: '' };
 const TABS = [['clima', '🚴', 'Clima'], ['dia', '🗓', 'Mi día'], ['familia', '🌟', '__HIJA__'], ['prioridades', '🎯', 'Prioridades'], ['janus', '⚙', 'Janus'], ['plataformas', '◉', 'Costes'], ['ingresos', '💶', 'Ingresos'], ['alcance', '👁', 'Alcance'], ['chatbots', '🤖', 'Chatbots'], ['contenido', '🎬', 'Contenido'], ['clientes', '🤝', 'Clientes'], ['datos', '🛈', 'Datos']];
+/* Triple filtro visual/estructural: reutiliza objetos originales GOLD.o/GOLD.i de la portada A2, sin recrear assets. */
+const DETAIL_ICONS = Object.freeze({"clima":"bike","dia":"calendar-days","familia":"sparkles","prioridades":"target","janus":"mic","plataformas":"euro","ingresos":"euro","alcance":"eye","chatbots":"mic","contenido":"clapperboard","clientes":"handshake","datos":"folder","trabajo":"folder","correo":"mail","ofertas":"tag","🚴":"bike","🗓":"calendar-days","🌟":"sparkles","🎯":"target","⚙":"settings","◉":"euro","💶":"euro","👁":"eye","🤖":"mic","🎬":"clapperboard","🤝":"handshake","🛈":"folder","📁":"folder","✉":"mail","📧":"mail","🔐":"lock","🎙":"mic","📥":"inbox","🏷":"tag","🏠":"sun","📚":"school","🎓":"school","☔":"umbrella","🩺":"stethoscope","❤":"heart","✈":"plane","💼":"folder","🕐":"calendar-days","🎚":"settings","🏢":"folder","🔎":"eye","＋":"sparkles","🚦":"target","📍":"target","🏖":"sun","🤸":"dumbbell","📖":"school","🔌":"settings","🛡":"lock","🐝":"sparkles","🥧":"target","🧾":"folder","⚖":"euro","📱":"smartphone","👥":"handshake","⏳":"calendar-days","🧭":"target","🏁":"target","🆕":"sparkles","💾":"folder","📝":"folder","⚡":"settings","📦":"folder","🕑":"calendar-days","📈":"target","📅":"calendar-days","🏫":"school","📊":"target"});
+function detailIcon(glyph, route) {
+ const id = DETAIL_ICONS[route] || DETAIL_ICONS[glyph] ||
+   (typeof EMO2ICO !== 'undefined' && EMO2ICO[glyph]);
+ if (!id || typeof gIco!=='function' || typeof GOLD==='undefined' || !(GOLD.o[id] || GOLD.i[id]))
+   return '<span class="janus-icon-art" aria-hidden="true">' + gIco('sparkles','janus-icon-3d') + '</span>';
+ return '<span class="janus-icon-art" aria-hidden="true">' + gIco(id,'janus-icon-3d') + '</span>';
+}
+function hydrateDetailIcons(root) {
+  const view=(root||document).querySelector('#view');
+  if(!view || view.hidden) return;
+  // Triple filtro: emojis y dibujos planos nunca ocupan el lugar de un objeto
+  // fotométrico Gold.o. No se transforman los datos, nombres ni textos del usuario.
+  const glyphs={
+    '📚':'school','🎓':'school','🏫':'school','👗':'shopping-cart',
+    '🛒':'shopping-cart','🏬':'shopping-cart','⭐':'sparkles','🌟':'sparkles','✨':'sparkles',
+    '📷':'eye','📸':'eye','📹':'eye','💬':'mic','💭':'mic',
+    '🏠':'sun','🏡':'sun','🔒':'lock','🔐':'lock','👨':'lock',
+    '🚦':'target','🪄':'sparkles','🎁':'shopping-cart','🏆':'target',
+    '🎮':'settings','🧩':'settings','⚙':'settings','📦':'folder',
+    '⏱':'calendar-days','📅':'calendar-days','🔍':'eye',
+    '🎨':'sparkles','🎤':'mic','🔊':'mic','👑':'sparkles','🧥':'shopping-cart',
+    '🚗':'bike','🚲':'bike','✈':'plane','🏷':'tag','❤️':'heart','❤':'heart'
+  };
+  // Icon-only containers, plus specifically labelled in-product actions.
+  view.querySelectorAll('.bb,.cpc i,.cpgr h4,.cpbtns .btn2,.cptc .pill2,.cplights .btn2,.cp-pilot-camera button').forEach(node=>{
+    if(node.querySelector('img,svg,.janus-icon-art,.cp-3d-icon,input,canvas'))return;
+    const raw=node.textContent.trim();
+    const exact=DETAIL_ICONS[raw] || (typeof EMO2ICO!=='undefined' && EMO2ICO[raw]) || glyphs[raw];
+    if(exact){
+      node.setAttribute('aria-label',raw);
+      node.innerHTML='<span class="janus-icon-art" aria-hidden="true">'+gIco(exact,'janus-icon-3d')+'</span>';
+      return;
+    }
+    const first=node.firstChild;
+    if(!first || first.nodeType!==3)return;
+    const m=/^\s*([\p{Extended_Pictographic}\uFE0F\u200D]+)\s*/u.exec(first.textContent);
+    if(!m)return;
+    const key=glyphs[m[1]] || (typeof EMO2ICO!=='undefined' && EMO2ICO[m[1]]) || 'sparkles';
+    first.textContent=first.textContent.slice(m[0].length);
+    node.insertAdjacentHTML('afterbegin','<span class="janus-icon-art" aria-hidden="true">'+gIco(key,'janus-icon-3d')+'</span>');
+  });
+}
 const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
 const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
-const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + e + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
+const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + detailIcon(e) + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
 const ring = (p, col, txt, size) => '<span class="rg2" style="--sz:' + rem(size || 46) + ';background:conic-gradient(' + col + ' ' + clamp(p, 0, 100) * 3.6 + 'deg,rgba(255,255,255,.09) 0)"><span class="mono">' + (txt != null ? txt : p + '%') + '</span></span>';
 const pill = (txt, cls) => '<span class="pill2 mono ' + (cls || '') + '">' + txt + '</span>';
 const LVC = ['g', 'a', 'r'];
@@ -41,12 +85,12 @@ function lineChart(o) {
 const roBox = (txt) => '<div class="ro mono">' + (txt || '☝ toca la gráfica') + '</div>';
 const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div class="hbr"><span class="hl">' + r[0] + '</span><div class="rtk"><div class="rfl" style="--c:' + (r[2] || 'var(--gold)') + ';width:' + Math.round(r[1] / max * 100) + '%;' + (r[2] ? 'background:' + r[2] : '') + '"></div></div><b class="mono">' + (fmtv ? fmtv(r[1]) : r[1]) + '</b></div>').join('') + '</div>';
 
-function frame(id, sub, M, body) {
-  const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
+function frame(id, sub, M, body, approvedTitle) {
+  const t = TABS.find((x) => x[0] === id), viewTitle = approvedTitle || t[2], live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
   const finC = id === 'plataformas' ? FinOps.counters() : null;
   const finKnown = finC && (finC.critical + finC.warning + finC.healthy) > 0;
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
-    '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + detailIcon(t[1],id) + '</span>') + '<h1 class="vt" data-jg="' + esc(viewTitle) + '" data-jg-depth="10">' + esc(viewTitle) + '</h1>' + (id === 'datos' ? '' : (id === 'dia' || id === 'janus') ? '<span class="src live mono">● REAL · ' + REAL.syncedAt.slice(11) + '</span>' : id === 'plataformas' ? '<span class="src ex mono">● ' + (finKnown ? 'DATOS VERIFICADOS' : 'SIN VERIFICAR') + '</span>' : srcBadge(live)) +
+    '<nav class="tabs">' + TABS.map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + detailIcon(x[1],x[0]) + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
     '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }
 

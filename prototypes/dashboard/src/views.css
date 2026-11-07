@@ -332,3 +332,32 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 .vh .tabs .tb2{flex:none}
 /* 15 días: tira desplazable (22-10) */
 .d7{display:grid!important;grid-auto-flow:column;grid-template-columns:none!important;grid-auto-columns:minmax(58px,1fr);overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+
+
+/* FILTRO DE LEGIBILIDAD 390px: la portada no puede ser 3D y las
+   pestañas convertirse en texto de 7px. Misma familia GOLD y contraste. */
+@media(max-width:47.5em){
+ #view .vh{padding:8px 10px;gap:8px;box-shadow:0 8px 20px #0008}
+ #view .vh .tabs{display:flex;gap:8px;min-height:67px;padding:5px 0 8px;scroll-snap-type:x proximity}
+ #view .vh .tabs .tb2{flex:0 0 auto;min-width:76px;min-height:65px;padding:6px 8px;scroll-snap-align:start;gap:5px}
+ #view .tb2 i{display:grid;place-items:center;min-height:31px}
+ #view .tb2 em{font:700 12px/1.2 'Instrument Sans',system-ui,sans-serif;letter-spacing:0;color:#f4e4c7;text-shadow:0 1px 1px #000}
+ #view .tb2 .janus-icon-art .a2i{width:30px;height:30px}
+ #view .lb{font-size:13px!important;font-weight:750;line-height:1.35;letter-spacing:.025em;color:#ffefce}
+ #view .cd .pb{font-size:14px;line-height:1.5}
+ #view .cd .dim,#view .cd .mono,#view .cd small{color:#ded2bf}
+ #view .cd .tx,#view .cd .li2,#view .cd .li2 b{font-size:13px;line-height:1.4}
+ #view .cd .tm{font-size:12px;font-weight:650}
+ #view .cd .note{font-size:13px;line-height:1.45}
+}
+
+
+/* Filtro legibilidad: el texto se mide a escala de iPhone, no de escritorio. */
+@media(max-width:47.5em){
+ #view .vh h1{font:750 22px/1.22 'Instrument Sans',system-ui,sans-serif;color:#fff0ce}
+ #view .lb{font:750 15px/1.35 'Instrument Sans',system-ui,sans-serif!important;letter-spacing:0;color:#ffedca}
+ #view .cd .pb,#view .cd .dim,#view .cd .mono,#view .cd small{font-size:13.5px!important;font-weight:600;line-height:1.45;color:#f1e6d1}
+ #view .tabs .tb2 em{font:750 13px/1.25 'Instrument Sans',system-ui,sans-serif!important;color:#fff0d7;letter-spacing:0}
+ #view .cd .btn2,#view .cd .btn,#view .cd .seg span{font-size:14px;font-weight:700;line-height:1.3}
+ #view .janus-icon-art .janus-icon-3d{width:30px;min-width:24px;height:30px;object-fit:contain}
+}

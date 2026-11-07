@@ -168,3 +168,15 @@ background:radial-gradient(900px 520px at 10% -10%,rgba(232,195,122,.15),transpa
 .fns{display:flex;flex-direction:column;justify-content:space-around;flex:1;min-height:0;margin-top:6px}
 .fn{display:flex;align-items:center;gap:6px}
 .fn .fb{height:17px;border-radius:9px;background:linear-gradient(180deg,#FFF0C2,#E8C37A 40%,#A8741F);box-shadow:0 0 9px rgba(232,195,122,.3);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;font-size:10px;color:#1a1204;font-weight:600}
+
+/* Coherencia visual global: mismos modelos de objeto Gold PBR/WebP en portada y vistas A/B.
+   Sin emojis de texto ni pictogramas planos en navegación interior. */
+#view .janus-icon-art{display:inline-grid;place-items:center;vertical-align:middle;inline-size:100%;block-size:100%;flex:none}
+#view .janus-icon-art .a2i{display:block;inline-size:22px;block-size:22px;max-inline-size:100%;max-block-size:100%;object-fit:contain;filter:drop-shadow(0 3px 4px #0009);transition:filter .2s ease,transform .2s ease}
+#view .bb.s .janus-icon-art .a2i{inline-size:19px;block-size:19px}
+#view .bb.m .janus-icon-art .a2i{inline-size:27px;block-size:27px}
+#view .tb2 i:has(.janus-icon-art){display:grid;place-items:center;inline-size:30px;block-size:30px;flex:none;font-style:normal}
+#view .tb2 .janus-icon-art .a2i{inline-size:28px;block-size:28px}
+#view .tb2:is(:hover,.on) .janus-icon-art .a2i,
+#view [data-act]:active .janus-icon-art .a2i{filter:drop-shadow(0 0 7px #f5ca77b3) brightness(1.14);transform:translateY(-1px)}
+@media(prefers-reduced-motion:reduce){#view .janus-icon-art .a2i{transition:none;transform:none!important}}

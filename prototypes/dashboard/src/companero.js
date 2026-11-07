@@ -1,5 +1,5 @@
 'use strict';
-/* ===== Compañero 3D =====
+/* ===== Criatura de Kendra — conserva ilustraciones originales y funciones heredadas =====
  * La criatura vive DENTRO de la escena 3D (lego/janus-stage-3d + lego/janus-creatures-3d), no como imagen encima.
  * Lógica: módulos LEGO componibles empaquetados en el global `Companion` (adaptador packages/adapters/src/companion-kit.ts):
  *   companion (carácter fijo, tutor, seguridad) · avatar-look (aspecto) · star-shop (estrellas, tienda, mundo) · scene-stage (escena y lecciones).
@@ -19,12 +19,14 @@ const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestido
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
   const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.voiceStyle) C.voiceStyle = C.voiceStyles[C.creatureId] || 'caricatura'; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
-  if (C.visualPolicyVersion !== 20261106) {
-    const verifiedGLB = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
-    if (!verifiedGLB) C.visualMode = 'cinematic';
-    C.visualPolicyVersion = 20261106;
+  // Triple filtro: los muñecos procedurales NO son los GLB hiperrealistas aprobados.
+  // Nunca migrar silenciosamente preferencias antiguas hacia esos sustitutos.
+  if (C.visualPolicyVersion !== '2026-11-06-approved-art-gate') {
+    // Migración: portada original por defecto; el modo QA pedido expresamente no se pierde.
+    if (C.userSelectedVisualMode !== true) C.visualMode = 'cinematic';
+    C.visualPolicyVersion = '2026-11-06-approved-art-gate';
   }
-  if (!['3d','edge','cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
+  if (!['3d', 'edge', 'cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
   return C;
 }
 /** Perfil del kit a partir de lo guardado (acepta perfiles antiguos sin aspecto ni mundo). */
@@ -214,7 +216,7 @@ function tabVestidor(p, name) {
       '<b>' + esc(item.defaultName) + '</b></button>'
     ).join('') + '</div></div>';
   const identity = '<div class="cpgr cp-identity"><h4 class="mono">Mi criatura · el nombre que tú elijas</h4>' +
-    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' es tu compañero de aventuras y siempre te llamará Kendra.</p>' +
+    '<p class="cpmini dim">Se llama <b>' + esc(name) + '</b>. Puedes cambiar su nombre cuando quieras, sin gastar estrellas. ' + esc(name) + ' puede participar en tus actividades y siempre te llamará Kendra por tu nombre.</p>' +
     '<div class="addf"><input type="text" data-f="cpNewName" maxlength="20" value="' + esc(name) + '" aria-label="Nombre de mi criatura" placeholder="Escribe el nombre que quieras">' +
     '<span class="btn" role="button" tabindex="0"' + act('cpRenameWardrobe', '', 'Guardar el nombre de mi criatura') + '>Guardar nombre</span></div>' +
     (COMP_UI.nameMsg ? '<p class="cpmini dim" role="status">' + esc(COMP_UI.nameMsg) + '</p>' : '') + '</div>';
@@ -293,7 +295,7 @@ function tabHablar(p, name) {
     (approvedFaces ? '<div class="cp-approved-faces" aria-label="Expresiones originales aprobadas">' + approvedFaces + '</div>' : '') +
     '<div class="cpchips">' + CP_MOODS.map((g) => chip('cpMood', g[0], g[1], g[2], '')).join('') + '</div></div>' +
     '<div class="cpgr"><h4 class="mono">Jugar con ' + esc(name) + '</h4><div class="cpchips">' + [['saludo', '👋', 'Saludar'], ['cara', '😜', 'Cara graciosa'], ['baile', '💃', 'Bailar'], ['risa', '😂', 'Reír']].map((g) => chip('cpGesture', g[0], g[1], g[2], '')).join('') + '</div></div>' +
-    '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo le preocupa, ' + esc(name) + ' la anima a contarlo y avisa a papá.</div></div>' +
+    '<div class="cpgr"><h4 class="mono">Contarle algo</h4><div class="addf"><input type="text" maxlength="200" data-f="cpMsg" placeholder="Cuéntale algo a ' + esc(name) + '…"><span class="btn"' + act('cpSend') + '>Enviar</span></div><div class="dim cpmini">Si algo preocupa a Kendra, ' + esc(name) + ' la anima a contárselo a un adulto. Los avisos se muestran solo aquí: aún no se envían notificaciones externas.</div></div>' +
     '<div class="cpgr"><h4 class="mono">🚦 Juego del semáforo</h4><p class="cpstory">' + esc(sc.story) + '</p><div class="cplights">' + [['rojo', '🔴 Parar'], ['amarillo', '🟡 Preguntar'], ['verde', '🟢 Seguir']].map((l) => '<span class="btn2 mono"' + act('cpLight', l[0]) + '>' + l[1] + '</span>').join('') + '</div>' + (COMP_UI.scFb ? '<div class="note mono">' + esc(COMP_UI.scFb) + '</div>' : '') + '</div>';
 }
 const SLOT_NAMES = { lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo', robot: 'Nexo masculino', 'robot-femenino': 'Nexo femenino' };
@@ -314,42 +316,44 @@ function slotPanel() {
 }
 function tabPapa(p, name) {
   const C = compState();
-  return slotPanel() + '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos si detecta tristeza, burlas o algo serio.</div>') + '</div>' +
+  // Los importadores técnicos se conservan para el adulto pero no ocupan
+  // la dashboard infantil; el panel queda plegado por defecto.
+  return '<details class="cp-adult-tools"><summary>Configuración 3D · acceso adulto</summary>' +
+    slotPanel() + '</details>' + '<div class="cpgr"><h4 class="mono">' + (C.alerts.length ? C.alerts.length + ' aviso(s)' : 'Sin avisos') + '</h4>' + (C.alerts.length ? C.alerts.slice(-3).reverse().map((a) => '<div class="li2">' + pill(a.severity, a.severity === 'urgente' ? 'r' : 'a') + '<span class="tx">' + esc(a.summary) + '</span><span class="mono dim">' + a.at + '</span></div>').join('') : '<div class="dim">Aquí aparecen los avisos para revisión presencial del adulto. No se envían notificaciones automáticas.</div>') + '</div>' +
     '<div class="cpgr"><h4 class="mono">Qué hace y qué no hace</h4><ul class="cpul"><li>Practica con representaciones concretas (fichas, platos, tartas) y pasos cortos con «tu turno».</li><li><b>No sustituye a un profesional</b> (docente, psicopedagogo, terapeuta): sigue las mismas bases que ellos usan.</li><li>Las estrellas premian el esfuerzo, con tope diario; no hay castigos, temporizadores ni dinero real.</li><li>Nunca comenta el cuerpo ni el peso de la niña.</li></ul></div>' +
     '<details class="cpbasis"><summary class="mono">Bases y estado de la evidencia</summary><ul class="cpul">' + Companion.LESSON_BASIS.map((b) => '<li>' + esc(b) + '</li>').join('') + '<li>Pautas AAP 2019 (TDAH, Pediatrics 144(4):e20192528): apoyo conductual y refuerzo claro, con los padres. <span class="mono">HECHO VERIFICADO</span></li><li>Efecto de las estrellas dentro de una app y revisión de las lecciones por un profesional: <span class="mono">POR CONFIRMAR</span></li></ul></details>' +
     '<div class="dim mono cpmini">Las voces de las criaturas usan síntesis de voz del navegador y pueden silenciarse; no se activa reconocimiento de voz ni biometría. El código no envía datos a proveedores, aunque algunas voces del sistema operativo podrían necesitar un servicio del fabricante. La versión neuronal propia de alta fidelidad sigue pendiente.</div>';
+}
+/* Piezas GOLD reutilizadas de la portada A2: mismo material, luz y profundidad. */
+const KENDRA_ICON_OBJECTS = Object.freeze({
+  aprender: 'school', vestidor: 'sparkles', tienda: 'shopping-cart',
+  mundo: 'sun', hablar: 'mic', papa: 'lock'
+});
+function kendraTabIcon(tab) {
+  const key = KENDRA_ICON_OBJECTS[tab];
+  return key ? '<span class="cp-3d-icon" aria-hidden="true">' +
+    gIco(key, 'cp-3d-object') + '</span>' : '';
 }
 function vCompanero(M, X, sub) {
   const C = compState(), p = compProfile(), cr = Companion.getCreature(C.creatureId), name = Companion.displayName(p), ok3d = !!(window.JanusStage3D && JanusStage3D.supported() && window.JanusCreatures3D);
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
-  const world = C.tab === 'mundo' || !!COMP_UI.lesson;
-  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen del viewport.
-  // La escena de las lecciones conserva el antiguo motor, con casa/vehiculos/objetos.
-  // El arte estático es una alternativa explicita o fallback honesto cuando falla WebGL.
-  const edgeSupported = !!(window.JanusEdgeCompanion && JanusEdgeCompanion.supported());
-  const edge = !world && C.visualMode !== 'cinematic' && C.visualMode !== '3d' && edgeSupported;
-  const cinematic = !world && !edge && (C.visualMode !== '3d' || !ok3d);
-  const scene3d = !edge && !cinematic && ok3d;
-  const tools = world ? '' :
-    '<div class="cp-edge-tools">' +
-      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D prueba</button>' : '') +
-      (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
-      '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte aprobado</button>' +
-      (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
-        '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
-    '</div>';
+  // Activar la escena WebGL SOLO cuando el modelo 3D real superó el contrato
+  // de JanusCreatureSlot; nunca utilizar muñecos procedurales no aprobados.
+  const scene3d = Boolean(ok3d && window.JanusCreatureSlot?.has?.(C.creatureId));
+  const cinematic = !scene3d, edge = false;
+  const tools = '';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
     (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
-  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
-  return frame('companero', sub, M, stage + panel3);
+  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + kendraTabIcon(t[0]) + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cp-pilot-camera"><button type="button"' + act('pilotCamera', 'kendra', 'Abrir cámara privada de Kendra') + '>' + gIco('smartphone', 'cp-camera-object') + ' Mi cámara</button></div><div class="cptc">' + body(p, name) + '</div></section>';
+  return frame('companero', sub, M, stage + panel3, name);
 }
 VIEWS.companero = vCompanero;
-TABS.push(['companero', '🦊', 'Compañero']);
+TABS.push(['companero', '🦊', 'Mi criatura']);
 
 const nowHM = () => { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
 const newSeed = () => (Date.now() % 9973) + 1;
@@ -371,11 +375,11 @@ function cpRenameCommit(raw) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; saveState(); },
+  cpTab: (t) => { const C = compState(); C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; COMP_UI.toast = 'Preferencia QA guardada. Hasta aprobación visual solo se muestra el arte original.'; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
-  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!window.JanusCreatureSlot?.has?.(id)) C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
+  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
   cpRename: () => cpRenameCommit(field('cpName')),
   cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
@@ -471,6 +475,20 @@ const COMP_ACTS = {
   cpLight: (l) => { const C = compState(), sc = Companion.SCENARIOS[C.sc % Companion.SCENARIOS.length], r = Companion.answerScenario(sc, l); COMP_UI.scFb = (r.correct ? '✔ ' : '↺ ') + r.feedback; cpSay(r.feedback, r.correct ? 'celebra' : 'piensa'); if (r.correct) C.sc++; saveState(); },
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
+    // Child-safety evidence gate is executed BEFORE the normal companion reply.
+    // No sensitive raw input is written to the child state or sent to a model.
+    const evidence = window.JanusChildSafety && JanusChildSafety.assess(msg);
+    if (evidence) {
+      if (evidence.notifyAdult) {
+        const severity = evidence.level === 'urgent' ? 'urgente' : 'importante';
+        const topic = evidence.topic === 'bullying' ? 'Acoso o intimidación' : 'Seguridad de Kendra';
+        C.alerts.push({ at: nowHM(), severity, summary: topic + ': se recomienda hablar con un adulto de confianza.' });
+        C.alerts = C.alerts.slice(-20);
+      }
+      compSave(p);
+      cpSay(evidence.reply, evidence.notifyAdult ? 'saluda' : 'habla');
+      return;
+    }
     const reply = '¡Te escucho, ' + CHILD + '! Cuéntame más, me encanta escucharte.';
     const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
     if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));

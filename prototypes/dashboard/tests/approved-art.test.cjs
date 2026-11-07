@@ -32,14 +32,17 @@ test('without art pack, existing approved portraits are still visible, no synthe
  assert.ok(build.includes("crypto.createHash('sha256')"),'the exact founder-approved SHA is checked before embedding');
  assert.ok(build.includes("'data:image/webp;base64,' + bytes.toString('base64')"));;
 });
-test('migrate old procedural default to official art, but keep 3D as explicit optional mode',()=>{
- assert.ok(companion.includes('C.visualPolicyVersion !== 20261106'));
- assert.ok(companion.includes("if (!verifiedGLB) C.visualMode = 'cinematic'"));
- assert.ok(companion.includes('C.visualMode = \'cinematic\'')); 
- assert.ok(companion.includes('3D prueba'));
- assert.ok(companion.includes('Arte aprobado'));
- assert.ok(companion.includes('C.visualMode = \'3d\''),'interactive learning stage preserved');
- assert.ok(companion.includes("JanusEdgeCompanion.sync"));
+test('official art is the only visible creature until validated photorealistic 3D exists',()=>{
+ assert.ok(companion.includes("C.visualPolicyVersion !== '2026-11-06-approved-art-gate'"));
+ assert.ok(companion.includes("if (C.userSelectedVisualMode !== true) C.visualMode = 'cinematic'"));
+ assert.ok(companion.includes("C.visualMode = 'cinematic'"));
+ assert.ok(companion.includes("const scene3d = Boolean(ok3d && window.JanusCreatureSlot?.has?.(C.creatureId))"));
+ assert.ok(companion.includes('const cinematic = !scene3d, edge = false'));
+ assert.ok(companion.includes("JanusPresence.render('kendra', false, C.creatureId)"));
+ assert.ok(companion.includes("data-stage3d"),'real validated GLB enters the integrated 3D stage');
+ assert.ok(companion.includes("JanusEdgeCompanion.sync"),'existing renderer preserved as technical history');
+ assert.ok(!companion.includes("if (C.tab === 'mundo') C.visualMode = '3d'"),
+  'the learning/world tab cannot silently switch to unapproved procedural models');
 });
 test('official fashion art keeps real store identifiers, prices and purchase gating',()=>{
  assert.ok(companion.includes('cpArtIcon(it.key,it.icon)'));

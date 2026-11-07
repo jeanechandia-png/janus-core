@@ -10,6 +10,8 @@ const AV_MOODS = [['alegre','Alegre'],['contento','Contento'],['triste','Triste'
 const AV_EYES = [['#347DB8','Azul Nexo'],['#8EC8FF','Azul claro'],['#59E4D4','Turquesa'],['#FFD36A','Dorado'],['#FF8FB6','Rosa'],['#B79CFF','Lila']];
 const AV_VARIANTS = [['masculino', 'Masculino'], ['femenino', 'Femenino']];
 const avVariant = () => ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
+// Conserva las tres vistas aprobadas. La cara y la cabeza NUNCA son piezas flotantes:
+// el renderer usa encuadres del mismo GLB validado de Nexo, o mantiene la vista segura.
 const avForm = () => AV_FORMS.some(x => x[0] === ST.settings.form) ? ST.settings.form : 'robot';
 const avFormName = f => (AV_FORMS.find(x=>x[0]===f)||['robot','Robot completo'])[1];
 function avatarSync() {
@@ -21,8 +23,8 @@ function avatarSync() {
 }
 function avatarGear() {
   const open=avOpen();
+  // La variante pertenece a ajustes, no al frente de la escena ni al control protagonista.
   return '<span class="avgear">' +
-    '<span class="avg"' + act('avVariantNext', '', 'Cambiar entre versión masculina y femenina de Nexo') + ' aria-label="Cambiar versión de Nexo">↔</span>' +
     '<span class="avg"' + act('avToggle', '', open ? 'Plegar personalización Nexo' : 'Personalizar Nexo') +
       ' aria-expanded="' + open + '">' + gIco('settings') + '</span></span>';
 }
@@ -37,8 +39,7 @@ function avatarPanel() {
   const mood=window.Janus3D&&Janus3D.mood?Janus3D.mood():'contento';
   const open=avOpen();
   const bar='<div class="avbar mono"' + act('avToggle','','Personalizar Nexo') +
-    ' aria-expanded="' + open + '"><span>Nexo 02 · ' + (v==='femenino'?'Femenino':'Masculino') +
-    ' · ' + esc(mood) + '</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
+    ' aria-expanded="' + open + '"><span>Nexo 02 · ' + esc(mood) + '</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
   if (!open) return bar;
   return '<div class="avc">' + bar + '<div class="avbody">' +
     '<div class="avh mono">Versión del robot</div><div class="avr">' +
@@ -59,7 +60,7 @@ function avatarPanel() {
       '<input type="file" accept=".glb,model/gltf-binary" data-slotfile="'+glbId+'" aria-label="Importar GLB '+v+'"></label>' +
       (inf?chip('cpSlotDel',glbId,'Quitar modelo GLB',false):'')+'</div>':'')+
     '<p class="avn mono dim">' + (inf?'Modelo importado: '+esc(inf.name)+'. '+esc(inf.summary):
-      'Se está mostrando el Nexo 3D plateado procedural. El modelo de cine con fidelidad exacta a la imagen aprobada aún requiere importar el GLB riggeado de esta versión.')+
+      'Se conserva el Nexo 02 aprobado. La vista 3D queda reservada hasta importar el GLB riggeado; no se muestra el robot procedural rechazado.')+
     '</p></div></div>';
 }
 const AV_UI={open:null};

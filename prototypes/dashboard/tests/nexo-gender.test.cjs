@@ -93,17 +93,22 @@ test('el usuario selecciona y conserva variante en ST.settings; no altera Kendra
  vm.runInContext('AV_ACTS.avVariant("otro")',ctx);assert.equal(settings.nexoVariant,'masculino');
  assert.equal(vm.runInContext('AV_FORMS.some(x=>x[0]==="lumi")',ctx),false,'criaturas fuera del Founder');
 });
-test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
+test('render A/B mantiene la variante seleccionada de Nexo sin invadir el protagonista con el selector',()=>{
  const settings={nexoVariant:'femenino'},ST={settings,comp:{creatureId:'bombo'}};
  const ctx=vm.createContext({window:{},ST,IMG:{cLumi:'l',cBombo:'b',cMusgo:'m',cNimbo:'n'},compState:()=>ST.comp});
  vm.runInContext(read('lego/janus-presence/janus-presence.js'),ctx);
  for(const size of [false,true]){
   const html=vm.runInContext('JanusPresence.render("founder",'+size+')',ctx);
   assert.match(html,/data-nexo-variant="femenino"/);
-  assert.match(html,/data-3d="bot"/);
-  assert.match(html,/data-act="avVariant"/);
+  assert.match(html,/jnexo-voice-standby/,'sin GLB no se presenta robot procedural rechazado');
+  assert.doesNotMatch(html,/data-3d="bot"/,'sin Nexo aprobado no hay ojos o boca flotantes');
+  assert.doesNotMatch(html,/data-act="avVariant"/,'selector solo en configuración, no sobre la figura');
+  assert.doesNotMatch(html,/>Masculino<|>Femenino</,'sin etiquetas gigantes sobre el robot');
   assert.doesNotMatch(html,/data-jpresence="bombo"/);
  }
+ // Si aparece el GLB real para la variante elegida, el escenario se reactiva.
+ ctx.window.JanusCreatureSlot={has:(id)=>id==='robot-femenino'};
+ assert.match(vm.runInContext('JanusPresence.render("founder",false)',ctx),/data-3d="bot"/);
  const glb=read('lego/janus-creature-slot/janus-creature-slot.js');
  assert.match(glb,/robot-femenino/);
  assert.match(glb,/sort\(\(a,b\)=>b\.length-a\.length\)/);
@@ -116,4 +121,30 @@ test('render accesible A/B usa Nexo en dos variantes y el mismo selector',()=>{
  assert.match(build,/janus-nexo-3d\/janus-nexo-3d.js/);
  const app=read('src/app.js');
  assert.doesNotMatch(app,/ROUTE\.v !== 'companero' && window\.Janus3D/);
+});
+
+test('la cabeza y el rostro aprobados permanecen seleccionables; no hay ojos flotantes',()=>{
+ const ST={settings:{nexoVariant:'masculino',form:'robot',eyes:'#347DB8'},comp:{creatureId:'lumi'}};
+ const selected=[];
+ const J={setVariant(){},setEyes(){},setLook(){},setForm(f){selected.push(f);},react(){},setMood(){},mood:()=> 'contento'};
+ let saves=0;
+ const ctx=vm.createContext({ST,Janus3D:J,window:{Janus3D:J,innerWidth:390,JanusCreatureSlot:{supported:()=>false}},
+   saveState:()=>saves++,act:()=>'',esc:String,gIco:()=>'',isPhone:()=>true,rerender:()=>{}});
+ vm.runInContext(read('src/avatar.js'),ctx);
+ assert.match(vm.runInContext('avatarPanel()',ctx),/Cabeza/);
+ assert.match(vm.runInContext('avatarPanel()',ctx),/Rostro/);
+ vm.runInContext('AV_ACTS.avForm("cabeza")',ctx);
+ assert.equal(ST.settings.form,'cabeza');
+ assert.equal(selected.at(-1),'cabeza');
+ vm.runInContext('AV_ACTS.avForm("cara")',ctx);
+ assert.equal(ST.settings.form,'cara');
+ assert.equal(selected.at(-1),'cara');
+ assert.ok(saves>=2,'selección guardada localmente');
+ const engine=read('lego/janus-3d/janus-3d.js');
+ assert.match(engine,/if \(f === 'robot' \|\| f === 'cabeza' \|\| f === 'cara'\)/);
+ assert.match(engine,/const approved = !!\(slot && slot\.has && slot\.has\(glbKey\)\)/);
+ assert.match(engine,/if \(f === 'cabeza'\) fitTo\(o, rig\.root/);
+ assert.match(engine,/else if \(f === 'cara'\) fitTo\(o, rig\.root/);
+ assert.doesNotMatch(engine,/if \(f === 'cara' && FC\)/,'prohibido usar cara procedural flotante');
+ assert.doesNotMatch(engine,/if \(f === 'cabeza' && FC\)/,'prohibido montar otra cara encima de la cabeza');
 });
