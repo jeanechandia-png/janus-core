@@ -51,7 +51,8 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
         webgl:typeof THREE!=='undefined' && !!document.createElement('canvas').getContext('webgl')
       };
     });
-    assert.ok(icons3D.tones.length>=4,'botones multicolor, no todos dorados');
+    assert.deepEqual(icons3D.tones,['bronze'],
+      'todas las pestañas mantienen volumen pero NO bordes arcoíris');
     if(icons3D.webgl && icons3D.total>0){
       // El runtime reside en el bundle encapsulado; no exigir variable global.
       // El único criterio válido es que existan canvas con PÍXELES reales.
