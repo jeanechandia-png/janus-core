@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "ownerPrincipalId": "founder",
-  "updatedAt": "2026-10-22T23:10:00.000Z",
+  "updatedAt": "2026-11-07T00:00:00.000Z",
   "records": [
     {
       "id": "social-facebook-share-19TFEYdcNk",
@@ -194,7 +194,7 @@
       "kind": "policy",
       "classification": "current",
       "label": "Vista previa navegable antes del zip",
-      "value": "La vista previa siempre va antes que cualquier zip o paquete. Debe ser navegable (no estática) y verse bien en iPhone. El Founder califica y decide; Janus no aprueba su propio trabajo. Solo tras la aprobación del Founder se empaqueta.",
+      "value": "Filtros estructural, visual, arquitectónico y coherencia, con segunda pasada independiente, antes de entregar. La vista previa debe ser del código REAL aprobado, navegable, con acciones efectivas y utilizable en Safari/iPhone; una pantalla fallback (janus-static-preview), un archivo abierto en Quick Look, una imagen de referencia, HTML genérico o una simulación no sustituyen esa experiencia. Confirmar la URL real y el runtime; no confundir pruebas unitarias/CI con aceptación estética ni Safari físico. El Founder decide y solo después se puede empaquetar/publicar; Janus nunca se autoaprueba.",
       "retention": "preserve",
       "tags": [
         "operating-norm",
@@ -238,7 +238,7 @@
       "kind": "policy",
       "classification": "current",
       "label": "Continuidad entre agentes, sin duplicar",
-      "value": "Cuando llegue un agente (Claude, ChatGPT, Codex u otro) debe encontrar el proyecto central, leer START_HERE.md, docs/STATE.md y docs/PROJECT_MAP.md, revisar ramas y PR abiertos y continuar desde donde lo dejó el anterior. Prohibido crear copias, reiniciar o rehacer lo que ya existe; el producto debe evolucionar, mejorar y crecer.",
+      "value": "Al iniciar cada tarea, Janus identifica el repositorio canónico jeanechandia-png/janus-core, lee START_HERE.md, docs/STATE.md y docs/PROJECT_MAP.md, recupera decisiones cronológicas, revisa cambios y PR, distingue APROBADO, DESCARTADO, PROPUESTO y NO VERIFICADO; jamás presenta una rama, prototipo, variante, mockup, landing, demo o fallback como la versión oficial. Una sola línea visual autorizada por el Founder: no crear nuevos repositorios, ramas paralelas, copias, rediseños, iconos, botones o secciones no solicitadas. No reemplazar cabeza original Nexo, micrófono único integrado, paneles, gráficas, criaturas ni sus permisos. Si falta prueba de cuál es el commit/arte aprobado, detener cambios visuales y hacer solo auditoría o reparaciones de núcleo no destructivas en el repositorio canónico; no inventar aprobación. Asegurar continuidad con commit, QA, pendientes y handoff para el agente siguiente. Las instrucciones recientes explícitas del Founder prevalecen sobre propuestas antiguas.",
       "retention": "preserve",
       "tags": [
         "operating-norm",
