@@ -1,6 +1,6 @@
 # JanusEdgeCompanion · LEGO 3D (Kendra)
 
-Módulo local/offline para que una criatura viva **en el margen visible de pantalla** y no sólo dentro de una tarjeta. Usa un único renderer WebGL transparente reutilizable. No lleva voz, memoria ni economía propia: consume las piezas existentes `JanusCreatures3D`, `JanusCreatureSlot`, `Companion`, el estado `ST.comp` y `JanusFurWind`.
+Módulo local/offline para que una criatura viva **en el margen interior de su escenario 3D** y no sólo dentro de una tarjeta. Usa un único renderer WebGL transparente reutilizable. No lleva voz, memoria ni economía propia: consume las piezas existentes `JanusCreatures3D`, `JanusCreatureSlot`, `Companion`, el estado `ST.comp` y `JanusFurWind`.
 
 ## Contrato
 
@@ -20,7 +20,7 @@ E.react('saluda', 2.2, 'alegre');
 E.state(); E.hide();
 ```
 
-El componente se monta al final de `document.body` para no quedar recortado por el `overflow` de las tarjetas. La criatura sólo captura eventos dentro de su canvas; puede desplazarse verticalmente por el lateral sin atravesar los formularios del centro. El usuario puede arrastrarla al otro margen, cambiar el margen mediante botón, pausar el paseo y tocar para activar gestos y voz del compañero. La voz existente llama **Kendra**, no «hija» ni «papá».
+El componente se monta dentro de `.cpst3.edge-hero` existente y se recorta con el escenario. Su posición usa coordenadas locales, no coordenadas del viewport: nunca se muestra como ventana flotante encima de los formularios. La criatura sólo captura eventos dentro de su canvas; puede desplazarse verticalmente por el interior de la escena, sin atravesar los formularios del dashboard. El usuario puede arrastrarla al otro margen, cambiar el margen mediante botón, pausar el paseo y tocar para activar gestos y voz del compañero. La voz existente llama **Kendra**, no «hija» ni «papá».
 
 En el modo «Mi mundo» y durante las lecciones el componente se oculta y reaparece la escena `JanusStage3D`, con sus vehículos, casas, fichas, actividades y recompensas intactas. El arte original `JanusPresence` continúa como opción «Arte» y fallback si no hay GPU.
 

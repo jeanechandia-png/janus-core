@@ -22,7 +22,6 @@ function avatarSync() {
 function avatarGear() {
   const open=avOpen();
   return '<span class="avgear">' +
-    '<span class="avg"' + act('avVariantNext', '', 'Cambiar entre versión masculina y femenina de Nexo') + ' aria-label="Cambiar versión de Nexo">↔</span>' +
     '<span class="avg"' + act('avToggle', '', open ? 'Plegar personalización Nexo' : 'Personalizar Nexo') +
       ' aria-expanded="' + open + '">' + gIco('settings') + '</span></span>';
 }
@@ -37,8 +36,7 @@ function avatarPanel() {
   const mood=window.Janus3D&&Janus3D.mood?Janus3D.mood():'contento';
   const open=avOpen();
   const bar='<div class="avbar mono"' + act('avToggle','','Personalizar Nexo') +
-    ' aria-expanded="' + open + '"><span>Nexo 02 · ' + (v==='femenino'?'Femenino':'Masculino') +
-    ' · ' + esc(mood) + '</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
+    ' aria-expanded="' + open + '"><span>Personalización de Janus</span><b>' + (open?'Plegar ▴':'Personalizar ▾') + '</b></div>';
   if (!open) return bar;
   return '<div class="avc">' + bar + '<div class="avbody">' +
     '<div class="avh mono">Versión del robot</div><div class="avr">' +
@@ -63,7 +61,7 @@ function avatarPanel() {
     '</p></div></div>';
 }
 const AV_UI={open:null};
-const avOpen=()=>AV_UI.open===null?(typeof isPhone==='function'?isPhone():window.innerWidth<700):AV_UI.open;
+const avOpen=()=>AV_UI.open===null ? false : AV_UI.open; // Personalización plegada por defecto en TODOS los dispositivos.
 const AV_ACTS={
   avToggle:()=>{AV_UI.open=!avOpen();if(typeof rerender==='function')rerender();},
   avForm:(f)=>{

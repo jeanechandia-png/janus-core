@@ -66,7 +66,16 @@ const APPROVED_ART = {
     Object.values(approvedExpressions).flat().every((name) => !!approvedImage(name))
 };
 
-const files = ['src/skin-map.js', 'src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/dash-b.js', 'src/phone.js', 'src/phonev.js', 'src/platform-finops.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'vendor/cited-answer.js', 'src/ofertas.js', 'vendor/companion.js', 'lego/janus-cartoon-voice/janus-cartoon-voice.js', 'src/companero.js', 'lego/janus-presence/janus-presence.js', 'src/avatar.js', 'vendor/home-scenes.js', 'src/casa.js', 'src/briefing.js', 'vendor/drone-weather.js', 'vendor/three-r160.min.js', 'vendor/gltf-kit.js', 'lego/janus-fur-wind/janus-fur-wind.js', 'lego/janus-nexo-3d/janus-nexo-3d.js', 'lego/janus-3d/janus-3d.js', 'lego/janus-creatures-3d/janus-creatures-3d.js', 'lego/janus-face-3d/janus-face-3d.js', 'lego/janus-creature-slot/janus-creature-slot.js', 'lego/janus-model-gateway/janus-model-gateway.js', 'vendor/jsqr.js', 'lego/janus-attach/janus-attach.js', 'src/adjuntos.js', 'lego/janus-stage-3d/janus-stage-3d.js', 'lego/janus-edge-companion/janus-edge-companion.js', 'src/phonea2.js', 'src/clima2.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
+// No generated stand-ins become canonical by compiling: visual + integrity gate.
+const approvedModels = require('./tools/verified-creature-glb.cjs').collect();
+if (approvedModels.errors.length)
+  throw new Error('GLB rechazado: ' + JSON.stringify(approvedModels.errors));
+const APPROVED_GLBS = approvedModels.models;
+if (process.argv.includes('--require-approved-3d') && !approvedModels.complete)
+  throw new Error('FALTAN GLB HIPERREALISTAS VALIDADOS: ' +
+    Object.keys(APPROVED_GLBS).length + '/4. No declarar el producto terminado.');
+
+const files = ['src/skin-map.js', 'src/lib.js', 'src/icons.js', 'src/weather.js', 'src/data.js', realFile, 'src/dash.js', 'src/dash-b.js', 'src/phone.js', 'src/phonev.js', 'src/platform-finops.js', 'src/views.js', 'vendor/deal-radar.js', 'vendor/mail-hub.js', 'vendor/cited-answer.js', 'src/ofertas.js', 'vendor/companion.js', 'lego/janus-cartoon-voice/janus-cartoon-voice.js', 'src/companero.js', 'lego/janus-presence/janus-presence.js', 'src/avatar.js', 'vendor/home-scenes.js', 'src/casa.js', 'src/briefing.js', 'vendor/drone-weather.js', 'vendor/three-r160.min.js', 'vendor/gltf-kit.js', 'lego/janus-fur-wind/janus-fur-wind.js', 'lego/janus-nexo-3d/janus-nexo-3d.js', 'lego/janus-3d/janus-3d.js', 'lego/janus-creatures-3d/janus-creatures-3d.js', 'lego/janus-face-3d/janus-face-3d.js', 'lego/janus-creature-slot/janus-creature-slot.js', 'lego/janus-creature-slot/janus-approved-glb-bootstrap.js', 'lego/janus-model-gateway/janus-model-gateway.js', 'vendor/jsqr.js', 'lego/janus-attach/janus-attach.js', 'src/adjuntos.js', 'lego/janus-stage-3d/janus-stage-3d.js', 'lego/janus-edge-companion/janus-edge-companion.js', 'src/phonea2.js', 'src/clima2.js', 'lego/janus-activity/janus-activity.js', 'lego/janus-gold/janus-gold.js', 'src/projects.js', 'src/sala.js', 'src/depth.js', 'src/app.js'];
 
 const GA = 'lego/janus-gold/assets/pulido/', gw = (f) => 'data:image/webp;base64,' + b64(GA + f);
 const GLY = JSON.parse(rd(GA + 'glyphs.json')).chars;
@@ -75,7 +84,7 @@ for (const f of fs.readdirSync(path.join(D, GA))) if (/^i-.*\.webp$/.test(f)) GO
 [...GLY].forEach((ch, i) => { GOLD.g[ch] = gw('g' + i + '.webp'); });
 GOLD.o = {}; for (const f of fs.readdirSync(path.join(D, 'lego/janus-gold/assets/obj'))) if (f.endsWith('.webp')) GOLD.o[f.slice(0, -5)] = 'data:image/webp;base64,' + b64('lego/janus-gold/assets/obj/' + f);
 const MARBLE = "url(\"data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="430" height="1100"><filter id="m"><feTurbulence type="fractalNoise" baseFrequency=".004 .012" numOctaves="5" seed="7"/><feColorMatrix values="0 0 0 0 .62  0 0 0 0 .5  0 0 0 0 .34  0 0 0 -2.6 1.55"/></filter><rect width="100%" height="100%" fill="#0a0908"/><rect width="100%" height="100%" filter="url(#m)" opacity=".55"/></svg>') + "\")";
-let js = 'const BUILD_SKIN=' + JSON.stringify(SKIN) + ';\nconst IMG=' + JSON.stringify(IMG) + ';\nconst APPROVED_ART=' + JSON.stringify(APPROVED_ART) + ';\nconst GOLD=' + JSON.stringify(GOLD) + ';\n' + files.map(rd).join('\n');
+let js = 'const BUILD_SKIN=' + JSON.stringify(SKIN) + ';\nconst IMG=' + JSON.stringify(IMG) + ';\nconst APPROVED_ART=' + JSON.stringify(APPROVED_ART) + ';\nconst APPROVED_GLBS=' + JSON.stringify(APPROVED_GLBS) + ';\nconst GOLD=' + JSON.stringify(GOLD) + ';\n' + files.map(rd).join('\n');
 const FONTS = [['Cinzel', 700, 'cinzel-latin-700'], ['Cinzel', 900, 'cinzel-latin-900'], ['Bodoni Moda', 500, 'bodoni-moda-latin-500'], ['Bodoni Moda', 700, 'bodoni-moda-latin-700'], ['Instrument Sans', 400, 'instrument-sans-latin-400'], ['Instrument Sans', 500, 'instrument-sans-latin-500'], ['Instrument Sans', 600, 'instrument-sans-latin-600'], ['IBM Plex Mono', 400, 'ibm-plex-mono-latin-400'], ['IBM Plex Mono', 500, 'ibm-plex-mono-latin-500'], ['IBM Plex Mono', 600, 'ibm-plex-mono-latin-600'],
   // Piel B · Platino
   ['Sora', 600, 'sora-latin-600'], ['Sora', 700, 'sora-latin-700'], ['Manrope', 400, 'manrope-latin-400'], ['Manrope', 500, 'manrope-latin-500'], ['Manrope', 600, 'manrope-latin-600'], ['Manrope', 700, 'manrope-latin-700'], ['DM Mono', 400, 'dm-mono-latin-400'], ['DM Mono', 500, 'dm-mono-latin-500']];
@@ -92,28 +101,19 @@ for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = cs
 
 // Fallback de primera pintura: Quick Look/visor de iPhone y lectores de HTML no
 // ejecutan de forma fiable el JS embebido. Nunca entregar una pantalla negra.
-// El fallback es una VISTA PREVIA estática; no se confunde con la app interactiva.
-const fallbackBrand = 'data:image/webp;base64,' + b64('lego/janus-gold/assets/pulido/janus.webp');
+// Quick Look no ejecuta JS ni WebGL. No dibujar un dashboard falso.
 const previewPalette = SKIN === 'b' ? 'platinum' : 'obsidian';
-const previewName = SKIN === 'b' ? 'Platino B' : 'Obsidiana A';
-const fallback = '<div id="janus-static-preview" class="janus-static ' + previewPalette + '">' +
-  '<div class="js-phone">' +
-  '<div class="js-strap"><b>JANUS</b><span>' + previewName + '</span><strong>● VISTA PREVIA</strong></div>' +
-  '<div class="js-hero"><div class="js-avatar"><img src="' + fallbackBrand + '" alt="Identidad de Janus"></div>' +
-  '<div><small>ASISTENTE PERSONAL</small><h1>Hola, Jean.</h1><p>Tu espacio de trabajo, proyectos y vida personal, en un mismo lugar.</p></div></div>' +
-  '<div class="js-actions"><span>✉ Correo</span><span>▤ Ofertas</span><span>✓ Tareas</span><span>☀ Clima</span></div>' +
-  '<div class="js-hdr">MI ESPACIO <small>Acceso a los módulos</small></div>' +
-  '<div class="js-stack"><div><strong>◷</strong><b>Mi día</b><small>Agenda personal y laboral</small></div>' +
-  '<div><strong>▣</strong><b>Proyectos</b><small>Trabajo y seguimiento</small></div>' +
-  '<div><strong>✧</strong><b>Janus · Nexo</b><small>Asistente operativo</small></div>' +
-  '<div><strong>★</strong><b>Kendra</b><small>Su mundo y sus criaturas</small></div></div>' +
-  '<div class="js-note"><b>Vista previa del archivo</b><p>El visor de archivos del iPhone puede bloquear JavaScript y WebGL. Esta imagen de la interfaz es estática; para usar los controles se necesita abrir la versión web de JANUS en Safari.</p></div>' +
-  '<div class="js-footer">INFINITY SEED GROUP · LOCAL FIRST</div>' +
+const previewName = SKIN === 'b' ? 'Modo claro metálico' : 'Modo oscuro';
+const fallback = '<div id="janus-js-unavailable" class="janus-static ' + previewPalette + '">' +
+  '<div class="js-phone"><div class="js-strap"><b>JANUS</b><span>' + previewName + '</span></div>' +
+  '<p class="js-preview-help" role="status">Esta es la aplicación interactiva original de JANUS. ' +
+  'El visor de documentos no ejecuta JavaScript o WebGL. Abre este HTML en un navegador compatible ' +
+  'para usar el dashboard real. Ninguna imagen estática sustituye a la interfaz aprobada.</p>' +
   '</div></div>';
 const fallbackCss = `
 /* JS ausente o restringido: primera pintura real en Quick Look y modo documento. */
-#janus-static-preview{display:block;position:relative;z-index:1;min-height:100dvh}
-html.janus-ready #janus-static-preview{display:none!important}
+#janus-js-unavailable{display:block;position:relative;z-index:1;min-height:100dvh}
+html.janus-ready #janus-js-unavailable{display:none!important}
 html:not(.janus-ready),html:not(.janus-ready) body{height:auto!important;min-height:100%!important;overflow:auto!important}
 html:not(.janus-ready) .stage{display:none!important}
 .janus-static{--js-bg:#0d0c14;--js-surface:#1c1a28;--js-text:#faf5eb;--js-mute:#c3b8a5;--js-line:#776145;--js-accent:#e8c37a;
@@ -143,6 +143,7 @@ html:not(.janus-ready) .stage{display:none!important}
 .janus-static .js-note b{color:var(--js-accent)}
 .janus-static .js-note p{margin:6px 0 0;color:var(--js-mute)}
 .janus-static .js-footer{text-align:center;font-size:9px;color:var(--js-mute);padding:10px 0;letter-spacing:.12em}
+.janus-static .js-preview-help{margin:22px 0;padding:20px 17px;background:var(--js-surface);border:1.5px solid var(--js-line);border-radius:18px;line-height:1.6;font-size:15px;box-shadow:inset 0 1px 0 #ffffff24,0 14px 22px -14px #0008}
 `;
 const head = '';
 const body = fallback + '<div class="stage a" id="app"><div id="dash" style="display:contents"></div><div id="view" hidden></div></div>\n<script>\n(function(){\n' + js +
@@ -159,6 +160,7 @@ const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
 console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', has('local/names.json') ? 'local' : 'genéricos');
+console.log('MODELOS 3D APROBADOS:',Object.keys(APPROVED_GLBS).length+'/4; acabado 3D final:',approvedModels.complete?'VERIFICADO':'PENDIENTE');
 // Variante para vista previa navegable alojada (Artifact): sin esqueleto propio.
 const artArg = process.argv.indexOf('--artifact');
 if (artArg > 0) {

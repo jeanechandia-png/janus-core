@@ -11,18 +11,35 @@ const CREAT_IMG = { lumi: CP_APPROVED.creatures.lumi || IMG.cLumi, bombo: CP_APP
 // Approved art takes visual priority; procedural 3D is explicitly technical preview.
 const cpArtIcon = (key, fallback) => {
   const image = CP_APPROVED.accessories[key];
-  return image ? '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">' : fallback;
+  if (image) return '<img class="cp-approved-item" src="' + image + '" alt="" decoding="async">';
+  // No inventar una imagen específica del artículo: símbolo de categoría 3D
+  // real del inventario, con estado honesto hasta que exista su render/GLB.
+  const kind = String(key).split(':')[0];
+  const assetKey = { out:'tag', acc:'sparkles', home:'folder', veh:'bike', dec:'sparkles' }[kind];
+  const asset = assetKey && typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[assetKey];
+  if (asset) return '<img class="cp-approved-item cp-category-art" src="' + asset + '" alt="" ' +
+    'title="Icono de categoría 3D. Render definitivo del accesorio pendiente" decoding="async">';
+  return '<span class="cp-model-pending" title="Icono 3D del artículo pendiente">3D</span>';
 };
 const CHILD = 'Kendra'; // nombre de la usuaria, NO relación parental ni identidad del Founder
 const CP_STAGE = 'kendra';
-const CP_TABS = [['aprender', '🧮', 'Aprender'], ['vestidor', '👗', 'Vestidor'], ['tienda', '⭐', 'Tienda'], ['mundo', '🏠', 'Mi mundo'], ['hablar', '💬', 'Hablar'], ['papa', '🔐', 'Papá']];
+// Reutilizamos renders de objetos 3D ya presentes en el producto, no emojis planos.
+const CP_TABS = [['aprender', 'school', 'Aprender'], ['vestidor', 'tag', 'Vestidor'], ['tienda', 'shopping-cart', 'Tienda'], ['mundo', 'plane', 'Mi mundo'], ['hablar', 'mic', 'Hablar'], ['papa', 'lock', 'Papá']];
+const cpTabArt = (key) => {
+  const src = typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[key];
+  return src ? '<img class="cp-tab-art" src="' + src + '" alt="" aria-hidden="true" decoding="async">' :
+    '<span class="cp-tab-unavailable" aria-label="Recurso 3D sin instalar">·</span>';
+};
 function compState() {
   if (!ST.comp) ST.comp = { creatureId: 'lumi', names: {}, level: 1, streak: 0, misses: 0, fails: 0, seed: 7, topic: 'multiplicacion', sc: 0, enc: { said: [], recent: [] }, alerts: [] };
   const C = ST.comp; if (!C.looks) C.looks = {}; if (!C.names || typeof C.names !== 'object') C.names = {}; if (!C.furStyles || typeof C.furStyles !== 'object') C.furStyles = {}; if (!C.voiceStyles || typeof C.voiceStyles !== 'object') C.voiceStyles = {}; if (!C.tab) C.tab = 'aprender'; if (!C.aspect) C.aspect = 'criatura';
-  if (C.visualPolicyVersion !== 20261106) {
-    const verifiedGLB = !!(window.JanusCreatureSlot && JanusCreatureSlot.has && JanusCreatureSlot.has(C.creatureId));
-    if (!verifiedGLB) C.visualMode = 'cinematic';
-    C.visualPolicyVersion = 20261106;
+  if (C.visualPolicyVersion !== 20261107) {
+    const verifiedGLB = !!window.JanusCreatureSlot?.has?.(C.creatureId);
+    const nativeStage = !!window.JanusEdgeCompanion?.supported?.();
+    // El modelo GLB verificado prevalece, luego la malla Three.js existente.
+    // Conservamos las elecciones manuales y no confundimos geometría con VFX final.
+    if (!C.userSelectedVisualMode) C.visualMode = verifiedGLB ? '3d' : nativeStage ? 'edge' : 'cinematic';
+    C.visualPolicyVersion = 20261107;
   }
   if (!['3d','edge','cinematic'].includes(C.visualMode)) C.visualMode = 'cinematic';
   return C;
@@ -318,7 +335,7 @@ function vCompanero(M, X, sub) {
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
   const world = C.tab === 'mundo' || !!COMP_UI.lesson;
-  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen del viewport.
+  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen interior del escenario.
   // La escena de las lecciones conserva el antiguo motor, con casa/vehiculos/objetos.
   // El arte estático es una alternativa explicita o fallback honesto cuando falla WebGL.
   const edgeSupported = !!(window.JanusEdgeCompanion && JanusEdgeCompanion.supported());
@@ -327,23 +344,23 @@ function vCompanero(M, X, sub) {
   const scene3d = !edge && !cinematic && ok3d;
   const tools = world ? '' :
     '<div class="cp-edge-tools">' +
-      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D prueba</button>' : '') +
+      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero 3D dentro del escenario') + '>3D prueba</button>' : '') +
       (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
       '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte aprobado</button>' +
       (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
         '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
     '</div>';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
-    (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
+    (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo dentro del escenario.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
     tools + '<div class="cpov">' + cpOverlay() + '</div></section>';
-  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + t[1] + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
+  const panel3 = '<section class="cptabs"><nav class="cptb">' + CP_TABS.map((t) => '<span class="cptab' + (C.tab === t[0] ? ' on' : '') + '"' + act('cpTab', t[0], t[2]) + '><i>' + cpTabArt(t[1]) + '</i><em class="mono">' + t[2] + '</em></span>').join('') + '</nav><div class="cptc">' + body(p, name) + '</div></section>';
   return frame('companero', sub, M, stage + panel3);
 }
 VIEWS.companero = vCompanero;
-TABS.push(['companero', '🦊', 'Compañero']);
+TABS.push(['companero', '🦊', 'Lumi']); // El título se actualiza con el nombre real en janusTabName.
 
 const nowHM = () => { const d = new Date(); return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
 const newSeed = () => (Date.now() % 9973) + 1;
@@ -365,11 +382,11 @@ function cpRenameCommit(raw) {
 }
 const COMP_ACTS = {
   cpNoop: () => { },
-  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') C.visualMode = '3d'; else if (wasWorld && !COMP_UI.lesson) C.visualMode = 'cinematic'; COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
-  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; saveState(); },
+  cpTab: (t) => { const C = compState(), wasWorld = C.tab === 'mundo'; C.tab = CP_TABS.some((x) => x[0] === t) ? t : 'aprender'; if (C.tab === 'mundo') { C.beforeWorldVisual = C.visualMode; C.visualMode = '3d'; } else if (wasWorld && !COMP_UI.lesson) C.visualMode = C.beforeWorldVisual || (window.JanusEdgeCompanion?.supported?.() ? 'edge' : 'cinematic'); COMP_UI.sel = C.tab === 'mundo' ? null : COMP_UI.sel; saveState(); },
+  cpVisual: (mode) => { const C = compState(); C.visualMode = ['3d', 'edge', 'cinematic'].includes(mode) ? mode : 'cinematic'; C.userSelectedVisualMode = true; saveState(); },
   cpEdgeSide: () => { const C = compState(); C.edgeSide = C.edgeSide === 'right' ? 'left' : 'right'; saveState(); },
   cpEdgeRoam: () => { const C = compState(); C.edgeRoam = C.edgeRoam === false; saveState(); },
-  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!window.JanusCreatureSlot?.has?.(id)) C.visualMode = 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
+  cpPick: (id) => { const C = compState(); if (!Companion.CREATURES.some((c) => c.id === id)) return; C.creatureId = id; if (!C.userSelectedVisualMode) C.visualMode = window.JanusCreatureSlot?.has?.(id) ? '3d' : window.JanusEdgeCompanion?.supported?.() ? 'edge' : 'cinematic'; COMP_UI.renaming = false; COMP_UI.voiceMsg = ''; saveState(); const c = Companion.getCreature(id); cpReset(); cpSay('¡Hola, ' + CHILD + '! ' + c.catchphrases[0], 'saluda'); },
   cpRenameOn: () => { COMP_UI.renaming = true; },
   cpRename: () => cpRenameCommit(field('cpName')),
   cpRenameWardrobe: () => cpRenameCommit(field('cpNewName')),
@@ -488,5 +505,10 @@ let SLOT_WIRED = false;
 function slotWire() {
   if (SLOT_WIRED || !window.JanusCreatureSlot || !JanusCreatureSlot.supported()) return; SLOT_WIRED = true;
   JanusCreatureSlot.onChange((id) => { if (window.Janus3D && Janus3D.refresh) Janus3D.refresh(); const I = (window.JanusStage3D && JanusStage3D._inst) || {}; Object.keys(I).forEach((k) => { try { I[k].refreshRig(id); } catch (e) { /* escena aún sin criatura */ } }); });
-  JanusCreatureSlot.restore().then((n) => { if (n && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender(); });
+  JanusCreatureSlot.restore().then(async (n) => {
+    // Restore personal models first; approved bundled GLBs never overwrite them.
+    const result = window.JanusApproved3D
+      ? await JanusApproved3D.install() : {installed:[]};
+    if ((n || result.installed.length) && typeof ROUTE !== 'undefined' && ROUTE.v === 'companero') rerender();
+  }).catch((e) => { console.warn('JANUS GLB: carga no completada',e); });
 }

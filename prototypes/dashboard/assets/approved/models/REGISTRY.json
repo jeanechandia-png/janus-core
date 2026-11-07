@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "project": "JANUS/KENDRA",
+  "status": "waiting-for-original-3d",
+  "reference": "prototypes/dashboard/assets/approved/INDEX.json",
+  "characters": {},
+  "approvalRequirements": [
+    "GLB binary glTF 2.0; one asset per official creature (lumi,bombo,musgo,nimbo)",
+    "13 skin bones, 10 accessory sockets, 8 face morph targets, 6 animation clips",
+    "Physically based baseColor and normal materials; <=80k triangles, <=15 MiB",
+    "SHA256 matched with reviewed asset and source illustration",
+    "Visual comparison front, side, back, face, accessories; Safari on physical iPhone",
+    "Only Jean may mark the visual evidence approved, before a final 3D bundle is shipped"
+  ],
+  "note": "No 3D is approved or bundled merely because generated, compiled or loaded. Never replace original 2D art with fixtures or procedural models."
+}

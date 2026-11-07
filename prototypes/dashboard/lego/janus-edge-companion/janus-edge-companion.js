@@ -1,8 +1,8 @@
 'use strict';
-/* LEGO JanusEdgeCompanion · 3D interactivo en los margenes de Kendra.
+/* LEGO JanusEdgeCompanion · 3D nativo dentro del escenario de Kendra.
  * Reutiliza JanusCreatures3D y JanusCreatureSlot: no crea personajes ni APIs nuevas.
  * Un solo renderer WebGL transparente, sin red. "Arte aprobado" queda como fallback.
- * Borde vertical patrullable, arrastre tactil, mirada, gestos, emociones y accesibilidad.
+ * Margen interno del escenario, arrastre tactil, mirada, gestos, emociones y accesibilidad.
  * En lecciones y "Mi mundo" se oculta: JanusStage3D conserva su propia escena.
  */
 const JanusEdgeCompanion = (() => {
@@ -21,51 +21,38 @@ const JanusEdgeCompanion = (() => {
   let nameNode = null;
 
   const smallScreen = () => window.innerWidth <= 760 || window.innerHeight <= 500;
-  // Restrict the roaming 3D companion to its OWN scene. On iPhone the previous
-  // body-fixed 230px canvas could hide answer fields, the shop and lesson controls.
-  // This remains a draggable 3D creature, not a replacement flat illustration.
+  // Coordinate system is ALWAYS local to the existing Kendra stage, never the viewport.
+  // This prevents the WebGL creature from turning into a floating window over lessons.
+  const stageHost = () => document.querySelector?.('.vb-companero .cpst3.edge-hero') || null;
   function box() {
-    const vw = window.innerWidth || 1024, vh = window.innerHeight || 768, mobile = smallScreen();
-    const stage = typeof document.querySelector === 'function'
-      ? document.querySelector('.vb-companero .cpst3') : null;
-    const rect = stage && typeof stage.getBoundingClientRect === 'function'
-      ? stage.getBoundingClientRect() : null;
-    let width = Math.min(mobile ? 174 : 340, Math.max(mobile ? 112 : 205, vw * (mobile ? 0.38 : 0.27)));
-    if (rect && rect.width > 120 && rect.height > 150) {
-      const pad = mobile ? 10 : 16;
-      const reserveTop = mobile ? 122 : 96;
-      const reserveBottom = mobile ? 104 : 84;
-      const tools = stage.querySelector && stage.querySelector('.cp-edge-tools');
-      const speech = stage.querySelector && stage.querySelector('.cpsay');
-      const footer = stage.querySelector && stage.querySelector('.cpbar');
-      const lesson = stage.querySelector && stage.querySelector('.cphud');
-      let top = rect.top + reserveTop;
-      for (const el of [tools, speech]) {
-        if (!el || typeof el.getBoundingClientRect !== 'function') continue;
-        const r = el.getBoundingClientRect();
-        if (r.height && r.bottom > rect.top && r.top < rect.bottom) top = Math.max(top, r.bottom + pad);
-      }
-      let floor = rect.bottom - reserveBottom;
-      for (const el of [footer, lesson]) {
-        if (!el || typeof el.getBoundingClientRect !== 'function') continue;
-        const r = el.getBoundingClientRect();
-        if (r.height && r.top < rect.bottom && r.bottom > rect.top) floor = Math.min(floor, r.top - pad);
-      }
-      const availableHeight = floor - top;
-      const room = Math.max(96, availableHeight);
-      width = Math.min(width, room / 1.33, Math.max(96, rect.width * 0.47));
-      const height = width * 1.33;
-      const left = limit(rect.left + pad, 6, Math.max(6, vw - width - 6));
-      const right = limit(rect.right - width - pad, left, Math.max(left, vw - width - 6));
-      const firstTop = Math.min(top, Math.max(rect.top + pad, floor - height));
-      const lastTop = Math.max(firstTop, floor - height);
-      const visible = rect.bottom > Math.max(70, vh * 0.08) && rect.top < vh - 64 && availableHeight >= 115;
-      return { width, height, left, right, top: firstTop, bottom: lastTop, visible, stageBound: true };
+    const stage = stageHost();
+    if (!stage || !stage.isConnected) return { width: 0, height: 0, left: 0, right: 0, top: 0, bottom: 0, visible: false };
+    const rect = stage.getBoundingClientRect(), mobile = smallScreen();
+    const vw = window.innerWidth || 1024, vh = window.innerHeight || 768;
+    const pad = mobile ? 10 : 16;
+    const topReserve = mobile ? 122 : 96;
+    const bottomReserve = mobile ? 104 : 84;
+    let ceiling = topReserve, floor = rect.height - bottomReserve;
+    for (const selector of ['.cp-edge-tools', '.cpsay']) {
+      const r = stage.querySelector?.(selector)?.getBoundingClientRect?.();
+      if (r && r.height && r.bottom > rect.top && r.top < rect.bottom)
+        ceiling = Math.max(ceiling, r.bottom - rect.top + pad);
     }
+    for (const selector of ['.cpbar', '.cphud']) {
+      const r = stage.querySelector?.(selector)?.getBoundingClientRect?.();
+      if (r && r.height && r.top < rect.bottom && r.bottom > rect.top)
+        floor = Math.min(floor, r.top - rect.top - pad);
+    }
+    const room = floor - ceiling;
+    const width = Math.min(mobile ? 174 : 340,
+      Math.max(96, rect.width * (mobile ? 0.38 : 0.27)),
+      Math.max(0, room / 1.33), Math.max(0, (rect.width - 2 * pad) * 0.47));
     const height = width * 1.33;
-    return { width, height, left: 6, right: Math.max(6, vw - width - 6),
-      top: Math.min(Math.max(78, vh * 0.13), Math.max(16, vh - height - 12)),
-      bottom: Math.max(16, vh - height - (mobile ? 18 : 12)), visible: true, stageBound: false };
+    const left = pad, right = Math.max(pad, rect.width - width - pad);
+    const top = Math.max(pad, ceiling), bottom = Math.max(top, floor - height);
+    const visible = rect.bottom > Math.max(70, vh * 0.08) &&
+      rect.top < vh - 64 && room >= 115 && width >= 86 && height <= room;
+    return { width, height, left, right, top, bottom, visible, stageBound: true };
   }
   function position(x, y) {
     const b = box();
@@ -105,8 +92,16 @@ const JanusEdgeCompanion = (() => {
     if (canvas) canvas.setAttribute('aria-label', 'Criatura 3D ' + (opts.name || '') + '. Toca para saludar o arrastra para cambiarla de lugar.');
   }
   function ensure() {
-    if (renderer) return true;
-    if (unavailable || !document.body) return false;
+    const stage = stageHost();
+    if (!stage) return false; // fail closed: no detached/viewport avatar
+    if (renderer) {
+      if (host && host.parentNode !== stage) {
+        stage.appendChild(host); // rerender of #view replaces the previous stage
+        setCanvasSize();
+      }
+      return true;
+    }
+    if (unavailable) return false;
     try {
       renderer = new T.WebGLRenderer({ alpha: true, antialias: true, powerPreference: 'low-power', premultipliedAlpha: true });
       renderer.setClearColor(0x000000, 0);
@@ -163,7 +158,7 @@ const JanusEdgeCompanion = (() => {
       canvas.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); callTap(); } });
       host.appendChild(canvas);
       nameNode = document.createElement('span'); nameNode.className = 'kedge-name'; host.appendChild(nameNode);
-      document.body.appendChild(host);
+      stage.appendChild(host);
       setCanvasSize();
       window.addEventListener('resize', setCanvasSize, { passive: true });
       return true;
@@ -186,11 +181,11 @@ const JanusEdgeCompanion = (() => {
     const dt = Math.min(0.05, Math.max(0, (ms - (last || ms)) / 1000));
     last = ms;
     const b = box();
-    // A floating avatar must not cover lesson controls once its scene is scrolled offscreen.
+    // The scene is the mounting and clipping boundary; no viewport overlay is allowed.
     host.hidden = !b.visible;
     if (!b.visible) return;
     if (!spot.drag && ms > spot.dragUntil) {
-      // Paseo vertical por el margen; no atraviesa formularios del centro de pantalla.
+      // Paseo local por la escena, sin atravesar los formularios ni otras tarjetas.
       const anchor = spot.side === 'right' ? b.right : b.left;
       const range = Math.max(0, b.bottom - b.top);
       const sway = options.roam !== false && !still() ? Math.sin((ms - start) * 0.00043) : 0;

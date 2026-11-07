@@ -1,5 +1,16 @@
 # JANUS — Estado vigente
 
+## AHORA — CRIATURAS KENDRA · 3D HIPERREALISTA FINAL (2026-11-06)
+- **Aprobado artísticamente:** Lumi/Bombo/Musgo/Nimbo de las dos láminas originales; no las figuras procedurales simplificadas.
+- **Estado comprobado de GLB finales en GitHub: 0/4**. La rama base PR #67 contiene sólo GLB sintéticos de tests, y los 26 WebP oficiales son un paquete de conversación, no binarios publicados en GitHub.
+- **IMPLEMENTADO EN CÓDIGO:** PR #69 `chatgpt/kendra-verified-hyperreal-glb-gate-20261106`: validación estructural fuerte (13 huesos, 10 sockets, 8 morphs, 6 clips, PBR+normal, 80k tris), hashes del modelo y los originales, firma visual y Safari; integración automática offline en las dashboards A/B sólo cuando se hayan aprobado los GLB; bloqueo `--require-approved-3d`; priorización de GLB personal y control de preferencias. No se reconstruyen escenas, nombres ni la tienda.
+- **GENERACIÓN:** proyecto InVideo existente localizado y cuatro referencias cargadas. Intento Meshy `meshy.image_to_3d` recibido `free_generation_gate`; **sin créditos gastados ni modelado realizado**. Saldo que mostraba la conexión: 50 créditos, generación bloqueada por plan. No hay GPU/Blender remoto conectado. Adaptador local TripoSR añadido sin descargas automáticas.
+- **CI:** ejecutar tests y E2E de la PR #69 tras cambios; runner de criaturas fijado a Ubuntu 24.04 por incompatibilidad de Playwright 1.58 con Ubuntu 26.04.
+- **BLOQUEO REAL:** InVideo confirmó `free_generation_gate`; la cuenta fal, ya conectada, confirmó `balance_exhausted` (sin créditos para subir/generar). No se facturó ni se produjo un GLB con esos servicios. Obtener y revisar cuatro GLB con materiales/fur, rig, expresiones y comportamiento equivalentes al arte aprobado. Un CI verde no demuestra esa fidelidad. No fusionar ni desplegar como producto final.
+- **SIGUIENTE ACCIÓN:** producir GLB originales con herramienta 3D habilitada/GPU, QA gráfico y físico iPhone, registrar evidencias y aprobar; después reconciliar PR #63/#66 y desplegar sólo tras aceptación.
+- **Handoff:** `docs/handoffs/2026-11-06-kendra-real-glb-production.md`.
+
+
 ## AHORA — KENDRA: arte aprobado + biblioteca de accesorios (2026-11-06)
 - Rama de trabajo `chatgpt/kendra-approved-art-20261106`, PR #67 borrador, derivada de PR #63. **Código escrito en GitHub; sin fusionar, sin desplegar.**
 - DECISIÓN: Lumi, Bombo, Musgo y Nimbo de las dos láminas aprobadas por Jean son las identidades visuales vigentes. Los cuerpos 3D procedurales quedan como modo explícito de pruebas y **NO** equivalen a los personajes hiperrealistas aceptados.

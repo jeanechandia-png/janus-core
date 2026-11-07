@@ -32,14 +32,15 @@ test('without art pack, existing approved portraits are still visible, no synthe
  assert.ok(build.includes("crypto.createHash('sha256')"),'the exact founder-approved SHA is checked before embedding');
  assert.ok(build.includes("'data:image/webp;base64,' + bytes.toString('base64')"));;
 });
-test('migrate old procedural default to official art, but keep 3D as explicit optional mode',()=>{
- assert.ok(companion.includes('C.visualPolicyVersion !== 20261106'));
- assert.ok(companion.includes("if (!verifiedGLB) C.visualMode = 'cinematic'"));
- assert.ok(companion.includes('C.visualMode = \'cinematic\'')); 
+test('default to true 3D presence when supported and preserve official art as honest fallback',()=>{
+ assert.ok(companion.includes('C.visualPolicyVersion !== 20261107'));
+ assert.ok(companion.includes("verifiedGLB ? '3d' : nativeStage ? 'edge' : 'cinematic'"));
+ assert.ok(companion.includes('if (!C.userSelectedVisualMode)'),'never overwrite an explicit visual choice');
+ assert.ok(companion.includes("C.visualMode = 'cinematic'"), 'official art remains available in unsupported browsers');
  assert.ok(companion.includes('3D prueba'));
  assert.ok(companion.includes('Arte aprobado'));
- assert.ok(companion.includes('C.visualMode = \'3d\''),'interactive learning stage preserved');
- assert.ok(companion.includes("JanusEdgeCompanion.sync"));
+ assert.ok(companion.includes("C.visualMode = '3d'"),'interactive learning stage preserved');
+ assert.ok(companion.includes('JanusEdgeCompanion.sync'));
 });
 test('official fashion art keeps real store identifiers, prices and purchase gating',()=>{
  assert.ok(companion.includes('cpArtIcon(it.key,it.icon)'));
