@@ -61,7 +61,7 @@ function avatarPanel() {
     '</p></div></div>';
 }
 const AV_UI={open:null};
-const avOpen=()=>AV_UI.open===null?(typeof isPhone==='function'?isPhone():window.innerWidth<700):AV_UI.open;
+const avOpen=()=>AV_UI.open===null ? false : AV_UI.open; // Personalización plegada por defecto en TODOS los dispositivos.
 const AV_ACTS={
   avToggle:()=>{AV_UI.open=!avOpen();if(typeof rerender==='function')rerender();},
   avForm:(f)=>{
