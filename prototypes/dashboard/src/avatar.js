@@ -10,8 +10,9 @@ const AV_MOODS = [['alegre','Alegre'],['contento','Contento'],['triste','Triste'
 const AV_EYES = [['#347DB8','Azul Nexo'],['#8EC8FF','Azul claro'],['#59E4D4','Turquesa'],['#FFD36A','Dorado'],['#FF8FB6','Rosa'],['#B79CFF','Lila']];
 const AV_VARIANTS = [['masculino', 'Masculino'], ['femenino', 'Femenino']];
 const avVariant = () => ST.settings.nexoVariant === 'femenino' ? 'femenino' : 'masculino';
-// 'cabeza' y 'cara' provocaban ojos/boca flotantes; quedan solo en el código histórico.
-const avForm = () => 'robot';
+// Conserva las tres vistas aprobadas. La cara y la cabeza NUNCA son piezas flotantes:
+// el renderer usa encuadres del mismo GLB validado de Nexo, o mantiene la vista segura.
+const avForm = () => AV_FORMS.some(x => x[0] === ST.settings.form) ? ST.settings.form : 'robot';
 const avFormName = f => (AV_FORMS.find(x=>x[0]===f)||['robot','Robot completo'])[1];
 function avatarSync() {
   const J=window.Janus3D; if (!J || !J.setForm) return;
@@ -45,7 +46,7 @@ function avatarPanel() {
     AV_VARIANTS.map(x=>chip('avVariant',x[0],x[1],v===x[0])).join('') + '</div>' +
     '<p class="avn mono dim">Ambas versiones son Janus: misma memoria, acceso, tareas y decisiones. Solo cambia la apariencia del cuerpo.</p>' +
     '<div class="avh mono">Vista del robot</div><div class="avr">' +
-    AV_FORMS.filter(x=>x[0]==='robot').map(x=>chip('avForm',x[0],x[1],cur===x[0])).join('') + '</div>' +
+    AV_FORMS.map(x=>chip('avForm',x[0],x[1],cur===x[0])).join('') + '</div>' +
     '<div class="avh mono">Expresiones</div><div class="avr">' +
     AV_MOODS.map(x=>chip('avMood',x[0],x[1],mood===x[0])).join('') + '</div>' +
     '<div class="avh mono">Color de ojos</div><div class="avr">' +
@@ -59,7 +60,7 @@ function avatarPanel() {
       '<input type="file" accept=".glb,model/gltf-binary" data-slotfile="'+glbId+'" aria-label="Importar GLB '+v+'"></label>' +
       (inf?chip('cpSlotDel',glbId,'Quitar modelo GLB',false):'')+'</div>':'')+
     '<p class="avn mono dim">' + (inf?'Modelo importado: '+esc(inf.name)+'. '+esc(inf.summary):
-      'Se está mostrando el Nexo 3D plateado procedural. El modelo de cine con fidelidad exacta a la imagen aprobada aún requiere importar el GLB riggeado de esta versión.')+
+      'Se conserva el Nexo 02 aprobado. La vista 3D queda reservada hasta importar el GLB riggeado; no se muestra el robot procedural rechazado.')+
     '</p></div></div>';
 }
 const AV_UI={open:null};
@@ -67,7 +68,7 @@ const avOpen=()=>AV_UI.open===null?(typeof isPhone==='function'?isPhone():window
 const AV_ACTS={
   avToggle:()=>{AV_UI.open=!avOpen();if(typeof rerender==='function')rerender();},
   avForm:(f)=>{
-    if(f!=='robot')return;
+    if(!AV_FORMS.some(x=>x[0]===f))return;
     ST.settings.form=f;saveState();avatarSync();
     if(window.Janus3D)Janus3D.react(2.4,'alegre');
   },
