@@ -100,3 +100,31 @@ test('el saludo de la criatura usa Kendra, no una relación parental', () => {
   o.eval("COMP_ACTS.cpGesture('saludo')");
   assert.match(o.eval('COMP_UI.say'),/Kendra/);
 });
+
+test('la cabecera muestra el alias elegido y la criatura usa iconografía 3D existente', () => {
+  const o=setup();
+  o.setInput('Estrellita');
+  o.eval('COMP_ACTS.cpRenameWardrobe()');
+  const source=read('src/views.js');
+  const fn=source.match(/function janusTabName\(tab\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn,'helper de nombre dentro del encabezado existente');
+  const name=vm.runInNewContext(fn + '\njanusTabName(["companero","\u{1F98A}","Lumi"])', {
+    Companion:{displayName:()=>o.eval('Companion.displayName(compProfile())')},
+    compProfile:()=>({})
+  });
+  assert.equal(name,'Estrellita','la cabecera no dice Compañero ni una especie fija');
+  const cp=read('src/companero.js');
+  assert.match(cp,/cpTabArt\(t\[1\]\)/,'iconos 3D en las pestañas actuales');
+  assert.doesNotMatch(cp,/\['aprender', '\u{1F9EE}'/,'no emoji plano como icono principal');
+  const mobile=read('src/phonev.js');
+  assert.doesNotMatch(mobile,/JanusPresence\.render\('founder', false\)/,'no duplicar portada del robot');
+});
+test('Kendra usa la escena WebGL nativa cuando está disponible, conservando la elección manual',()=>{
+  const o=setup();
+  o.eval('window.JanusEdgeCompanion={supported:()=>true}');
+  o.eval('compState().visualPolicyVersion=20261106');
+  assert.equal(o.eval('compState().visualMode'),'edge');
+  o.eval('COMP_ACTS.cpVisual("cinematic")');
+  o.eval('COMP_ACTS.cpPick("bombo")');
+  assert.equal(o.eval('compState().visualMode'),'cinematic','la elección explícita no es destruida');
+});
