@@ -95,6 +95,19 @@ const browserArgs=['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swi
     // Check that the learning panel remains interactive and readable.
     const tabs=page.locator('.cptab');
     assert.ok(await tabs.count()>=6,'all six companion tabs remain');
+    const touched=await tabs.nth(1).evaluate(el=>{
+      const rect=el.getBoundingClientRect();
+      el.dispatchEvent(new PointerEvent('pointerdown',{
+        bubbles:true,clientX:rect.left+rect.width/2,clientY:rect.top+rect.height/2,pointerType:'touch'
+      }));
+      const style=getComputedStyle(el);
+      const lit=el.classList.contains('j3d-lit') && el.classList.contains('j3d-pressed');
+      el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerType:'touch'}));
+      return {lit,tone:el.dataset.janusTone,shadow:style.boxShadow};
+    });
+    assert.ok(touched.lit,'botón 3D debe iluminarse inmediatamente al toque');
+    assert.ok(touched.tone,'cada botón tiene color material asignado');
+    assert.ok(touched.shadow && touched.shadow!=='none','el botón tiene relieve físico visible');
     await tabs.nth(1).click({timeout:10000});
     assert.ok(await page.locator('.cptabs').isVisible(),'tab interaction remains enabled');
     assert.equal(errors.length,0,'no fatal browser errors: '+errors.join(' | '));
