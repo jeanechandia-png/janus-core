@@ -318,7 +318,7 @@ function vCompanero(M, X, sub) {
   if (!COMP_UI.scn) COMP_UI.scn = Companion.newScene();
   const body = { aprender: tabAprender, vestidor: tabVestidor, tienda: tabTienda, mundo: tabMundo, hablar: tabHablar, papa: tabPapa }[C.tab] || tabAprender;
   const world = C.tab === 'mundo' || !!COMP_UI.lesson;
-  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen del viewport.
+  // Kendra: la presencia predeterminada es un cuerpo Three.js vivo que recorre el margen interior del escenario.
   // La escena de las lecciones conserva el antiguo motor, con casa/vehiculos/objetos.
   // El arte estático es una alternativa explicita o fallback honesto cuando falla WebGL.
   const edgeSupported = !!(window.JanusEdgeCompanion && JanusEdgeCompanion.supported());
@@ -327,14 +327,14 @@ function vCompanero(M, X, sub) {
   const scene3d = !edge && !cinematic && ok3d;
   const tools = world ? '' :
     '<div class="cp-edge-tools">' +
-      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero vivo en el margen') + '>3D prueba</button>' : '') +
+      (edgeSupported ? '<button type="button" class="cp-edge-btn' + (edge ? ' on' : '') + '"' + act('cpVisual', 'edge', 'Compañero 3D dentro del escenario') + '>3D prueba</button>' : '') +
       (ok3d ? '<button type="button" class="cp-edge-btn' + (scene3d ? ' on' : '') + '"' + act('cpVisual', '3d', 'Escena tridimensional') + '>Escena</button>' : '') +
       '<button type="button" class="cp-edge-btn' + (cinematic ? ' on' : '') + '"' + act('cpVisual', 'cinematic', 'Ver ilustración aprobada') + '>Arte aprobado</button>' +
       (edge ? '<button type="button" class="cp-edge-btn"' + act('cpEdgeSide', '', 'Cambiar de margen') + '>↔</button>' +
         '<button type="button" class="cp-edge-btn' + (C.edgeRoam !== false ? ' on' : '') + '"' + act('cpEdgeRoam', '', 'Activar o pausar el paseo') + '>' + (C.edgeRoam === false ? '▶' : '⏸') + '</button>' : '') +
     '</div>';
   const stage = '<section class="cpst3' + (ok3d ? '' : ' nogl') + (cinematic ? ' cinematic' : '') + (edge ? ' edge-hero' : '') + '" style="--cp:' + cr.palette.primary + ';--cg:' + cr.palette.glow + '">' +
-    (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo por la pantalla.</b></div>' :
+    (edge ? '<div class="cp-edge-prompt"><b>' + esc(name) + ' vive aquí contigo, Kendra. Tócalo para saludar o arrástralo dentro del escenario.</b></div>' :
       cinematic ? '<div class="cp-cinematic">' + JanusPresence.render('kendra', false, C.creatureId) + '</div>' :
       scene3d ? '<div class="cpgl" data-stage3d data-id="' + CP_STAGE + '" aria-label="Escenario 3D de ' + esc(name) + ': puedes mover los objetos con el dedo"></div>' :
         '<div class="cpfb"><img src="' + CREAT_IMG[cr.id] + '" alt="' + esc(name) + '"><p class="mono">Este navegador no puede mostrar el escenario 3D. Puedes seguir practicando con los textos.</p></div>') +
