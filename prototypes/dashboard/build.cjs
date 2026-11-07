@@ -101,28 +101,19 @@ for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = cs
 
 // Fallback de primera pintura: Quick Look/visor de iPhone y lectores de HTML no
 // ejecutan de forma fiable el JS embebido. Nunca entregar una pantalla negra.
-// El fallback es una VISTA PREVIA estática; no se confunde con la app interactiva.
-const fallbackBrand = 'data:image/webp;base64,' + b64('lego/janus-gold/assets/pulido/janus.webp');
+// Quick Look no ejecuta JS ni WebGL. No dibujar un dashboard falso.
 const previewPalette = SKIN === 'b' ? 'platinum' : 'obsidian';
-const previewName = SKIN === 'b' ? 'Platino B' : 'Obsidiana A';
-const fallback = '<div id="janus-static-preview" class="janus-static ' + previewPalette + '">' +
-  '<div class="js-phone">' +
-  '<div class="js-strap"><b>JANUS</b><span>' + previewName + '</span><strong>● VISTA PREVIA</strong></div>' +
-  '<div class="js-hero"><div class="js-avatar"><img src="' + fallbackBrand + '" alt="Identidad de Janus"></div>' +
-  '<div><small>ASISTENTE PERSONAL</small><h1>Hola, Jean.</h1><p>Tu espacio de trabajo, proyectos y vida personal, en un mismo lugar.</p></div></div>' +
-  '<div class="js-actions"><span>✉ Correo</span><span>▤ Ofertas</span><span>✓ Tareas</span><span>☀ Clima</span></div>' +
-  '<div class="js-hdr">MI ESPACIO <small>Acceso a los módulos</small></div>' +
-  '<div class="js-stack"><div><strong>◷</strong><b>Mi día</b><small>Agenda personal y laboral</small></div>' +
-  '<div><strong>▣</strong><b>Proyectos</b><small>Trabajo y seguimiento</small></div>' +
-  '<div><strong>✧</strong><b>Janus · Nexo</b><small>Asistente operativo</small></div>' +
-  '<div><strong>★</strong><b>Kendra</b><small>Su mundo y sus criaturas</small></div></div>' +
-  '<div class="js-note"><b>Vista previa del archivo</b><p>El visor de archivos del iPhone puede bloquear JavaScript y WebGL. Esta imagen de la interfaz es estática; para usar los controles se necesita abrir la versión web de JANUS en Safari.</p></div>' +
-  '<div class="js-footer">INFINITY SEED GROUP · LOCAL FIRST</div>' +
+const previewName = SKIN === 'b' ? 'Modo claro metálico' : 'Modo oscuro';
+const fallback = '<div id="janus-js-unavailable" class="janus-static ' + previewPalette + '">' +
+  '<div class="js-phone"><div class="js-strap"><b>JANUS</b><span>' + previewName + '</span></div>' +
+  '<p class="js-preview-help" role="status">Esta es la aplicación interactiva original de JANUS. ' +
+  'El visor de documentos no ejecuta JavaScript o WebGL. Abre este HTML en un navegador compatible ' +
+  'para usar el dashboard real. Ninguna imagen estática sustituye a la interfaz aprobada.</p>' +
   '</div></div>';
 const fallbackCss = `
 /* JS ausente o restringido: primera pintura real en Quick Look y modo documento. */
-#janus-static-preview{display:block;position:relative;z-index:1;min-height:100dvh}
-html.janus-ready #janus-static-preview{display:none!important}
+#janus-js-unavailable{display:block;position:relative;z-index:1;min-height:100dvh}
+html.janus-ready #janus-js-unavailable{display:none!important}
 html:not(.janus-ready),html:not(.janus-ready) body{height:auto!important;min-height:100%!important;overflow:auto!important}
 html:not(.janus-ready) .stage{display:none!important}
 .janus-static{--js-bg:#0d0c14;--js-surface:#1c1a28;--js-text:#faf5eb;--js-mute:#c3b8a5;--js-line:#776145;--js-accent:#e8c37a;
@@ -152,6 +143,7 @@ html:not(.janus-ready) .stage{display:none!important}
 .janus-static .js-note b{color:var(--js-accent)}
 .janus-static .js-note p{margin:6px 0 0;color:var(--js-mute)}
 .janus-static .js-footer{text-align:center;font-size:9px;color:var(--js-mute);padding:10px 0;letter-spacing:.12em}
+.janus-static .js-preview-help{margin:22px 0;padding:20px 17px;background:var(--js-surface);border:1.5px solid var(--js-line);border-radius:18px;line-height:1.6;font-size:15px;box-shadow:inset 0 1px 0 #ffffff24,0 14px 22px -14px #0008}
 `;
 const head = '';
 const body = fallback + '<div class="stage a" id="app"><div id="dash" style="display:contents"></div><div id="view" hidden></div></div>\n<script>\n(function(){\n' + js +
