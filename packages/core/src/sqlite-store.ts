@@ -801,6 +801,24 @@ export class SqliteStore {
     return Number(result.changes) > 0;
   }
 
+  /** Llaves de acceso (passkeys) del Founder: solo la parte PÚBLICA y su contador. */
+  upsertFounderPasskey(record: { credentialId: string; active: boolean; createdAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO founder_passkeys (credential_id, active, created_at, record_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(credential_id) DO UPDATE SET active = excluded.active, record_json = excluded.record_json
+    `).run(record.credentialId, record.active ? 1 : 0, record.createdAt, JSON.stringify(record));
+  }
+
+  getFounderPasskey<T>(credentialId: string): T | null {
+    const row = this.db.prepare('SELECT record_json FROM founder_passkeys WHERE credential_id = ?').get(credentialId) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.record_json)) as T : null;
+  }
+
+  listFounderPasskeys<T>(activeOnly = false): T[] {
+    const rows = this.db.prepare(`SELECT record_json FROM founder_passkeys ${activeOnly ? 'WHERE active = 1' : ''} ORDER BY created_at, credential_id`).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.record_json)) as T);
+  }
+
   /** Invitaciones de acceso de colaboradores. El código no se guarda: solo su huella. */
   insertOperatorInvite(invite: OperatorInvite): void {
     this.db.prepare(`
@@ -2225,6 +2243,13 @@ export class SqliteStore {
       CREATE TABLE IF NOT EXISTS work_push_sent (
         item_id TEXT PRIMARY KEY,
         at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS founder_passkeys (
+        credential_id TEXT PRIMARY KEY,
+        active INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        record_json TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS operator_invites (

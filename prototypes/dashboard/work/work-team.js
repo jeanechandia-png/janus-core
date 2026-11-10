@@ -7,7 +7,7 @@
  */
 const JanusTeam = (() => {
   const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const S = { mode: typeof TEAM_MODE === 'string' ? TEAM_MODE : 'example', data: null, loading: false, notice: '', login: { id: 'founder', busy: false, error: '' }, openMsg: '', invite: { displayName: '', locale: 'es', busy: false, error: '', link: '', forName: '', expiresAt: '', copied: false } };
+  const S = { mode: typeof TEAM_MODE === 'string' ? TEAM_MODE : 'example', data: null, loading: false, notice: '', login: { id: 'founder', busy: false, error: '' }, openMsg: '', passkey: null, invite: { displayName: '', locale: 'es', busy: false, error: '', link: '', forName: '', expiresAt: '', copied: false } };
   let $root = null;
   const AGENTS = { '': 'Automático', anthropic: 'Claude', openai: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', custom: 'JANUS local' };
   const STATUS = { queued: ['en cola', 'waiting'], active: ['en curso', 'in-progress'], blocked: ['bloqueada', 'blocked'], handoff_required: ['requiere traspaso', 'pending-approval'], completed: ['completada', 'completed'], cancelled: ['cancelada', 'draft'] };
@@ -27,7 +27,7 @@ const JanusTeam = (() => {
   }
   async function load() {
     S.loading = true; render();
-    try { S.data = S.mode === 'example' ? (S.data || teamExample(new Date().toISOString())) : await api('/api/work/team'); S.notice = ''; }
+    try { S.data = S.mode === 'example' ? (S.data || teamExample(new Date().toISOString())) : await api('/api/work/team'); S.notice = ''; await loadPasskeyStatus(); }
     catch (error) { if (error.status === 401 || error.status === 403) { S.data = null; if (typeof signOut === 'function') await signOut(); S.login.error = error.status === 403 ? 'Esta página es solo para el CEO.' : ''; } else S.notice = 'No se pudo cargar el equipo: ' + error.message; }
     S.loading = false; render();
   }
@@ -42,6 +42,43 @@ const JanusTeam = (() => {
   const readMessage = (id) => { S.openMsg = S.openMsg === id ? '' : id; const m = S.data.messages.find((x) => x.id === id); if (!m || m.readAt || m.status !== 'delivered') { render(); return; }
     return act(() => api('/api/work/messages/' + encodeURIComponent(id) + '/read', { method: 'PUT' }), () => { m.readAt = new Date().toISOString(); }); };
 
+  // Llave de acceso del navegador (Face ID de Safari): confirma SOLO «dar acceso a un colaborador». La llave privada
+  // vive en el dispositivo; a JANUS llega una firma, nunca la cara ni la llave.
+  const b64uToBuf = (text) => Uint8Array.from(atob(String(text).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  const bufToB64u = (buffer) => { let out = ''; const bytes = new Uint8Array(buffer); for (let i = 0; i < bytes.length; i += 1) out += String.fromCharCode(bytes[i]); return btoa(out).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const passkeySupported = () => typeof navigator !== 'undefined' && !!navigator.credentials && typeof PublicKeyCredential !== 'undefined';
+  const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body || {}) });
+  async function loadPasskeyStatus() {
+    if (S.mode !== 'core') return;
+    try { S.passkey = await api('/api/auth/passkey/status'); } catch (_) { S.passkey = null; }
+  }
+  async function passkeyEnroll() {
+    const I = S.invite; I.error = ''; I.busy = true; render();
+    try {
+      if (!passkeySupported()) throw new Error('Este navegador no admite llaves de acceso.');
+      const options = (await post('/api/auth/passkey/register/options')).options, pk = options.publicKey;
+      const credential = await navigator.credentials.create({ publicKey: Object.assign({}, pk, { challenge: b64uToBuf(pk.challenge), user: Object.assign({}, pk.user, { id: b64uToBuf(pk.user.id) }), excludeCredentials: (pk.excludeCredentials || []).map((c) => ({ type: c.type, id: b64uToBuf(c.id) })) }) });
+      if (!credential) throw new Error('No se creó la llave.');
+      await post('/api/auth/passkey/register/verify', { challengeId: options.challengeId, clientDataJSON: bufToB64u(credential.response.clientDataJSON), attestationObject: bufToB64u(credential.response.attestationObject) });
+      await loadPasskeyStatus(); S.notice = 'Face ID activado en este dispositivo para dar accesos.';
+    } catch (error) { I.error = error && error.name === 'NotAllowedError' ? 'Confirmación cancelada. No se ha cambiado nada.' : String((error && error.message) || error); }
+    I.busy = false; render();
+  }
+  async function passkeyProof(action) {
+    const options = (await post('/api/auth/passkey/assert/options', { action: action })).options, pk = options.publicKey;
+    const credential = await navigator.credentials.get({ publicKey: Object.assign({}, pk, { challenge: b64uToBuf(pk.challenge), allowCredentials: pk.allowCredentials.map((c) => ({ type: c.type, id: b64uToBuf(c.id) })) }) });
+    if (!credential) throw new Error('Confirmación cancelada.');
+    const result = await post('/api/auth/passkey/assert/verify', { challengeId: options.challengeId, credentialId: bufToB64u(credential.rawId), clientDataJSON: bufToB64u(credential.response.clientDataJSON), authenticatorData: bufToB64u(credential.response.authenticatorData), signature: bufToB64u(credential.response.signature) });
+    return result.proof.proofId;
+  }
+  // Prueba de identidad del CEO para una acción: puente nativo de Face ID si existe; si no, la llave de acceso.
+  async function founderProof(action, reason) {
+    const native = globalThis.JanusFounderNative;
+    if (native && typeof native.actionProof === 'function') return native.actionProof({ action: action, authoritySessionToken: (authHeaders().authorization || '').replace(/^Bearer /, ''), reason: reason });
+    if (S.passkey && S.passkey.enabled && S.passkey.activePasskeys > 0 && passkeySupported()) return passkeyProof(action);
+    throw new Error('Para dar accesos hace falta confirmar con Face ID y este dispositivo todavía no lo tiene activado. No se ha creado nada.');
+  }
+
   const slug = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
   async function createInvite(displayName, locale) {
     const I = S.invite; I.displayName = displayName; I.locale = locale; I.error = ''; I.link = ''; I.copied = false;
@@ -55,15 +92,13 @@ const JanusTeam = (() => {
         S.data.invites = [body.invite].concat((S.data.invites || []).filter((x) => x.principalId !== principalId || x.status !== 'pending'));
       } else {
         // Dar acceso es una decisión reservada al CEO: exige su Face ID (ADR-007), igual que la delegación directa.
-        const native = globalThis.JanusFounderNative;
-        if (!native || typeof native.actionProof !== 'function') throw new Error('Para dar accesos hace falta confirmar con Face ID y este dispositivo todavía no tiene activado ese puente. No se ha creado nada.');
-        const proofId = await native.actionProof({ action: 'security.authority.delegate_operator', authoritySessionToken: (authHeaders().authorization || '').replace(/^Bearer /, ''), reason: 'Dar acceso a ' + displayName + ' en JANUS Work' });
+        const proofId = await founderProof('security.authority.delegate_operator', 'Dar acceso a ' + displayName + ' en JANUS Work');
         if (typeof proofId !== 'string' || !/^bio_proof_[A-Za-z0-9_-]+$/.test(proofId)) throw new Error('Face ID no devolvió una prueba válida.');
         body = await api('/api/auth/operator/invites', { method: 'POST', headers: { 'x-janus-biometric-proof': proofId }, body: JSON.stringify({ principalId: principalId, displayName: displayName, locale: locale }) });
       }
       I.link = (S.mode === 'example' ? 'https://(la dirección de su JANUS)' : location.origin) + body.path; I.forName = displayName; I.expiresAt = body.invite.expiresAt; I.displayName = '';
       I.busy = false; if (S.mode !== 'example') { await load(); return; }
-    } catch (error) { I.error = String(error.message || error); }
+    } catch (error) { I.error = error && error.name === 'NotAllowedError' ? 'Confirmación cancelada. No se ha creado nada.' : String(error.message || error); }
     I.busy = false; render();
   }
   const revokeInvite = (id) => act(() => api('/api/auth/operator/invites/' + encodeURIComponent(id), { method: 'DELETE' }),
@@ -113,9 +148,10 @@ const JanusTeam = (() => {
       '<div class="cc-two-col"><section class="cc-panel" id="tasks">' + head('TAREAS', 'Trabajo asignado') + '<div class="cc-list">' + tasks + '</div><div class="cc-admin-strip">«Agente» es con quién trabaja JANUS esa tarea. Si falla, JANUS sigue con los demás.</div></section><section class="cc-panel" id="deliveries">' + head('AVANCES Y ENTREGAS', 'Lo último del equipo') + '<div class="cc-list compact">' + deliveries + '</div></section></div>' +
       '<div class="cc-three-col"><section class="cc-panel" id="messages">' + head('BANDEJA INTERNA', 'Mensajes del equipo', '<b>' + unread + '</b>') + '<div class="cc-list compact">' + messages + '</div><div class="cc-admin-strip">Los intentos de escribir fuera de la empresa se rechazan solos y quedan anotados.</div></section><section class="cc-panel" id="files">' + head('TRAZABILIDAD', 'Archivos abiertos') + '<div class="cc-list compact">' + files + '</div></section><section class="cc-panel" id="projects">' + head('PROYECTOS', 'Confidencialidad') + '<div class="cc-list compact">' + projects + '</div><div class="cc-admin-strip">«Solo modelo propio»: el contenido de ese proyecto no se envía a Claude, ChatGPT ni Gemini.' + (d.providers.configured.includes('custom') ? '' : ' Ahora mismo no hay modelo propio configurado: en esos proyectos JANUS responderá sin modelo.') + '</div></section></div>' +
       '<section class="cc-panel jt-access" id="access">' + head('ACCESOS', 'Dar acceso a un colaborador') +
-      '<form data-form="invite" class="jt-invite"><label>Nombre<input name="displayName" maxlength="80" required value="' + esc(S.invite.displayName) + '" placeholder="Julio"></label>' +
+      '<form data-form="invite" class="jt-invite"><label>Nombre<input name="displayName" maxlength="80" required value="' + esc(S.invite.displayName) + '" placeholder="Nombre de la persona"></label>' +
       '<label>Idioma<select name="locale">' + [['es', 'Español'], ['nl', 'Nederlands'], ['en', 'English']].map((l) => '<option value="' + l[0] + '"' + (S.invite.locale === l[0] ? ' selected' : '') + '>' + l[1] + '</option>').join('') + '</select></label>' +
       '<button type="submit"' + (S.invite.busy ? ' disabled' : '') + '>' + (S.invite.busy ? 'Confirmando…' : 'Crear enlace con Face ID') + '</button></form>' +
+      (S.mode === 'core' && !(globalThis.JanusFounderNative && globalThis.JanusFounderNative.actionProof) && S.passkey && S.passkey.enabled && S.passkey.activePasskeys === 0 ? '<div class="cc-notice jt-link" role="note"><b>Antes de dar accesos, active Face ID en este dispositivo (una sola vez).</b>' + (S.passkey.canEnrollNow ? '<span><button type="button" data-act="passkey-enroll"' + (S.invite.busy ? ' disabled' : '') + '>Activar Face ID</button></span>' : '<small>El alta está cerrada por seguridad. Se abre unos minutos desde el equipo donde corre JANUS y se vuelve a cerrar.</small>') + '</div>' : '') +
       (S.invite.error ? '<div class="cc-notice" role="alert">' + esc(S.invite.error) + '</div>' : '') +
       (S.invite.link ? '<div class="cc-notice jt-link" role="status"><b>Enlace para ' + esc(S.invite.forName) + ' · vale una sola vez, hasta ' + esc(fmtDate(S.invite.expiresAt)) + '</b><textarea readonly rows="2" aria-label="Enlace de acceso">' + esc(S.invite.link) + '</textarea><span><button type="button" data-act="invite-copy">' + (S.invite.copied ? 'Copiado' : 'Copiar') + '</button>' + (typeof navigator !== 'undefined' && navigator.share ? '<button type="button" data-act="invite-share">Enviar</button>' : '') + '</span><small>Envíeselo solo a esa persona. Al abrirlo en su teléfono queda vinculado ese dispositivo. No se volverá a mostrar.</small></div>' : '') +
       '<div class="cc-list compact">' + ((d.invites || []).length ? d.invites.slice(0, 8).map((x) => { const st = x.status === 'redeemed' ? ['usado', 'completed'] : x.status === 'revoked' ? ['anulado', 'draft'] : x.expired ? ['caducado', 'draft'] : ['pendiente', 'waiting'];
@@ -135,6 +171,7 @@ const JanusTeam = (() => {
       const el = event.target.closest('button[data-act]'); if (!el) return;
       if (el.dataset.act === 'refresh') void load();
       else if (el.dataset.act === 'msg') void readMessage(el.dataset.v);
+      else if (el.dataset.act === 'passkey-enroll') void passkeyEnroll();
       else if (el.dataset.act === 'invite-revoke') void revokeInvite(el.dataset.v);
       else if (el.dataset.act === 'invite-copy') Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(S.invite.link)).then(() => { S.invite.copied = true; render(); }).catch(() => {});
       else if (el.dataset.act === 'invite-share') navigator.share({ title: 'JANUS Work', text: 'Tu acceso a JANUS Work (vale una sola vez):', url: S.invite.link }).catch(() => {});

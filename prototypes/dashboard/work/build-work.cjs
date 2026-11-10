@@ -34,7 +34,11 @@ function buildTeam(options) {
   else parts.push(rd('work/work-team-example.js'));
   parts.push(rd('work/work-team.js'));
   let js = parts.join('\n').replace(/<\/script/gi, '<\\/script');
-  for (const [k, v] of Object.entries({ __WORK_NAME_A__: 'Colaborador A', __WORK_NAME_B__: 'Colaborador B', __WORK_NAME_C__: 'Colaborador C' })) js = js.split(k).join(v);
+  // Igual que en el panel: los nombres reales solo salen de un archivo local (no versionado) y solo en la vista previa.
+  const teamNamesFile = path.join(D, 'local', 'work-names.json');
+  const teamNames = Object.assign({ __WORK_NAME_A__: 'Colaborador A', __WORK_NAME_B__: 'Colaborador B', __WORK_NAME_C__: 'Colaborador C' },
+    !live && !(options && options.publicSafe) && fs.existsSync(teamNamesFile) ? JSON.parse(fs.readFileSync(teamNamesFile, 'utf8')) : {});
+  for (const [k, v] of Object.entries(teamNames)) js = js.split(k).join(v);
   const css = skin + '\n' + rd('work/work-extra.css');
   return '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#11151a">\n<meta name="robots" content="noindex">\n' +
     '<meta name="janus-work-template" content="janus-work-team-v1 · skin ' + LOCK.skin + '@' + LOCK.source.commit + ' · ' + (live ? 'core' : 'example') + '">\n<title>JANUS Work · Equipo</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n<div id="app"></div>\n<script>\n(function(){\n' + js + '\n})();\n</script>\n</body>\n</html>\n';

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
@@ -86,6 +86,7 @@ import {
 } from '../../packages/core/src/founder-social-identity-binding.js';
 import { DeliveryGate, FOUNDER_REQUIRED_DIMENSIONS } from '../../packages/core/src/delivery-gate.js';
 import {
+  DEFAULT_AUTHORITY_POLICY,
   evaluateAuthority,
   type AuthorityPrincipal,
 } from '../../packages/core/src/authority.js';
@@ -123,6 +124,12 @@ import {
   parseInternalRecipients,
   sealPrivateText,
 } from '../../packages/core/src/work-message.js';
+import {
+  FounderPasskeyError,
+  FounderPasskeyService,
+  parsePasskeyOrigins,
+  type FounderPasskeyRecord,
+} from '../../packages/security/src/founder-passkey.js';
 import {
   OperatorInviteError,
   assertInviteUsable,
@@ -487,6 +494,20 @@ const founderBiometricKeyStore: BiometricKeyStore = {
   revoke: (keyId, revokedAt) => store.revokeBiometricPublicKey(keyId, revokedAt),
 };
 const founderBiometric = new FounderBiometricService(founderBiometricKeyStore);
+// Llave de acceso del navegador (Face ID de Safari) como segunda vía de confirmación del CEO, SOLO para las acciones
+// de `passkeyActions` (dar acceso a colaboradores). Decisión del CEO del 10-nov-2026; `JANUS_FOUNDER_PASSKEY=off` la apaga.
+const founderPasskeyEnabled = process.env.JANUS_FOUNDER_PASSKEY?.trim().toLowerCase() !== 'off';
+const allowPasskeyBootstrap = process.env.JANUS_ALLOW_PASSKEY_BOOTSTRAP === 'true';
+const founderPasskey = founderPasskeyEnabled
+  ? new FounderPasskeyService({
+      get: (credentialId) => store.getFounderPasskey<FounderPasskeyRecord>(credentialId),
+      list: (activeOnly) => store.listFounderPasskeys<FounderPasskeyRecord>(activeOnly),
+      upsert: (record) => store.upsertFounderPasskey(record),
+    }, {
+      origins: parsePasskeyOrigins(process.env.JANUS_PASSKEY_ORIGINS, port),
+      allowedActions: DEFAULT_AUTHORITY_POLICY.passkeyActions ?? [],
+    })
+  : null;
 const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
 if (configuredFounderPublicKey) {
   authorityAuth.ensureFounderCredential(
@@ -1806,6 +1827,19 @@ class HttpRequestError extends Error {
   }
 }
 
+/** Fecha de modificación más reciente entre archivos y carpetas (un nivel). Lo que no existe cuenta como 0. */
+function newestMtimeMs(paths: readonly string[]): number {
+  let newest = 0;
+  for (const path of paths) {
+    try {
+      const info = statSync(path);
+      newest = Math.max(newest, info.mtimeMs);
+      if (info.isDirectory()) for (const name of readdirSync(path)) { try { newest = Math.max(newest, statSync(join(path, name)).mtimeMs); } catch { /* se ignora */ } }
+    } catch { /* no existe */ }
+  }
+  return newest;
+}
+
 /** Freno de intentos de canje por origen: 10 cada 10 minutos (el código ya es de 256 bits; esto solo corta el ruido). */
 const inviteRedeemAttempts = new Map<string, number[]>();
 function inviteRedeemLimiter(source: string, nowMs = Date.now()): boolean {
@@ -1894,13 +1928,10 @@ function requireFounderBiometricAuthority(
   const session = requireFounderAuthority(request);
   const requestedAt = new Date().toISOString();
   const proofId = founderBiometricProofId(request);
-  const biometricAttestation = proofId
-    ? founderBiometric.consumeProof({
-        proofId,
-        principalId: session.principal.id,
-        action,
-        requestedAt,
-      })
+  const proofInput = proofId ? { proofId, principalId: session.principal.id, action, requestedAt } : undefined;
+  // Primero el puente nativo; si la prueba no es suya, la llave de acceso (que la política solo admite en `passkeyActions`).
+  const biometricAttestation = proofInput
+    ? founderBiometric.consumeProof(proofInput) ?? founderPasskey?.consumeProof(proofInput)
     : undefined;
   const decision = evaluateAuthority(
     session.principal,
@@ -1950,6 +1981,16 @@ function authorityContextForCommand(
 function authErrorStatus(error: unknown): number {
   if (error instanceof VoiceAuthorityError) return error.status;
   if (error instanceof HttpRequestError) return error.status;
+  if (error instanceof FounderPasskeyError) {
+    switch (error.code) {
+      case 'passkey_unavailable': return 409;
+      case 'invalid_origin':
+      case 'invalid_action': return 403;
+      case 'invalid_signature':
+      case 'user_verification_required': return 401;
+      default: return 400;
+    }
+  }
   if (error instanceof FounderBiometricError) {
     switch (error.code) {
       case 'invalid_key':
@@ -1986,7 +2027,7 @@ function authErrorStatus(error: unknown): number {
 }
 
 function authErrorBody(error: unknown): { ok: false; error: string; code?: string } {
-  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError) {
+  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError || error instanceof FounderPasskeyError) {
     return { ok: false, error: error.message, code: error.code };
   }
   if (error instanceof HttpRequestError) {
@@ -3309,7 +3350,9 @@ const server = createServer(async (request, response) => {
     const workBuild = join(dashboardRoot, 'work', 'build-work.cjs');
     const workFile = join(dashboardRoot, 'dist', `Janus-Work-${workPage}.html`);
     try {
-      if (!existsSync(workFile)) {
+      // Se reconstruye si falta o si alguna pieza de origen es más reciente (tras una actualización no se sirve lo viejo).
+      const workSources = [join(dashboardRoot, 'work'), join(dashboardRoot, 'local'), join(root, 'founder-session.js'), join(root, 'language-art'), join(dashboardRoot, 'lego', 'janus-model-gateway')];
+      if (!existsSync(workFile) || newestMtimeMs(workSources) > statSync(workFile).mtimeMs) {
         if (!existsSync(workBuild)) throw new Error('Módulo de plantilla laboral no instalado');
         execFileSync(process.execPath, [workBuild, '--mode', workPage, '--out', workFile], {
           cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
@@ -3990,6 +4033,68 @@ const server = createServer(async (request, response) => {
           delegatedBy: credential.delegatedBy,
         },
       });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // ── Llave de acceso del CEO (passkey con Face ID del navegador) ──
+  if (url.pathname.startsWith('/api/auth/passkey/')) {
+    try {
+      const session = requireFounderAuthority(request);
+      if (request.method === 'GET' && url.pathname === '/api/auth/passkey/status') {
+        const status = founderPasskey?.status();
+        json(response, 200, {
+          ok: true,
+          enabled: Boolean(founderPasskey),
+          activePasskeys: status?.activePasskeys ?? 0,
+          allowedActions: status?.allowedActions ?? [],
+          // La primera llave solo se puede crear con el interruptor temporal encendido; las siguientes, con Face ID nativo.
+          canEnrollNow: Boolean(founderPasskey) && (status?.activePasskeys ?? 0) === 0 && allowPasskeyBootstrap,
+        });
+        return;
+      }
+      if (request.method !== 'POST') { response.writeHead(405, { allow: 'GET, POST' }); response.end(); return; }
+      if (!founderPasskey) throw new HttpRequestError(409, 'La llave de acceso del CEO está desactivada en este JANUS.');
+      const originHeader = request.headers.origin;
+      const origin = typeof originHeader === 'string' ? originHeader : '';
+      const body = await readJson(request);
+      const requireEnrollGate = () => {
+        if (founderPasskey.status().activePasskeys === 0) {
+          if (!allowPasskeyBootstrap) {
+            throw new HttpRequestError(409, 'El alta de la primera llave de acceso está cerrada. Enciéndala temporalmente con JANUS_ALLOW_PASSKEY_BOOTSTRAP=true.');
+          }
+        } else {
+          requireFounderBiometricAuthority(request, 'security.biometric.enroll');
+        }
+      };
+      if (url.pathname === '/api/auth/passkey/register/options') {
+        requireEnrollGate();
+        json(response, 200, { ok: true, options: founderPasskey.registrationOptions(origin, session.principal.displayName ?? 'CEO') });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/register/verify') {
+        if (founderPasskey.status().activePasskeys === 0 && !allowPasskeyBootstrap) {
+          throw new HttpRequestError(409, 'El alta de la primera llave de acceso está cerrada.');
+        }
+        const record = founderPasskey.verifyRegistration({ challengeId: body.challengeId, clientDataJSON: body.clientDataJSON, attestationObject: body.attestationObject });
+        json(response, 201, { ok: true, passkey: { createdAt: record.createdAt, rpId: record.rpId } });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/assert/options') {
+        json(response, 200, { ok: true, options: founderPasskey.assertionOptions(origin, typeof body.action === 'string' ? body.action : '') });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/assert/verify') {
+        const proof = founderPasskey.verifyAssertion({
+          challengeId: body.challengeId, credentialId: body.credentialId, clientDataJSON: body.clientDataJSON,
+          authenticatorData: body.authenticatorData, signature: body.signature,
+        });
+        json(response, 200, { ok: true, proof });
+        return;
+      }
+      throw new HttpRequestError(404, 'Not found');
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }

@@ -132,3 +132,24 @@ Automated tests cover:
 - runtime operator delegation refusal without face proof and success with a fresh action-scoped proof;
 - local product finance/health/social persistence and aggregation;
 - read-only Meta/YouTube adapter behavior.
+
+
+## Enmienda 2026-11-10 — llave de acceso del navegador para una acción concreta
+
+**Decisión del Founder (10-nov-2026, 19:18):** hasta disponer de un Mac para compilar el puente nativo, se acepta la
+llave de acceso del navegador (passkey/WebAuthn con verificación del usuario, método `webauthn-uv`) como segunda vía de
+confirmación, **solo** para `security.authority.delegate_operator` (dar acceso a un colaborador de JANUS Work).
+
+- Alcance: `AuthorityPolicy.passkeyActions` (coincidencia exacta, sin comodines). Todo lo demás —secretos, finanzas,
+  llaves biométricas, borrados, transferencia de autoridad, delegar administradores— sigue exigiendo `platform-face`.
+- Diferencia de garantía, asumida: el dispositivo puede verificar al usuario con Face ID **o con el código del teléfono**.
+  Por eso no sustituye al puente nativo.
+- Alta de la primera llave: cerrada por defecto; se abre con `JANUS_ALLOW_PASSKEY_BOOTSTRAP=true` de forma temporal
+  (`scripts/tablet/faceid-setup.sh` la abre 10 minutos y la cierra). Llaves adicionales: exigen prueba `platform-face`.
+- Orígenes: lista cerrada `JANUS_PASSKEY_ORIGINS` (HTTPS con nombre; `localhost` del propio equipo). Nunca se deduce de
+  la cabecera Host.
+- Verificación: ES256, atestación «none», `rpIdHash`, presencia y verificación del usuario, desafío de un solo uso ligado
+  a la acción, contador de firmas (un retroceso se rechaza), prueba de un solo uso de 60 s.
+- Apagado: `JANUS_FOUNDER_PASSKEY=off`.
+- Código: `packages/security/src/founder-passkey.ts`; pruebas `tests/founder-passkey.test.ts` y el flujo con navegador
+  real de `tests/work-runtime-smoke.mjs`. No verificado en un iPhone físico.

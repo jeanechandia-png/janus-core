@@ -27,6 +27,7 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.t
     GOOGLE_ACCESS_TOKEN: '', THREADS_ACCESS_TOKEN: '', JANUS_CREDENTIAL_VAULT_KEY: randomBytes(32).toString('base64'), JANUS_CREDENTIAL_VAULT_PATH: '',
     GOOGLE_OAUTH_CLIENT_ID: '', GOOGLE_OAUTH_CLIENT_SECRET: '', THREADS_APP_SECRET: '', GITHUB_TOKEN: '', NETLIFY_AUTH_TOKEN: '',
     JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2', JANUS_PUSH_VAPID_PRIVATE_KEY: randomBytes(32).toString('base64url'), JANUS_INTERNAL_RECIPIENTS: 'ceo:CEO,empresa:Empresa',
+    JANUS_ALLOW_PASSKEY_BOOTSTRAP: 'true',
     JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'smoke-face-key',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -268,12 +269,12 @@ try {
     assert.equal(teamPage.status, 200); assert.match(await teamPage.text(), /janus-work-team-v1/);
     ok('/work servida con la piel de IBA y manifest PWA propio');
     const playwright = loadPlaywright();
-    if (playwright) { await browserFlow(playwright, founder); await inviteBrowserFlow(playwright, founder); ok('navegador real: un teléfono nuevo entra con el enlace de invitación; el enlace no sirve dos veces'); browserPhase = 'superada'; }
+    if (playwright) { await browserFlow(playwright, founder); await inviteBrowserFlow(playwright, founder); ok('navegador real: un teléfono nuevo entra con el enlace de invitación; el enlace no sirve dos veces'); await passkeyBrowserFlow(playwright, founder); ok('navegador real: el CEO activa Face ID del navegador, crea el enlace y la colaboradora entra; la llave no vale para otras acciones'); browserPhase = 'superada'; }
   }
 
   // ── Accesos por invitación: el CEO crea el enlace con Face ID; se canjea UNA vez en el teléfono del colaborador ──
   {
-    const inviteBody = { principalId: 'robin', displayName: 'Robin', locale: 'nl' };
+    const inviteBody = { principalId: 'bram', displayName: 'Bram', locale: 'nl' };
     await call('POST', '/api/auth/operator/invites', founder, inviteBody, 403);
     await call('POST', '/api/auth/operator/invites', dev, inviteBody, 403);
     await call('POST', '/api/auth/operator/invites', null, inviteBody, 401);
@@ -287,18 +288,18 @@ try {
     await call('POST', '/api/auth/operator/invites/redeem', null, { code: 'A'.repeat(43), publicKeyPem: intruderKeys.publicKey }, 404);
     await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: 'llave rota' }, 400);
     const redeemed = await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: robinKeys.publicKey }, 201);
-    assert.deepEqual([redeemed.principalId, redeemed.locale], ['robin', 'nl']);
+    assert.deepEqual([redeemed.principalId, redeemed.locale], ['bram', 'nl']);
     await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: intruderKeys.publicKey }, 410);
-    const robin = await authenticate('robin', robinKeys.privateKey);
+    const robin = await authenticate('bram', robinKeys.privateKey);
     const robinDash = (await call('GET', '/api/dashboard/work', robin, undefined, 200)).dashboard;
-    assert.equal(robinDash.locale, 'nl'); assert.equal(robinDash.profile.displayName, 'Robin');
+    assert.equal(robinDash.locale, 'nl'); assert.equal(robinDash.profile.displayName, 'Bram');
     assert.equal(robinDash.projects.length, 0, 'un acceso nuevo no ve ningún proyecto hasta que el CEO se lo asigne');
     assert.equal(robinDash.capabilities.voice, false);
     const listed = await call('GET', '/api/auth/operator/invites', founder, undefined, 200);
-    assert.deepEqual(listed.invites.filter((x) => x.principalId === 'robin').map((x) => x.status).sort(), ['redeemed', 'revoked']);
+    assert.deepEqual(listed.invites.filter((x) => x.principalId === 'bram').map((x) => x.status).sort(), ['redeemed', 'revoked']);
     assert.ok(!JSON.stringify(listed).includes(created.code));
     await call('GET', '/api/auth/operator/invites', robin, undefined, 403);
-    const pending = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'mariel', displayName: 'Mariel', locale: 'es' }, 201, { 'x-janus-biometric-proof': await proofFor() });
+    const pending = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'carla', displayName: 'Carla', locale: 'es' }, 201, { 'x-janus-biometric-proof': await proofFor() });
     await call('DELETE', `/api/auth/operator/invites/${pending.invite.id}`, robin, undefined, 403);
     assert.equal((await call('DELETE', `/api/auth/operator/invites/${pending.invite.id}`, founder, undefined, 200)).revoked, true);
     await call('POST', '/api/auth/operator/invites/redeem', null, { code: pending.code, publicKeyPem: ecKeys().publicKey }, 410);
@@ -331,14 +332,14 @@ async function inviteBrowserFlow({ chromium }, founder) {
   const browser = await chromium.launch({ ...(process.env.CHROME_PATH || existsSync('/usr/bin/google-chrome') ? { executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome' } : {}), args: ['--no-sandbox'] });
   try {
     const proof = await founderBiometricProof(founder, 'security.authority.delegate_operator');
-    const created = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'julio', displayName: 'Julio', locale: 'es' }, 201, { 'x-janus-biometric-proof': proof });
+    const created = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'ana', displayName: 'Ana', locale: 'es' }, 201, { 'x-janus-biometric-proof': proof });
     const context = await browser.newContext({ viewport: { width: 430, height: 932 }, locale: 'en-US', hasTouch: true });
     const page = await context.newPage();
     const errors = []; page.on('pageerror', (error) => errors.push(String(error)));
     const seen = []; page.on('request', (request) => seen.push(request.url()));
     await page.goto(`${base}${created.path}`);
     await page.waitForSelector('.cc-shell', { timeout: 15_000 });
-    assert.match(await page.locator('.cc-main').innerText(), /Julio/);
+    assert.match(await page.locator('.cc-main').innerText(), /Ana/);
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'es', 'idioma fijado por el CEO, no por el teléfono');
     assert.equal(await page.evaluate(() => location.hash), '', 'el código se borra de la barra de direcciones');
     assert.ok(seen.every((url) => !url.includes(created.code)), 'el código nunca viaja en una dirección');
@@ -348,6 +349,56 @@ async function inviteBrowserFlow({ chromium }, founder) {
     await other.waitForSelector('.cc-login-card .cc-notice');
     assert.equal(await other.locator('.cc-shell').count(), 0);
     assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+}
+
+// El CEO, sin app nativa: activa Face ID del navegador (autenticador virtual de Chrome), crea el enlace y un teléfono
+// nuevo entra con él. Además: la prueba de la llave de acceso NO sirve para otras acciones reservadas.
+async function passkeyBrowserFlow({ chromium }, founder) {
+  const browser = await chromium.launch({ ...(process.env.CHROME_PATH || existsSync('/usr/bin/google-chrome') ? { executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome' } : {}), args: ['--no-sandbox', '--host-resolver-rules=MAP localhost 127.0.0.1'] });
+  try {
+    const local = base.replace('127.0.0.1', 'localhost');
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 }, hasTouch: true });
+    const page = await context.newPage();
+    const errors = []; page.on('pageerror', (error) => errors.push(String(error)));
+    const cdp = await context.newCDPSession(page);
+    await cdp.send('WebAuthn.enable');
+    const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', { options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true } });
+    await page.addInitScript((token) => { try { sessionStorage.setItem('janus.founder.session', token); } catch (_) { /* otra página */ } }, founder);
+    await page.goto(`${local}/work/team`);
+    await page.waitForSelector('#access');
+    // Sin Face ID activado no se puede crear ningún acceso.
+    await page.fill('#access input[name=displayName]', 'Dana'); await page.click('#access form button[type=submit]');
+    await page.waitForSelector('#access [role=alert]');
+    assert.match(await page.locator('#access [role=alert]').innerText(), /todavía no lo tiene activado/);
+    await page.click('[data-act=passkey-enroll]');
+    await page.waitForFunction(() => !document.querySelector('[data-act=passkey-enroll]'), null, { timeout: 15_000 });
+    assert.equal((await call('GET', '/api/auth/passkey/status', founder, undefined, 200)).activePasskeys, 1);
+    // Con Face ID del navegador: crea el enlace.
+    await page.fill('#access input[name=displayName]', 'Dana'); await page.selectOption('#access select[name=locale]', 'en'); await page.click('#access form button[type=submit]');
+    await page.waitForSelector('#access .jt-link textarea', { timeout: 15_000 });
+    const link = await page.locator('#access .jt-link textarea').inputValue();
+    assert.match(link, /^http:\/\/localhost:\d+\/work#invite=[A-Za-z0-9_-]{43}$/);
+    // El teléfono de la colaboradora entra con ese enlace.
+    const phone = await (await browser.newContext({ viewport: { width: 430, height: 932 } })).newPage();
+    await phone.goto(link);
+    await phone.waitForSelector('.cc-shell', { timeout: 15_000 });
+    assert.match(await phone.locator('.cc-main').innerText(), /Dana/);
+    assert.equal(await phone.evaluate(() => document.documentElement.lang), 'en');
+    // Si el dispositivo NO verifica al usuario, no hay prueba.
+    await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+    await page.fill('#access input[name=displayName]', 'Eloy'); await page.click('#access form button[type=submit]');
+    await page.waitForSelector('#access [role=alert]', { timeout: 15_000 });
+    assert.equal((await call('GET', '/api/auth/operator/invites', founder, undefined, 200)).invites.some((x) => x.principalId === 'eloy'), false, 'sin verificación del usuario no se crea el acceso');
+    assert.deepEqual(errors, []);
+    // La llave de acceso solo cubre «dar acceso»: no se puede pedir prueba para otra acción reservada, ni añadir otra llave sin el puente nativo.
+    const headers = { origin: local };
+    await call('POST', '/api/auth/passkey/assert/options', founder, { action: 'security.secrets.read' }, 403, headers);
+    await call('POST', '/api/auth/passkey/assert/options', founder, { action: 'security.authority.delegate_operator' }, 403, { origin: 'https://evil.example' });
+    await call('POST', '/api/auth/passkey/register/options', founder, {}, 403, headers);
+    const dev = await authenticate('colab-dev', devKeys.privateKey);
+    await call('GET', '/api/auth/passkey/status', dev, undefined, 403);
+    await call('POST', '/api/auth/passkey/assert/options', null, { action: 'security.authority.delegate_operator' }, 401, headers);
   } finally { await browser.close(); }
 }
 

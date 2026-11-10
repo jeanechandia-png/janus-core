@@ -28,8 +28,8 @@ function teamExample(nowIso) {
       { id: 'g4', principalId: 'colab-a', kind: 'availability', date: day(2), time: '09:00', endTime: '13:00', text: '' },
     ],
     invites: [
-      { id: 'invite_ejemplo-julio', principalId: 'julio', displayName: 'Julio', locale: 'es', status: 'pending', expired: false, createdBy: 'founder', createdAt: iso(20), expiresAt: iso(-71 * 60) },
-      { id: 'invite_ejemplo-robin', principalId: 'robin', displayName: 'Robin', locale: 'nl', status: 'pending', expired: false, createdBy: 'founder', createdAt: iso(18), expiresAt: iso(-71 * 60) },
+      { id: 'invite_ejemplo-a', principalId: 'colaborador-a', displayName: '__WORK_NAME_A__', locale: 'es', status: 'pending', expired: false, createdBy: 'founder', createdAt: iso(20), expiresAt: iso(-71 * 60) },
+      { id: 'invite_ejemplo-b', principalId: 'colaborador-b', displayName: '__WORK_NAME_B__', locale: 'nl', status: 'pending', expired: false, createdBy: 'founder', createdAt: iso(18), expiresAt: iso(-71 * 60) },
     ],
     fileAccess: [
       { id: 'f1', principalId: 'colab-a', resourceId: 'r2', projectId: 'p-api', name: 'Plan de pruebas.md', action: 'view', at: iso(40) },

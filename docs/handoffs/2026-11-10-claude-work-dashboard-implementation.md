@@ -177,6 +177,24 @@ work-runtime-smoke 18 bloques (incluye un teléfono nuevo entrando por el enlace
 - Criaturas y robots: el mecanismo para anexarlos ya existe (seis huecos de modelo GLB, `docs/APPROVED_CHARACTERS_PWA_2026-11-06.md`):
   se cargan desde el propio dispositivo, sin tocar código. Admite modelos 3D (GLB), no imágenes.
 
+## Actualización 10-nov-2026 (19:50) — Face ID del navegador para dar accesos
+
+Decisión del CEO (19:18): no esperar al Mac. Enmienda registrada en `docs/ADR-007-founder-biometric-authority.md`.
+
+26. **Llave de acceso del CEO** (`packages/security/src/founder-passkey.ts`, tabla `founder_passkeys`): WebAuthn sin
+    dependencias (CBOR mínimo + ES256). Método `webauthn-uv`, aceptado por la política SOLO para
+    `security.authority.delegate_operator` (`AuthorityPolicy.passkeyActions`). Rutas `/api/auth/passkey/status`,
+    `register/options|verify`, `assert/options|verify` (todas exigen sesión del CEO).
+27. **Vista de equipo:** «Activar Face ID» (una vez) y creación de enlaces confirmando con Face ID del navegador; si
+    existe el puente nativo, se usa ese.
+28. **Tablet:** `scripts/tablet/faceid-setup.sh https://…` abre el alta 10 minutos y la cierra sola.
+29. **Corrección:** `/work` y `/work/team` se reconstruyen cuando el código es más reciente que la página guardada
+    (antes, tras una actualización, se habría seguido sirviendo la versión anterior).
+
+Pruebas: ver STATE. Flujo completo en Chrome real con autenticador virtual: activar → crear enlace → la colaboradora
+entra → sin verificación del usuario no se crea nada → la llave no sirve para otras acciones reservadas.
+NO VERIFICADO: iPhone/Safari físico (en iOS la llave de acceso exige HTTPS con nombre de dominio).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·
