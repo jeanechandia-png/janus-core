@@ -109,6 +109,11 @@ import {
   type WorkSessionEventKind,
 } from '../../packages/core/src/work-session.js';
 import {
+  operatorDailyUsage,
+  parseOperatorDailyRuns,
+} from '../../packages/core/src/operator-usage-limit.js';
+import { COORDINATION_PREFERRED_PROVIDERS, type CoordinationPreferredProvider } from '../../packages/core/src/operator-coordination.js';
+import {
   buildProjectCheckpoint,
   projectRecords,
   validateProjectResource,
@@ -1276,7 +1281,29 @@ function requireProjectAccess(
   }
 }
 
-const workOperatorUploadsEnabled = process.env.JANUS_WORK_OPERATOR_UPLOADS?.trim().toLowerCase() === 'on';
+// Autorizado por el CEO el 10-nov-2026: los colaboradores adjuntan archivos a SUS proyectos. `off` lo apaga.
+const workOperatorUploadsEnabled = process.env.JANUS_WORK_OPERATOR_UPLOADS?.trim().toLowerCase() !== 'off';
+
+const operatorDailyRunLimit = parseOperatorDailyRuns(process.env.JANUS_OPERATOR_DAILY_RUNS);
+
+/** Consultas de hoy de un colaborador frente al límite diario del CEO (registro durable en SQLite). */
+function operatorUsageFor(principalId: string) {
+  const now = new Date();
+  const since = new Date(now.getTime() - 36 * 3_600_000).toISOString();
+  return operatorDailyUsage({
+    runTimestamps: store.listOperatorRunTimes(principalId, since),
+    now: now.toISOString(),
+    timeZone: timeZone ?? 'UTC',
+    limit: operatorDailyRunLimit,
+  });
+}
+
+function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | undefined | null {
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'string' && (COORDINATION_PREFERRED_PROVIDERS as readonly string[]).includes(value)
+    ? value as CoordinationPreferredProvider
+    : null;
+}
 
 function requireActiveOperatorProfile(principal: AuthorityPrincipal) {
   if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
@@ -1307,6 +1334,7 @@ function workDashboardFor(principal: AuthorityPrincipal) {
     sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
     uploadAttachments: workOperatorUploadsEnabled,
     skinSource: 'iba-command-center',
+    usage: (({ used, limit, remaining }) => ({ used, limit, remaining }))(operatorUsageFor(principal.id)),
     now,
   });
 }
@@ -2039,7 +2067,15 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
   const runEffort = runEfforts.get(runId);
   if (!plan && modelGateway) {
     // Effort budget: the provider adapter stays replaceable; Janus Core caps calls per run.
-    const runModelGateway = new BudgetedModelGateway(modelGateway, runEffort?.budget.maxModelCalls ?? 3);
+    // Delegación por tarea: si el CEO fijó un agente para la tarea, va primero; el resto queda de respaldo.
+    const runAssignment = runAssignments.get(runId);
+    const preferredProvider = runAssignment
+      ? store.getCoordinationAssignment(runAssignment.assignmentId)?.preferredProvider
+      : undefined;
+    const routedGateway = preferredProvider && modelGateway instanceof FallbackModelRouter
+      ? modelGateway.withPreference(preferredProvider)
+      : modelGateway;
+    const runModelGateway = new BudgetedModelGateway(routedGateway, runEffort?.budget.maxModelCalls ?? 3);
     runModelBudgets.set(runId, runModelGateway);
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
     const modelResult = await planWithModel(command, {
@@ -4286,6 +4322,8 @@ const server = createServer(async (request, response) => {
         || body.priority === 'critical'
         ? body.priority
         : 'normal';
+      const requestedProvider = preferredProviderFrom(body.preferredProvider);
+      if (requestedProvider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
       const assignment = validateCoordinationAssignment({
         id: typeof body.id === 'string' && body.id.trim()
           ? body.id.trim()
@@ -4300,6 +4338,7 @@ const server = createServer(async (request, response) => {
         createdAt: now,
         updatedAt: now,
         nextActions: coordinationStringList(body.nextActions),
+        ...(requestedProvider ? { preferredProvider: requestedProvider } : {}),
       });
       assertAssignmentAccess({
         principal: assigneeCredential.principal,
@@ -5694,6 +5733,31 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // Agente de una tarea (Claude, ChatGPT, Gemini, local…): lo decide el Founder; null lo quita.
+  const assignmentProviderMatch = url.pathname.match(/^\/api\/coordination\/assignments\/([^/]+)\/provider$/);
+  if (request.method === 'PUT' && assignmentProviderMatch) {
+    try {
+      requireFounderAuthority(request);
+      const assignment = store.getCoordinationAssignment(decodeURIComponent(assignmentProviderMatch[1]!));
+      if (!assignment) throw new HttpRequestError(404, 'coordination assignment not found');
+      const body = await readJson(request);
+      const provider = preferredProviderFrom(body.preferredProvider);
+      if (provider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
+      const { preferredProvider: _previous, ...rest } = assignment;
+      const updated = { ...rest, ...(provider ? { preferredProvider: provider } : {}), updatedAt: new Date().toISOString() };
+      store.upsertCoordinationAssignment(updated);
+      json(response, 200, {
+        ok: true,
+        assignment: updated,
+        // Verdad operativa: una preferencia sin proveedor configurado no hace nada hasta que exista su credencial.
+        configured: provider ? resolveModelProviders(process.env).some((item) => item.id === provider) : null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   // Registro de sesiones de trabajo: eventos declarados por la persona (sin vigilancia del equipo).
   if (request.method === 'GET' && url.pathname === '/api/work/sessions') {
     try {
@@ -5772,8 +5836,40 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  // Adjuntos de colaboradores: puerta propia, EN REPOSO por defecto. Solo se abre si el CEO
-  // activa JANUS_WORK_OPERATOR_UPLOADS=on; exige proyecto con permiso de escritura.
+  // Descarga de un archivo de proyecto: solo si la persona puede leer ESE proyecto. Nunca por id de adjunto
+  // suelto: se entra por el recurso del proyecto, así nadie alcanza archivos de un proyecto ajeno.
+  const workFileMatch = url.pathname.match(/^\/api\/work\/files\/([^/]+)$/);
+  if (request.method === 'GET' && workFileMatch) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (principal.role === 'operator') requireActiveOperatorProfile(principal);
+      const resourceId = decodeURIComponent(workFileMatch[1]!);
+      const found = store.listProjectWorkspaces()
+        .filter((project) => canAccessProject(principal, project, 'read_context'))
+        .flatMap((project) => store.listProjectResources(project.id))
+        .find((resource) => resource.id === resourceId);
+      // Misma respuesta si no existe o si pertenece a un proyecto ajeno: no se revela su existencia.
+      if (!found || found.source !== 'upload') throw new HttpRequestError(404, 'file not found');
+      const attachment = attachmentStore.get(found.sourceRef, found.addedBy);
+      const bytes = attachment ? attachmentStore.readBytes(attachment) : undefined;
+      if (!attachment || !bytes) throw new HttpRequestError(404, 'file not found');
+      response.writeHead(200, {
+        'content-type': attachment.type || 'application/octet-stream',
+        'content-length': String(bytes.byteLength),
+        'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(attachment.name)}`,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'content-security-policy': "default-src 'none'; sandbox",
+      });
+      response.end(bytes);
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Adjuntos de colaboradores: puerta propia (autorizada por el CEO el 10-nov-2026; `off` la apaga).
+  // Exige proyecto con permiso de escritura; el archivo queda vinculado a ESE proyecto.
   if (request.method === 'POST' && url.pathname === '/api/work/attachments') {
     try {
       const { principal } = requireAuthoritySession(request);
@@ -6291,6 +6387,14 @@ const server = createServer(async (request, response) => {
         });
         coordinationLink = { assignmentId, principalId: principal.id };
       }
+      const commandPrincipal = authorityContext?.principal;
+      if (commandPrincipal?.role === 'operator') {
+        const usage = operatorUsageFor(commandPrincipal.id);
+        if (!usage.allowed) {
+          json(response, 429, { ok: false, code: 'operator_daily_limit', error: 'Límite diario de consultas alcanzado.', usage });
+          return;
+        }
+      }
       const runId = startRun(
         text,
         body.inputMode === 'voice' ? 'voice' : 'text',
@@ -6300,6 +6404,9 @@ const server = createServer(async (request, response) => {
         projectLink,
         typeof body.effort === 'string' ? body.effort : undefined,
       );
+      if (commandPrincipal?.role === 'operator') {
+        store.appendOperatorRun({ runId, principalId: commandPrincipal.id, at: new Date().toISOString() });
+      }
       const commandInterpretation = runInterpretations.get(runId);
       json(response, 202, {
         ok: true,

@@ -4,6 +4,7 @@
 - **Hecho:** plantilla laboral única (`prototypes/dashboard/work/`, ruta `/work`, PWA propia), diseño de la dashboard de IBA referenciado por huella (CSS privado fuera de este repo público), medallones de idioma ES/NL/EN, chat escrito por proyecto, tareas, documentos, instrucciones, sesiones de trabajo, avances y entregas. Solo texto.
 - **No tocado:** dashboards personales A/B del CEO, /kendra, robots y criaturas.
 - **Pruebas:** typecheck limpio; `npm test` 678/0 fallos; runtime-smoke ok; work-runtime-smoke 10 bloques con navegador; E2E 111/111. Falta dispositivo físico.
+- **Segunda entrega (tarde):** archivos para colaboradores activos (subir/descargar solo en proyectos propios), lector QR reutilizado, agente por tarea fijado por el CEO con respaldo, límite diario de consultas por colaborador. PR #82 en borrador. `npm test` 685/0; smoke 11 bloques; E2E 117/117.
 - **Handoff:** `docs/handoffs/2026-11-10-claude-work-dashboard-implementation.md`.
 
 ## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable

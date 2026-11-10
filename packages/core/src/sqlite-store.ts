@@ -774,6 +774,20 @@ export class SqliteStore {
     ));
   }
 
+  /** Control de consumo: una fila por consulta a JANUS iniciada por un colaborador (append-only). */
+  appendOperatorRun(input: { runId: string; principalId: string; at: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO operator_run_usage (run_id, principal_id, at) VALUES (?, ?, ?)
+    `).run(input.runId, input.principalId, input.at);
+  }
+
+  listOperatorRunTimes(principalId: string, sinceIso: string): string[] {
+    const rows = this.db.prepare(`
+      SELECT at FROM operator_run_usage WHERE principal_id = ? AND at >= ? ORDER BY at ASC
+    `).all(principalId, sinceIso) as Record<string, unknown>[];
+    return rows.map((row) => String(row.at));
+  }
+
   /** Plantilla laboral: registro append-only de eventos de sesión declarados por la persona. */
   appendWorkSessionEvent(event: WorkSessionEvent): void {
     this.db.prepare(`
@@ -2063,6 +2077,15 @@ export class SqliteStore {
         updated_at TEXT NOT NULL,
         profile_json TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS operator_run_usage (
+        run_id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_operator_run_usage_principal
+      ON operator_run_usage(principal_id, at);
 
       CREATE TABLE IF NOT EXISTS work_session_events (
         id TEXT PRIMARY KEY,

@@ -118,7 +118,7 @@ test('el proyecto expone instrucciones, punto de continuación y solo metadatos 
   assert.equal(project.unresolvedErrors.length, 1);
   assert.equal(project.threads[0]?.id, 't1');
   // La referencia interna del binario y su huella no viajan a la interfaz.
-  assert.deepEqual(Object.keys(project.resources[0]!).sort(), ['addedBy', 'createdAt', 'id', 'mimeType', 'name', 'source']);
+  assert.deepEqual(Object.keys(project.resources[0]!).sort(), ['addedBy', 'createdAt', 'downloadable', 'id', 'mimeType', 'name', 'source']);
   assert.doesNotMatch(JSON.stringify(dashboard), /att_secreto/);
 });
 

@@ -38,6 +38,37 @@ Rama: `claude/work-dashboard-template`, creada sobre `chatgpt/janus-approved-cha
 8. **Pasarela de modelo v1.2** (aditivo): reenvía `projectId/threadId/assignmentId` a `/api/command` si son válidos.
    Sin esos campos el cuerpo es idéntico al anterior; las dashboards A/B no cambian de comportamiento.
 
+## Actualización 10-nov-2026 (tarde) — decisiones del CEO y segunda entrega
+
+Decisiones del CEO: JANUS solo lleva ES/NL/EN (sin turco: es producto interno, no de venta) · los colaboradores
+SÍ adjuntan y descargan archivos, siempre dentro de sus proyectos autorizados · las altas reales de personas quedan
+aparcadas (no son tarea de Claude).
+
+9. **Archivos para colaboradores (activo):** `POST /api/work/attachments` pasa a estar ENCENDIDO por defecto
+   (`JANUS_WORK_OPERATOR_UPLOADS=off` lo apaga). Nuevo `GET /api/work/files/:resourceId`: descarga solo si la persona
+   puede leer ESE proyecto (404 uniforme para ajeno o inexistente). El CEO descarga lo que sube su equipo. En el panel:
+   Adjuntar archivo (varios), Hacer foto, Descargar.
+10. **Lector de códigos:** se reutiliza el LEGO `janus-attach` + `vendor/jsqr` sin modificarlos. Lee **QR**; el texto
+    leído se añade al mensaje como dato y nunca se abre solo. **Códigos de barras 1D (EAN, Code 128): NO** todavía
+    (el lector actual es solo QR; requiere añadir un decodificador). El lector conserva su piel dorada y sus textos en
+    español.
+11. **Agente por tarea:** `preferredProvider` en la asignación (`anthropic` Claude · `openai` ChatGPT · `gemini` ·
+    `perplexity` · `custom` local). Lo fija solo el Founder (al crear la tarea o con
+    `PUT /api/coordination/assignments/:id/provider`). `FallbackModelRouter.withPreference()` pone ese agente primero y
+    deja el resto de respaldo; un rechazo por presupuesto no se esquiva. Sin credencial configurada la preferencia se
+    guarda pero no actúa (la respuesta lo dice: `configured:false`).
+12. **Límite diario por colaborador:** tabla `operator_run_usage` (durable). `JANUS_OPERATOR_DAILY_RUNS` (60 por
+    defecto; 0 = sin límite). Al superarlo `/api/command` responde 429 `operator_daily_limit`. El Founder no tiene
+    límite. El panel muestra «Consultas hoy: n/límite».
+
+Pruebas tras esta entrega: typecheck limpio · `npm test` 685/0 fallos (7 nuevas de delegación y límite) ·
+runtime-smoke ok · work-runtime-smoke 11 bloques con navegador (subida de 2 archivos, descarga, 404 en proyecto ajeno) ·
+E2E 117/117 · dashboard:test 20/20.
+
+**No hecho:** el agente por tarea se aplica al planificador de la ejecución (donde hoy se llama al modelo); no hay
+todavía ejecución real en paralelo de varios agentes externos ni reparto automático por tipo de trabajo. Ningún
+proveedor externo se ha llamado en pruebas (no hay credenciales en este entorno).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·
@@ -63,9 +94,9 @@ dos pruebas nuevas con navegador (requieren la piel privada: en CI público se o
 
 1. Aprobación visual de la vista previa.
 2. Dónde alojar la piel de IBA para el runtime real (hoy: copia local fuera de Git).
-3. Activar la carga de adjuntos de colaboradores.
-4. Altas reales (Julio, Robin, Mariel): llave pública de cada dispositivo + ámbitos y proyectos de cada uno.
-5. Fusión de esta rama y cualquier despliegue.
+3. Fusión de esta rama (PR #82, borrador) y cualquier despliegue.
+
+Aparcado por orden del CEO: altas reales de personas.
 
 ## Continuación
 

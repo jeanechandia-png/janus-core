@@ -31,6 +31,8 @@ const JanusWork = (() => {
   const lines = (text) => String(text || '').split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
   const timeZone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || '—'; } catch (_) { return '—'; } };
   const STATUS_CLASS = { queued: 'waiting', active: 'in-progress', blocked: 'blocked', handoff_required: 'pending-approval', completed: 'completed', cancelled: 'draft' };
+  // Agentes con los que JANUS puede trabajar una tarea (lo decide el CEO). Nombres propios: no se traducen.
+  const AGENT_NAMES = { anthropic: 'Claude', openai: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', custom: 'JANUS local' };
   const PRIORITY_CLASS = { critical: 'urgent', high: 'high', normal: 'normal', low: 'low' };
 
   /* ── datos ── */
@@ -156,11 +158,13 @@ const JanusWork = (() => {
       if (S.mode === 'example') {
         await new Promise((r) => setTimeout(r, 350));
         reply.text = t('chatSimReply', { project: p.name }); reply.meta = t('chatSimulated');
+        if (S.data.usage && S.data.usage.limit > 0) S.data.usage.used += 1;
       } else {
         const threadId = await ensureThread(p);
         const active = S.data.assignments.find((x) => x.assignment.status === 'active');
         const result = await JanusGateway.ask({ messages: [{ role: 'user', content: text }], projectId: p.id, threadId, assignmentId: active ? active.assignment.id : undefined, inputMode: 'text' });
-        if (result.via !== 'core') throw new Error(result.text || 'JANUS CORE');
+        if (result.via !== 'core') throw new Error(/429|operator_daily_limit|L[ií]mite diario/i.test(result.text || '') ? t('chatLimit') : (result.text || 'JANUS CORE'));
+        if (S.data.usage && S.data.usage.limit > 0) { S.data.usage.used += 1; if (S.data.usage.remaining != null) S.data.usage.remaining = Math.max(0, S.data.usage.remaining - 1); }
         reply.text = result.text; reply.meta = result.label;
       }
     } catch (error) { reply.text = t('chatError', { error: String(error.message || error).slice(0, 240) }); reply.failed = true; }
@@ -169,16 +173,41 @@ const JanusWork = (() => {
     const input = document.getElementById('jw-chat-input'); if (input) input.focus();
   }
 
-  async function upload(file) {
-    const p = project(); if (!file || !p || S.uploadBusy || S.mode !== 'core') return;
+  async function upload(fileList, source) {
+    const p = project(), files = Array.prototype.slice.call(fileList || [], 0, 6);
+    if (!files.length || !p || S.uploadBusy) return;
+    if (S.mode !== 'core') { S.notice = t('docsPreviewOnly'); S.noticeTone = ''; render(); return; }
     S.uploadBusy = true; render();
+    let done = 0; const failed = [];
+    for (const file of files) {
+      try {
+        const response = await fetch('/api/work/attachments', { method: 'POST', body: file, headers: Object.assign({ 'content-type': file.type || 'application/octet-stream', 'x-attachment-project-id': p.id, 'x-attachment-source': source || 'device-file', 'x-attachment-name': encodeURIComponent(file.name || 'archivo') }, authHeaders()) });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(body.error || body.code || response.status));
+        done += 1;
+      } catch (error) { failed.push((file.name || '?') + ': ' + String(error.message || error).slice(0, 120)); }
+    }
+    S.notice = (done ? t('docsUploadedN', { n: done }) : '') + (failed.length ? ' ' + failed.join(' · ') : ''); S.noticeTone = failed.length ? 'warn' : '';
+    S.uploadBusy = false; await load(true);
+  }
+
+  // Descarga con la sesión del colaborador (el servidor comprueba que el archivo es de un proyecto suyo).
+  async function download(resourceId, name) {
+    if (S.mode !== 'core') { S.notice = t('docsPreviewOnly'); S.noticeTone = ''; render(); return; }
     try {
-      const response = await fetch('/api/work/attachments', { method: 'POST', body: file, headers: Object.assign({ 'content-type': file.type || 'application/octet-stream', 'x-attachment-project-id': p.id, 'x-attachment-source': 'device-file', 'x-attachment-name': encodeURIComponent(file.name) }, authHeaders()) });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(String(body.error || body.code || response.status));
-      S.notice = t('docsUploaded'); S.noticeTone = ''; S.uploadBusy = false; await load(true); return;
-    } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; }
-    S.uploadBusy = false; render();
+      const response = await fetch('/api/work/files/' + encodeURIComponent(resourceId), { headers: authHeaders(), cache: 'no-store' });
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const url = URL.createObjectURL(await response.blob()), a = document.createElement('a');
+      a.href = url; a.download = name || 'archivo'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (error) { S.notice = t('docsDownloadError', { error: String(error.message || error) }); S.noticeTone = 'warn'; render(); }
+  }
+
+  // Lector de códigos (LEGO janus-attach): el contenido leído es un DATO que se añade al mensaje; nunca se abre solo.
+  async function scanCode() {
+    if (typeof JanusAttach !== 'object') return;
+    const result = await JanusAttach.scan();
+    if (result && result.raw) { S.draft = (S.draft ? S.draft + ' ' : '') + String(result.raw).slice(0, 2000); render(); const input = document.getElementById('jw-chat-input'); if (input) input.focus(); }
   }
 
   async function doLogin() {
@@ -223,6 +252,7 @@ const JanusWork = (() => {
       '</section></main>';
   }
 
+  const usageBadge = () => { const u = S.data && S.data.usage; return u && u.limit > 0 ? '<span class="cc-readonly-badge jw-usage" title="' + esc(t('usageHint')) + '">' + esc(t('usageToday', { used: u.used, limit: u.limit })) + '</span>' : ''; };
   function viewChat(p) {
     const log = (p && S.chat[p.id]) || [], canChat = !!(p && p.canWrite);
     // Aviso claro de IBA (`cc-inline-notice`): su `cc-continuity-state` está pensado para fondo oscuro y aquí no se lee.
@@ -233,7 +263,7 @@ const JanusWork = (() => {
       ? log.map((m) => '<div class="cc-assistant-answer jw-msg jw-' + m.role + '"><small>' + esc(m.role === 'user' ? t('chatYou') : t('chatJanus')) + ' · ' + esc(fmtDate(m.at)) + '</small><p>' + esc(m.text) + '</p>' + (m.meta ? '<small class="cc-assistant-limit">' + esc(m.meta) + '</small>' : '') + '</div>').join('')
       : '';
     return '<section class="cc-panel cc-assistant-panel" id="assistant">' +
-      panelHead(t('chatKicker', { project: p ? p.name : '—' }), t('chatTitle'), '<div class="cc-assistant-head-actions"><span class="cc-readonly-badge">' + esc(t('chatBadge')) + '</span><button type="button" class="cc-new-chat" data-act="chat-new">' + esc(t('chatNew')) + '</button></div>') +
+      panelHead(t('chatKicker', { project: p ? p.name : '—' }), t('chatTitle'), '<div class="cc-assistant-head-actions">' + usageBadge() + '<span class="cc-readonly-badge">' + esc(t('chatBadge')) + '</span><button type="button" class="cc-new-chat" data-act="chat-new">' + esc(t('chatNew')) + '</button></div>') +
       (canChat
         ? '<form class="cc-assistant-form" data-form="chat"><input id="jw-chat-input" name="text" maxlength="4000" autocomplete="off" placeholder="' + esc(t('chatPlaceholder')) + '" value="' + esc(S.draft) + '" aria-label="' + esc(t('chatTitle')) + '"' + (S.chatBusy ? ' disabled' : '') + '><button type="submit"' + (S.chatBusy ? ' disabled' : '') + '>' + esc(S.chatBusy ? t('chatSending') : t('chatSend')) + '</button></form>' +
           '<div class="cc-assistant-prompts">' + ['prompt1', 'prompt2', 'prompt3'].map((k) => '<button type="button" data-act="prompt" data-v="' + k + '">' + esc(t(k)) + '</button>').join('') + '</div>'
@@ -265,6 +295,7 @@ const JanusWork = (() => {
         return '<article class="cc-operation-item"><div class="priority priority-' + (PRIORITY_CLASS[a.priority] || 'normal') + '" title="' + esc(t('pr_' + a.priority)) + '"></div>' +
           '<div class="grow"><strong>' + esc(a.title) + '</strong><small>' + esc(a.goal) + ' · ' + esc(t('pr_' + a.priority)) + '</small>' +
           (a.nextActions[0] ? '<small class="jw-next">↳ ' + esc(t('taskNext')) + ': ' + esc(a.nextActions[0]) + '</small>' : '') +
+          (AGENT_NAMES[a.preferredProvider] ? '<small class="jw-agent">◈ ' + esc(t('taskAgent', { agent: AGENT_NAMES[a.preferredProvider] })) + '</small>' : '') +
           (done ? '' : '<div class="cc-operation-links cc-row-actions jw-links"><button type="button" data-act="progress" data-v="' + esc(a.id) + '">' + esc(t('taskRegister')) + '</button><button type="button" data-act="deliver" data-v="' + esc(a.id) + '">' + esc(t('taskDeliver')) + '</button></div>') +
           '</div><span class="status status-' + (STATUS_CLASS[a.status] || 'draft') + '">' + esc(t('st_' + a.status)) + '</span><time>' + esc(fmtDate(a.updatedAt)) + '</time></article>';
       }).join('') : '<p class="empty">' + esc(t('tasksEmpty')) + '</p>') + '</div></section>';
@@ -287,10 +318,19 @@ const JanusWork = (() => {
   }
 
   function viewDocs(p) {
-    const items = p ? p.resources : [], canUpload = S.data.capabilities.uploadAttachments && p && p.canWrite && S.mode === 'core';
+    const items = p ? p.resources : [], canUpload = !!(S.data.capabilities.uploadAttachments && p && p.canWrite);
+    const live = S.mode === 'core', off = (S.uploadBusy ? ' disabled' : '');
     return '<section class="cc-panel" id="documents">' + panelHead(t('docsKicker'), t('docsTitle'), '<b>' + items.length + '</b>') +
-      '<div class="cc-list compact">' + (items.length ? items.slice().reverse().map((r) => '<article><div class="grow"><strong>' + esc(r.name) + '</strong><small>' + esc((r.mimeType || '—')) + ' · ' + esc(r.addedBy) + '</small></div><span class="status status-' + (r.source === 'upload' ? 'received' : 'submitted') + '">' + esc(t('src_' + r.source)) + '</span><time>' + esc(fmtDate(r.createdAt)) + '</time></article>').join('') : '<p class="empty">' + esc(t('docsEmpty')) + '</p>') + '</div>' +
-      (canUpload ? '<div class="cc-prepare-generic"><label class="jw-file"><input type="file" id="jw-file" hidden><button type="button" data-act="pick-file"' + (S.uploadBusy ? ' disabled' : '') + '>＋ ' + esc(S.uploadBusy ? t('docsUploading') : t('docsUpload')) + '</button></label></div>' : '<div class="cc-inline-notice">' + esc(t('docsUploadOff')) + '</div>') +
+      '<div class="cc-list compact">' + (items.length ? items.slice().reverse().map((r) => '<article><div class="grow"><strong>' + esc(r.name) + '</strong><small>' + esc((r.mimeType || '—')) + ' · ' + esc(r.addedBy) + '</small>' +
+        (r.downloadable ? '<div class="cc-operation-links cc-row-actions jw-links"><button type="button" data-act="download" data-v="' + esc(r.id) + '" data-name="' + esc(r.name) + '">↓ ' + esc(t('docsDownload')) + '</button></div>' : '') +
+        '</div><span class="status status-' + (r.source === 'upload' ? 'received' : 'submitted') + '">' + esc(t('src_' + r.source)) + '</span><time>' + esc(fmtDate(r.createdAt)) + '</time></article>').join('') : '<p class="empty">' + esc(t('docsEmpty')) + '</p>') + '</div>' +
+      (canUpload ? '<div class="cc-row-actions jw-actions jw-attach">' +
+        '<input type="file" id="jw-file" multiple hidden><input type="file" id="jw-cam" accept="image/*" capture="environment" hidden>' +
+        '<button type="button" data-act="pick-file"' + off + '>＋ ' + esc(S.uploadBusy ? t('docsUploading') : t('docsUpload')) + '</button>' +
+        '<button type="button" data-act="pick-cam"' + off + '>◉ ' + esc(t('docsPhoto')) + '</button>' +
+        (typeof JanusAttach === 'object' ? '<button type="button" data-act="scan">▦ ' + esc(t('docsScan')) + '</button>' : '') + '</div>' +
+        (live ? '' : '<div class="cc-inline-notice">' + esc(t('docsPreviewOnly')) + '</div>')
+        : '<div class="cc-inline-notice">' + esc(p && !p.canWrite ? t('docsReadOnly') : t('docsUploadOff')) + '</div>') +
       '<div class="cc-admin-strip">' + esc(t('docsTruth')) + '</div></section>';
   }
 
@@ -396,6 +436,9 @@ const JanusWork = (() => {
       else if (act === 'prompt') { S.draft = t(v); render(); const input = document.getElementById('jw-chat-input'); if (input) input.focus(); }
       else if (act === 'chat-new') { const p = project(); if (p) { S.chat[p.id] = []; delete S.threads[p.id]; } render(); }
       else if (act === 'pick-file') { const input = document.getElementById('jw-file'); if (input) input.click(); }
+      else if (act === 'pick-cam') { const input = document.getElementById('jw-cam'); if (input) input.click(); }
+      else if (act === 'download') void download(v, el.dataset.name);
+      else if (act === 'scan') void scanCode();
       else if (act === 'link') void linkDevice();
       else if (act === 'copy-pem') { if (navigator.clipboard) navigator.clipboard.writeText(S.login.pem).then(() => { S.login.copied = true; render(); }).catch(() => {}); }
       else if (act === 'signout') { Promise.resolve(typeof signOut === 'function' ? signOut() : null).then(() => { S.data = null; S.chat = {}; S.threads = {}; render(); }); }
@@ -403,7 +446,7 @@ const JanusWork = (() => {
     $root.addEventListener('change', (event) => {
       const el = event.target;
       if (el.dataset && el.dataset.act === 'project') { S.projectId = el.value; render(); }
-      else if (el.id === 'jw-file' && el.files && el.files[0]) void upload(el.files[0]);
+      else if ((el.id === 'jw-file' || el.id === 'jw-cam') && el.files && el.files.length) void upload(el.files, el.id === 'jw-cam' ? 'photo' : 'device-file');
     });
     $root.addEventListener('input', (event) => {
       const el = event.target;

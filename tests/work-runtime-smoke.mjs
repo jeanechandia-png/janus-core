@@ -26,13 +26,14 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.t
     ...process.env, PORT: String(port), JANUS_DB: ':memory:', JANUS_TIME_ZONE: 'Europe/Amsterdam',
     GOOGLE_ACCESS_TOKEN: '', THREADS_ACCESS_TOKEN: '', JANUS_CREDENTIAL_VAULT_KEY: randomBytes(32).toString('base64'), JANUS_CREDENTIAL_VAULT_PATH: '',
     GOOGLE_OAUTH_CLIENT_ID: '', GOOGLE_OAUTH_CLIENT_SECRET: '', THREADS_APP_SECRET: '', GITHUB_TOKEN: '', NETLIFY_AUTH_TOKEN: '',
-    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '',
+    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2',
     JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'smoke-face-key',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let stderr = '';
 child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+let devResourceId = '';
 const checks = [];
 const ok = (name) => { checks.push(name); };
 
@@ -68,7 +69,7 @@ try {
   assert.deepEqual(dash.projects.map((p) => p.id), ['p-api']);
   assert.equal(dash.projects[0].instructions, 'TypeScript estricto.'); assert.equal(dash.projects[0].canWrite, true);
   assert.deepEqual(dash.assignments.map((a) => a.assignment.id), ['as-dev-1']);
-  assert.equal(dash.capabilities.voice, false); assert.equal(dash.capabilities.uploadAttachments, false);
+  assert.equal(dash.capabilities.voice, false); assert.equal(dash.capabilities.uploadAttachments, true);
   assert.doesNotMatch(JSON.stringify(dash), /SECRETO-FOUNDER|p-privado|p-nl/);
   ok('dashboard acotada a proyectos y tareas propios');
 
@@ -113,11 +114,27 @@ try {
   await ev(null, { kind: 'start' }, 401);
   ok('registro de sesión: transiciones, hora del servidor y acceso');
 
-  // ── Adjuntos de colaboradores: en reposo hasta que el CEO lo active ───────────────────────────
-  const up = await fetch(`${base}/api/work/attachments`, { method: 'POST', headers: { authorization: `Bearer ${dev}`, 'content-type': 'text/plain', 'x-attachment-project-id': 'p-api', 'x-attachment-source': 'device-file', 'x-attachment-name': 'nota.txt' }, body: 'hola' });
-  assert.equal(up.status, 403); assert.equal((await up.json()).code, 'operator_uploads_disabled');
+  // ── Archivos: el colaborador sube y descarga SOLO en sus proyectos (autorizado por el CEO, 10-nov) ──
+  const put = (token, projectId, name, body, type = 'text/plain') => fetch(`${base}/api/work/attachments`, { method: 'POST', headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': type, 'x-attachment-project-id': projectId, 'x-attachment-source': 'device-file', 'x-attachment-name': encodeURIComponent(name) }, body });
+  const up = await put(dev, 'p-api', 'nota de obra.txt', 'contenido de prueba');
+  assert.equal(up.status, 201);
+  devResourceId = (await up.json()).projectResourceId;
+  assert.equal((await put(dev, 'p-privado', 'x.txt', 'x')).status, 403, 'no sube a un proyecto ajeno');
+  assert.equal((await put(dev, 'p-nl', 'x.txt', 'x')).status, 403);
+  assert.equal((await put(null, 'p-api', 'x.txt', 'x')).status, 401);
+  assert.equal((await put(founder, 'p-api', 'x.txt', 'x')).status, 403, 'esta puerta es de colaboradores; el Founder tiene la suya');
+  assert.ok((await put(dev, 'p-api', 'virus.exe', 'MZ\u0090\u0000', 'application/x-msdownload')).status >= 400, 'tipos no permitidos se rechazan');
   assert.equal((await fetch(`${base}/api/attachments`, { method: 'POST', headers: { authorization: `Bearer ${dev}`, 'content-type': 'text/plain', 'x-attachment-source': 'device-file', 'x-attachment-name': 'nota.txt' }, body: 'hola' })).status, 403);
-  ok('carga de adjuntos de colaboradores desactivada por defecto');
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  const listed = dash.projects.find((p) => p.id === 'p-api').resources.find((r) => r.id === devResourceId);
+  assert.equal(listed?.downloadable, true); assert.equal(listed?.addedBy, 'colab-dev'); assert.equal(dash.capabilities.uploadAttachments, true);
+  const got = await fetch(`${base}/api/work/files/${devResourceId}`, { headers: { authorization: `Bearer ${dev}` } });
+  assert.equal(got.status, 200); assert.equal(await got.text(), 'contenido de prueba');
+  assert.match(got.headers.get('content-disposition') || '', /^attachment; filename\*=UTF-8''nota/); assert.equal(got.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal((await fetch(`${base}/api/work/files/${devResourceId}`, { headers: { authorization: `Bearer ${founder}` } })).status, 200, 'el CEO recibe lo que sube su equipo');
+  assert.equal((await fetch(`${base}/api/work/files/${devResourceId}`)).status, 401);
+  assert.equal((await fetch(`${base}/api/work/files/resource_no_existe`, { headers: { authorization: `Bearer ${dev}` } })).status, 404);
+  ok('archivos: subir y descargar solo dentro de los proyectos propios');
 
   // ── Avance/entrega (handoff) y chat por proyecto ──────────────────────────────────────────────
   await call('POST', '/api/coordination/assignments/as-dev-1/handoffs', dev, { executiveSummary: 'Listado listo', completed: ['Filtro'], pending: ['Paginación'], evidenceRefs: ['commit abc'] }, 201);
@@ -130,6 +147,24 @@ try {
   await call('POST', '/api/command', dev, { text: 'hola', projectId: 'p-privado', threadId: thread.thread.id }, 404);
   await call('POST', '/api/projects/p-nl/threads', dev, { title: 'intruso' }, 403);
   ok('avances/entregas y chat con contexto de proyecto');
+
+  // ── Delegación por tarea (agente) y límite diario de consultas ────────────────────────────────
+  await call('PUT', '/api/coordination/assignments/as-dev-1/provider', dev, { preferredProvider: 'anthropic' }, 403);
+  await call('PUT', '/api/coordination/assignments/as-dev-1/provider', founder, { preferredProvider: 'skynet' }, 400);
+  await call('PUT', '/api/coordination/assignments/no-existe/provider', founder, { preferredProvider: 'gemini' }, 404);
+  const routed = await call('PUT', '/api/coordination/assignments/as-dev-1/provider', founder, { preferredProvider: 'anthropic' }, 200);
+  assert.equal(routed.assignment.preferredProvider, 'anthropic');
+  assert.equal(routed.configured, false, 'sin credencial configurada se dice la verdad: preferencia guardada pero inactiva');
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  assert.equal(dash.assignments[0].assignment.preferredProvider, 'anthropic');
+  assert.deepEqual(dash.usage, { used: 1, limit: 2, remaining: 1 });
+  await call('POST', '/api/command', dev, { text: 'siguiente paso', projectId: 'p-api', threadId: thread.thread.id, assignmentId: 'as-dev-1' }, 202);
+  const limited = await call('POST', '/api/command', dev, { text: 'otra más', projectId: 'p-api', threadId: thread.thread.id }, 429);
+  assert.equal(limited.code, 'operator_daily_limit'); assert.equal(limited.usage.remaining, 0);
+  await call('POST', '/api/command', founder, { text: 'estado' }, 202); // el Founder no tiene este límite
+  const cleared = await call('PUT', '/api/coordination/assignments/as-dev-1/provider', founder, { preferredProvider: null }, 200);
+  assert.equal(cleared.assignment.preferredProvider, undefined);
+  ok('agente por tarea (solo CEO) y límite diario de consultas por colaborador');
 
   // ── /work: una sola página para todos; sin piel verificada no se sirve otro diseño ────────────
   const page = await fetch(`${base}/work`);
@@ -177,8 +212,8 @@ async function browserFlow({ chromium }, founder) {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(String(error)));
-    page.on('response', (response) => { if (response.status() === 404) errors.push('404 ' + response.url()); });
-    page.on('console', (message) => { if (message.type() === 'error' && !/401|403|409/.test(message.text())) errors.push(message.text()); });
+    page.on('response', (response) => { if (response.status() === 404 && !response.url().endsWith('/api/work/files/' + devResourceId)) errors.push('404 ' + response.url()); });
+    page.on('console', (message) => { if (message.type() === 'error' && !/40[1349]|429|Failed to load resource/.test(message.text())) errors.push(message.text()); });
     await page.goto(`${base}/work`);
     await page.waitForSelector('.cc-login-card');
     assert.equal(await page.locator('.janus-language-button.is-lit').getAttribute('data-language'), 'nl', 'idioma inicial según el dispositivo');
@@ -209,6 +244,13 @@ async function browserFlow({ chromium }, founder) {
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'nl');
     assert.equal(await page.locator('audio, video, [class*=mic], [data-act*=voice]').count(), 0, 'sin elementos de voz');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'sin desbordamiento horizontal en móvil');
+    // Archivos: no alcanza el archivo del otro colaborador; sube uno propio y lo descarga.
+    assert.equal(await page.evaluate(async (id) => (await fetch('/api/work/files/' + id, { headers: { authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } })).status, devResourceId), 404, 'archivo de proyecto ajeno: 404');
+    assert.equal(await page.locator('#documents [data-act=scan]').count(), 1, 'lector de códigos disponible');
+    await page.setInputFiles('#jw-file', [{ name: 'offerte.txt', mimeType: 'text/plain', buffer: Buffer.from('offerte inhoud') }, { name: 'notitie.md', mimeType: 'text/markdown', buffer: Buffer.from('# notitie') }]);
+    await page.waitForFunction(() => /offerte\.txt/.test(document.querySelector('#documents').innerText) && /notitie\.md/.test(document.querySelector('#documents').innerText), null, { timeout: 15_000 });
+    const [file] = await Promise.all([page.waitForEvent('download'), page.locator('#documents [data-act=download]').first().click()]);
+    assert.match(file.suggestedFilename(), /\.(txt|md)$/);
     // Sesión de trabajo real.
     await page.click('[data-act=sess][data-v=start]');
     await page.waitForSelector('[data-act=sess][data-v=pause]');

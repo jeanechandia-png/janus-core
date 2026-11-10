@@ -51,7 +51,7 @@ export interface WorkDashboardProject {
   checkpointAt?: string;
   threads: Array<Pick<ProjectThread, 'id' | 'title' | 'status' | 'updatedAt'>>;
   /** Solo metadatos: una referencia no implica que el binario se haya procesado. */
-  resources: Array<Pick<ProjectResourceRef, 'id' | 'name' | 'source' | 'createdAt' | 'addedBy' | 'mimeType' | 'threadId'>>;
+  resources: Array<Pick<ProjectResourceRef, 'id' | 'name' | 'source' | 'createdAt' | 'addedBy' | 'mimeType' | 'threadId'> & { downloadable: boolean }>;
 }
 
 export interface WorkDashboardProjectInput {
@@ -96,6 +96,8 @@ export interface ReusableWorkDashboard {
     /** El tiempo es declarado por la persona; no prueba productividad por sí solo. */
     selfReported: true;
   };
+  /** Consultas a JANUS hoy frente al límite diario fijado por el CEO (`limit` 0 = sin límite). */
+  usage: { used: number; limit: number; remaining: number | null };
   generatedAt: string;
 }
 
@@ -118,6 +120,7 @@ export function buildReusableWorkDashboard(input: {
   sessions?: readonly WorkSessionSummary[];
   uploadAttachments?: boolean;
   skinSource?: ReusableWorkDashboard['skinSource'];
+  usage?: { used: number; limit: number; remaining: number | null };
   now?: string;
 }): ReusableWorkDashboard {
   if (!input.principal.active || input.principal.role !== 'operator') {
@@ -182,6 +185,8 @@ export function buildReusableWorkDashboard(input: {
         source: resource.source,
         createdAt: resource.createdAt,
         addedBy: resource.addedBy,
+        // Solo los archivos subidos a JANUS se pueden descargar aquí; Drive/iCloud son referencias externas.
+        downloadable: resource.source === 'upload',
         ...(resource.mimeType ? { mimeType: resource.mimeType } : {}),
         ...(resource.threadId ? { threadId: resource.threadId } : {}),
       })),
@@ -221,6 +226,7 @@ export function buildReusableWorkDashboard(input: {
       todayActiveSeconds,
       selfReported: true,
     },
+    usage: input.usage ? { ...input.usage } : { used: 0, limit: 0, remaining: null },
     generatedAt: now,
   };
 }

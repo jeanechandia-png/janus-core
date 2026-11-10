@@ -40,10 +40,12 @@ function buildWork(options) {
     const session = fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'founder-session.js'), 'utf8').replace(/^export\s+/gm, '');
     parts.push(session, rd('lego/janus-model-gateway/janus-model-gateway.js'));
   } else parts.push(rd('work/work-example.js'));
+  // Lector de códigos: LEGO janus-attach existente + vendor/jsqr (mismo módulo del chat del CEO, sin modificar).
+  parts.push(rd('vendor/jsqr.js'), rd('lego/janus-attach/janus-attach.js'));
   parts.push(rd('work/work-app.js'));
   let js = parts.join('\n').replace(/<\/script/gi, '<\\/script');
   for (const [k, v] of Object.entries(NAMES)) js = js.split(k).join(String(v).replace(/[<>&"'\\]/g, ''));
-  const css = skin + '\n' + fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'language-buttons.css'), 'utf8') + '\n' + rd('work/work-extra.css');
+  const css = skin + '\n' + fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'language-buttons.css'), 'utf8') + '\n' + rd('lego/janus-attach/janus-attach.css') + '\n' + rd('work/work-extra.css');
   return '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
     '<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n' +

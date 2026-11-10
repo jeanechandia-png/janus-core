@@ -47,3 +47,6 @@ html,body{margin:0;background:#f5f7f9}
 .jw-login-row{align-items:center;flex-wrap:wrap;gap:10px}
 .jw-foot{justify-content:space-between}
 @media(prefers-reduced-motion:reduce){.janus-language-button.jw-flag,.janus-language-button.jw-flag::after{transition:none;animation:none}.janus-language-button.jw-flag:hover{transform:none}}
+.jw-agent{color:#35648d!important;font-weight:700}
+.jw-usage{white-space:nowrap}
+.jw-attach{flex-wrap:wrap}
