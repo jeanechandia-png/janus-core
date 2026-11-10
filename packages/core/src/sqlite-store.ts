@@ -28,6 +28,7 @@ import type { ReusableLibraryItem } from './reusable-library.js';
 import type { WorkSessionEvent } from './work-session.js';
 import type { WorkAgendaItem } from './work-agenda.js';
 import type { WorkMessage } from './work-message.js';
+import type { OperatorInvite } from './operator-invite.js';
 import type {
   ProjectContextCheckpoint,
   ProjectResourceRef,
@@ -798,6 +799,48 @@ export class SqliteStore {
   markReminderPushed(itemId: string, at: string): boolean {
     const result = this.db.prepare('INSERT OR IGNORE INTO work_push_sent (item_id, at) VALUES (?, ?)').run(itemId, at);
     return Number(result.changes) > 0;
+  }
+
+  /** Invitaciones de acceso de colaboradores. El código no se guarda: solo su huella. */
+  insertOperatorInvite(invite: OperatorInvite): void {
+    this.db.prepare(`
+      INSERT INTO operator_invites (id, code_hash, principal_id, status, expires_at, created_at, invite_json) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(invite.id, invite.codeHash, invite.principalId, invite.status, invite.expiresAt, invite.createdAt, JSON.stringify(invite));
+  }
+
+  getOperatorInviteByHash(codeHash: string): OperatorInvite | null {
+    const row = this.db.prepare('SELECT invite_json FROM operator_invites WHERE code_hash = ?').get(codeHash) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.invite_json)) as OperatorInvite : null;
+  }
+
+  getOperatorInvite(id: string): OperatorInvite | null {
+    const row = this.db.prepare('SELECT invite_json FROM operator_invites WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.invite_json)) as OperatorInvite : null;
+  }
+
+  listOperatorInvites(limit = 100): OperatorInvite[] {
+    const rows = this.db.prepare('SELECT invite_json FROM operator_invites ORDER BY created_at DESC, id DESC LIMIT ?')
+      .all(Math.max(1, Math.min(500, Math.floor(limit)))) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.invite_json)) as OperatorInvite);
+  }
+
+  /** Cambio de estado atómico: solo pasa de `pending` (y sin caducar) al estado nuevo. Devuelve si lo consiguió. */
+  transitionOperatorInvite(invite: OperatorInvite, from: OperatorInvite['status'], nowIso: string): boolean {
+    const result = this.db.prepare(`
+      UPDATE operator_invites SET status = ?, invite_json = ?
+      WHERE id = ? AND status = ? AND (? <> 'pending' OR expires_at > ?)
+    `).run(invite.status, JSON.stringify(invite), invite.id, from, from, nowIso);
+    return Number(result.changes) === 1;
+  }
+
+  /** Invitaciones pendientes anteriores de la misma persona quedan anuladas al emitir una nueva. */
+  revokePendingOperatorInvites(principalId: string, nowIso: string): number {
+    let count = 0;
+    for (const invite of this.listOperatorInvites(500)) {
+      if (invite.principalId !== principalId || invite.status !== 'pending') continue;
+      if (this.transitionOperatorInvite({ ...invite, status: 'revoked', revokedAt: nowIso }, 'pending', '')) count += 1;
+    }
+    return count;
   }
 
   /** Mensajes internos del equipo (bandeja del CEO). Los rechazados también se guardan como rastro. */
@@ -2182,6 +2225,16 @@ export class SqliteStore {
       CREATE TABLE IF NOT EXISTS work_push_sent (
         item_id TEXT PRIMARY KEY,
         at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS operator_invites (
+        id TEXT PRIMARY KEY,
+        code_hash TEXT NOT NULL UNIQUE,
+        principal_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        invite_json TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS work_messages (

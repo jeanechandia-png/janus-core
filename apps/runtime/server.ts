@@ -123,6 +123,14 @@ import {
   parseInternalRecipients,
   sealPrivateText,
 } from '../../packages/core/src/work-message.js';
+import {
+  OperatorInviteError,
+  assertInviteUsable,
+  createOperatorInvite,
+  hashInviteCode,
+  isInviteCodeShape,
+  publicOperatorInvite,
+} from '../../packages/core/src/operator-invite.js';
 import { buildPushRequest, loadVapidKeys, localDateTime, validatePushSubscription } from '../../packages/core/src/web-push.js';
 import {
   operatorDailyUsage,
@@ -1796,6 +1804,17 @@ class HttpRequestError extends Error {
     this.name = 'HttpRequestError';
     this.status = status;
   }
+}
+
+/** Freno de intentos de canje por origen: 10 cada 10 minutos (el código ya es de 256 bits; esto solo corta el ruido). */
+const inviteRedeemAttempts = new Map<string, number[]>();
+function inviteRedeemLimiter(source: string, nowMs = Date.now()): boolean {
+  const recent = (inviteRedeemAttempts.get(source) ?? []).filter((at) => nowMs - at < 600_000);
+  if (recent.length >= 10) { inviteRedeemAttempts.set(source, recent); return false; }
+  recent.push(nowMs);
+  inviteRedeemAttempts.set(source, recent);
+  if (inviteRedeemAttempts.size > 2000) inviteRedeemAttempts.clear();
+  return true;
 }
 
 function requireSecureAuthorityTransport(request: IncomingMessage): void {
@@ -3977,6 +3996,109 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // ── Invitaciones de acceso (JANUS Work) ──
+  // El CEO crea el enlace con la MISMA autoridad biométrica que la delegación directa. El colaborador lo abre en su
+  // teléfono y canjea el código una sola vez; el código solo viaja en el fragmento (#) del enlace y nunca se guarda.
+  if (url.pathname === '/api/auth/operator/invites' && (request.method === 'POST' || request.method === 'GET')) {
+    try {
+      if (request.method === 'GET') {
+        requireFounderAuthority(request);
+        const now = new Date();
+        json(response, 200, { ok: true, invites: store.listOperatorInvites().map((invite) => publicOperatorInvite(invite, now)) });
+        return;
+      }
+      const { principal } = requireFounderBiometricAuthority(request, 'security.authority.delegate_operator');
+      const body = await readJson(request);
+      const now = new Date();
+      const { invite, code } = createOperatorInvite({
+        principalId: typeof body.principalId === 'string' ? body.principalId : '',
+        displayName: typeof body.displayName === 'string' ? body.displayName : '',
+        locale: typeof body.locale === 'string' ? body.locale : 'es',
+        createdBy: principal.id,
+        now,
+        ...(typeof body.ttlHours === 'number' && Number.isFinite(body.ttlHours) ? { ttlMs: body.ttlHours * 3_600_000 } : {}),
+        reservedPrincipalIds: [principal.id, 'founder', 'kendra'],
+      });
+      const existing = authorityCredentialStore.get(invite.principalId);
+      if (existing && existing.principal.role !== 'operator') throw new OperatorInviteError('invalid_input', 'Ese identificador pertenece a otra función.');
+      store.revokePendingOperatorInvites(invite.principalId, now.toISOString());
+      store.insertOperatorInvite(invite);
+      json(response, 201, {
+        ok: true,
+        invite: publicOperatorInvite(invite, now),
+        // Se muestra UNA vez. Quien tenga este enlace antes de que caduque puede vincular un dispositivo como esa persona.
+        code,
+        path: `/work#invite=${code}`,
+      });
+    } catch (error) {
+      if (error instanceof OperatorInviteError) json(response, 400, { ok: false, code: error.code, error: error.message });
+      else json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const inviteRevokeMatch = /^\/api\/auth\/operator\/invites\/(invite_[A-Za-z0-9-]{8,64})$/.exec(url.pathname);
+  if (inviteRevokeMatch && request.method === 'DELETE') {
+    try {
+      requireFounderAuthority(request);
+      const invite = store.getOperatorInvite(inviteRevokeMatch[1]!);
+      if (!invite) throw new HttpRequestError(404, 'Invitación no encontrada');
+      const nowIso = new Date().toISOString();
+      const revoked = invite.status === 'pending'
+        && store.transitionOperatorInvite({ ...invite, status: 'revoked', revokedAt: nowIso }, 'pending', '');
+      json(response, 200, { ok: true, revoked });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/operator/invites/redeem') {
+    try {
+      requireSecureAuthorityTransport(request);
+      const source = request.socket.remoteAddress ?? 'unknown';
+      if (!inviteRedeemLimiter(source)) throw new HttpRequestError(429, 'Demasiados intentos. Espera unos minutos.');
+      const body = await readJson(request);
+      const code = body.code;
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      if (!isInviteCodeShape(code) || !publicKeyPem.trim()) throw new OperatorInviteError('invalid_code', 'Invitación no válida.');
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const invite = store.getOperatorInviteByHash(hashInviteCode(code));
+      assertInviteUsable(invite, now);
+      // Primero se consume (atómico: solo un canje gana); si la llave resulta inválida se devuelve a pendiente.
+      const redeemed = { ...invite, status: 'redeemed' as const, redeemedAt: nowIso };
+      if (!store.transitionOperatorInvite(redeemed, 'pending', nowIso)) throw new OperatorInviteError('already_used', 'Esta invitación ya se usó. Pide una nueva.');
+      let credential;
+      try {
+        credential = authorityAuth.enrollOperatorFromInvitation({
+          principalId: invite.principalId,
+          publicKeyPem,
+          displayName: invite.displayName,
+          authorizedBy: invite.createdBy,
+        });
+      } catch (error) {
+        store.transitionOperatorInvite(invite, 'redeemed', nowIso);
+        throw error;
+      }
+      const previous = store.getCoordinationOperator(invite.principalId);
+      store.upsertCoordinationOperator({
+        ...(previous ?? {}),
+        principalId: invite.principalId,
+        status: 'active',
+        createdAt: previous?.createdAt ?? credential.createdAt,
+        updatedAt: credential.createdAt,
+        displayName: invite.displayName,
+        locale: invite.locale,
+      });
+      json(response, 201, { ok: true, principalId: invite.principalId, displayName: invite.displayName, locale: invite.locale });
+    } catch (error) {
+      if (error instanceof OperatorInviteError) json(response, error.code === 'invalid_code' ? 404 : 410, { ok: false, code: error.code, error: error.message });
+      else json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/auth/operator/revoke') {
     try {
       const { token } = requireFounderBiometricAuthority(
@@ -6068,6 +6190,7 @@ const server = createServer(async (request, response) => {
         deliveries: [...handoffs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 40),
         agenda: agendaForFounder(store.listWorkAgendaItems()).filter((item) => item.date >= now.slice(0, 10)).slice(0, 80),
         fileAccess: store.listFileAccess(60),
+        invites: store.listOperatorInvites(20).map((invite) => publicOperatorInvite(invite, new Date(now))),
         messages: store.listWorkMessages(undefined, 60),
         recipients: internalRecipients,
         projects: projects.map((project) => ({

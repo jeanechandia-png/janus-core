@@ -268,7 +268,42 @@ try {
     assert.equal(teamPage.status, 200); assert.match(await teamPage.text(), /janus-work-team-v1/);
     ok('/work servida con la piel de IBA y manifest PWA propio');
     const playwright = loadPlaywright();
-    if (playwright) { await browserFlow(playwright, founder); browserPhase = 'superada'; }
+    if (playwright) { await browserFlow(playwright, founder); await inviteBrowserFlow(playwright, founder); ok('navegador real: un teléfono nuevo entra con el enlace de invitación; el enlace no sirve dos veces'); browserPhase = 'superada'; }
+  }
+
+  // ── Accesos por invitación: el CEO crea el enlace con Face ID; se canjea UNA vez en el teléfono del colaborador ──
+  {
+    const inviteBody = { principalId: 'robin', displayName: 'Robin', locale: 'nl' };
+    await call('POST', '/api/auth/operator/invites', founder, inviteBody, 403);
+    await call('POST', '/api/auth/operator/invites', dev, inviteBody, 403);
+    await call('POST', '/api/auth/operator/invites', null, inviteBody, 401);
+    const proofFor = () => founderBiometricProof(founder, 'security.authority.delegate_operator');
+    await call('POST', '/api/auth/operator/invites', founder, { principalId: 'founder', displayName: 'X' }, 400, { 'x-janus-biometric-proof': await proofFor() });
+    const old = await call('POST', '/api/auth/operator/invites', founder, inviteBody, 201, { 'x-janus-biometric-proof': await proofFor() });
+    const created = await call('POST', '/api/auth/operator/invites', founder, inviteBody, 201, { 'x-janus-biometric-proof': await proofFor() });
+    assert.match(created.path, /^\/work#invite=[A-Za-z0-9_-]{43}$/); assert.equal(created.invite.codeHash, undefined);
+    const robinKeys = ecKeys(), intruderKeys = ecKeys();
+    await call('POST', '/api/auth/operator/invites/redeem', null, { code: old.code, publicKeyPem: intruderKeys.publicKey }, 410);
+    await call('POST', '/api/auth/operator/invites/redeem', null, { code: 'A'.repeat(43), publicKeyPem: intruderKeys.publicKey }, 404);
+    await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: 'llave rota' }, 400);
+    const redeemed = await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: robinKeys.publicKey }, 201);
+    assert.deepEqual([redeemed.principalId, redeemed.locale], ['robin', 'nl']);
+    await call('POST', '/api/auth/operator/invites/redeem', null, { code: created.code, publicKeyPem: intruderKeys.publicKey }, 410);
+    const robin = await authenticate('robin', robinKeys.privateKey);
+    const robinDash = (await call('GET', '/api/dashboard/work', robin, undefined, 200)).dashboard;
+    assert.equal(robinDash.locale, 'nl'); assert.equal(robinDash.profile.displayName, 'Robin');
+    assert.equal(robinDash.projects.length, 0, 'un acceso nuevo no ve ningún proyecto hasta que el CEO se lo asigne');
+    assert.equal(robinDash.capabilities.voice, false);
+    const listed = await call('GET', '/api/auth/operator/invites', founder, undefined, 200);
+    assert.deepEqual(listed.invites.filter((x) => x.principalId === 'robin').map((x) => x.status).sort(), ['redeemed', 'revoked']);
+    assert.ok(!JSON.stringify(listed).includes(created.code));
+    await call('GET', '/api/auth/operator/invites', robin, undefined, 403);
+    const pending = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'mariel', displayName: 'Mariel', locale: 'es' }, 201, { 'x-janus-biometric-proof': await proofFor() });
+    await call('DELETE', `/api/auth/operator/invites/${pending.invite.id}`, robin, undefined, 403);
+    assert.equal((await call('DELETE', `/api/auth/operator/invites/${pending.invite.id}`, founder, undefined, 200)).revoked, true);
+    await call('POST', '/api/auth/operator/invites/redeem', null, { code: pending.code, publicKeyPem: ecKeys().publicKey }, 410);
+    assert.ok((await call('GET', '/api/work/team', founder, undefined, 200)).invites.length >= 3);
+    ok('accesos por invitación: Face ID del CEO, un solo uso, anulables, sin proyectos por defecto');
   }
 
   // ── Aislamiento final entre colaboradores y vista del Founder ─────────────────────────────────
@@ -291,6 +326,31 @@ try {
 }
 
 /** Navegador real: segundo colaborador (NL) que se da de alta con la llave WebCrypto de su dispositivo. */
+// Un teléfono nuevo abre el enlace de invitación: sin escribir nada queda vinculado y dentro de SU panel.
+async function inviteBrowserFlow({ chromium }, founder) {
+  const browser = await chromium.launch({ ...(process.env.CHROME_PATH || existsSync('/usr/bin/google-chrome') ? { executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome' } : {}), args: ['--no-sandbox'] });
+  try {
+    const proof = await founderBiometricProof(founder, 'security.authority.delegate_operator');
+    const created = await call('POST', '/api/auth/operator/invites', founder, { principalId: 'julio', displayName: 'Julio', locale: 'es' }, 201, { 'x-janus-biometric-proof': proof });
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 }, locale: 'en-US', hasTouch: true });
+    const page = await context.newPage();
+    const errors = []; page.on('pageerror', (error) => errors.push(String(error)));
+    const seen = []; page.on('request', (request) => seen.push(request.url()));
+    await page.goto(`${base}${created.path}`);
+    await page.waitForSelector('.cc-shell', { timeout: 15_000 });
+    assert.match(await page.locator('.cc-main').innerText(), /Julio/);
+    assert.equal(await page.evaluate(() => document.documentElement.lang), 'es', 'idioma fijado por el CEO, no por el teléfono');
+    assert.equal(await page.evaluate(() => location.hash), '', 'el código se borra de la barra de direcciones');
+    assert.ok(seen.every((url) => !url.includes(created.code)), 'el código nunca viaja en una dirección');
+    // El mismo enlace en otro teléfono ya no sirve.
+    const other = await (await browser.newContext()).newPage();
+    await other.goto(`${base}${created.path}`);
+    await other.waitForSelector('.cc-login-card .cc-notice');
+    assert.equal(await other.locator('.cc-shell').count(), 0);
+    assert.deepEqual(errors, []);
+  } finally { await browser.close(); }
+}
+
 async function browserFlow({ chromium }, founder) {
   const browser = await chromium.launch({ ...(process.env.CHROME_PATH || existsSync('/usr/bin/google-chrome') ? { executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome' } : {}), args: ['--no-sandbox'] });
   try {

@@ -7,7 +7,7 @@
  */
 const JanusTeam = (() => {
   const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  const S = { mode: typeof TEAM_MODE === 'string' ? TEAM_MODE : 'example', data: null, loading: false, notice: '', login: { id: 'founder', busy: false, error: '' }, openMsg: '' };
+  const S = { mode: typeof TEAM_MODE === 'string' ? TEAM_MODE : 'example', data: null, loading: false, notice: '', login: { id: 'founder', busy: false, error: '' }, openMsg: '', invite: { displayName: '', locale: 'es', busy: false, error: '', link: '', forName: '', expiresAt: '', copied: false } };
   let $root = null;
   const AGENTS = { '': 'Automático', anthropic: 'Claude', openai: 'ChatGPT', gemini: 'Gemini', perplexity: 'Perplexity', custom: 'JANUS local' };
   const STATUS = { queued: ['en cola', 'waiting'], active: ['en curso', 'in-progress'], blocked: ['bloqueada', 'blocked'], handoff_required: ['requiere traspaso', 'pending-approval'], completed: ['completada', 'completed'], cancelled: ['cancelada', 'draft'] };
@@ -42,6 +42,33 @@ const JanusTeam = (() => {
   const readMessage = (id) => { S.openMsg = S.openMsg === id ? '' : id; const m = S.data.messages.find((x) => x.id === id); if (!m || m.readAt || m.status !== 'delivered') { render(); return; }
     return act(() => api('/api/work/messages/' + encodeURIComponent(id) + '/read', { method: 'PUT' }), () => { m.readAt = new Date().toISOString(); }); };
 
+  const slug = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  async function createInvite(displayName, locale) {
+    const I = S.invite; I.displayName = displayName; I.locale = locale; I.error = ''; I.link = ''; I.copied = false;
+    const principalId = slug(displayName);
+    if (principalId.length < 2) { I.error = 'Escriba el nombre de la persona.'; render(); return; }
+    I.busy = true; render();
+    try {
+      let body;
+      if (S.mode === 'example') {
+        body = { code: 'EJEMPLO-no-es-un-enlace-real', path: '/work#invite=EJEMPLO', invite: { id: 'invite_ejemplo-' + Date.now(), principalId: principalId, displayName: displayName, locale: locale, status: 'pending', expired: false, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 72 * 3600000).toISOString() } };
+        S.data.invites = [body.invite].concat((S.data.invites || []).filter((x) => x.principalId !== principalId || x.status !== 'pending'));
+      } else {
+        // Dar acceso es una decisión reservada al CEO: exige su Face ID (ADR-007), igual que la delegación directa.
+        const native = globalThis.JanusFounderNative;
+        if (!native || typeof native.actionProof !== 'function') throw new Error('Para dar accesos hace falta confirmar con Face ID y este dispositivo todavía no tiene activado ese puente. No se ha creado nada.');
+        const proofId = await native.actionProof({ action: 'security.authority.delegate_operator', authoritySessionToken: (authHeaders().authorization || '').replace(/^Bearer /, ''), reason: 'Dar acceso a ' + displayName + ' en JANUS Work' });
+        if (typeof proofId !== 'string' || !/^bio_proof_[A-Za-z0-9_-]+$/.test(proofId)) throw new Error('Face ID no devolvió una prueba válida.');
+        body = await api('/api/auth/operator/invites', { method: 'POST', headers: { 'x-janus-biometric-proof': proofId }, body: JSON.stringify({ principalId: principalId, displayName: displayName, locale: locale }) });
+      }
+      I.link = (S.mode === 'example' ? 'https://(la dirección de su JANUS)' : location.origin) + body.path; I.forName = displayName; I.expiresAt = body.invite.expiresAt; I.displayName = '';
+      I.busy = false; if (S.mode !== 'example') { await load(); return; }
+    } catch (error) { I.error = String(error.message || error); }
+    I.busy = false; render();
+  }
+  const revokeInvite = (id) => act(() => api('/api/auth/operator/invites/' + encodeURIComponent(id), { method: 'DELETE' }),
+    () => { const x = (S.data.invites || []).find((y) => y.id === id); if (x) x.status = 'revoked'; });
+
   const head = (kicker, title, right) => '<div class="cc-panel-head"><div><small>' + esc(kicker) + '</small><h3>' + esc(title) + '</h3></div>' + (right || '') + '</div>';
   const empty = (text) => '<p class="empty">' + esc(text) + '</p>';
 
@@ -56,7 +83,7 @@ const JanusTeam = (() => {
     const d = S.data, working = d.members.filter((m) => m.openSession && m.openSession.state === 'running').length;
     const blocked = d.assignments.filter((x) => x.assignment.status === 'blocked').length, unread = d.messages.filter((m) => m.status === 'delivered' && !m.readAt).length;
     const today = new Date().toISOString().slice(0, 10);
-    const nav = [['team', '◉', 'Equipo'], ['availability', '▤', 'Disponibilidad'], ['tasks', '✓', 'Tareas'], ['deliveries', '↗', 'Entregas'], ['messages', '✉', 'Mensajes'], ['files', '◇', 'Archivos'], ['projects', '◫', 'Proyectos']];
+    const nav = [['team', '◉', 'Equipo'], ['availability', '▤', 'Disponibilidad'], ['tasks', '✓', 'Tareas'], ['deliveries', '↗', 'Entregas'], ['messages', '✉', 'Mensajes'], ['files', '◇', 'Archivos'], ['projects', '◫', 'Proyectos'], ['access', '⚿', 'Accesos']];
     const members = d.members.length ? d.members.map((m) => {
       const st = m.openSession ? (m.openSession.state === 'running' ? ['trabajando', 'in-progress'] : ['en pausa', 'waiting']) : ['sin sesión', 'draft'];
       return '<article class="cc-operation-item"><div class="priority priority-' + (m.openSession ? 'normal' : 'low') + '"></div><div class="grow"><strong>' + esc(m.displayName) + '</strong><small>' + esc(m.roleTitle || 'Colaborador') + ' · ' + esc(String(m.locale).toUpperCase()) + ' · hoy ' + esc(fmtDur(m.todayActiveSeconds)) + ' · consultas ' + m.usage.used + (m.usage.limit ? '/' + m.usage.limit : '') + '</small></div><span class="status status-' + st[1] + '">' + st[0] + '</span></article>';
@@ -85,6 +112,15 @@ const JanusTeam = (() => {
       '<div class="cc-two-col"><section class="cc-panel" id="team">' + head('PERSONAS', 'Equipo') + '<div class="cc-list">' + members + '</div></section><section class="cc-panel" id="availability">' + head('AGENDA DE TRABAJO', 'Disponibilidad') + '<div class="cc-list compact">' + agenda + '</div><div class="cc-admin-strip">Solo lo que cada persona marca como trabajo. Sus recordatorios personales son privados.</div></section></div>' +
       '<div class="cc-two-col"><section class="cc-panel" id="tasks">' + head('TAREAS', 'Trabajo asignado') + '<div class="cc-list">' + tasks + '</div><div class="cc-admin-strip">«Agente» es con quién trabaja JANUS esa tarea. Si falla, JANUS sigue con los demás.</div></section><section class="cc-panel" id="deliveries">' + head('AVANCES Y ENTREGAS', 'Lo último del equipo') + '<div class="cc-list compact">' + deliveries + '</div></section></div>' +
       '<div class="cc-three-col"><section class="cc-panel" id="messages">' + head('BANDEJA INTERNA', 'Mensajes del equipo', '<b>' + unread + '</b>') + '<div class="cc-list compact">' + messages + '</div><div class="cc-admin-strip">Los intentos de escribir fuera de la empresa se rechazan solos y quedan anotados.</div></section><section class="cc-panel" id="files">' + head('TRAZABILIDAD', 'Archivos abiertos') + '<div class="cc-list compact">' + files + '</div></section><section class="cc-panel" id="projects">' + head('PROYECTOS', 'Confidencialidad') + '<div class="cc-list compact">' + projects + '</div><div class="cc-admin-strip">«Solo modelo propio»: el contenido de ese proyecto no se envía a Claude, ChatGPT ni Gemini.' + (d.providers.configured.includes('custom') ? '' : ' Ahora mismo no hay modelo propio configurado: en esos proyectos JANUS responderá sin modelo.') + '</div></section></div>' +
+      '<section class="cc-panel jt-access" id="access">' + head('ACCESOS', 'Dar acceso a un colaborador') +
+      '<form data-form="invite" class="jt-invite"><label>Nombre<input name="displayName" maxlength="80" required value="' + esc(S.invite.displayName) + '" placeholder="Julio"></label>' +
+      '<label>Idioma<select name="locale">' + [['es', 'Español'], ['nl', 'Nederlands'], ['en', 'English']].map((l) => '<option value="' + l[0] + '"' + (S.invite.locale === l[0] ? ' selected' : '') + '>' + l[1] + '</option>').join('') + '</select></label>' +
+      '<button type="submit"' + (S.invite.busy ? ' disabled' : '') + '>' + (S.invite.busy ? 'Confirmando…' : 'Crear enlace con Face ID') + '</button></form>' +
+      (S.invite.error ? '<div class="cc-notice" role="alert">' + esc(S.invite.error) + '</div>' : '') +
+      (S.invite.link ? '<div class="cc-notice jt-link" role="status"><b>Enlace para ' + esc(S.invite.forName) + ' · vale una sola vez, hasta ' + esc(fmtDate(S.invite.expiresAt)) + '</b><textarea readonly rows="2" aria-label="Enlace de acceso">' + esc(S.invite.link) + '</textarea><span><button type="button" data-act="invite-copy">' + (S.invite.copied ? 'Copiado' : 'Copiar') + '</button>' + (typeof navigator !== 'undefined' && navigator.share ? '<button type="button" data-act="invite-share">Enviar</button>' : '') + '</span><small>Envíeselo solo a esa persona. Al abrirlo en su teléfono queda vinculado ese dispositivo. No se volverá a mostrar.</small></div>' : '') +
+      '<div class="cc-list compact">' + ((d.invites || []).length ? d.invites.slice(0, 8).map((x) => { const st = x.status === 'redeemed' ? ['usado', 'completed'] : x.status === 'revoked' ? ['anulado', 'draft'] : x.expired ? ['caducado', 'draft'] : ['pendiente', 'waiting'];
+        return '<article><div class="grow"><strong>' + esc(x.displayName) + ' · ' + esc(String(x.locale).toUpperCase()) + '</strong><small>' + esc(x.principalId) + ' · creado ' + esc(fmtDate(x.createdAt)) + '</small></div><span class="status status-' + st[1] + '">' + st[0] + '</span>' + (x.status === 'pending' && !x.expired ? '<button type="button" data-act="invite-revoke" data-v="' + esc(x.id) + '">Anular</button>' : '') + '</article>'; }).join('') : empty('Todavía no ha creado ningún enlace de acceso.')) + '</div>' +
+      '<div class="cc-admin-strip">Cada enlace vincula UN teléfono a UNA persona. Si alguien cambia de teléfono, cree un enlace nuevo: el anterior deja de valer.</div></section>' +
       '</section></main>';
   }
 
@@ -99,6 +135,9 @@ const JanusTeam = (() => {
       const el = event.target.closest('button[data-act]'); if (!el) return;
       if (el.dataset.act === 'refresh') void load();
       else if (el.dataset.act === 'msg') void readMessage(el.dataset.v);
+      else if (el.dataset.act === 'invite-revoke') void revokeInvite(el.dataset.v);
+      else if (el.dataset.act === 'invite-copy') Promise.resolve(navigator.clipboard && navigator.clipboard.writeText(S.invite.link)).then(() => { S.invite.copied = true; render(); }).catch(() => {});
+      else if (el.dataset.act === 'invite-share') navigator.share({ title: 'JANUS Work', text: 'Tu acceso a JANUS Work (vale una sola vez):', url: S.invite.link }).catch(() => {});
       else if (el.dataset.act === 'signout') Promise.resolve(signOut()).then(() => { S.data = null; render(); });
     });
     root.addEventListener('change', (event) => {
@@ -108,7 +147,9 @@ const JanusTeam = (() => {
       else if (el.id === 'jt-id') S.login.id = el.value;
     });
     root.addEventListener('submit', async (event) => {
-      event.preventDefault(); if (event.target.dataset.form !== 'login') return;
+      event.preventDefault();
+      if (event.target.dataset.form === 'invite') { const f = event.target; void createInvite(f.displayName.value.trim(), f.locale.value); return; }
+      if (event.target.dataset.form !== 'login') return;
       const L = S.login; L.id = (document.getElementById('jt-id') || {}).value || L.id; L.busy = true; L.error = ''; render();
       try { const pair = await loadDeviceKey(); if (!pair) throw new Error('Este dispositivo no tiene la llave del CEO.'); await signIn(pair, L.id.trim()); L.busy = false; await load(); return; }
       catch (error) { L.error = String(error.message || error); }

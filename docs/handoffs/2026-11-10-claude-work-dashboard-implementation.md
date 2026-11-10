@@ -138,6 +138,45 @@ E2E panel 144/144 · E2E equipo 16/16 · dashboard:test 22/22.
   reparto automático de un trabajo entre varios agentes a la vez · códigos de barras 1D · lector QR en NL/EN y con la
   piel de IBA · panel del CEO integrado dentro de su dashboard personal (la vista de equipo es una página aparte).
 
+## Actualización 10-nov-2026 (19:10) — accesos por invitación
+
+Orden del CEO (18:58): entregar los accesos tipo app (el suyo, el de Kendra y dos de personal a nombre de Julio y
+Robin) y que JANUS pueda actualizarse a sí mismo cuando él suba las criaturas y los robots. Voz temporal: la voz
+«Jean» ya clonada en ElevenLabs y la voz femenina de los productos.
+
+24. **Acceso de colaboradores por enlace** (`operator-invite.ts`, tabla `operator_invites`,
+    `LocalAuthorityAuthService.enrollOperatorFromInvitation`): el CEO crea el enlace en `/work/team` → «Accesos»
+    (misma acción biométrica que la delegación directa: `security.authority.delegate_operator`, ADR-007 intacta). El
+    colaborador lo abre en SU teléfono: se crea la llave del dispositivo, se canjea el código y entra en su panel.
+    Código de 256 bits, solo en el fragmento `#invite=` (no viaja al servidor en la dirección ni queda en registros),
+    guardado solo como huella SHA-256, un solo uso (canje atómico), caduca a las 72 h (máx. 7 días), anulable; una
+    invitación nueva anula la pendiente anterior de esa persona; nunca toca al Founder ni a un administrador; un
+    acceso nuevo no ve ningún proyecto hasta que el CEO se lo asigne. Rutas: `POST/GET /api/auth/operator/invites`,
+    `DELETE /api/auth/operator/invites/:id`, `POST /api/auth/operator/invites/redeem` (freno de 10 intentos/10 min).
+25. **Instalador de la tablet** (`scripts/tablet/install-termux.sh`): instala la piel de IBA si el archivo está en la
+    tablet y genera allí la llave de avisos.
+
+Pruebas: typecheck limpio · `npm test` 705 (704 correctas, 1 omitida, 0 fallos) · runtime-smoke ok ·
+work-runtime-smoke 18 bloques (incluye un teléfono nuevo entrando por el enlace en navegador real) · E2E panel
+144/144 · E2E equipo 24/24.
+
+### HECHO VERIFICADO sobre los accesos reales (por qué aún no existen)
+
+- Los tres accesos tipo app YA están en el código y comparten el icono dorado de JANUS aprobado: `/` (CEO),
+  `/kendra` (Kendra) y `/work` (personal). Son direcciones del propio JANUS: solo existen cuando JANUS está encendido
+  en algún equipo. Hoy no lo está en ninguno (`docs/tablet-node.md`: piloto en la tablet «en reposo hasta que Jean lo
+  ejecute»).
+- Dar acceso a un colaborador exige el Face ID del CEO (ADR-007). El puente de Face ID es una app nativa de iPhone
+  (`platform/ios/`) que hay que compilar con un Mac: sin Mac no se puede instalar. **Bloqueo real** para los accesos
+  de Julio y Robin. Alternativa a decidir por el CEO: aceptar la llave de acceso de Safari (passkey con Face ID, sin
+  app nativa ni Mac) como segunda forma de confirmación; es un cambio de la decisión de seguridad ADR-007 y no se ha
+  hecho sin su autorización.
+- POR CONFIRMAR: dirección segura (HTTPS) para llegar a la tablet desde los teléfonos. No se pudo verificar desde
+  este entorno si Tailscale en Android ofrece HTTPS propio; la otra vía gratuita es un túnel de Cloudflare instalado en
+  Termux (nombre público: requiere aprobación del CEO).
+- Criaturas y robots: el mecanismo para anexarlos ya existe (seis huecos de modelo GLB, `docs/APPROVED_CHARACTERS_PWA_2026-11-06.md`):
+  se cargan desde el propio dispositivo, sin tocar código. Admite modelos 3D (GLB), no imágenes.
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

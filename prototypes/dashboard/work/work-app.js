@@ -364,9 +364,32 @@ const JanusWork = (() => {
       const pair = await loadDeviceKey();
       if (!pair) { L.hasKey = false; throw new Error(t('loginLinkText')); }
       await signIn(pair, L.id.trim());
+      try { localStorage.setItem('janus.work.id', L.id.trim()); } catch (_) { /* opcional */ }
       L.busy = false; await load(); return;
     } catch (error) { L.error = String(error.message || error); }
     L.busy = false; render();
+  }
+  // Invitación del CEO: el código llega en el fragmento (#invite=…), que el navegador no envía al servidor ni queda en
+  // registros. Se canjea una sola vez; la llave se crea en ESTE dispositivo y nunca sale de él.
+  function inviteCodeFromUrl() {
+    try { const m = /(?:^#|&)invite=([A-Za-z0-9_-]{43})(?:&|$)/.exec(location.hash || ''); return m ? m[1] : ''; } catch (_) { return ''; }
+  }
+  async function redeemInvite(code) {
+    const L = S.login; L.busy = true; L.inviting = true; L.error = ''; render();
+    try {
+      try { history.replaceState(null, '', location.pathname); } catch (_) { /* sin historial */ }
+      if (typeof sessionToken === 'function' && sessionToken()) throw new Error(t('inviteWrongDevice'));
+      const pair = (await loadDeviceKey()) || (await createDeviceKey());
+      const response = await fetch('/api/auth/operator/invites/redeem', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ code: code, publicKeyPem: await devicePublicKeyPem(pair) }) });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || t('inviteError'));
+      L.id = body.principalId; L.hasKey = true;
+      try { localStorage.setItem('janus.work.id', body.principalId); } catch (_) { /* opcional */ }
+      await signIn(pair, body.principalId);
+      L.busy = false; L.inviting = false; await load(); return;
+    } catch (error) { L.error = String(error.message || error); }
+    L.busy = false; L.inviting = false; render();
   }
   async function linkDevice() {
     const L = S.login; L.error = '';
@@ -390,6 +413,7 @@ const JanusWork = (() => {
     const L = S.login, secure = typeof isSecureContext === 'undefined' ? true : isSecureContext;
     return '<main class="cc-login-shell"><section class="cc-login-card">' + wordmark() +
       '<p class="cc-kicker">' + esc(t('loginKicker')) + '</p><h1>' + esc(t('loginTitle')) + '</h1><p>' + esc(t('loginText')) + '</p>' +
+      (L.inviting ? '<div class="cc-notice" role="status">' + esc(t('inviteBusy')) + '</div>' : '') +
       '<form data-form="login"><label for="jw-login-id">' + esc(t('loginId')) + '</label><input id="jw-login-id" name="id" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="64" value="' + esc(L.id) + '" required>' +
       '<button type="submit"' + (L.busy ? ' disabled' : '') + '>' + esc(L.busy ? t('loginBusy') : t('loginButton')) + '</button></form>' +
       (L.error ? '<div class="cc-notice">' + esc(L.error) + '</div>' : '') +
@@ -664,7 +688,10 @@ const JanusWork = (() => {
     $root = root; bind();
     try { const nav = (navigator.language || 'es').slice(0, 2).toLowerCase(); if (LANGS.includes(nav)) S.lang = nav; } catch (_) { /* idioma por defecto */ }
     if (S.mode === 'core') {
-      if (typeof sessionToken === 'function' && sessionToken()) void load(); else render();
+      const invite = inviteCodeFromUrl();
+      try { if (!S.login.id) S.login.id = localStorage.getItem('janus.work.id') || ''; } catch (_) { /* opcional */ }
+      if (invite) void redeemInvite(invite);
+      else if (typeof sessionToken === 'function' && sessionToken()) void load(); else render();
     } else void load();
     const veil = () => document.documentElement.classList.toggle('jw-veiled', document.hidden === true);
     document.addEventListener('visibilitychange', veil); window.addEventListener('pagehide', () => document.documentElement.classList.add('jw-veiled')); window.addEventListener('pageshow', veil);

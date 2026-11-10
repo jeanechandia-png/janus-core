@@ -7,6 +7,7 @@
 - **Segunda entrega (tarde):** archivos para colaboradores activos (subir/descargar solo en proyectos propios), lector QR reutilizado, agente por tarea fijado por el CEO con respaldo, límite diario de consultas por colaborador. PR #82 en borrador. `npm test` 685/0; smoke 11 bloques; E2E 117/117.
 - **Tercera entrega (14:15):** colaboradores SIN descarga (solo «Ver» dentro del panel, con marca de agua y registro de aperturas para el CEO); agenda personal con privacidad (lo personal solo su dueño; disponibilidad y empresa también el CEO). `npm test` 690/0; smoke 12 bloques; E2E 132/132.
 - **Cuarta entrega (14:45):** mensajes internos (nada sale de la empresa), agenda privada cifrada, «solo modelo propio» por proyecto, proyecto propio del colaborador, «recuérdame…» en el chat, avisos al teléfono (Web Push, apagado hasta poner la clave) y vista de equipo del CEO en `/work/team` (página aparte). `npm test` 700/0; smoke 16 bloques; E2E 144/144 + 16/16. Queda fuera por orden del CEO: clonación de voces y criaturas/robot 3D.
+- **Quinta entrega (19:10):** accesos de colaboradores por enlace de un solo uso creado por el CEO con Face ID (`/work/team` → Accesos). `npm test` 705/0 fallos; smoke 18 bloques; E2E 144/144 + 24/24. BLOQUEADO para accesos reales: JANUS no está encendido en ningún equipo; el puente de Face ID necesita un Mac; HTTPS de la tablet POR CONFIRMAR.
 - **Handoff:** `docs/handoffs/2026-11-10-claude-work-dashboard-implementation.md`.
 
 ## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable
