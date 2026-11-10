@@ -191,16 +191,87 @@ const JanusWork = (() => {
     S.uploadBusy = false; await load(true);
   }
 
-  // Descarga con la sesión del colaborador (el servidor comprueba que el archivo es de un proyecto suyo).
-  async function download(resourceId, name) {
-    if (S.mode !== 'core') { S.notice = t('docsPreviewOnly'); S.noticeTone = ''; render(); return; }
+  // Visor interno: el archivo se abre DENTRO del panel, con marca de agua (quién y cuándo). No hay descarga ni
+  // envío hacia fuera. Es disuasión + trazabilidad: ninguna app puede impedir una captura de pantalla.
+  let viewerEl = null, viewerUrl = '';
+  function closeViewer() { if (viewerEl) { viewerEl.remove(); viewerEl = null; } if (viewerUrl) { URL.revokeObjectURL(viewerUrl); viewerUrl = ''; } }
+  function openViewer(name, kind, payload) {
+    closeViewer();
+    const who = S.data ? S.data.profile.displayName + ' · ' + S.data.principalId : '', stamp = fmtDate(new Date().toISOString());
+    const mark = esc(who + ' · ' + stamp), o = document.createElement('div');
+    o.className = 'jw-viewer'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', name);
+    o.innerHTML = '<div class="jw-viewer-top"><strong>' + esc(name) + '</strong><span>' + esc(t('viewerNotice')) + '</span><button type="button" class="jw-viewer-x" aria-label="' + esc(t('viewerClose')) + '">×</button></div>' +
+      '<div class="jw-viewer-body">' + (kind === 'image' ? '<img alt="" draggable="false" src="' + esc(payload) + '">' : kind === 'pdf' ? '<iframe title="' + esc(name) + '" src="' + esc(payload) + '#toolbar=0"></iframe>' : '<pre>' + esc(payload) + '</pre>') +
+      '<div class="jw-viewer-mark" aria-hidden="true">' + new Array(40).join('<span>' + mark + '</span>') + '</div></div>';
+    o.addEventListener('contextmenu', (event) => event.preventDefault());
+    o.addEventListener('dragstart', (event) => event.preventDefault());
+    o.addEventListener('copy', (event) => event.preventDefault());
+    o.querySelector('.jw-viewer-x').addEventListener('click', closeViewer);
+    o.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeViewer(); });
+    document.body.appendChild(o); viewerEl = o; o.querySelector('.jw-viewer-x').focus();
+  }
+  async function viewFile(resourceId, name, mime) {
+    if (S.mode !== 'core') { openViewer(name, 'text', t('viewerExample')); return; }
     try {
-      const response = await fetch('/api/work/files/' + encodeURIComponent(resourceId), { headers: authHeaders(), cache: 'no-store' });
+      const response = await fetch('/api/work/files/' + encodeURIComponent(resourceId) + '/view', { headers: authHeaders(), cache: 'no-store' });
+      if (response.status === 415) throw new Error(t('viewerUnsupported'));
       if (!response.ok) throw new Error('HTTP ' + response.status);
-      const url = URL.createObjectURL(await response.blob()), a = document.createElement('a');
-      a.href = url; a.download = name || 'archivo'; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
-    } catch (error) { S.notice = t('docsDownloadError', { error: String(error.message || error) }); S.noticeTone = 'warn'; render(); }
+      const blob = await response.blob(), type = blob.type || mime || '';
+      if (/^text\//.test(type)) openViewer(name, 'text', (await blob.text()).slice(0, 200000));
+      else { const url = URL.createObjectURL(blob); openViewer(name, type === 'application/pdf' ? 'pdf' : 'image', url); viewerUrl = url; }
+    } catch (error) { S.notice = t('viewerError', { error: String(error.message || error) }); S.noticeTone = 'warn'; render(); }
+  }
+
+  /* ── agenda personal ── */
+  const todayKey = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const fmtDayKey = (key) => { const d = new Date(key + 'T12:00:00'); return isNaN(d) ? key : new Intl.DateTimeFormat(localeTag(), { weekday: 'short', day: 'numeric', month: 'short' }).format(d); };
+  async function agendaAdd(form) {
+    const data = new FormData(form), kind = data.get('kind') === 'availability' ? 'availability' : 'reminder';
+    const body = { kind, visibility: data.get('visibility') === 'work' ? 'work' : 'private', date: String(data.get('date') || ''), text: String(data.get('text') || '').trim() };
+    if (data.get('time')) body.time = String(data.get('time'));
+    if (data.get('endTime')) body.endTime = String(data.get('endTime'));
+    if (!body.date || (kind === 'reminder' && !body.text)) { S.notice = t('agendaNeed'); S.noticeTone = 'warn'; render(); return; }
+    try {
+      if (S.mode === 'example') {
+        const now = new Date().toISOString();
+        S.data.agenda.push(Object.assign({ id: 'ag-' + Date.now(), principalId: S.data.principalId, done: false, createdAt: now, updatedAt: now }, body, kind === 'availability' ? { visibility: 'work' } : {}));
+        S.notice = ''; render(); return;
+      }
+      await api('/api/work/agenda', { method: 'POST', body: JSON.stringify(body) });
+      await load();
+    } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; render(); }
+  }
+  async function agendaChange(id, action) {
+    const item = S.data.agenda.find((x) => x.id === id); if (!item) return;
+    try {
+      if (S.mode === 'example') {
+        if (action === 'delete') S.data.agenda = S.data.agenda.filter((x) => x.id !== id); else item.done = !item.done;
+        render(); return;
+      }
+      if (action === 'delete') await api('/api/work/agenda/' + encodeURIComponent(id), { method: 'DELETE' });
+      else await api('/api/work/agenda/' + encodeURIComponent(id), { method: 'PUT', body: JSON.stringify({ done: !item.done }) });
+      await load(true);
+    } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; render(); }
+  }
+  function viewAgenda() {
+    const today = todayKey(), items = (S.data.agenda || []).slice().sort((a, b) => ((a.date + (a.time || '99')) < (b.date + (b.time || '99')) ? -1 : 1));
+    const todayCount = items.filter((x) => x.date === today && !x.done).length;
+    const projectName = (id) => { const p = S.data.projects.find((x) => x.id === id); return p ? p.name : ''; };
+    const row = (x) => '<article class="' + (x.done ? 'jw-done' : '') + '"><div class="grow"><strong>' + esc(x.kind === 'availability' ? t('agendaAvailable') + (x.text ? ' · ' + x.text : '') : x.text) + '</strong>' +
+      '<small>' + esc(x.date === today ? t('agendaToday') : fmtDayKey(x.date)) + (x.time ? ' · ' + esc(x.time) + (x.endTime ? '–' + esc(x.endTime) : '') : '') + (x.projectId && projectName(x.projectId) ? ' · ' + esc(projectName(x.projectId)) : '') + '</small>' +
+      '<div class="cc-operation-links cc-row-actions jw-links">' + (x.kind === 'reminder' ? '<button type="button" data-act="agenda-done" data-v="' + esc(x.id) + '">' + (x.done ? '↺ ' + esc(t('agendaUndo')) : '✓ ' + esc(t('agendaDone'))) + '</button>' : '') + '<button type="button" data-act="agenda-del" data-v="' + esc(x.id) + '">× ' + esc(t('agendaDelete')) + '</button></div></div>' +
+      '<span class="status status-' + (x.visibility === 'private' ? 'draft' : 'submitted') + '">' + esc(x.visibility === 'private' ? t('agendaPrivate') : t('agendaWork')) + '</span></article>';
+    return '<section class="cc-panel" id="agenda">' + panelHead(t('agendaKicker'), t('agendaTitle'), '<div class="cc-inline-metrics"><span>' + esc(t('agendaTodayCount', { n: todayCount })) + '</span></div>') +
+      '<form class="jw-agenda-form" data-form="agenda">' +
+      '<label><span>' + esc(t('agendaDate')) + '</span><input type="date" name="date" value="' + today + '" required></label>' +
+      '<label><span>' + esc(t('agendaFrom')) + '</span><input type="time" name="time"></label>' +
+      '<label><span>' + esc(t('agendaTo')) + '</span><input type="time" name="endTime"></label>' +
+      '<label><span>' + esc(t('agendaKind')) + '</span><select name="kind"><option value="reminder">' + esc(t('agendaReminder')) + '</option><option value="availability">' + esc(t('agendaAvailability')) + '</option></select></label>' +
+      '<label><span>' + esc(t('agendaWho')) + '</span><select name="visibility"><option value="private">' + esc(t('agendaPrivateLong')) + '</option><option value="work">' + esc(t('agendaWorkLong')) + '</option></select></label>' +
+      '<label class="wide"><span>' + esc(t('agendaText')) + '</span><input type="text" name="text" maxlength="500" autocomplete="off" placeholder="' + esc(t('agendaPlaceholder')) + '"></label>' +
+      '<button type="submit">＋ ' + esc(t('agendaAdd')) + '</button></form>' +
+      '<div class="cc-list compact">' + (items.length ? items.map(row).join('') : '<p class="empty">' + esc(t('agendaEmpty')) + '</p>') + '</div>' +
+      '<div class="cc-admin-strip">' + esc(t('agendaTruth')) + '</div></section>';
   }
 
   // Lector de códigos (LEGO janus-attach): el contenido leído es un DATO que se añade al mensaje; nunca se abre solo.
@@ -322,7 +393,7 @@ const JanusWork = (() => {
     const live = S.mode === 'core', off = (S.uploadBusy ? ' disabled' : '');
     return '<section class="cc-panel" id="documents">' + panelHead(t('docsKicker'), t('docsTitle'), '<b>' + items.length + '</b>') +
       '<div class="cc-list compact">' + (items.length ? items.slice().reverse().map((r) => '<article><div class="grow"><strong>' + esc(r.name) + '</strong><small>' + esc((r.mimeType || '—')) + ' · ' + esc(r.addedBy) + '</small>' +
-        (r.downloadable ? '<div class="cc-operation-links cc-row-actions jw-links"><button type="button" data-act="download" data-v="' + esc(r.id) + '" data-name="' + esc(r.name) + '">↓ ' + esc(t('docsDownload')) + '</button></div>' : '') +
+        (r.viewable ? '<div class="cc-operation-links cc-row-actions jw-links"><button type="button" data-act="view" data-v="' + esc(r.id) + '" data-name="' + esc(r.name) + '" data-mime="' + esc(r.mimeType || '') + '">◉ ' + esc(t('docsView')) + '</button></div>' : '') +
         '</div><span class="status status-' + (r.source === 'upload' ? 'received' : 'submitted') + '">' + esc(t('src_' + r.source)) + '</span><time>' + esc(fmtDate(r.createdAt)) + '</time></article>').join('') : '<p class="empty">' + esc(t('docsEmpty')) + '</p>') + '</div>' +
       (canUpload ? '<div class="cc-row-actions jw-actions jw-attach">' +
         '<input type="file" id="jw-file" multiple hidden><input type="file" id="jw-cam" accept="image/*" capture="environment" hidden>' +
@@ -331,7 +402,7 @@ const JanusWork = (() => {
         (typeof JanusAttach === 'object' ? '<button type="button" data-act="scan">▦ ' + esc(t('docsScan')) + '</button>' : '') + '</div>' +
         (live ? '' : '<div class="cc-inline-notice">' + esc(t('docsPreviewOnly')) + '</div>')
         : '<div class="cc-inline-notice">' + esc(p && !p.canWrite ? t('docsReadOnly') : t('docsUploadOff')) + '</div>') +
-      '<div class="cc-admin-strip">' + esc(t('docsTruth')) + '</div></section>';
+      '<div class="cc-admin-strip">' + esc(t('docsNoExport')) + ' ' + esc(t('docsTruth')) + '</div></section>';
   }
 
   function viewDeliveries() {
@@ -376,7 +447,7 @@ const JanusWork = (() => {
     const queued = d.assignments.filter((x) => x.assignment.status === 'queued' || x.assignment.status === 'handoff_required').length;
     const urgent = tasks.filter((x) => x.assignment.priority === 'high' || x.assignment.priority === 'critical').length;
     const attentionTotal = blocked + urgent;
-    const nav = [['today', '⌂', 'navToday'], ['tasks', '✓', 'navTasks'], ['project', '◫', 'navProjects'], ['assistant', '◌', 'navChat'], ['session', '◎', 'navSession'], ['documents', '◇', 'navDocs'], ['deliveries', '↗', 'navDeliveries'], ['instructions', '◆', 'navInstructions'], ['permissions', '⌁', 'navPermissions']];
+    const nav = [['today', '⌂', 'navToday'], ['agenda', '▤', 'navAgenda'], ['tasks', '✓', 'navTasks'], ['project', '◫', 'navProjects'], ['assistant', '◌', 'navChat'], ['session', '◎', 'navSession'], ['documents', '◇', 'navDocs'], ['deliveries', '↗', 'navDeliveries'], ['instructions', '◆', 'navInstructions'], ['permissions', '⌁', 'navPermissions']];
     const card = (label, value, tone) => '<article class="cc-attention ' + tone + '"><small>' + esc(label) + '</small><strong>' + value + '</strong><span>' + (value ? esc(t('attention')) : esc(t('ok'))) + '</span></article>';
     const info = (label, value) => '<article class="cc-attention"><small>' + esc(label) + '</small><strong>' + value + '</strong><span>&nbsp;</span></article>';
     return '<main class="cc-shell">' +
@@ -395,9 +466,10 @@ const JanusWork = (() => {
       '<div class="cc-summary-stats"><article><small>' + esc(t('statActive')) + '</small><strong>' + active + '</strong></article><article><small>' + esc(t('statBlocked')) + '</small><strong>' + blocked + '</strong></article><article><small>' + esc(t('statProjects')) + '</small><strong>' + d.projects.length + '</strong></article><article><small>' + esc(t('statToday')) + '</small><strong class="jw-time">' + esc(fmtDur(d.sessions.todayActiveSeconds + (d.sessions.open && d.sessions.open.state === 'running' ? (Date.now() - loadedAt) / 1000 : 0))) + '</strong></article></div></section>' +
       viewChat(p) +
       '<section class="cc-attention-grid">' + card(t('attCritical'), urgent, 'danger') + card(t('attBlocked'), blocked, 'warn') + info(t('attActive'), active) + info(t('attQueued'), queued) + info(t('attDocs'), p ? p.resources.length : 0) + info(t('attDeliveries'), d.deliveries.length) + '</section>' +
+      '<div class="cc-two-col">' + viewAgenda() + viewSession() + '</div>' +
       '<div class="cc-two-col">' + viewTasks() + viewProject(p) + '</div>' +
       '<div class="cc-two-col">' + viewDocs(p) + viewDeliveries() + '</div>' +
-      '<div class="cc-three-col">' + viewInstructions() + viewSession() + viewPermissions() + '</div>' +
+      '<div class="cc-two-col">' + viewInstructions() + viewPermissions() + '</div>' +
       (S.mode === 'core' ? '<div class="cc-prepare-generic jw-foot"><span>' + esc(d.profile.displayName) + ' · ' + esc(d.profile.roleTitle || t('roleOperator')) + '</span><button type="button" data-act="signout">' + esc(t('signOut')) + '</button></div>' : '') +
       '</section></main>';
   }
@@ -437,11 +509,13 @@ const JanusWork = (() => {
       else if (act === 'chat-new') { const p = project(); if (p) { S.chat[p.id] = []; delete S.threads[p.id]; } render(); }
       else if (act === 'pick-file') { const input = document.getElementById('jw-file'); if (input) input.click(); }
       else if (act === 'pick-cam') { const input = document.getElementById('jw-cam'); if (input) input.click(); }
-      else if (act === 'download') void download(v, el.dataset.name);
+      else if (act === 'view') void viewFile(v, el.dataset.name, el.dataset.mime);
+      else if (act === 'agenda-done') void agendaChange(v, 'done');
+      else if (act === 'agenda-del') void agendaChange(v, 'delete');
       else if (act === 'scan') void scanCode();
       else if (act === 'link') void linkDevice();
       else if (act === 'copy-pem') { if (navigator.clipboard) navigator.clipboard.writeText(S.login.pem).then(() => { S.login.copied = true; render(); }).catch(() => {}); }
-      else if (act === 'signout') { Promise.resolve(typeof signOut === 'function' ? signOut() : null).then(() => { S.data = null; S.chat = {}; S.threads = {}; render(); }); }
+      else if (act === 'signout') { closeViewer(); Promise.resolve(typeof signOut === 'function' ? signOut() : null).then(() => { S.data = null; S.chat = {}; S.threads = {}; render(); }); }
     });
     $root.addEventListener('change', (event) => {
       const el = event.target;
@@ -458,6 +532,7 @@ const JanusWork = (() => {
       if (form.dataset.form === 'chat') void sendChat(S.draft);
       else if (form.dataset.form === 'progress') { syncForm(form); void submitForm(); }
       else if (form.dataset.form === 'login') void doLogin();
+      else if (form.dataset.form === 'agenda') void agendaAdd(form);
     });
   }
 
@@ -467,6 +542,8 @@ const JanusWork = (() => {
     if (S.mode === 'core') {
       if (typeof sessionToken === 'function' && sessionToken()) void load(); else render();
     } else void load();
+    const veil = () => document.documentElement.classList.toggle('jw-veiled', document.hidden === true);
+    document.addEventListener('visibilitychange', veil); window.addEventListener('pagehide', () => document.documentElement.classList.add('jw-veiled')); window.addEventListener('pageshow', veil);
     // Solo refresca los contadores de tiempo; no vuelve a pintar (no interrumpe formularios ni el chat).
     timer = setInterval(() => {
       const s = liveSession(), el = document.getElementById('jw-active');

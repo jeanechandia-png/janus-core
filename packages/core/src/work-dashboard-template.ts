@@ -11,6 +11,7 @@ import type {
   ProjectWorkspace,
 } from './project-context.js';
 import type { WorkSessionSummary } from './work-session.js';
+import { agendaForOwner, type WorkAgendaItem } from './work-agenda.js';
 
 /**
  * Pure, reusable data contract for a collaborator dashboard. UI skins reuse
@@ -26,6 +27,11 @@ export type WorkDashboardLocale = 'es' | 'nl' | 'en';
 export const WORK_PROFILE_INSTRUCTIONS_MAX = 12000;
 export const WORK_PROFILE_FUNCTIONS_MAX = 12;
 
+/** Tipos que el visor interno puede mostrar sin descargar. */
+export const WORK_VIEWABLE_MIME: readonly string[] = [
+  'image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain', 'text/markdown', 'text/csv',
+];
+
 /** Acciones reservadas al CEO; la plantilla las muestra como no disponibles. */
 export const WORK_RESERVED_TO_CEO = [
   'purchases',
@@ -34,6 +40,8 @@ export const WORK_RESERVED_TO_CEO = [
   'permissions',
   'critical_deploys',
   'project_instructions',
+  'file_download',
+  'external_sharing',
 ] as const;
 
 export interface WorkDashboardProject {
@@ -51,7 +59,7 @@ export interface WorkDashboardProject {
   checkpointAt?: string;
   threads: Array<Pick<ProjectThread, 'id' | 'title' | 'status' | 'updatedAt'>>;
   /** Solo metadatos: una referencia no implica que el binario se haya procesado. */
-  resources: Array<Pick<ProjectResourceRef, 'id' | 'name' | 'source' | 'createdAt' | 'addedBy' | 'mimeType' | 'threadId'> & { downloadable: boolean }>;
+  resources: Array<Pick<ProjectResourceRef, 'id' | 'name' | 'source' | 'createdAt' | 'addedBy' | 'mimeType' | 'threadId'> & { viewable: boolean }>;
 }
 
 export interface WorkDashboardProjectInput {
@@ -82,6 +90,8 @@ export interface ReusableWorkDashboard {
     changePermissions: false;
     productionDeploy: false;
     editProjectInstructions: false;
+    downloadFiles: false;
+    shareOutside: false;
     uploadAttachments: boolean;
   };
   reservedToCeo: readonly string[];
@@ -96,6 +106,8 @@ export interface ReusableWorkDashboard {
     /** El tiempo es declarado por la persona; no prueba productividad por sí solo. */
     selfReported: true;
   };
+  /** Agenda propia (incluye lo privado: este contrato solo se entrega a su dueño). */
+  agenda: WorkAgendaItem[];
   /** Consultas a JANUS hoy frente al límite diario fijado por el CEO (`limit` 0 = sin límite). */
   usage: { used: number; limit: number; remaining: number | null };
   generatedAt: string;
@@ -121,6 +133,7 @@ export function buildReusableWorkDashboard(input: {
   uploadAttachments?: boolean;
   skinSource?: ReusableWorkDashboard['skinSource'];
   usage?: { used: number; limit: number; remaining: number | null };
+  agenda?: readonly WorkAgendaItem[];
   now?: string;
 }): ReusableWorkDashboard {
   if (!input.principal.active || input.principal.role !== 'operator') {
@@ -185,8 +198,8 @@ export function buildReusableWorkDashboard(input: {
         source: resource.source,
         createdAt: resource.createdAt,
         addedBy: resource.addedBy,
-        // Solo los archivos subidos a JANUS se pueden descargar aquí; Drive/iCloud son referencias externas.
-        downloadable: resource.source === 'upload',
+        // Se abre DENTRO del panel (sin descarga). Solo archivos subidos a JANUS y de tipo que el visor muestra.
+        viewable: resource.source === 'upload' && WORK_VIEWABLE_MIME.includes(resource.mimeType ?? ''),
         ...(resource.mimeType ? { mimeType: resource.mimeType } : {}),
         ...(resource.threadId ? { threadId: resource.threadId } : {}),
       })),
@@ -214,6 +227,8 @@ export function buildReusableWorkDashboard(input: {
       changePermissions: false,
       productionDeploy: false,
       editProjectInstructions: false,
+      downloadFiles: false,
+      shareOutside: false,
       uploadAttachments: input.uploadAttachments === true,
     },
     reservedToCeo: WORK_RESERVED_TO_CEO,
@@ -226,6 +241,7 @@ export function buildReusableWorkDashboard(input: {
       todayActiveSeconds,
       selfReported: true,
     },
+    agenda: agendaForOwner(input.agenda ?? [], input.principal.id, now.slice(0, 10)).slice(0, 80),
     usage: input.usage ? { ...input.usage } : { used: 0, limit: 0, remaining: null },
     generatedAt: now,
   };

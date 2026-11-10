@@ -69,6 +69,35 @@ E2E 117/117 · dashboard:test 20/20.
 todavía ejecución real en paralelo de varios agentes externos ni reparto automático por tipo de trabajo. Ningún
 proveedor externo se ha llamado en pruebas (no hay credenciales en este entorno).
 
+## Actualización 10-nov-2026 (14:15) — confidencialidad y agenda (decisiones del CEO)
+
+Reglas fijadas por el CEO: el colaborador solo ve lo de SUS proyectos (nunca ingresos, gastos, personal ni la lista
+general de proyectos) · **no descarga archivos ni envía nada fuera de la empresa** · si hace falta enviar un correo,
+se lo pide a JANUS, que lo evalúa y solo escala al CEO como último recurso; destinatarios admitidos: correos de la
+empresa y el del CEO · la agenda personal de cada persona es privada; todo lo relacionado con la empresa lo ve el CEO.
+
+13. **Sin descarga para colaboradores:** `GET /api/work/files/:id` (descarga) queda SOLO para el Founder (403 para
+    operadores). Nuevo `GET /api/work/files/:id/view`: abre el archivo dentro del panel (imagen, PDF, texto), sin caché.
+    El botón «Descargar» se sustituye por «Ver». Capacidades `downloadFiles:false` y `shareOutside:false`.
+14. **Visor interno con marca de agua** (nombre, identificador y fecha repetidos sobre el contenido), sin menú
+    contextual, copia ni arrastre; impresión bloqueada por CSS; el contenido se difumina cuando la app pasa a segundo
+    plano. **Es disuasión y trazabilidad, no un bloqueo:** una web/PWA no puede impedir capturas de pantalla.
+15. **Registro de aperturas** (`work_file_access`, append-only) y `GET /api/work/file-access` solo para el Founder.
+16. **Agenda personal** (`work-agenda.ts`, tabla `work_agenda_items`): recordatorios y disponibilidad («voy a
+    trabajar»). `GET/POST /api/work/agenda`, `PUT/DELETE /api/work/agenda/:id`. Privacidad aplicada en el servidor:
+    lo `private` solo lo recibe su dueño; el Founder recibe únicamente lo `work`. La disponibilidad y todo lo ligado a
+    un proyecto son siempre `work`, aunque se pida privado. Un elemento ajeno responde 404.
+
+Pruebas: typecheck limpio · `npm test` 690/0 fallos · runtime-smoke ok · work-runtime-smoke 12 bloques con navegador ·
+E2E 132/132 · dashboard:test 20/20.
+
+**No hecho / límites:** los recordatorios se ven en el panel pero todavía no avisan (sin notificaciones push) ni se
+crean hablando con JANUS en el chat · no existe aún el flujo «pedir a JANUS que envíe un correo» (hoy el colaborador
+no puede enviar ningún correo) · los datos privados de la agenda se guardan sin cifrar en la base de datos de JANUS
+(ninguna pantalla ni API los muestra al CEO, pero quien administre el servidor podría leerlos) · bloquear capturas
+exigiría una app nativa, y en iPhone ni siquiera así se bloquea del todo · el contenido del chat sigue viajando al
+proveedor del modelo elegido (falta la opción «solo modelo propio» por proyecto).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

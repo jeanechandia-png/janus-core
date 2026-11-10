@@ -83,10 +83,11 @@ test('la plantilla nunca concede voz ni acciones reservadas al CEO, pase lo que 
   const dashboard = buildReusableWorkDashboard({ principal, profile, coordination, projects: [], uploadAttachments: true });
   assert.deepEqual(dashboard.capabilities, {
     text: true, voice: false, approvePayments: false, changePermissions: false,
-    productionDeploy: false, editProjectInstructions: false, uploadAttachments: true,
+    productionDeploy: false, editProjectInstructions: false, downloadFiles: false, shareOutside: false, uploadAttachments: true,
   });
   assert.deepEqual([...dashboard.reservedToCeo], [...WORK_RESERVED_TO_CEO]);
   assert.ok(dashboard.reservedToCeo.includes('payments') && dashboard.reservedToCeo.includes('permissions'));
+  assert.ok(dashboard.reservedToCeo.includes('file_download') && dashboard.reservedToCeo.includes('external_sharing'));
   assert.equal(buildReusableWorkDashboard({ principal, profile, coordination, projects: [] }).capabilities.uploadAttachments, false);
 });
 
@@ -118,7 +119,7 @@ test('el proyecto expone instrucciones, punto de continuación y solo metadatos 
   assert.equal(project.unresolvedErrors.length, 1);
   assert.equal(project.threads[0]?.id, 't1');
   // La referencia interna del binario y su huella no viajan a la interfaz.
-  assert.deepEqual(Object.keys(project.resources[0]!).sort(), ['addedBy', 'createdAt', 'downloadable', 'id', 'mimeType', 'name', 'source']);
+  assert.deepEqual(Object.keys(project.resources[0]!).sort(), ['addedBy', 'createdAt', 'id', 'mimeType', 'name', 'source', 'viewable']);
   assert.doesNotMatch(JSON.stringify(dashboard), /att_secreto/);
 });
 

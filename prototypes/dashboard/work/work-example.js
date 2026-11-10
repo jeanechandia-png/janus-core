@@ -6,8 +6,10 @@
  */
 function workExample(nowIso) {
   const now = Date.parse(nowIso), iso = (minAgo) => new Date(now - minAgo * 60000).toISOString();
-  const caps = { text: true, voice: false, approvePayments: false, changePermissions: false, productionDeploy: false, editProjectInstructions: false, uploadAttachments: true };
-  const reserved = ['purchases', 'payments', 'contracts', 'permissions', 'critical_deploys', 'project_instructions'];
+  const caps = { text: true, voice: false, downloadFiles: false, shareOutside: false, approvePayments: false, changePermissions: false, productionDeploy: false, editProjectInstructions: false, uploadAttachments: true };
+  const reserved = ['purchases', 'payments', 'contracts', 'permissions', 'critical_deploys', 'project_instructions', 'file_download', 'external_sharing'];
+  const day = (offset) => { const d = new Date(now + offset * 86400000); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const ag = (id, who, kind, visibility, offset, time, endTime, text, projectId) => Object.assign({ id, principalId: who, kind, visibility, date: day(offset), text, done: false, createdAt: nowIso, updatedAt: nowIso }, time ? { time } : {}, endTime ? { endTime } : {}, projectId ? { projectId } : {});
   const task = (id, who, title, goal, status, priority, next, minAgo, handoff, agent) => ({
     assignment: Object.assign({ id, title, goal, assigneePrincipalId: who, scopeIds: ['scope-demo'], status, priority, createdBy: 'founder', createdAt: iso(3000), updatedAt: iso(minAgo), nextActions: next }, agent ? { preferredProvider: agent } : {}),
     ...(handoff ? { latestHandoff: handoff } : {}),
@@ -15,7 +17,7 @@ function workExample(nowIso) {
   const hand = (id, assignmentId, who, summary, done, pending, blockers, minAgo, evidence) => ({
     id, assignmentId, fromPrincipalId: who, createdAt: iso(minAgo), executiveSummary: summary, conclusions: [], completed: done, pending, blockers, nextActions: pending, decisions: [], evidenceRefs: evidence || [], checksum: 'ejemplo',
   });
-  const res = (id, name, source, mimeType, minAgo, addedBy) => ({ id, name, source, mimeType, createdAt: iso(minAgo), addedBy: addedBy || 'founder', downloadable: source === 'upload' });
+  const res = (id, name, source, mimeType, minAgo, addedBy) => ({ id, name, source, mimeType, createdAt: iso(minAgo), addedBy: addedBy || 'founder', viewable: source === 'upload' && /^(image\/(png|jpeg|webp|gif)|application\/pdf|text\/(plain|markdown|csv))$/.test(mimeType) });
   const emptySessions = { open: null, recent: [], todayActiveSeconds: 0, selfReported: true };
 
   /* ── A · desarrollo (ES) ── */
@@ -45,6 +47,7 @@ function workExample(nowIso) {
     sessions: { open: { sessionId: 'ws-demo', principalId: 'colab-a', state: 'running', startedAt: iso(128), activeSeconds: 6780, pausedSeconds: 900, pauses: 1, projectId: 'p-api', progress: [{ at: iso(60), note: 'Filtro por permisos en verde' }], blockers: [], deliveries: [], lastEventAt: iso(60) },
       recent: [{ sessionId: 'ws-old', principalId: 'colab-a', state: 'ended', startedAt: iso(1560), endedAt: iso(1290), activeSeconds: 14400, pausedSeconds: 1800, pauses: 2, projectId: 'p-api', progress: [], blockers: [], deliveries: [], lastEventAt: iso(1290) }],
       todayActiveSeconds: 6780, selfReported: true },
+    agenda: [ag('g1', 'colab-a', 'availability', 'work', 0, '09:00', '14:00', ''), ag('g2', 'colab-a', 'reminder', 'work', 0, '12:30', '', 'Enviar al CEO el avance de la paginación', 'p-api'), ag('g3', 'colab-a', 'reminder', 'private', 1, '17:00', '', 'Recoger el coche del taller'), ag('g4', 'colab-a', 'availability', 'work', 2, '09:00', '13:00', '')],
     usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
 
@@ -68,7 +71,8 @@ function workExample(nowIso) {
         threads: [{ id: 't-b1', title: 'Belronde', status: 'active', updatedAt: iso(220) }],
         resources: [res('r5', 'Prijslijst 2026.pdf', 'google_drive', 'application/pdf', 6000), res('r6', 'Demo-script.docx', 'upload', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 2500)] },
     ],
-    deliveries: [bH], sessions: emptySessions, usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
+    deliveries: [bH], sessions: emptySessions, agenda: [ag('g5', 'colab-b', 'availability', 'work', 0, '10:00', '16:00', ''), ag('g6', 'colab-b', 'reminder', 'work', 2, '11:00', '', 'Offerte nabellen', 'p-nl')],
+    usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
 
   /* ── C · contenido visual (ES) ── */
@@ -83,7 +87,8 @@ function workExample(nowIso) {
         nextActions: ['Editar la segunda tanda'], decisions: [], unresolvedErrors: [], threads: [],
         resources: [res('r7', 'Referencia de estilo.jpg', 'upload', 'image/jpeg', 3000)] },
     ],
-    deliveries: [], sessions: emptySessions, usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
+    deliveries: [], sessions: emptySessions, agenda: [],
+    usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
   return { 'colab-a': A, 'colab-b': B, 'colab-c': C };
 }

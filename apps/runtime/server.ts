@@ -109,6 +109,14 @@ import {
   type WorkSessionEventKind,
 } from '../../packages/core/src/work-session.js';
 import {
+  WORK_AGENDA_MAX_ITEMS,
+  agendaForFounder,
+  agendaForOwner,
+  validateWorkAgendaItem,
+  type WorkAgendaItem,
+} from '../../packages/core/src/work-agenda.js';
+import { WORK_VIEWABLE_MIME } from '../../packages/core/src/work-dashboard-template.js';
+import {
   operatorDailyUsage,
   parseOperatorDailyRuns,
 } from '../../packages/core/src/operator-usage-limit.js';
@@ -1332,6 +1340,7 @@ function workDashboardFor(principal: AuthorityPrincipal) {
     projects,
     handoffs: store.listCoordinationHandoffs(),
     sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
+    agenda: store.listWorkAgendaItems(principal.id),
     uploadAttachments: workOperatorUploadsEnabled,
     skinSource: 'iba-command-center',
     usage: (({ used, limit, remaining }) => ({ used, limit, remaining }))(operatorUsageFor(principal.id)),
@@ -5836,13 +5845,18 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  // Descarga de un archivo de proyecto: solo si la persona puede leer ESE proyecto. Nunca por id de adjunto
-  // suelto: se entra por el recurso del proyecto, así nadie alcanza archivos de un proyecto ajeno.
-  const workFileMatch = url.pathname.match(/^\/api\/work\/files\/([^/]+)$/);
+  // Archivos de proyecto. Decisión del CEO (10-nov-2026): los colaboradores NO descargan; abren el archivo
+  // dentro del panel (/view) y cada apertura queda registrada. La descarga es exclusiva del CEO.
+  // Se entra siempre por el recurso del proyecto: nadie alcanza archivos de un proyecto ajeno.
+  const workFileMatch = url.pathname.match(/^\/api\/work\/files\/([^/]+)(\/view)?$/);
   if (request.method === 'GET' && workFileMatch) {
     try {
       const { principal } = requireAuthoritySession(request);
-      if (principal.role === 'operator') requireActiveOperatorProfile(principal);
+      const viewing = Boolean(workFileMatch[2]);
+      if (principal.role === 'operator') {
+        requireActiveOperatorProfile(principal);
+        if (!viewing) throw new HttpRequestError(403, 'download is reserved to the CEO');
+      }
       const resourceId = decodeURIComponent(workFileMatch[1]!);
       const found = store.listProjectWorkspaces()
         .filter((project) => canAccessProject(principal, project, 'read_context'))
@@ -5853,15 +5867,108 @@ const server = createServer(async (request, response) => {
       const attachment = attachmentStore.get(found.sourceRef, found.addedBy);
       const bytes = attachment ? attachmentStore.readBytes(attachment) : undefined;
       if (!attachment || !bytes) throw new HttpRequestError(404, 'file not found');
+      if (viewing && !WORK_VIEWABLE_MIME.includes(attachment.type)) {
+        json(response, 415, { ok: false, code: 'preview_unavailable', error: 'Este tipo de archivo no se puede mostrar en el panel.' });
+        return;
+      }
+      if (viewing && principal.role === 'operator') {
+        store.appendFileAccess({
+          id: `fa_${randomUUID()}`, principalId: principal.id, resourceId: found.id, projectId: found.projectId,
+          name: attachment.name, action: 'view', at: new Date().toISOString(),
+        });
+      }
       response.writeHead(200, {
         'content-type': attachment.type || 'application/octet-stream',
         'content-length': String(bytes.byteLength),
-        'content-disposition': `attachment; filename*=UTF-8''${encodeURIComponent(attachment.name)}`,
+        'content-disposition': `${viewing ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(attachment.name)}`,
         'cache-control': 'no-store',
         'x-content-type-options': 'nosniff',
         'content-security-policy': "default-src 'none'; sandbox",
       });
       response.end(bytes);
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Registro de aperturas de archivos por el equipo: solo el CEO.
+  if (request.method === 'GET' && url.pathname === '/api/work/file-access') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, entries: store.listFileAccess(Number(url.searchParams.get('limit')) || 200) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Agenda del colaborador. Lo 'private' solo lo ve su dueño; el CEO recibe únicamente lo 'work'.
+  if (request.method === 'GET' && url.pathname === '/api/work/agenda') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (principal.role === 'founder_director') {
+        const filter = url.searchParams.get('principalId')?.trim() || undefined;
+        json(response, 200, { ok: true, scope: 'work-only', items: agendaForFounder(store.listWorkAgendaItems(filter), filter) });
+      } else {
+        requireActiveOperatorProfile(principal);
+        json(response, 200, { ok: true, scope: 'own', items: agendaForOwner(store.listWorkAgendaItems(principal.id), principal.id) });
+      }
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const agendaItemMatch = url.pathname.match(/^\/api\/work\/agenda\/([^/]+)$/);
+  if ((request.method === 'POST' && url.pathname === '/api/work/agenda')
+    || ((request.method === 'PUT' || request.method === 'DELETE') && agendaItemMatch)) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const existing = agendaItemMatch ? store.getWorkAgendaItem(decodeURIComponent(agendaItemMatch[1]!)) : null;
+      // Un elemento ajeno se trata como inexistente: ni se lee, ni se cambia, ni se confirma que existe.
+      if (agendaItemMatch && (!existing || existing.principalId !== principal.id)) throw new HttpRequestError(404, 'agenda item not found');
+      if (request.method === 'DELETE') {
+        store.deleteWorkAgendaItem(existing!.id, principal.id);
+        json(response, 200, { ok: true, deleted: existing!.id });
+        return;
+      }
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      const text = (key: string) => (typeof body[key] === 'string' ? (body[key] as string).trim() : undefined);
+      const projectId = body.projectId === null ? '' : text('projectId') ?? existing?.projectId ?? '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      if (!existing && store.listWorkAgendaItems(principal.id).length >= WORK_AGENDA_MAX_ITEMS) {
+        throw new HttpRequestError(409, 'agenda is full');
+      }
+      const time = body.time === null ? '' : text('time') ?? existing?.time ?? '';
+      const endTime = body.endTime === null ? '' : text('endTime') ?? existing?.endTime ?? '';
+      let item: WorkAgendaItem;
+      try {
+        item = validateWorkAgendaItem({
+          id: existing?.id ?? `ag_${randomUUID()}`,
+          principalId: principal.id,
+          kind: (text('kind') ?? existing?.kind ?? 'reminder') as WorkAgendaItem['kind'],
+          visibility: (text('visibility') ?? existing?.visibility ?? 'private') as WorkAgendaItem['visibility'],
+          date: text('date') ?? existing?.date ?? '',
+          ...(time ? { time } : {}),
+          ...(endTime ? { endTime } : {}),
+          text: text('text') ?? existing?.text ?? '',
+          ...(projectId ? { projectId } : {}),
+          done: typeof body.done === 'boolean' ? body.done : existing?.done ?? false,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid agenda item');
+      }
+      store.upsertWorkAgendaItem(item);
+      json(response, existing ? 200 : 201, { ok: true, item });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }

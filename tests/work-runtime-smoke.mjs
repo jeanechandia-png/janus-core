@@ -34,6 +34,7 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.t
 let stderr = '';
 child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
 let devResourceId = '';
+let agendaPrivateId = '';
 const checks = [];
 const ok = (name) => { checks.push(name); };
 
@@ -127,14 +128,43 @@ try {
   assert.equal((await fetch(`${base}/api/attachments`, { method: 'POST', headers: { authorization: `Bearer ${dev}`, 'content-type': 'text/plain', 'x-attachment-source': 'device-file', 'x-attachment-name': 'nota.txt' }, body: 'hola' })).status, 403);
   dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
   const listed = dash.projects.find((p) => p.id === 'p-api').resources.find((r) => r.id === devResourceId);
-  assert.equal(listed?.downloadable, true); assert.equal(listed?.addedBy, 'colab-dev'); assert.equal(dash.capabilities.uploadAttachments, true);
-  const got = await fetch(`${base}/api/work/files/${devResourceId}`, { headers: { authorization: `Bearer ${dev}` } });
-  assert.equal(got.status, 200); assert.equal(await got.text(), 'contenido de prueba');
-  assert.match(got.headers.get('content-disposition') || '', /^attachment; filename\*=UTF-8''nota/); assert.equal(got.headers.get('x-content-type-options'), 'nosniff');
-  assert.equal((await fetch(`${base}/api/work/files/${devResourceId}`, { headers: { authorization: `Bearer ${founder}` } })).status, 200, 'el CEO recibe lo que sube su equipo');
-  assert.equal((await fetch(`${base}/api/work/files/${devResourceId}`)).status, 401);
-  assert.equal((await fetch(`${base}/api/work/files/resource_no_existe`, { headers: { authorization: `Bearer ${dev}` } })).status, 404);
-  ok('archivos: subir y descargar solo dentro de los proyectos propios');
+  assert.equal(listed?.viewable, true); assert.equal(listed?.addedBy, 'colab-dev'); assert.equal(dash.capabilities.uploadAttachments, true);
+  assert.equal(dash.capabilities.downloadFiles, false); assert.equal(dash.capabilities.shareOutside, false);
+  const file = (token, suffix = '') => fetch(`${base}/api/work/files/${devResourceId}${suffix}`, token ? { headers: { authorization: `Bearer ${token}` } } : {});
+  // El colaborador NO descarga: solo abre dentro del panel, y cada apertura queda registrada.
+  assert.equal((await file(dev)).status, 403, 'descarga reservada al CEO');
+  const seen = await file(dev, '/view');
+  assert.equal(seen.status, 200); assert.equal(await seen.text(), 'contenido de prueba');
+  assert.match(seen.headers.get('content-disposition') || '', /^inline; /); assert.equal(seen.headers.get('x-content-type-options'), 'nosniff'); assert.equal(seen.headers.get('cache-control'), 'no-store');
+  const owned = await file(founder);
+  assert.equal(owned.status, 200, 'el CEO sí descarga lo que sube su equipo'); assert.match(owned.headers.get('content-disposition') || '', /^attachment; filename\*=UTF-8''nota/);
+  assert.equal((await file(null, '/view')).status, 401); assert.equal((await file(null)).status, 401);
+  assert.equal((await fetch(`${base}/api/work/files/resource_no_existe/view`, { headers: { authorization: `Bearer ${dev}` } })).status, 404);
+  const access = await call('GET', '/api/work/file-access', founder, undefined, 200);
+  assert.equal(access.entries.length, 1); assert.equal(access.entries[0].principalId, 'colab-dev'); assert.equal(access.entries[0].resourceId, devResourceId);
+  await call('GET', '/api/work/file-access', dev, undefined, 403);
+  ok('archivos: subir y VER solo en proyectos propios; sin descarga para colaboradores; aperturas registradas');
+
+  // ── Agenda: lo personal es privado; el CEO solo ve lo de trabajo ──────────────────────────────
+  const priv = await call('POST', '/api/work/agenda', dev, { date: '2026-12-01', time: '17:00', text: 'Recoger el coche' }, 201);
+  assert.equal(priv.item.visibility, 'private');
+  const avail = await call('POST', '/api/work/agenda', dev, { kind: 'availability', visibility: 'private', date: '2026-12-02', time: '09:00', endTime: '14:00' }, 201);
+  assert.equal(avail.item.visibility, 'work', 'la disponibilidad siempre es de trabajo');
+  const linked = await call('POST', '/api/work/agenda', dev, { date: '2026-12-03', text: 'Entregar paginación', projectId: 'p-api', visibility: 'private' }, 201);
+  assert.equal(linked.item.visibility, 'work', 'lo ligado a un proyecto siempre es de trabajo');
+  await call('POST', '/api/work/agenda', dev, { date: '2026-12-03', text: 'x', projectId: 'p-privado' }, 403);
+  await call('POST', '/api/work/agenda', dev, { date: 'mañana', text: 'x' }, 400);
+  await call('POST', '/api/work/agenda', founder, { date: '2026-12-03', text: 'x' }, 403);
+  await call('POST', '/api/work/agenda', null, { date: '2026-12-03', text: 'x' }, 401);
+  assert.equal((await call('GET', '/api/work/agenda', dev, undefined, 200)).items.length, 3);
+  const founderAgenda = await call('GET', '/api/work/agenda', founder, undefined, 200);
+  assert.equal(founderAgenda.scope, 'work-only'); assert.equal(founderAgenda.items.length, 2);
+  assert.doesNotMatch(JSON.stringify(founderAgenda), /Recoger el coche/, 'el CEO no recibe lo privado');
+  assert.equal((await call('PUT', `/api/work/agenda/${priv.item.id}`, dev, { done: true }, 200)).item.done, true);
+  agendaPrivateId = priv.item.id;
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  assert.equal(dash.agenda.length, 3);
+  ok('agenda: recordatorios privados, disponibilidad y proyecto visibles para el CEO');
 
   // ── Avance/entrega (handoff) y chat por proyecto ──────────────────────────────────────────────
   await call('POST', '/api/coordination/assignments/as-dev-1/handoffs', dev, { executiveSummary: 'Listado listo', completed: ['Filtro'], pending: ['Paginación'], evidenceRefs: ['commit abc'] }, 201);
@@ -212,7 +242,7 @@ async function browserFlow({ chromium }, founder) {
     const page = await context.newPage();
     const errors = [];
     page.on('pageerror', (error) => errors.push(String(error)));
-    page.on('response', (response) => { if (response.status() === 404 && !response.url().endsWith('/api/work/files/' + devResourceId)) errors.push('404 ' + response.url()); });
+    page.on('response', (response) => { if (response.status() === 404 && !response.url().includes(devResourceId) && !response.url().includes(agendaPrivateId)) errors.push('404 ' + response.url()); });
     page.on('console', (message) => { if (message.type() === 'error' && !/40[1349]|429|Failed to load resource/.test(message.text())) errors.push(message.text()); });
     await page.goto(`${base}/work`);
     await page.waitForSelector('.cc-login-card');
@@ -244,13 +274,30 @@ async function browserFlow({ chromium }, founder) {
     assert.equal(await page.evaluate(() => document.documentElement.lang), 'nl');
     assert.equal(await page.locator('audio, video, [class*=mic], [data-act*=voice]').count(), 0, 'sin elementos de voz');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'sin desbordamiento horizontal en móvil');
-    // Archivos: no alcanza el archivo del otro colaborador; sube uno propio y lo descarga.
-    assert.equal(await page.evaluate(async (id) => (await fetch('/api/work/files/' + id, { headers: { authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } })).status, devResourceId), 404, 'archivo de proyecto ajeno: 404');
+    // Archivos: no alcanza el archivo del otro colaborador; sube los suyos y los abre DENTRO del panel (sin descarga).
+    const tokenFetch = (path, init) => page.evaluate(async ([p, i]) => (await fetch(p, { ...(i || {}), headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } })).status, [path, init]);
+    assert.equal(await tokenFetch('/api/work/files/' + devResourceId + '/view'), 404, 'archivo de proyecto ajeno: 404');
+    assert.equal(await tokenFetch('/api/work/agenda/' + agendaPrivateId, { method: 'PUT', body: '{"done":false}' }), 404, 'agenda ajena: 404');
+    assert.equal(await tokenFetch('/api/work/agenda/' + agendaPrivateId, { method: 'DELETE' }), 404);
     assert.equal(await page.locator('#documents [data-act=scan]').count(), 1, 'lector de códigos disponible');
     await page.setInputFiles('#jw-file', [{ name: 'offerte.txt', mimeType: 'text/plain', buffer: Buffer.from('offerte inhoud') }, { name: 'notitie.md', mimeType: 'text/markdown', buffer: Buffer.from('# notitie') }]);
     await page.waitForFunction(() => /offerte\.txt/.test(document.querySelector('#documents').innerText) && /notitie\.md/.test(document.querySelector('#documents').innerText), null, { timeout: 15_000 });
-    const [file] = await Promise.all([page.waitForEvent('download'), page.locator('#documents [data-act=download]').first().click()]);
-    assert.match(file.suggestedFilename(), /\.(txt|md)$/);
+    assert.equal(await page.locator('[data-act=download], a[download]').count(), 0, 'sin botón ni enlace de descarga');
+    let downloads = 0; page.on('download', () => { downloads += 1; });
+    await page.locator('#documents [data-act=view]').first().click();
+    await page.waitForSelector('.jw-viewer pre');
+    assert.match(await page.locator('.jw-viewer pre').innerText(), /offerte inhoud|# notitie/);
+    assert.match(await page.locator('.jw-viewer-mark span').first().innerText(), /Persoon NL · colab-nl/, 'marca de agua con la persona');
+    await page.click('.jw-viewer-x'); await page.waitForSelector('.jw-viewer', { state: 'detached' });
+    assert.equal(downloads, 0);
+    // Agenda: un recordatorio personal y su disponibilidad.
+    await page.fill('#agenda input[name=text]', 'Tandarts bellen'); await page.click('#agenda button[type=submit]');
+    await page.waitForFunction(() => /Tandarts bellen/.test(document.querySelector('#agenda').innerText));
+    await page.selectOption('#agenda select[name=kind]', 'availability'); await page.fill('#agenda input[name=time]', '09:00'); await page.fill('#agenda input[name=endTime]', '13:00'); await page.click('#agenda button[type=submit]');
+    await page.waitForFunction(() => document.querySelectorAll('#agenda .cc-list article').length === 2);
+    const nlAgendaSeenByCeo = await call('GET', '/api/work/agenda?principalId=colab-nl', founder, undefined, 200);
+    assert.equal(nlAgendaSeenByCeo.items.length, 1); assert.equal(nlAgendaSeenByCeo.items[0].kind, 'availability');
+    assert.doesNotMatch(JSON.stringify(nlAgendaSeenByCeo), /Tandarts/);
     // Sesión de trabajo real.
     await page.click('[data-act=sess][data-v=start]');
     await page.waitForSelector('[data-act=sess][data-v=pause]');

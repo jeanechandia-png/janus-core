@@ -50,3 +50,26 @@ html,body{margin:0;background:#f5f7f9}
 .jw-agent{color:#35648d!important;font-weight:700}
 .jw-usage{white-space:nowrap}
 .jw-attach{flex-wrap:wrap}
+/* agenda */
+.jw-agenda-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 10px;align-items:end;margin:4px 0 14px}
+.jw-agenda-form label{display:grid;gap:4px;min-width:0;grid-column:span 2}.jw-agenda-form label:nth-of-type(4),.jw-agenda-form label:nth-of-type(5){grid-column:span 3}.jw-agenda-form label.wide{grid-column:1/6}
+.jw-agenda-form span{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8794}
+.jw-agenda-form input,.jw-agenda-form select{width:100%;min-height:40px;border:1px solid #d9e2ec;border-radius:11px;background:#fff;color:#101318;padding:8px 10px;font:inherit;font-size:12px;box-sizing:border-box}
+.jw-agenda-form input:focus,.jw-agenda-form select:focus{outline:2px solid #007aff;outline-offset:1px}
+.jw-agenda-form button{min-height:40px;border:0;border-radius:11px;background:#007aff;color:#fff;font-weight:800;font-size:11px;cursor:pointer}
+.jw-done strong{text-decoration:line-through;opacity:.5}
+@media(max-width:600px){.jw-agenda-form label{grid-column:span 3}.jw-agenda-form label:first-of-type,.jw-agenda-form label.wide,.jw-agenda-form button{grid-column:1/-1}}
+/* visor interno (sin descarga) */
+.jw-viewer{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;background:#0b0e12;color:#edf2f7;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.jw-viewer-top{display:flex;align-items:center;gap:12px;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:1px solid #222a33}
+.jw-viewer-top strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jw-viewer-top span{flex:1;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#8fa3b8}
+.jw-viewer-x{width:40px;height:40px;border:1px solid #2c3742;border-radius:50%;background:#141a21;color:#fff;font-size:20px;cursor:pointer}
+.jw-viewer-body{position:relative;flex:1;min-height:0;overflow:auto;display:grid;place-items:center}
+.jw-viewer-body img{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none}
+.jw-viewer-body iframe{width:100%;height:100%;border:0;background:#fff}
+.jw-viewer-body pre{align-self:start;justify-self:stretch;margin:0;padding:20px;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+.jw-viewer-mark{position:absolute;inset:-20%;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;gap:70px 50px;transform:rotate(-24deg);pointer-events:none;overflow:hidden}
+.jw-viewer-mark span{font-size:11px;font-weight:800;letter-spacing:.04em;white-space:nowrap;color:rgba(255,255,255,.2);text-shadow:0 0 1px rgba(0,0,0,.5);mix-blend-mode:difference}
+/* velo: al pasar la app a segundo plano no queda contenido a la vista */
+.jw-veiled .cc-main,.jw-veiled .jw-viewer-body{filter:blur(22px)}
+@media print{body{display:none!important}}

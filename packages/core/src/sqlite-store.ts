@@ -26,6 +26,7 @@ import type {
 } from './operator-coordination.js';
 import type { ReusableLibraryItem } from './reusable-library.js';
 import type { WorkSessionEvent } from './work-session.js';
+import type { WorkAgendaItem } from './work-agenda.js';
 import type {
   ProjectContextCheckpoint,
   ProjectResourceRef,
@@ -772,6 +773,51 @@ export class SqliteStore {
     return rows.map((row) => (
       JSON.parse(String(row.assignment_json)) as CoordinationAssignment
     ));
+  }
+
+  /** Agenda del colaborador. La privacidad (private/work) se aplica en el runtime al leer. */
+  upsertWorkAgendaItem(item: WorkAgendaItem): void {
+    this.db.prepare(`
+      INSERT INTO work_agenda_items (id, principal_id, date, item_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET date = excluded.date, item_json = excluded.item_json
+      WHERE work_agenda_items.principal_id = excluded.principal_id
+    `).run(item.id, item.principalId, item.date, JSON.stringify(item));
+  }
+
+  getWorkAgendaItem(id: string): WorkAgendaItem | null {
+    const row = this.db.prepare('SELECT item_json FROM work_agenda_items WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.item_json)) as WorkAgendaItem : null;
+  }
+
+  deleteWorkAgendaItem(id: string, principalId: string): boolean {
+    const result = this.db.prepare('DELETE FROM work_agenda_items WHERE id = ? AND principal_id = ?').run(id, principalId);
+    return Number(result.changes) > 0;
+  }
+
+  /** Sin `principalId` devuelve todo: el llamador DEBE filtrar con agendaForFounder antes de responder. */
+  listWorkAgendaItems(principalId?: string): WorkAgendaItem[] {
+    const rows = (principalId
+      ? this.db.prepare('SELECT item_json FROM work_agenda_items WHERE principal_id = ? ORDER BY date ASC, id ASC').all(principalId)
+      : this.db.prepare('SELECT item_json FROM work_agenda_items ORDER BY date ASC, id ASC').all()) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.item_json)) as WorkAgendaItem);
+  }
+
+  /** Registro de aperturas de archivos por colaboradores (append-only): quién abrió qué y cuándo. */
+  appendFileAccess(entry: { id: string; principalId: string; resourceId: string; projectId: string; name: string; action: 'view'; at: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO work_file_access (id, principal_id, resource_id, project_id, name, action, at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(entry.id, entry.principalId, entry.resourceId, entry.projectId, entry.name, entry.action, entry.at);
+  }
+
+  listFileAccess(limit = 200): Array<{ id: string; principalId: string; resourceId: string; projectId: string; name: string; action: string; at: string }> {
+    const rows = this.db.prepare(`
+      SELECT id, principal_id, resource_id, project_id, name, action, at FROM work_file_access ORDER BY at DESC, id DESC LIMIT ?
+    `).all(Math.max(1, Math.min(1000, Math.floor(limit)))) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id), principalId: String(row.principal_id), resourceId: String(row.resource_id),
+      projectId: String(row.project_id), name: String(row.name), action: String(row.action), at: String(row.at),
+    }));
   }
 
   /** Control de consumo: una fila por consulta a JANUS iniciada por un colaborador (append-only). */
@@ -2077,6 +2123,27 @@ export class SqliteStore {
         updated_at TEXT NOT NULL,
         profile_json TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS work_agenda_items (
+        id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        item_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_agenda_principal ON work_agenda_items(principal_id, date);
+
+      CREATE TABLE IF NOT EXISTS work_file_access (
+        id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        action TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_file_access_at ON work_file_access(at);
 
       CREATE TABLE IF NOT EXISTS operator_run_usage (
         run_id TEXT PRIMARY KEY,
