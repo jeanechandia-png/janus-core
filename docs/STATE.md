@@ -1,3 +1,11 @@
+## AHORA 10-nov-2026 — JANUS Work implementada en rama de Claude (pendiente de aprobación visual)
+
+- **Rama:** `claude/work-dashboard-template` sobre `chatgpt/janus-approved-characters-integration-20261106` @ `72e1776`. **No fusionada ni desplegada.**
+- **Hecho:** plantilla laboral única (`prototypes/dashboard/work/`, ruta `/work`, PWA propia), diseño de la dashboard de IBA referenciado por huella (CSS privado fuera de este repo público), medallones de idioma ES/NL/EN, chat escrito por proyecto, tareas, documentos, instrucciones, sesiones de trabajo, avances y entregas. Solo texto.
+- **No tocado:** dashboards personales A/B del CEO, /kendra, robots y criaturas.
+- **Pruebas:** typecheck limpio; `npm test` 678/0 fallos; runtime-smoke ok; work-runtime-smoke 10 bloques con navegador; E2E 111/111. Falta dispositivo físico.
+- **Handoff:** `docs/handoffs/2026-11-10-claude-work-dashboard-implementation.md`.
+
 ## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable
 
 **Orden del Founder:** El dashboard aprobado del CEO y la experiencia Kendra continúan con Claude y NO se reemplazan. Claude debe localizar SU artefacto aprobado e integrarlo como baseline verificada antes de cualquier cambio. SOLO adaptar una plantilla laboral reutilizable para Julio/Robin/Mariel, inspirada en módulos JANUS o dashboard IBA (fuente: `infinity-chatbox-platform`). Texto únicamente; no voz en personal laboral; aplicaciones PWA con acceso autenticado; proyectos e instrucciones por usuario; permisos de Core y tareas concurrentes; NO crear copias/repos/hosting ni cambiar webs productivas.

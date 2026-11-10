@@ -32,6 +32,12 @@ export interface CoordinationOperatorProfile {
   notes?: string;
   /** Presentation language for the reusable text-only work dashboard. */
   locale?: 'es' | 'nl' | 'en';
+  /** Cargo visible en la plantilla laboral (dato de configuración, no concede permisos). */
+  roleTitle?: string;
+  /** Funciones asignadas por el CEO (texto descriptivo, no concede permisos). */
+  functions?: string[];
+  /** Instrucciones permanentes individuales; solo las fija el Founder. */
+  instructions?: string;
 }
 
 export interface CoordinationScope {

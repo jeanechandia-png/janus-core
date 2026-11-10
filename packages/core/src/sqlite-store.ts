@@ -25,6 +25,7 @@ import type {
   CoordinationScope,
 } from './operator-coordination.js';
 import type { ReusableLibraryItem } from './reusable-library.js';
+import type { WorkSessionEvent } from './work-session.js';
 import type {
   ProjectContextCheckpoint,
   ProjectResourceRef,
@@ -771,6 +772,34 @@ export class SqliteStore {
     return rows.map((row) => (
       JSON.parse(String(row.assignment_json)) as CoordinationAssignment
     ));
+  }
+
+  /** Plantilla laboral: registro append-only de eventos de sesión declarados por la persona. */
+  appendWorkSessionEvent(event: WorkSessionEvent): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO work_session_events
+        (id, session_id, principal_id, kind, at, event_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(event.id, event.sessionId, event.principalId, event.kind, event.at, JSON.stringify(event));
+  }
+
+  /** Sin `principalId` devuelve todo: solo debe usarse tras comprobar autoridad de Founder. */
+  listWorkSessionEvents(principalId?: string, limit = 2000): WorkSessionEvent[] {
+    const capped = Math.max(1, Math.min(10000, Math.floor(limit)));
+    const rows = (principalId
+      ? this.db.prepare(`
+          SELECT event_json FROM (
+            SELECT event_json, at, id FROM work_session_events
+            WHERE principal_id = ? ORDER BY at DESC, id DESC LIMIT ?
+          ) ORDER BY at ASC, id ASC
+        `).all(principalId, capped)
+      : this.db.prepare(`
+          SELECT event_json FROM (
+            SELECT event_json, at, id FROM work_session_events
+            ORDER BY at DESC, id DESC LIMIT ?
+          ) ORDER BY at ASC, id ASC
+        `).all(capped)) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.event_json)) as WorkSessionEvent);
   }
 
   appendCoordinationHandoff(handoff: CoordinationHandoff): void {
@@ -2034,6 +2063,18 @@ export class SqliteStore {
         updated_at TEXT NOT NULL,
         profile_json TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS work_session_events (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        principal_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        at TEXT NOT NULL,
+        event_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_session_events_principal
+      ON work_session_events(principal_id, at, id);
 
       CREATE TABLE IF NOT EXISTS coordination_scopes (
         id TEXT PRIMARY KEY,

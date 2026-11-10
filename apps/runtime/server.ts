@@ -98,7 +98,16 @@ import {
   validateCoordinationGrant,
   validateCoordinationScope,
 } from '../../packages/core/src/operator-coordination.js';
-import { buildReusableWorkDashboard } from '../../packages/core/src/work-dashboard-template.js';
+import {
+  buildReusableWorkDashboard,
+  sanitizeWorkProfilePatch,
+} from '../../packages/core/src/work-dashboard-template.js';
+import {
+  WORK_SESSION_EVENT_KINDS,
+  nextWorkSessionEvent,
+  summarizeWorkSessions,
+  type WorkSessionEventKind,
+} from '../../packages/core/src/work-session.js';
 import {
   buildProjectCheckpoint,
   projectRecords,
@@ -1265,6 +1274,41 @@ function requireProjectAccess(
   if (!canAccessProject(principal, project, permission)) {
     throw new HttpRequestError(403, 'project access denied');
   }
+}
+
+const workOperatorUploadsEnabled = process.env.JANUS_WORK_OPERATOR_UPLOADS?.trim().toLowerCase() === 'on';
+
+function requireActiveOperatorProfile(principal: AuthorityPrincipal) {
+  if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
+  const profile = store.getCoordinationOperator(principal.id);
+  if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
+  return profile;
+}
+
+/** Plantilla laboral única: mismos datos para cualquier colaborador, acotados a SUS permisos. */
+function workDashboardFor(principal: AuthorityPrincipal) {
+  const profile = requireActiveOperatorProfile(principal);
+  const now = new Date().toISOString();
+  const projects = store.listProjectWorkspaces()
+    .filter((project) => project.status === 'active' && canAccessProject(principal, project, 'read_context'))
+    .map((project) => ({
+      project,
+      canWrite: canAccessProject(principal, project, 'write_work'),
+      threads: store.listProjectThreads(project.id).filter((thread) => thread.createdBy === principal.id),
+      resources: store.listProjectResources(project.id),
+      latestCheckpoint: store.latestProjectCheckpoint(project.id),
+    }));
+  return buildReusableWorkDashboard({
+    principal,
+    profile,
+    coordination: coordinationBriefFor(principal),
+    projects,
+    handoffs: store.listCoordinationHandoffs(),
+    sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
+    uploadAttachments: workOperatorUploadsEnabled,
+    skinSource: 'iba-command-center',
+    now,
+  });
 }
 
 function projectContextFor(projectId: string, principal: AuthorityPrincipal) {
@@ -3129,6 +3173,42 @@ const server = createServer(async (request, response) => {
   }
 
 
+
+  // Plantilla laboral única (JANUS Work): misma página para cualquier colaborador; los datos y
+  // permisos salen de su sesión. Piel = dashboard de IBA, verificada por huella. Si la piel no está
+  // instalada se responde 503: nunca se sirve otro diseño en su lugar.
+  if (url.pathname === '/work' || url.pathname === '/work/') {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
+    }
+    const workBuild = join(dashboardRoot, 'work', 'build-work.cjs');
+    const workFile = join(dashboardRoot, 'dist', 'Janus-Work-core.html');
+    try {
+      if (!existsSync(workFile)) {
+        if (!existsSync(workBuild)) throw new Error('Módulo de plantilla laboral no instalado');
+        execFileSync(process.execPath, [workBuild, '--mode', 'core', '--out', workFile], {
+          cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
+        });
+      }
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+        'x-frame-options': 'DENY',
+      });
+      if (request.method === 'HEAD') response.end();
+      else {
+        response.end(readFileSync(workFile, 'utf8').replace('</head>',
+          '<meta name="janus-runtime" content="core"><link rel="manifest" href="/work.webmanifest"><link rel="icon" href="/icons/janus-icon-192.png"><link rel="apple-touch-icon" href="/icons/janus-icon-180.png"></head>'));
+      }
+    } catch (error) {
+      const stderr = (error as { stderr?: unknown })?.stderr;
+      json(response, 503, { ok: false, error: 'Plantilla laboral no disponible',
+        detail: (stderr ? String(stderr) : error instanceof Error ? error.message : String(error)).trim().slice(0, 400) });
+    }
+    return;
+  }
 
   if (request.method === 'GET' && url.pathname === '/health') {
     json(response, 200, {
@@ -5568,20 +5648,175 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/api/dashboard/work') {
     try {
       const { principal } = requireAuthoritySession(request);
-      if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
-      const profile = store.getCoordinationOperator(principal.id);
-      if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
-      const projects = store.listProjectWorkspaces().filter(
-        (project) => canAccessProject(principal, project, 'read_context'),
-      );
-      json(response, 200, {
+      json(response, 200, { ok: true, dashboard: workDashboardFor(principal) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // El idioma de presentación es configuración propia de cada persona (no es un permiso).
+  if (request.method === 'PUT' && url.pathname === '/api/dashboard/work/locale') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const profile = requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      if (body.locale !== 'es' && body.locale !== 'nl' && body.locale !== 'en') {
+        throw new HttpRequestError(400, 'locale must be es, nl or en');
+      }
+      store.upsertCoordinationOperator({ ...profile, locale: body.locale, updatedAt: new Date().toISOString() });
+      json(response, 200, { ok: true, locale: body.locale });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Identidad laboral, funciones e instrucciones individuales: solo las fija el Founder.
+  const workProfileMatch = url.pathname.match(/^\/api\/coordination\/operators\/([^/]+)\/profile$/);
+  if (request.method === 'PUT' && workProfileMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const operatorId = decodeURIComponent(workProfileMatch[1]!);
+      const profile = store.getCoordinationOperator(operatorId);
+      if (!profile) throw new HttpRequestError(404, 'operator profile not found');
+      let patch: ReturnType<typeof sanitizeWorkProfilePatch>;
+      try { patch = sanitizeWorkProfilePatch(await readJson(request)); } catch (error) {
+        if (error instanceof HttpRequestError) throw error;
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid profile');
+      }
+      const updated = { ...profile, ...patch, updatedAt: new Date().toISOString() };
+      store.upsertCoordinationOperator(updated);
+      json(response, 200, { ok: true, profile: updated, updatedBy: principal.id });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Registro de sesiones de trabajo: eventos declarados por la persona (sin vigilancia del equipo).
+  if (request.method === 'GET' && url.pathname === '/api/work/sessions') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const now = new Date().toISOString();
+      if (principal.role === 'founder_director') {
+        const filter = url.searchParams.get('principalId')?.trim();
+        const events = store.listWorkSessionEvents(filter || undefined);
+        const ids = [...new Set(events.map((event) => event.principalId))];
+        json(response, 200, {
+          ok: true,
+          selfReported: true,
+          sessions: ids.flatMap((id) => summarizeWorkSessions(events, id, now)),
+        });
+      } else {
+        requireActiveOperatorProfile(principal);
+        json(response, 200, {
+          ok: true,
+          selfReported: true,
+          sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
+        });
+      }
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/work/sessions/events') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      const kind = typeof body.kind === 'string' ? body.kind as WorkSessionEventKind : undefined;
+      if (!kind || !WORK_SESSION_EVENT_KINDS.includes(kind)) throw new HttpRequestError(400, 'kind is invalid');
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const assignmentId = typeof body.assignmentId === 'string' ? body.assignmentId.trim() : '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      if (assignmentId) {
+        const assignment = store.getCoordinationAssignment(assignmentId);
+        if (!assignment || assignment.assigneePrincipalId !== principal.id) {
+          throw new HttpRequestError(403, 'assignment is not yours');
+        }
+      }
+      let event;
+      try {
+        event = nextWorkSessionEvent({
+          events: store.listWorkSessionEvents(principal.id),
+          principalId: principal.id,
+          kind,
+          // La hora la pone el servidor: el cliente no puede antedatar su registro.
+          at: new Date().toISOString(),
+          ...(typeof body.note === 'string' ? { note: body.note } : {}),
+          ...(projectId ? { projectId } : {}),
+          ...(assignmentId ? { assignmentId } : {}),
+          ...(Array.isArray(body.evidenceRefs) ? { evidenceRefs: coordinationStringList(body.evidenceRefs) } : {}),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'invalid work session event';
+        throw new HttpRequestError(/^work_session_(already_open|not_open|not_running|not_paused|time_regression)$/.test(message) ? 409 : 400, message);
+      }
+      store.appendWorkSessionEvent(event);
+      const sessions = summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, event.at);
+      json(response, 201, {
         ok: true,
-        dashboard: buildReusableWorkDashboard({
-          principal,
-          profile,
-          coordination: coordinationBriefFor(principal),
-          projects,
-        }),
+        event,
+        session: sessions.find((session) => session.sessionId === event.sessionId) ?? null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Adjuntos de colaboradores: puerta propia, EN REPOSO por defecto. Solo se abre si el CEO
+  // activa JANUS_WORK_OPERATOR_UPLOADS=on; exige proyecto con permiso de escritura.
+  if (request.method === 'POST' && url.pathname === '/api/work/attachments') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      if (!workOperatorUploadsEnabled) {
+        json(response, 403, { ok: false, code: 'operator_uploads_disabled', error: 'Los adjuntos de colaboradores esperan la autorización del CEO.' });
+        return;
+      }
+      const uploadProjectId = headerValue(request, 'x-attachment-project-id').trim();
+      if (!uploadProjectId) throw new HttpRequestError(400, 'project id is required');
+      const project = store.getProjectWorkspace(uploadProjectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
+      const source = headerValue(request, 'x-attachment-source') as AttachmentSource;
+      const profile = ATTACHMENT_PROFILES['business-dashboard'];
+      if (!profile.sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, profile.maxFileBytes);
+      const result = attachmentStore.put({
+        bytes, claimedName, claimedType: headerValue(request, 'content-type'),
+        source, profile: 'business-dashboard', principalId: principal.id,
+      });
+      if (!result.ok) {
+        json(response, result.status, { ok: false, code: result.code, error: result.message });
+        return;
+      }
+      const { attachment } = result;
+      const resource = validateProjectResource({
+        id: `resource_${randomUUID()}`,
+        projectId: uploadProjectId,
+        name: attachment.name,
+        source: 'upload',
+        sourceRef: attachment.id,
+        createdAt: new Date().toISOString(),
+        addedBy: principal.id,
+        mimeType: attachment.type,
+        checksum: attachment.sha256,
+      });
+      store.upsertProjectResource(resource);
+      json(response, 201, {
+        ok: true, projectResourceId: resource.id, id: attachment.id,
+        sha256: attachment.sha256, name: attachment.name, type: attachment.type, size: attachment.size,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));

@@ -1,28 +1,107 @@
 import type { AuthorityPrincipal } from './authority.js';
-import type { CoordinationBrief, CoordinationOperatorProfile } from './operator-coordination.js';
-import type { ProjectWorkspace } from './project-context.js';
+import type {
+  CoordinationBrief,
+  CoordinationHandoff,
+  CoordinationOperatorProfile,
+} from './operator-coordination.js';
+import type {
+  ProjectContextCheckpoint,
+  ProjectResourceRef,
+  ProjectThread,
+  ProjectWorkspace,
+} from './project-context.js';
+import type { WorkSessionSummary } from './work-session.js';
 
 /**
  * Pure, reusable data contract for a collaborator dashboard. UI skins reuse
  * the existing Founder design tokens; this module never creates another app
  * or grants additional authority. All inputs must be server-side scoped.
+ *
+ * 10-nov-2026 (decisión del CEO): la piel visual de la plantilla laboral es la
+ * dashboard de IBA («command center»). `skinSource` describe de dónde sale la
+ * piel; los datos y permisos siguen siendo exclusivamente de JANUS Core.
  */
 export type WorkDashboardLocale = 'es' | 'nl' | 'en';
+
+export const WORK_PROFILE_INSTRUCTIONS_MAX = 12000;
+export const WORK_PROFILE_FUNCTIONS_MAX = 12;
+
+/** Acciones reservadas al CEO; la plantilla las muestra como no disponibles. */
+export const WORK_RESERVED_TO_CEO = [
+  'purchases',
+  'payments',
+  'contracts',
+  'permissions',
+  'critical_deploys',
+  'project_instructions',
+] as const;
+
+export interface WorkDashboardProject {
+  id: string;
+  name: string;
+  status: ProjectWorkspace['status'];
+  description?: string;
+  /** Instrucciones permanentes del proyecto (las fija el Founder). */
+  instructions?: string;
+  canWrite: boolean;
+  nextActions: string[];
+  resumeFrom?: { subject: string; content: string; at: string };
+  decisions: Array<{ subject: string; content: string; at: string }>;
+  unresolvedErrors: Array<{ subject: string; content: string; at: string }>;
+  checkpointAt?: string;
+  threads: Array<Pick<ProjectThread, 'id' | 'title' | 'status' | 'updatedAt'>>;
+  /** Solo metadatos: una referencia no implica que el binario se haya procesado. */
+  resources: Array<Pick<ProjectResourceRef, 'id' | 'name' | 'source' | 'createdAt' | 'addedBy' | 'mimeType' | 'threadId'>>;
+}
+
+export interface WorkDashboardProjectInput {
+  project: ProjectWorkspace;
+  canWrite: boolean;
+  threads?: readonly ProjectThread[];
+  resources?: readonly ProjectResourceRef[];
+  latestCheckpoint?: ProjectContextCheckpoint | null;
+}
+
 export interface ReusableWorkDashboard {
   templateId: 'janus-work-v1';
-  skinSource: 'founder-dashboard';
+  skinSource: 'founder-dashboard' | 'iba-command-center';
   principalId: string;
   locale: WorkDashboardLocale;
   labels: { title: string; projects: string; assignments: string; blockers: string };
+  profile: {
+    displayName: string;
+    roleTitle?: string;
+    functions: string[];
+    /** Instrucciones permanentes individuales (solo lectura para la persona). */
+    instructions?: string;
+  };
   capabilities: {
     text: true;
     voice: false;
     approvePayments: false;
     changePermissions: false;
     productionDeploy: false;
+    editProjectInstructions: false;
+    uploadAttachments: boolean;
   };
+  reservedToCeo: readonly string[];
   assignments: CoordinationBrief['assignments'];
-  projects: Array<Pick<ProjectWorkspace, 'id' | 'name' | 'status' | 'description'>>;
+  projects: WorkDashboardProject[];
+  /** Entregas y avances registrados por la persona (handoffs propios). */
+  deliveries: CoordinationHandoff[];
+  sessions: {
+    open: WorkSessionSummary | null;
+    recent: WorkSessionSummary[];
+    todayActiveSeconds: number;
+    /** El tiempo es declarado por la persona; no prueba productividad por sí solo. */
+    selfReported: true;
+  };
+  generatedAt: string;
+}
+
+function isProjectInput(value: ProjectWorkspace | WorkDashboardProjectInput): value is WorkDashboardProjectInput {
+  return typeof (value as WorkDashboardProjectInput).project === 'object'
+    && (value as WorkDashboardProjectInput).project !== null;
 }
 
 /**
@@ -33,7 +112,13 @@ export function buildReusableWorkDashboard(input: {
   principal: AuthorityPrincipal;
   profile: CoordinationOperatorProfile;
   coordination: CoordinationBrief;
-  projects: readonly ProjectWorkspace[];
+  /** Proyectos YA autorizados por canAccessProject (forma simple o detallada). */
+  projects: readonly (ProjectWorkspace | WorkDashboardProjectInput)[];
+  handoffs?: readonly CoordinationHandoff[];
+  sessions?: readonly WorkSessionSummary[];
+  uploadAttachments?: boolean;
+  skinSource?: ReusableWorkDashboard['skinSource'];
+  now?: string;
 }): ReusableWorkDashboard {
   if (!input.principal.active || input.principal.role !== 'operator') {
     throw new Error('operator dashboard access denied');
@@ -51,27 +136,130 @@ export function buildReusableWorkDashboard(input: {
     nl: { title: 'Werkdashboard', projects: 'Projecten', assignments: 'Mijn taken', blockers: 'Blokkades' },
     en: { title: 'Work dashboard', projects: 'Projects', assignments: 'My tasks', blockers: 'Blockers' },
   };
+  const now = input.now ?? new Date().toISOString();
   // Caller must pass only projects already authorized by canAccessProject.
   // Only the assignee's own tasks appear, even if a shared scope includes
   // assignments owned by another collaborator.
+  const assignments = input.coordination.assignments
+    .filter(({ assignment }) => assignment.assigneePrincipalId === input.principal.id)
+    .map((item) => structuredClone(item));
+  const ownAssignmentIds = new Set(assignments.map((item) => item.assignment.id));
+  const deliveries = (input.handoffs ?? [])
+    .filter((handoff) => handoff.fromPrincipalId === input.principal.id && ownAssignmentIds.has(handoff.assignmentId))
+    .map((handoff) => structuredClone(handoff))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0))
+    .slice(0, 30);
+  const ownSessions = (input.sessions ?? [])
+    .filter((session) => session.principalId === input.principal.id)
+    .map((session) => structuredClone(session));
+  const open = ownSessions.filter((session) => session.state !== 'ended').at(-1) ?? null;
+  const today = now.slice(0, 10);
+  const todayActiveSeconds = ownSessions
+    .filter((session) => session.startedAt.slice(0, 10) === today)
+    .reduce((total, session) => total + session.activeSeconds, 0);
+
+  const projects: WorkDashboardProject[] = input.projects.map((entry) => {
+    const detail: WorkDashboardProjectInput = isProjectInput(entry)
+      ? entry : { project: entry, canWrite: false };
+    const { id, name, status, description, instructions } = detail.project;
+    const checkpoint = detail.latestCheckpoint ?? null;
+    return {
+      id, name, status,
+      ...(description ? { description } : {}),
+      ...(instructions ? { instructions } : {}),
+      canWrite: detail.canWrite === true,
+      nextActions: checkpoint ? [...checkpoint.nextActions].slice(0, 12) : [],
+      ...(checkpoint?.resumeFrom ? { resumeFrom: { ...checkpoint.resumeFrom } } : {}),
+      decisions: checkpoint ? checkpoint.decisions.slice(-8).map((item) => ({ ...item })) : [],
+      unresolvedErrors: checkpoint ? checkpoint.unresolvedErrors.slice(-8).map((item) => ({ ...item })) : [],
+      ...(checkpoint ? { checkpointAt: checkpoint.createdAt } : {}),
+      threads: (detail.threads ?? []).slice(-12).map(({ id: threadId, title, status: threadStatus, updatedAt }) => ({
+        id: threadId, title, status: threadStatus, updatedAt,
+      })),
+      resources: (detail.resources ?? []).slice(-60).map((resource) => ({
+        id: resource.id,
+        name: resource.name,
+        source: resource.source,
+        createdAt: resource.createdAt,
+        addedBy: resource.addedBy,
+        ...(resource.mimeType ? { mimeType: resource.mimeType } : {}),
+        ...(resource.threadId ? { threadId: resource.threadId } : {}),
+      })),
+    };
+  });
+
+  const functions = (input.profile.functions ?? [])
+    .map((item) => String(item).trim()).filter(Boolean).slice(0, WORK_PROFILE_FUNCTIONS_MAX);
   return {
     templateId: 'janus-work-v1',
-    skinSource: 'founder-dashboard',
+    skinSource: input.skinSource ?? 'founder-dashboard',
     principalId: input.principal.id,
     locale,
     labels: texts[locale],
+    profile: {
+      displayName: input.profile.displayName?.trim() || input.principal.id,
+      ...(input.profile.roleTitle?.trim() ? { roleTitle: input.profile.roleTitle.trim() } : {}),
+      functions,
+      ...(input.profile.instructions?.trim() ? { instructions: input.profile.instructions.trim() } : {}),
+    },
     capabilities: {
       text: true,
       voice: false,
       approvePayments: false,
       changePermissions: false,
       productionDeploy: false,
+      editProjectInstructions: false,
+      uploadAttachments: input.uploadAttachments === true,
     },
-    assignments: input.coordination.assignments
-      .filter(({ assignment }) => assignment.assigneePrincipalId === input.principal.id)
-      .map((item) => structuredClone(item)),
-    projects: input.projects.map(({ id, name, status, description }) => ({
-      id, name, status, ...(description ? { description } : {}),
-    })),
+    reservedToCeo: WORK_RESERVED_TO_CEO,
+    assignments,
+    projects,
+    deliveries,
+    sessions: {
+      open,
+      recent: ownSessions.slice(-10).reverse(),
+      todayActiveSeconds,
+      selfReported: true,
+    },
+    generatedAt: now,
   };
+}
+
+/** Valida los campos de perfil laboral que solo el Founder puede fijar. */
+export function sanitizeWorkProfilePatch(body: Record<string, unknown>): {
+  displayName?: string;
+  roleTitle?: string;
+  functions?: string[];
+  instructions?: string;
+  locale?: WorkDashboardLocale;
+} {
+  const patch: ReturnType<typeof sanitizeWorkProfilePatch> = {};
+  if (typeof body.displayName === 'string') {
+    const value = body.displayName.trim();
+    if (!value || value.length > 80) throw new Error('displayName must have 1-80 characters');
+    patch.displayName = value;
+  }
+  if (typeof body.roleTitle === 'string') {
+    const value = body.roleTitle.trim();
+    if (value.length > 80) throw new Error('roleTitle must have at most 80 characters');
+    patch.roleTitle = value;
+  }
+  if (body.functions !== undefined) {
+    if (!Array.isArray(body.functions) || body.functions.length > WORK_PROFILE_FUNCTIONS_MAX) {
+      throw new Error(`functions must be a list of at most ${WORK_PROFILE_FUNCTIONS_MAX} items`);
+    }
+    patch.functions = body.functions.map((item) => String(item).trim()).filter(Boolean)
+      .map((item) => { if (item.length > 120) throw new Error('function entry is too long'); return item; });
+  }
+  if (typeof body.instructions === 'string') {
+    if (body.instructions.length > WORK_PROFILE_INSTRUCTIONS_MAX) {
+      throw new Error(`instructions must have at most ${WORK_PROFILE_INSTRUCTIONS_MAX} characters`);
+    }
+    patch.instructions = body.instructions.trim();
+  }
+  if (body.locale !== undefined) {
+    if (body.locale !== 'es' && body.locale !== 'nl' && body.locale !== 'en') throw new Error('locale must be es, nl or en');
+    patch.locale = body.locale;
+  }
+  return patch;
 }

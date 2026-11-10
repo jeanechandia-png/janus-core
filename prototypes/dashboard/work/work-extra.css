@@ -1,0 +1,49 @@
+/* ===== JANUS Work · ajustes mínimos sobre la piel de IBA (prefijo único `jw-`) =====
+ * El diseño es el de IBA (command-center.css, sin modificar). Aquí solo hay lo que esa hoja no trae
+ * para este uso: la barra de vista previa, texto en varias líneas y legibilidad sobre fondo claro.
+ * No se redefine ninguna clase `cc-*` de forma global.
+ */
+html,body{margin:0;background:#f5f7f9}
+.jw-example{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.jw-example b{letter-spacing:.04em}
+.jw-example span{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.jw-example button{border:1px solid #cfe0f1;border-radius:999px;background:#fff;color:#35648d;padding:6px 10px;font-size:9px;font-weight:800;cursor:pointer;min-height:30px}
+.jw-example button.active{background:#101318;border-color:#101318;color:#fff}
+.jw-next{color:#9a6500!important}
+.jw-wrap{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.5}
+.cc-mini-list strong.jw-wrap{font-weight:600}
+.jw-left{justify-content:flex-start;margin-bottom:10px}
+.jw-actions{margin:12px 0 4px;justify-content:flex-start}
+.jw-actions button{min-height:36px;padding:8px 12px;font-size:10px}
+.jw-msg.jw-user{border-top-style:dashed}
+.jw-msg>small:first-child{margin:0 0 4px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.jw-msg.jw-user>p{color:#0f5fb3}
+.jw-pem{display:block;width:100%;margin-top:8px;border:1px solid #d9e7f7;border-radius:8px;padding:8px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;resize:none;background:#fff;color:#27323c}
+.jw-time{font-size:20px!important}
+.cc-intake-panel .cc-panel-head small{color:#7f9db7}
+.cc-intake-panel .cc-panel-head h3{color:#edf8ff}
+.cc-intake-form .cc-inline-notice{grid-column:1/-1}
+.cc-main section[id],.cc-main form[id]{scroll-margin-top:16px}
+@media(max-width:600px){.jw-example{font-size:9px}.cc-top-actions .cc-primary-action,.cc-top-actions .refresh{flex:1}}
+.jw-cont{font-size:10px;line-height:1.5}
+.jw-links{margin-left:0;justify-content:flex-start}
+.cc-admin-strip .cc-readonly-badge{display:inline-block;margin-top:6px}
+/* Medallones de idioma: el arte 3D ES el botón (sin marco añadido). Se conserva el componente compartido
+   `janus-language-button` (estado iluminado, barrido de luz al tocar, foco) y aquí solo se adapta a un arte con aro propio. */
+.janus-language-switch{gap:4px}
+.janus-language-button.jw-flag{width:48px;height:48px;min-width:48px;padding:0;border:0;border-radius:50%;background:none;box-shadow:none;overflow:visible;--flag-glow:rgba(86,170,255,.85);
+  filter:saturate(.8) brightness(.9) drop-shadow(0 3px 4px rgba(16,19,24,.3));transition:filter .22s ease,transform .18s ease}
+.janus-language-button.jw-flag[data-language="es"]{--flag-glow:rgba(255,176,60,.9)}
+.janus-language-button.jw-flag[data-language="nl"]{--flag-glow:rgba(96,160,255,.9)}
+.janus-language-button.jw-flag img{object-fit:contain;border-radius:0}
+.janus-language-button.jw-flag:hover{filter:saturate(1) brightness(1.04) drop-shadow(0 5px 7px rgba(16,19,24,.32));transform:translateY(-1px)}
+.janus-language-button.jw-flag.is-lit{border:0;box-shadow:none;filter:saturate(1.1) brightness(1.13) drop-shadow(0 0 5px var(--flag-glow)) drop-shadow(0 0 13px var(--flag-glow)) drop-shadow(0 4px 6px rgba(16,19,24,.28))}
+.janus-language-button.jw-flag:active{transform:scale(.92);filter:saturate(1.15) brightness(1.3) drop-shadow(0 0 10px var(--flag-glow))}
+.janus-language-button.jw-flag::after{inset:4%;border-radius:50%;transform:none;opacity:0;background:linear-gradient(112deg,transparent 38%,rgba(255,255,255,.82) 50%,transparent 62%) no-repeat;background-size:260% 100%;background-position:130% 0}
+.janus-language-button.jw-flag:active::after{opacity:1;transform:none;transition:background-position .44s ease-out;background-position:-30% 0}
+.janus-language-button.jw-flag.jw-flash::after{animation:jw-sweep .62s ease-out 1}
+@keyframes jw-sweep{0%{opacity:1;background-position:130% 0}100%{opacity:0;background-position:-30% 0}}
+.janus-language-button.jw-flag:focus-visible{outline:2px solid #007aff;outline-offset:3px}
+.jw-login-row{align-items:center;flex-wrap:wrap;gap:10px}
+.jw-foot{justify-content:space-between}
+@media(prefers-reduced-motion:reduce){.janus-language-button.jw-flag,.janus-language-button.jw-flag::after{transition:none;animation:none}.janus-language-button.jw-flag:hover{transform:none}}

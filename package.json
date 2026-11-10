@@ -18,7 +18,9 @@
     "voice:independence": "node --import tsx scripts/voice-independence-check.ts",
     "dashboard:build": "node scripts/build-janus-dashboards.mjs",
     "start:dashboards": "npm run dashboard:build && npm run start:local",
-    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs"
+    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs prototypes/dashboard/tests/work-template.test.cjs",
+    "work:build": "node prototypes/dashboard/work/build-work.cjs",
+    "work:smoke": "node tests/work-runtime-smoke.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"
