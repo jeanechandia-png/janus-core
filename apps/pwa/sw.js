@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v16';
+const CACHE = 'janus-shell-v17';
 const SHELL = [
   '/',
   '/index.html',
@@ -10,7 +10,7 @@ const SHELL = [
   '/founder-session.js',
   '/knowledge-review.js',
   '/dashboard-access.js',
-  '/team-chip.js',
+  '/team-panel.js',
   '/dashboard-access.css',
   '/language-buttons.js',
   '/language-buttons.css',

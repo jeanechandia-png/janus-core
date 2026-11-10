@@ -10,9 +10,9 @@ function teamExample(nowIso) {
   return {
     ok: true, generatedAt: nowIso,
     members: [
-      { principalId: 'colab-a', displayName: '__WORK_NAME_A__', roleTitle: 'Desarrollo de API', locale: 'es', status: 'active', openSession: { state: 'running' }, todayActiveSeconds: 6780, usage: { used: 7, limit: 60 } },
-      { principalId: 'colab-b', displayName: '__WORK_NAME_B__', roleTitle: 'Comercial · Países Bajos', locale: 'nl', status: 'active', openSession: { state: 'paused' }, todayActiveSeconds: 3200, usage: { used: 3, limit: 60 } },
-      { principalId: 'colab-c', displayName: '__WORK_NAME_C__', roleTitle: 'Fotografía y contenido', locale: 'es', status: 'active', openSession: null, todayActiveSeconds: 0, usage: { used: 0, limit: 60 } },
+      { principalId: 'colab-a', displayName: '__WORK_NAME_A__', roleTitle: 'Desarrollo de API', locale: 'es', status: 'active', presence: 'working', openSession: { state: 'running' }, todayActiveSeconds: 6780, usage: { used: 7, limit: 60 } },
+      { principalId: 'colab-b', displayName: '__WORK_NAME_B__', roleTitle: 'Comercial · Países Bajos', locale: 'nl', status: 'active', presence: 'paused', openSession: { state: 'paused' }, todayActiveSeconds: 3200, usage: { used: 3, limit: 60 } },
+      { principalId: 'colab-c', displayName: '__WORK_NAME_C__', roleTitle: 'Fotografía y contenido', locale: 'es', status: 'active', presence: 'online', openSession: null, todayActiveSeconds: 0, usage: { used: 0, limit: 60 } },
     ],
     assignments: [
       task('a-1', 'colab-a', 'API de proyectos: listado y permisos', 'active', 'high', 95, 'anthropic', h1),

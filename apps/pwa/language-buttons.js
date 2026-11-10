@@ -9,8 +9,8 @@ export const LANGUAGES = Object.freeze([
 ]);
 const UI = Object.freeze({
   founder: {
-    es: { signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Equipo', teamOpen: '¿Cómo va el equipo?' },
-    nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Team', teamOpen: 'Hoe gaat het met het team?' },
+    es: { signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
+    nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
   },
   kendra: {
     es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },

@@ -706,6 +706,8 @@ const JanusWork = (() => {
       const s = liveSession(), el = document.getElementById('jw-active');
       if (s && el) el.textContent = fmtDur(s.activeSeconds);
       checkDueReminders();
+      // Señal de «conectado ahora» para la luz del CEO: solo con el panel abierto, a la vista y con sesión iniciada.
+      if (S.mode === 'core' && S.data && !document.hidden) api('/api/work/presence', { method: 'POST', body: '{}' }).catch(() => {});
     }, 30000);
   }
   return { start, state: S, t };

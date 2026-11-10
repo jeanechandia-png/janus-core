@@ -23,14 +23,44 @@
 .janus-access-links a:focus-visible,.janus-access-links button:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
 .janus-access-links button[hidden]{display:none}
 .janus-access-status{font:11px/1.35 system-ui;color:#dfe7fb}
-/* «Equipo»: pastilla del mismo tamaño y trazo que los demás controles de la cabecera. */
-.janus-team-chip{position:relative;display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;block-size:40px;padding:0 13px;border-radius:13px;border:1px solid rgba(183,197,236,.55);color:inherit;background:rgba(110,130,192,.12);text-decoration:none;font:600 12.5px/1 system-ui,-apple-system,sans-serif;white-space:nowrap;cursor:pointer}
-.janus-team-chip:hover{box-shadow:0 0 0 1px rgba(160,181,255,.8),0 0 12px rgba(119,158,255,.28)}
-.janus-team-chip:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
-.janus-team-chip .jtc-icon{font-size:11px;opacity:.7}
-.janus-team-chip.is-live .jtc-icon{color:#5fd49a;opacity:1;text-shadow:0 0 8px #5fd49a}
-.janus-team-chip .jtc-badge{display:inline-grid;place-items:center;min-inline-size:19px;block-size:19px;padding:0 5px;border-radius:99px;background:#ff5d5d;color:#fff;font:800 11px/1 system-ui,sans-serif}
-.janus-team-chip .jtc-badge[hidden]{display:none}
+/* «Mi equipo»: tarjeta con lucecitas. Mismo cristal y borde dorado que las tarjetas aprobadas; se hunde al tocarla. */
+.janus-team-panel,.janus-team-card{color:#f3ebdd;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;border:1px solid rgba(255,222,160,.55);background:linear-gradient(rgba(255,255,255,.1),rgba(255,255,255,.03));box-shadow:0 14px 26px -18px #000,inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.4);transition:transform .09s ease,box-shadow .12s ease,border-color .2s}
+.janus-team-panel:hover,.janus-team-card:hover{border-color:rgba(255,222,160,.85)}
+.janus-team-panel:active,.janus-team-card:active{transform:translateY(2px) scale(.975);box-shadow:inset 0 4px 12px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,222,160,.25)}
+.janus-team-panel:focus-visible,.janus-team-card:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
+.janus-team-panel{display:inline-flex;flex-direction:column;justify-content:center;gap:3px;flex:0 0 auto;block-size:40px;padding:0 11px;border-radius:13px;box-sizing:border-box}
+.jtp-title{font:600 9px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.16em;text-transform:uppercase;color:#f2c46a;white-space:nowrap}
+.jtp-lamps{display:flex;align-items:center;gap:5px}
+.jtp-lamp{display:inline-grid;place-items:center;inline-size:18px;block-size:18px;border-radius:50%;box-sizing:border-box;border:1px solid transparent;font:800 9.5px/1 system-ui,-apple-system,sans-serif;flex:0 0 auto}
+.jtp-lamp.is-working{color:#06281a;background:radial-gradient(circle at 35% 30%,#d4ffe8,#34d68c 55%,#137447);box-shadow:0 0 9px 2px rgba(52,214,140,.75);animation:jtp-pulse 1.8s ease-in-out infinite}
+.jtp-lamp.is-online{color:#06203d;background:radial-gradient(circle at 35% 30%,#e2f0ff,#4ea6ff 55%,#1a5aa8);box-shadow:0 0 8px 1px rgba(78,166,255,.6)}
+.jtp-lamp.is-paused{color:#2d1b02;background:radial-gradient(circle at 35% 30%,#fff0c8,#f5b44a 55%,#98620f);box-shadow:0 0 8px 1px rgba(245,180,74,.55)}
+.jtp-lamp.is-unconfirmed{color:#8fe8bd;background:rgba(52,214,140,.08);border:1.5px dashed #34d68c}
+.jtp-lamp.is-offline{color:#77808c;background:#262b31;border-color:#3a414a}
+@keyframes jtp-pulse{0%,100%{box-shadow:0 0 6px 1px rgba(52,214,140,.55)}50%{box-shadow:0 0 14px 4px rgba(52,214,140,.95)}}
+.jtp-more,.jtp-none,.jtp-go{font:600 11px/1 system-ui,sans-serif;color:#cdbf9f}
+.jtp-badge{display:inline-grid;place-items:center;min-inline-size:17px;block-size:17px;padding:0 4px;border-radius:99px;background:#ff5d5d;color:#fff;font:800 10px/1 system-ui,sans-serif;box-sizing:border-box}
+.jtp-badge[hidden]{display:none}
+.janus-team-card{display:block;border-radius:18px;padding:10px 14px 12px;backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3)}
+.janus-team-card .jtp-head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.janus-team-card .jtp-title{font-size:10.5px;letter-spacing:.14em}
+.janus-team-card .jtp-go{margin-left:auto;font-size:18px;color:#f2c46a}
+.janus-team-card .jtp-rows{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px}
+.janus-team-card .jtp-row{display:flex;align-items:center;gap:9px;min-inline-size:0}
+.janus-team-card .jtp-lamp{inline-size:26px;block-size:26px;font-size:12px}
+.janus-team-card .jtp-who{display:flex;flex-direction:column;gap:2px;min-inline-size:0}
+.janus-team-card .jtp-who b{font:600 13px/1.15 "Instrument Sans",system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.janus-team-card .jtp-who small{font:400 11px/1.2 "Instrument Sans",system-ui,sans-serif;color:#cdbf9f}
+.janus-team-card .jtp-empty{font:400 12.5px/1.3 "Instrument Sans",system-ui,sans-serif;color:#cdbf9f}
+/* En el teléfono la tarjeta de la columna sustituye a la compacta de la cabecera (no se duplica). */
+.janus-team-in-column .janus-header-tools .janus-team-panel{display:none}
+/* Dashboard B (Platino, fondo claro): mismo componente con tinta oscura y cristal blanco. */
+.pl-hd .janus-header-tools{margin-left:auto}
+.pl-hd .janus-team-panel{color:#1d2433;border-color:rgba(176,140,62,.55);background:linear-gradient(rgba(255,255,255,.95),rgba(240,243,250,.85));box-shadow:0 8px 18px -12px rgba(30,40,80,.45),inset 0 1px 0 #fff}
+.pl-hd .jtp-title{color:#9a6b12}
+.pl-hd .jtp-lamp.is-offline{color:#7b8494;background:#e3e7ee;border-color:#cbd2dc}
+.pl-hd .jtp-go,.pl-hd .jtp-none,.pl-hd .jtp-more{color:#59627a}
+@media(prefers-reduced-motion:reduce){.jtp-lamp.is-working{animation:none}.janus-team-panel,.janus-team-card{transition:none}}
 @media(max-width:760px),(max-height:500px){
   #view .vh{flex-wrap:wrap}
   #view .vh .janus-header-tools{order:4;margin-left:auto}
@@ -39,11 +69,6 @@
   #dash .janus-header-tools{margin-left:auto}
   #dash .a2h .janus-header-tools{order:8;flex:0 0 auto}
   .janus-access-links{right:0;top:calc(100% + 4px)}
-  .janus-team-chip{padding:0 11px;gap:6px}
 }
-/* Solo en pantallas muy estrechas la pastilla se queda en icono + cifra (el nombre sigue en title y aria-label). */
-@media(max-width:380px){
-  .janus-team-chip .jtc-text{display:none}
-  .janus-team-chip .jtc-icon{font-size:14px}
-}
+
 @media(prefers-reduced-motion:reduce){.janus-access-menu>summary{transition:none}}

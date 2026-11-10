@@ -2,7 +2,7 @@ import { mountAppInstall } from './app-install.js';
 import './knowledge-review.js';
 import { currentLanguage, mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { sessionToken } from './founder-session.js';
-import { mountTeamChip } from './team-chip.js';
+import { mountTeamPanel } from './team-panel.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
@@ -14,20 +14,24 @@ controls.setAttribute('aria-label', 'Idioma y acceso de JANUS');
 const languageControl = document.createElement('div');
 languageControl.className = 'janus-language-switch';
 controls.append(languageControl);
-// Acceso simplificado a «¿Cómo va el equipo?» (/work/team). Una sola pastilla; el resumen sale del mismo servicio que la vista de equipo.
+// «Mi equipo»: tarjeta con una lucecita por colaborador; al tocarla se abre «¿Cómo va el equipo?» (/work/team).
+// Tablet/escritorio: en la cabecera (la rejilla aprobada no se toca). Teléfono: tarjeta en la columna.
 const teamText = {
-  es: { working: (n) => (n === 1 ? '1 persona trabajando' : `${n} personas trabajando`), attention: (n) => (n === 1 ? '1 asunto requiere atención' : `${n} asuntos requieren atención`) },
-  nl: { working: (n) => (n === 1 ? '1 persoon aan het werk' : `${n} personen aan het werk`), attention: (n) => (n === 1 ? '1 punt vraagt aandacht' : `${n} punten vragen aandacht`) },
+  es: { states: { working: 'Trabajando', unconfirmed: 'Sesión abierta, sin señal', paused: 'En pausa', online: 'Conectado', offline: 'Desconectado' },
+    since: (t) => `desde las ${t}`, seen: (m) => `visto hace ${m} min`, attention: (n) => (n === 1 ? '1 asunto requiere atención' : `${n} asuntos requieren atención`) },
+  nl: { states: { working: 'Aan het werk', unconfirmed: 'Sessie open, geen signaal', paused: 'Gepauzeerd', online: 'Online', offline: 'Offline' },
+    since: (t) => `sinds ${t}`, seen: (m) => `${m} min geleden gezien`, attention: (n) => (n === 1 ? '1 punt vraagt aandacht' : `${n} punten vragen aandacht`) },
 };
-const teamChip = mountTeamChip({
+const team = mountTeamPanel({
   back: location.pathname === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a',
   labels: () => ({
-    team: uiLabel('founder', 'team'),
+    title: uiLabel('founder', 'team'),
     open: uiLabel('founder', 'teamOpen'),
+    empty: uiLabel('founder', 'teamEmpty'),
     ...teamText[currentLanguage('founder')],
   }),
 });
-controls.prepend(teamChip.element);
+controls.prepend(team.compact);
 const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');
@@ -80,7 +84,7 @@ menu.append(accessList);
 controls.append(menu);
 
 function refreshLabels() {
-  teamChip.repaint();
+  team.repaint();
   for (const [key, element] of linkNodes) element.textContent = uiLabel('founder', key);
   install.textContent = uiLabel('founder', 'install');
 }
@@ -89,17 +93,25 @@ refreshLabels();
 
 function mountInExistingHeader() {
   const header = document.querySelector('#view:not([hidden]) .vh')
-    || document.querySelector('#dash .a2h, #dash .pvh, #dash .hd');
+    || document.querySelector('#dash .a2h, #dash .pvh, #dash .hd, #dash .pl-hd');
   if (!header || controls.parentElement === header) return;
   // Dashboard pages regenerate the header on navigation; reattach instead of
   // injecting another header or replacing any real dashboard DOM.
   header.append(controls);
   menu.open = false;
 }
+function mountTeamCard() {
+  // Solo en la columna del teléfono: justo después de los accesos rápidos. Fuera de ella la tarjeta no existe.
+  const quick = document.querySelector('#dash .a2hs, .pa2 > .a2hs');
+  document.documentElement.classList.toggle('janus-team-in-column', Boolean(quick));
+  if (!quick) { team.card.remove(); return; }
+  if (quick.nextElementSibling !== team.card) quick.after(team.card);
+}
 const app = document.getElementById('app');
 if (app) {
-  new MutationObserver(mountInExistingHeader).observe(app, { childList: true, subtree: true });
+  new MutationObserver(() => { mountInExistingHeader(); mountTeamCard(); }).observe(app, { childList: true, subtree: true });
   mountInExistingHeader();
+  mountTeamCard();
 }
 
 addEventListener('janus:knowledge-applied', (event) => {

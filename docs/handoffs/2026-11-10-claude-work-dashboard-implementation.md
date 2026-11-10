@@ -234,6 +234,35 @@ dashboard A real → clic en «Equipo» → `/work/team?back=…` → «← Mi d
 (1280 px) y móvil (430 px), con y sin permiso. NO VERIFICADO: iPhone/Safari físico; el resumen real contra un Núcleo vivo
 con datos reales (las pruebas usan datos ficticios).
 
+## Actualización 10-nov-2026 (21:00) — «Mi equipo» con lucecitas (sustituye a la pastilla «Equipo»)
+
+Orden del CEO (20:28–20:29): no un botón, sino una tarjeta/sección «Mi equipo» donde se vea con una luz quién está
+conectado o trabajando en ese momento; al tocarla se hunde y abre la pestaña «¿Cómo va el equipo?».
+
+35. **Presencia real** (`packages/core/src/work-presence.ts`): luz = sesión de trabajo declarada + señal de presencia.
+    El panel del colaborador envía `POST /api/work/presence` cada 30 s (solo abierto y a la vista) y cualquier petición
+    válida suya cuenta. Solo en memoria: no se guarda ni se audita; tras reiniciar JANUS todos salen apagados hasta su
+    siguiente señal. Estados: **verde** trabajando (sesión en marcha y señal ≤ 5 min) · **verde hueco** sesión abierta
+    sin señal > 5 min (no se afirma que trabaje) · **ámbar** en pausa · **azul** conectado sin sesión (señal ≤ 90 s) ·
+    **gris** desconectado.
+36. **`GET /api/work/team/presence`** (solo CEO): nombre, cargo, estado, segundos desde la última señal, inicio de la
+    sesión y dos contadores (tareas bloqueadas, mensajes sin leer). Nada más. `/api/work/team` añade `presence` y la vista
+    de equipo usa los mismos estados.
+37. **Tarjeta «Mi equipo»** (`apps/pwa/team-panel.js`, sustituye a `team-chip.js`): mismo cristal y borde dorado que
+    las tarjetas aprobadas; se hunde al tocarla; refresco cada 15 s con la pestaña visible. Tablet/escritorio: en la
+    cabecera, con una luz por persona (inicial dentro) y la insignia roja de asuntos; la rejilla aprobada no se toca y
+    sigue entrando en una pantalla. Teléfono: tarjeta a ancho completo bajo los accesos rápidos, con nombre, estado y
+    hora («Trabajando · desde las 19:05»). Sin sesión del CEO o sin permiso: solo el acceso, sin luces ni cifras.
+38. **Dashboard B (Platino):** su cabecera de escritorio (`.pl-hd`) no recibía los controles de acceso (banderas y ☰):
+    hueco previo. Ahora se montan también ahí, con tinta oscura para su fondo claro.
+
+Verificación (HECHO): prueba de extremo a extremo con navegador sobre las dashboards A y B reales, escritorio
+1280×800, tablet 1024×768 y móvil 430×932, con y sin permiso: 76/76 comprobaciones (una sola tarjeta visible, luces y
+cifras correctas, sin desbordes, una pantalla en tablet/escritorio, clic → «¿Cómo va el equipo?», sin errores).
+`git diff` sobre `prototypes/dashboard/src` y `dist`: 0 archivos. Caché del service worker `janus-shell-v17`.
+NO VERIFICADO: iPhone/Safari físico; si iOS corta la señal de 30 s al bloquear el teléfono (la luz pasaría a verde
+hueco a los 5 min, que es el comportamiento buscado, pero no se ha medido en un dispositivo real).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·
@@ -245,10 +274,10 @@ proyectos (hilos, recursos, checkpoints), autoridad y adjuntos.
 | Prueba | Resultado |
 |---|---|
 | `npm run typecheck` | limpio |
-| `npm test` | 714 pruebas, 713 ok, 0 fallos, 1 omitida previa (incluye 4 nuevas del acceso «Equipo») |
+| `npm test` | 719 pruebas, 718 ok, 0 fallos, 1 omitida previa (incluye presencia y «Mi equipo») |
 | `node tests/runtime-smoke.mjs` (existente) | ok |
 | `npm run dashboard:test` | 26/26 |
-| `node tests/work-runtime-smoke.mjs` | 19 bloques ok, navegador real incluido |
+| `node tests/work-runtime-smoke.mjs` | 20 bloques ok, navegador real incluido |
 | `prototypes/dashboard/tests/e2e-work.cjs` | 153/153 en móvil, tablet y escritorio |
 | `prototypes/dashboard/tests/e2e-team.cjs` | 24/24 |
 

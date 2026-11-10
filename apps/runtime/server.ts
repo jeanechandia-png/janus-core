@@ -103,6 +103,7 @@ import {
   buildReusableWorkDashboard,
   sanitizeWorkProfilePatch,
 } from '../../packages/core/src/work-dashboard-template.js';
+import { WorkPresenceTracker, resolveWorkPresence } from '../../packages/core/src/work-presence.js';
 import {
   WORK_SESSION_EVENT_KINDS,
   nextWorkSessionEvent,
@@ -1391,11 +1392,36 @@ function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | 
     : null;
 }
 
+/** Presencia («lucecitas» del CEO): última señal por colaborador, solo en memoria. Ver work-presence.ts. */
+const workPresence = new WorkPresenceTracker();
+
 function requireActiveOperatorProfile(principal: AuthorityPrincipal) {
   if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
   const profile = store.getCoordinationOperator(principal.id);
   if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
+  // Cualquier petición válida de un colaborador activo cuenta como señal de que está conectado.
+  workPresence.touch(principal.id);
   return profile;
+}
+
+/** Estado de presencia de cada colaborador activo, para la vista y las lucecitas del CEO. */
+function teamPresenceFor(now: string) {
+  const nowMs = Date.parse(now);
+  const events = store.listWorkSessionEvents();
+  return store.listCoordinationOperators()
+    .filter((profile) => profile.status === 'active')
+    .map((profile) => {
+      const open = summarizeWorkSessions(events, profile.principalId, now).filter((session) => session.state !== 'ended').at(-1) ?? null;
+      const presence = resolveWorkPresence({ session: open, lastSeenMs: workPresence.lastSeen(profile.principalId), nowMs });
+      return {
+        principalId: profile.principalId,
+        displayName: profile.displayName ?? profile.principalId,
+        roleTitle: profile.roleTitle ?? null,
+        state: presence.state,
+        seenSecondsAgo: presence.seenSecondsAgo,
+        sessionSince: presence.sessionSince,
+      };
+    });
 }
 
 /** Plantilla laboral única: mismos datos para cualquier colaborador, acotados a SUS permisos. */
@@ -6264,6 +6290,38 @@ const server = createServer(async (request, response) => {
   }
 
   // Vista de equipo del CEO: un solo resumen con lo de EMPRESA de todo el equipo. Nunca incluye agenda privada.
+  // Señal de presencia: el panel abierto la envía cada 30 s. Solo marca «conectado ahora»; no guarda nada.
+  if (request.method === 'POST' && url.pathname === '/api/work/presence') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      json(response, 200, { ok: true, intervalSeconds: 30 });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Lucecitas del CEO («Mi equipo»): ligero, solo nombres, estado y dos contadores de atención. Solo Founder.
+  if (request.method === 'GET' && url.pathname === '/api/work/team/presence') {
+    try {
+      requireFounderAuthority(request);
+      const now = new Date().toISOString();
+      json(response, 200, {
+        ok: true,
+        generatedAt: now,
+        members: teamPresenceFor(now),
+        attention: {
+          blocked: store.listCoordinationAssignments().filter((assignment) => assignment.status === 'blocked').length,
+          unread: store.listWorkMessages(undefined, 60).filter((message) => message.status === 'delivered' && !message.readAt).length,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/work/team') {
     try {
       requireFounderAuthority(request);
@@ -6283,6 +6341,11 @@ const server = createServer(async (request, response) => {
             roleTitle: profile.roleTitle ?? null,
             locale: profile.locale ?? 'es',
             status: profile.status,
+            presence: resolveWorkPresence({
+              session: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
+              lastSeenMs: workPresence.lastSeen(profile.principalId),
+              nowMs: Date.parse(now),
+            }).state,
             openSession: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
             todayActiveSeconds: sessions.filter((session) => session.startedAt.slice(0, 10) === now.slice(0, 10)).reduce((total, session) => total + session.activeSeconds, 0),
             usage: { used: usage.used, limit: usage.limit },

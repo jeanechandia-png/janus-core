@@ -122,13 +122,17 @@ const JanusTeam = (() => {
   }
 
   function viewShell() {
-    const d = S.data, working = d.members.filter((m) => m.openSession && m.openSession.state === 'running').length;
+    const d = S.data;
+    // Mismo estado que las lucecitas de «Mi equipo» en la dashboard del CEO (presencia real del servidor).
+    const presenceOf = (m) => m.presence || (m.openSession ? (m.openSession.state === 'running' ? 'working' : 'paused') : 'offline');
+    const PRESENCE = { working: ['trabajando', 'in-progress', 'normal'], unconfirmed: ['sesión abierta, sin señal', 'waiting', 'normal'], paused: ['en pausa', 'waiting', 'normal'], online: ['conectado', 'completed', 'low'], offline: ['desconectado', 'draft', 'low'] };
+    const working = d.members.filter((m) => presenceOf(m) === 'working').length;
     const blocked = d.assignments.filter((x) => x.assignment.status === 'blocked').length, unread = d.messages.filter((m) => m.status === 'delivered' && !m.readAt).length;
     const today = new Date().toISOString().slice(0, 10);
     const nav = [['team', '◉', 'Equipo'], ['availability', '▤', 'Disponibilidad'], ['tasks', '✓', 'Tareas'], ['deliveries', '↗', 'Entregas'], ['messages', '✉', 'Mensajes'], ['files', '◇', 'Archivos'], ['projects', '◫', 'Proyectos'], ['access', '⚿', 'Accesos']];
     const members = d.members.length ? d.members.map((m) => {
-      const st = m.openSession ? (m.openSession.state === 'running' ? ['trabajando', 'in-progress'] : ['en pausa', 'waiting']) : ['sin sesión', 'draft'];
-      return '<article class="cc-operation-item"><div class="priority priority-' + (m.openSession ? 'normal' : 'low') + '"></div><div class="grow"><strong>' + esc(m.displayName) + '</strong><small>' + esc(m.roleTitle || 'Colaborador') + ' · ' + esc(String(m.locale).toUpperCase()) + ' · hoy ' + esc(fmtDur(m.todayActiveSeconds)) + ' · consultas ' + m.usage.used + (m.usage.limit ? '/' + m.usage.limit : '') + '</small></div><span class="status status-' + st[1] + '">' + st[0] + '</span></article>';
+      const st = PRESENCE[presenceOf(m)] || PRESENCE.offline;
+      return '<article class="cc-operation-item"><div class="priority priority-' + st[2] + '"></div><div class="grow"><strong>' + esc(m.displayName) + '</strong><small>' + esc(m.roleTitle || 'Colaborador') + ' · ' + esc(String(m.locale).toUpperCase()) + ' · hoy ' + esc(fmtDur(m.todayActiveSeconds)) + ' · consultas ' + m.usage.used + (m.usage.limit ? '/' + m.usage.limit : '') + '</small></div><span class="status status-' + st[1] + '">' + st[0] + '</span></article>';
     }).join('') : empty('Todavía no hay colaboradores dados de alta.');
     const agenda = d.agenda.length ? d.agenda.slice(0, 14).map((x) => '<article><div class="grow"><strong>' + esc(name(x.principalId)) + ' · ' + esc(x.kind === 'availability' ? 'Trabaja' + (x.text ? ' — ' + x.text : '') : x.text) + '</strong><small>' + esc(x.date === today ? 'Hoy' : fmtDay(x.date)) + (x.time ? ' · ' + esc(x.time) + (x.endTime ? '–' + esc(x.endTime) : '') : '') + (x.projectId ? ' · ' + esc(projectName(x.projectId)) : '') + '</small></div><span class="status status-' + (x.kind === 'availability' ? 'submitted' : 'received') + '">' + (x.kind === 'availability' ? 'disponible' : 'recordatorio') + '</span></article>').join('') : empty('Nadie ha anotado disponibilidad.');
     const tasks = d.assignments.length ? d.assignments.map((item) => {

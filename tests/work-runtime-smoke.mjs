@@ -221,6 +221,20 @@ try {
   assert.doesNotMatch(JSON.stringify(team), /Recoger el coche/, 'la agenda privada nunca llega a la vista de equipo');
   ok('vista de equipo: solo CEO y solo asuntos de empresa');
 
+  // ── Lucecitas «Mi equipo» (presencia) ─────────────────────────────────────────────────────────
+  await call('GET', '/api/work/team/presence', dev, undefined, 403); await call('GET', '/api/work/team/presence', null, undefined, 401);
+  await call('POST', '/api/work/presence', founder, {}, 403); await call('POST', '/api/work/presence', null, {}, 401);
+  assert.equal((await call('POST', '/api/work/presence', dev, {}, 200)).intervalSeconds, 30);
+  const lights = await call('GET', '/api/work/team/presence', founder, undefined, 200);
+  const devLight = lights.members.find((m) => m.principalId === 'colab-dev');
+  assert.ok(devLight && ['online', 'working', 'paused'].includes(devLight.state), 'quien acaba de usar su panel aparece encendido: ' + devLight?.state);
+  assert.ok(devLight.seenSecondsAgo !== null && devLight.seenSecondsAgo <= 5);
+  for (const m of lights.members) assert.deepEqual(Object.keys(m).sort(), ['displayName', 'principalId', 'roleTitle', 'seenSecondsAgo', 'sessionSince', 'state']);
+  assert.equal(typeof lights.attention.blocked, 'number'); assert.equal(typeof lights.attention.unread, 'number');
+  assert.doesNotMatch(JSON.stringify(lights), /Recoger el coche|agenda|messages/, 'solo nombres, estado y contadores');
+  assert.equal(team.members.find((m) => m.principalId === 'colab-dev').presence !== undefined, true);
+  ok('lucecitas Mi equipo: solo CEO, presencia real del panel y nada más que nombre y estado');
+
   // ── Avance/entrega (handoff) y chat por proyecto ──────────────────────────────────────────────
   await call('POST', '/api/coordination/assignments/as-dev-1/handoffs', dev, { executiveSummary: 'Listado listo', completed: ['Filtro'], pending: ['Paginación'], evidenceRefs: ['commit abc'] }, 201);
   dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;

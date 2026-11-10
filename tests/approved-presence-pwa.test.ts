@@ -51,7 +51,7 @@ test('Three glTF preinstalado offline antes de JavaScript de cada app', () => {
     '/approved-3d/janus-creature-slot.js']) {
     assert.ok(sw.includes(path), 'no cachea ' + path);
   }
-  assert.match(sw, /janus-shell-v16/);
+  assert.match(sw, /janus-shell-v17/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/, 'API privada no cacheada');
 });
 
