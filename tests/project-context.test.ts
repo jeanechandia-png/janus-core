@@ -125,3 +125,24 @@ test('project resource references can point to local, Google or Apple-backed fil
   assert.equal(resource.source, 'google_drive');
   assert.equal(resource.sourceRef, 'drive:file:123');
 });
+
+test('project workspace instructions persist into a new thread checkpoint without losing the earlier chronology', () => {
+  const project = validateProjectWorkspace({
+    id: 'p-instructions', name: 'Infinity API', status: 'active',
+    createdAt: '2026-11-10T00:00:00Z', updatedAt: '2026-11-10T00:00:00Z',
+    createdBy: 'founder', instructions: '  Reuse canonical code; no parallel copies.  ',
+  });
+  const thread = validateProjectThread({
+    id: 't-restart', projectId: project.id, title: 'Continue',
+    status: 'active', createdAt: project.createdAt, updatedAt: project.updatedAt,
+    createdBy: 'founder',
+  });
+  const continuity = reconstructContinuity([]);
+  const checkpoint = buildProjectCheckpoint({ project, thread, continuity });
+  assert.equal(project.instructions, 'Reuse canonical code; no parallel copies.');
+  assert.equal(checkpoint.projectInstructions, project.instructions);
+  assert.equal(verifyProjectCheckpoint(checkpoint), true);
+  assert.throws(() => validateProjectWorkspace({
+    ...project, instructions: 'a'.repeat(12001),
+  }), /instructions are too long/);
+});

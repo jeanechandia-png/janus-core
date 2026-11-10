@@ -1,3 +1,7 @@
+## Actualización 10-nov-2026 — plantilla laboral + instrucciones de proyectos
+
+Véase `docs/handoffs/2026-11-10-project-workspace-template.md` para cambios, límites y continuación. Rama `chatgpt/janus-approved-characters-integration-20261106`; conservar la interfaz A/B aprobada y no duplicar el producto.
+
 # JANUS — Estado vigente
 
 Fecha: 2026-11-06
