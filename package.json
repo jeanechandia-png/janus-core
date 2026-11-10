@@ -18,7 +18,7 @@
     "voice:independence": "node --import tsx scripts/voice-independence-check.ts",
     "dashboard:build": "node scripts/build-janus-dashboards.mjs",
     "start:dashboards": "npm run dashboard:build && npm run start:local",
-    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs prototypes/dashboard/tests/work-template.test.cjs",
+    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs prototypes/dashboard/tests/work-template.test.cjs prototypes/dashboard/tests/barcode-1d.test.cjs",
     "work:build": "node prototypes/dashboard/work/build-work.cjs",
     "work:smoke": "node tests/work-runtime-smoke.mjs",
     "work:push-key": "node --import tsx -e \"import('./packages/core/src/web-push.ts').then(m=>{const k=m.generateVapidPrivateKey();console.log('JANUS_PUSH_VAPID_PRIVATE_KEY='+k.privateKey+'\\n(clave publica: '+k.publicKey+')\\nGuarde la clave privada como variable de entorno del servidor. No la suba a GitHub.')})\""

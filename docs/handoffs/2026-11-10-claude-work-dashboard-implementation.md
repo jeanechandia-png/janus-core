@@ -195,6 +195,18 @@ Pruebas: ver STATE. Flujo completo en Chrome real con autenticador virtual: acti
 entra → sin verificación del usuario no se crea nada → la llave no sirve para otras acciones reservadas.
 NO VERIFICADO: iPhone/Safari físico (en iOS la llave de acceso exige HTTPS con nombre de dominio).
 
+## Actualización 10-nov-2026 (20:20) — códigos de barras y lector en tres idiomas
+
+30. **Códigos de barras clásicos** (`lego/janus-attach/barcode-1d.js`, pieza opcional sin dependencias): EAN-13, UPC-A,
+    EAN-8 y Code 128; solo devuelve un código si su dígito de control cuadra. Verificado contra patrones de un
+    codificador independiente (JsBarcode, solo como origen de `tests/fixtures/barcodes-1d.json`; no es dependencia).
+31. **`janus-attach` 1.1.0:** `configure({formats, strings, theme})` OPCIONAL. Sin configurar se comporta como la 1.0
+    (las dashboards personales no lo llaman: mismo comportamiento; `scripts/attach-smoke.mjs` sigue pasando). JANUS Work
+    lo configura con QR + barras, textos ES/NL/EN y tema `iba`.
+
+NO VERIFICADO: lectura con la cámara de un teléfono real (enfoque, reflejos, códigos girados). Las pruebas usan
+patrones dibujados con desenfoque, ruido y luz desigual simulados.
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

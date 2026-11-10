@@ -59,8 +59,8 @@ function buildWork(options) {
     const session = fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'founder-session.js'), 'utf8').replace(/^export\s+/gm, '');
     parts.push(session, rd('lego/janus-model-gateway/janus-model-gateway.js'));
   } else parts.push(rd('work/work-example.js'));
-  // Lector de códigos: LEGO janus-attach existente + vendor/jsqr (mismo módulo del chat del CEO, sin modificar).
-  parts.push(rd('vendor/jsqr.js'), rd('lego/janus-attach/janus-attach.js'));
+  // Lector de códigos: LEGO janus-attach existente + vendor/jsqr + su pieza opcional de códigos de barras clásicos.
+  parts.push(rd('vendor/jsqr.js'), rd('lego/janus-attach/barcode-1d.js').replace(/if \(typeof module[^\n]*\n?$/, 'window.JanusBarcode1D = JanusBarcode1D;\n'), rd('lego/janus-attach/janus-attach.js'));
   parts.push(rd('work/work-app.js'));
   let js = parts.join('\n').replace(/<\/script/gi, '<\\/script');
   for (const [k, v] of Object.entries(NAMES)) js = js.split(k).join(String(v).replace(/[<>&"'\\]/g, ''));

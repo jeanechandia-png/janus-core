@@ -353,6 +353,9 @@ const JanusWork = (() => {
   // Lector de códigos (LEGO janus-attach): el contenido leído es un DATO que se añade al mensaje; nunca se abre solo.
   async function scanCode() {
     if (typeof JanusAttach !== 'object') return;
+    // Misma pieza del chat del CEO, configurada para este panel: QR + códigos de barras, idioma del colaborador y piel de IBA.
+    if (typeof JanusAttach.configure === 'function') JanusAttach.configure({ formats: ['qr_code', 'ean_13', 'upc_a', 'ean_8', 'code_128'], theme: 'iba',
+      strings: { title: t('scanTitle'), aria: t('scanAria'), hint: t('scanHint'), torch: t('scanTorch'), photo: t('scanPhoto'), pick: t('scanPick'), close: t('scanClose'), slow: t('scanSlow'), notFound: t('scanNotFound'), fallback: t('scanFallback') } });
     const result = await JanusAttach.scan();
     if (result && result.raw) { S.draft = (S.draft ? S.draft + ' ' : '') + String(result.raw).slice(0, 2000); render(); const input = document.getElementById('jw-chat-input'); if (input) input.focus(); }
   }
