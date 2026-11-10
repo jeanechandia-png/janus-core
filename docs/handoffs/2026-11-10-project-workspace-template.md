@@ -24,3 +24,6 @@ Base leída: `551179e8402b5810276a796a906f5b2ccff611fc`.
 - **Pendiente:** conectar ejecutores externos de Claude/ChatGPT/Gemini con cuentas empresariales autorizadas, control de costes y memoria compartida verificada. El catálogo de proveedores y el swarm no equivalen a ejecución automática de varios modelos en paralelo.
 - **Pendiente:** ejecutar CI y pruebas E2E completas tras el commit; ninguna publicación ni compra queda autorizada por este cambio.
 - Seguridad: `janus-core` es público, por lo tanto nunca alojar allí conversaciones privadas, archivos, claves o identidades reales.
+
+## Continuación explícita solicitada por el Founder — 10-nov-2026
+La evolución visual e integración del dashboard laboral se encomienda a Claude, quien posee el artefacto de dashboard visualmente aprobado. ChatGPT documentó requerimientos sin modificar interfaces. Leer `docs/handoffs/2026-11-10-claude-workforce-dashboard-directive.md` antes de programar. El CI del commit de backend 01228836 se completó satisfactoriamente (run 42728704831).

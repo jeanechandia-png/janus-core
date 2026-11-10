@@ -1,3 +1,9 @@
+## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable
+
+**Orden del Founder:** El dashboard aprobado del CEO y la experiencia Kendra continúan con Claude y NO se reemplazan. Claude debe localizar SU artefacto aprobado e integrarlo como baseline verificada antes de cualquier cambio. SOLO adaptar una plantilla laboral reutilizable para Julio/Robin/Mariel, inspirada en módulos JANUS o dashboard IBA (fuente: `infinity-chatbox-platform`). Texto únicamente; no voz en personal laboral; aplicaciones PWA con acceso autenticado; proyectos e instrucciones por usuario; permisos de Core y tareas concurrentes; NO crear copias/repos/hosting ni cambiar webs productivas.
+
+**En GitHub existe** el contrato de backend del módulo de trabajo y proyectos del commit `01228836` (CI `42728704831` verde), pero **no el diseño visual final**. Ruta de instrucciones canónica para Claude: `docs/handoffs/2026-11-10-claude-workforce-dashboard-directive.md`. Registrar SHA/CI de cada delta y evitar sobreescribir trabajo concurrente. **Jean/ChatGPT** priorizan por separado el piloto ChatBox para miércoles 11-nov-2026.
+
 ## Actualización 10-nov-2026 — plantilla laboral + instrucciones de proyectos
 
 Véase `docs/handoffs/2026-11-10-project-workspace-template.md` para cambios, límites y continuación. Rama `chatgpt/janus-approved-characters-integration-20261106`; conservar la interfaz A/B aprobada y no duplicar el producto.

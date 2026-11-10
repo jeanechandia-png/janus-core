@@ -35,3 +35,9 @@ Instrucción del Founder: «Siempre tenemos que poder trabajar al máximo sin ne
 5. **Nunca en dólares:** toda cifra al Founder, en euros.
 
 Cómo se cumple hoy: política `founder-policy:spend-last` en `config/founder-reference-library.json` (la leen todos los agentes); `SENSITIVE_TOOL_ACTIONS` obliga a aprobación en las acciones que gastan o escriben fuera; `planPhoneAccess` recomienda siempre la ruta sin gasto; `npm run integrations:check` muestra lo no activado como «en reposo» (no como fallo); `tests/spend-last-norm.test.ts` vigila la política, el registro y la ruta recomendada.
+
+## Norma 8 — Plantilla laboral reutilizable / traspaso Claude (10-nov-2026)
+- Las dashboards nuevas para colaboradores de JANUS son UNA PLANTILLA configurable, inspirada en la interfaz JANUS del Founder o reutilizando piezas LEGO del dashboard de IBA; no son copias personales, no se desarrollan en repositorios separados. Los roles y los idiomas cambian por configuración autenticada; la voz queda exclusiva para Founder y Kendra.
+- La dashboard personal del Founder y la de Kendra están en desarrollo por un flujo separado; la orden de este día es NO rediseñarlas desde ChatGPT. La versión visual aprobada reside en artefactos de Claude y hay que identificarla y contrastarla ANTES de cualquier edición visual. GitHub PR #81 y sus variantes no constituyen por sí solos confirmación de aprobación visual.
+- Para IBA la fuente de código canónica es `jeanechandia-png/infinity-chatbox-platform`, según `INFINITYSEED_PROJECT_REGISTRY.md`. Reutilización solo del diseño y los módulos pertinentes, sin transportar datos de clientes ni acoplar backends.
+- La delegación a Claude usa `docs/handoffs/2026-11-10-claude-workforce-dashboard-directive.md`. Integración y despliegue solo tras filtros, QA y aprobación del Founder. El piloto ChatBox 3 Kings del 11-nov es frente de trabajo SEPARADO y prioritario para Jean/ChatGPT.
