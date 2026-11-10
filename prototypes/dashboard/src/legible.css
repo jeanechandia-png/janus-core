@@ -1,0 +1,83 @@
+/* ===== Legibilidad y relieve (orden del CEO, 10-nov-2026 21:02) =====
+ * Solo piel A (Obsidiana). Va al final: no cambia la rejilla aprobada, solo lectura, contraste y relieve.
+ * Los tamaños pequeños los sube el build (legibleFonts en build.cjs); aquí: grosor, contraste, filas y botones.
+ */
+.a{--mute:#D3CAB7;--line:rgba(232,195,122,.3)}
+.a .mono{font-weight:600}
+.a .lb{font-weight:700;letter-spacing:.16em}
+.a .lb .mt{color:#E6DDCB;font-weight:600}
+.a .sb{color:#F0CD86;font-weight:700;letter-spacing:.16em}
+.a .dt{color:#E6DDCB;font-weight:600}
+
+/* Prioridades: una línea por correo (remitente · asunto). Nunca se montan textos. */
+#dash .ml{min-height:0;gap:7px;border-bottom:1px solid rgba(232,195,122,.42)!important}
+#dash .ml .mid{display:flex;align-items:baseline;gap:7px;min-width:0;overflow:hidden}
+#dash .ml .who{flex:0 1 auto;min-width:0;font-weight:700;color:#FFF6E4}
+#dash .ml .sj{flex:1 1 0;min-width:0;color:#D9D0BE;font-weight:500}
+#dash .ml .age{font-weight:700;color:#F3EBDD}
+#dash .fu{min-height:0;border-bottom:1px solid rgba(232,195,122,.22)}
+#dash .fu:last-child{border-bottom:0}
+#dash .fu .tx{font-weight:600;color:#FFF6E4}
+#dash .fu .due{font-weight:700}
+/* Divisores más marcados en listas y cabeceras de tarjeta. */
+.a .cd>.lb{padding-bottom:6px;border-bottom:1px solid rgba(232,195,122,.38)}
+.a .li2,.a .tr,.a .ci,.a .ev+.ev,.a .kvr{border-color:rgba(232,195,122,.42)!important}
+
+/* Botones en 3D: relieve dorado, brillo superior, sombra inferior; se hunden al pulsar. */
+.a .pjp,.a .chip,.a .tb2{position:relative;border:1px solid rgba(240,205,134,.62)!important;
+  background:linear-gradient(180deg,rgba(255,236,190,.2),rgba(255,236,190,.05) 46%,rgba(0,0,0,.28))!important;
+  box-shadow:inset 0 1px 0 rgba(255,246,220,.5),inset 0 -2px 0 rgba(0,0,0,.55),0 3px 0 rgba(0,0,0,.55),0 8px 14px -8px rgba(0,0,0,.9)!important;
+  transition:transform .08s ease,box-shadow .1s ease}
+.a .pjp:active,.a .chip.go:active,.a .tb2:active{transform:translateY(2px);box-shadow:inset 0 2px 6px rgba(0,0,0,.7),0 1px 0 rgba(0,0,0,.5)!important}
+.a .pjp .t{font-weight:700;color:#FFF6E4;text-shadow:0 1px 0 #000}
+.a .tb2 em{color:#F3EBDD;font-weight:600}
+.a .tb2.on{background:linear-gradient(180deg,rgba(255,220,140,.45),rgba(232,195,122,.18) 50%,rgba(0,0,0,.25))!important}
+.a .tb2.on em{color:#FFF1C9}
+
+/* Medallón de JANUS: gira y lleva una luz en órbita que indica la conexión. */
+.a .jmw{position:relative;display:inline-grid;place-items:center;flex:none;perspective:300px}
+.a .jmw>img{animation:jm-spin 9s linear infinite;transform-style:preserve-3d;backface-visibility:visible}
+.a .jmw::before{content:"";position:absolute;inset:-4px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(from 0deg,transparent 0 70%,rgba(var(--jmc),.15) 78%,rgba(var(--jmc),.95) 92%,#fff 95%,transparent 96%);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2.5px));
+  animation:jm-orbit 2.4s linear infinite;filter:drop-shadow(0 0 4px rgba(var(--jmc),.9))}
+.a .jmw{--jmc:95,211,154}
+.a .jmw.off{--jmc:150,150,150}
+.a .jmw.off::before{animation-duration:6s}
+@keyframes jm-spin{0%{transform:rotateY(0)}100%{transform:rotateY(360deg)}}
+@keyframes jm-orbit{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.a .jmw>img,.a .jmw::before{animation:none}}
+
+/* Columnas de hora: ancho según el texto (ya más grande), nunca debajo del icono. */
+#dash .ev .tm,#dash .kt .tm{width:auto;min-width:3.1em;font-weight:700}
+#dash .kt{margin-bottom:2px;padding-top:2px;padding-bottom:2px}
+/* Hija: la semana se compacta un poco para que la cuenta atrás quepa entera. */
+#dash .kd .dy{padding:3px 0 2px;gap:2px}
+#dash .kd .dy .l{font-weight:700;color:#E6DDCB;line-height:1.2}
+#dash .kd .dy .n{line-height:1.05}
+#dash .kd .dy>span:last-child{line-height:1;font-size:8.5px;max-height:2.3em;overflow:hidden}
+#dash .kd .kt small{font-weight:700}
+#dash .kd .cnt{margin-top:3px;padding-top:2px;padding-bottom:2px}
+#dash .kd .cnt b{font-size:16px;line-height:1}
+/* Hija con letra más grande: se recortan márgenes internos para que la cuenta atrás no se corte. */
+#dash .cd.kd>.lb{padding-bottom:3px;margin-bottom:3px}
+#dash .kd .kt{padding-top:1px;padding-bottom:1px;margin-bottom:1px}
+#dash .kd .dy{padding:2px 0 1px;gap:1px}
+#dash .kd .cnt{margin-top:2px;padding-top:1px;padding-bottom:1px;line-height:1.1}
+/* KPI: el nombre completo («Interacción») cabe con menos espaciado. */
+.a .kpi .k{letter-spacing:.06em}
+/* Proyectos: cuatro botones (Janus · ChatBox · Web · IBA) con el nombre entero. */
+#dash .tsala .pjp>.bb{display:none}
+#dash .tsala .pjp{justify-content:center;padding:4px 6px!important}
+.a .lb .mt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.a .kpi .k{letter-spacing:.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:#F3EBDD;font-weight:700}
+/* Barra de pestañas de las vistas: iconos y nombres más grandes; el título cede espacio. */
+.a .vh h1.vt{height:24px}
+.a .vh .tabs{gap:4px}
+.a .tb2{padding:3px 6px;gap:2px}
+.a .tb2 i{font-size:17px}
+.a .tb2 em{font-size:9.5px;letter-spacing:.02em}
+/* Cabeceras de tarjeta: siempre en una línea (en tarjetas estrechas se cierra el espaciado, no se parte el título). */
+#dash .cd>.lb{white-space:nowrap}
+#dash .stk .cd>.lb{letter-spacing:.1em;gap:5px}
+#dash .stk .cd>.lb .mt{letter-spacing:0}

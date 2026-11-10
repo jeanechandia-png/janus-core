@@ -118,3 +118,7 @@ setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 6
   document.addEventListener('pointerleave', off, { passive: true });
   window.addEventListener('hashchange', off);
 })();
+
+// Luz del medallón: verde girando con conexión, gris sin ella (sin repintar la dashboard).
+const jmSync = () => { for (const el of document.querySelectorAll('.jmw')) { el.classList.toggle('off', navigator.onLine === false); el.title = navigator.onLine === false ? 'Sin conexión' : 'Conectado'; } };
+window.addEventListener('online', jmSync); window.addEventListener('offline', jmSync);

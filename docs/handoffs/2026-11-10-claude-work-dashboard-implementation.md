@@ -263,6 +263,29 @@ cifras correctas, sin desbordes, una pantalla en tablet/escritorio, clic → «�
 NO VERIFICADO: iPhone/Safari físico; si iOS corta la señal de 30 s al bloquear el teléfono (la luz pasaría a verde
 hueco a los 5 min, que es el comportamiento buscado, pero no se ha medido en un dispositivo real).
 
+## Actualización 10-nov-2026 (21:45) — correcciones de lectura en la dashboard personal A (orden expresa del CEO)
+
+Orden del CEO (21:20, con dos fotos de su tablet): textos montados en «Prioridades», falta IBA en «Proyectos», letra
+pequeña demasiado fina, el medallón de JANUS debe girar con una luz de conexión, los botones deben parecer botones 3D
+y las líneas divisorias deben marcarse más. **Es la primera modificación del código de la dashboard personal A
+(`prototypes/dashboard/src`), hecha por orden directa del CEO.** La piel B no cambia.
+
+39. **Textos montados (causa):** cada correo de «Prioridades» tenía dos líneas en una fila de altura repartida; en la
+    tablet la fila era más baja que las dos líneas. **Corrección:** una línea por correo (remitente · asunto, con
+    puntos suspensivos si no cabe). Los títulos de tarjeta ya no se parten en dos líneas.
+40. **Proyectos:** cuatro botones fijos, Janus · ChatBox · Web · IBA (`projects.js`: IBA con nombre corto).
+41. **Letra:** `build.cjs → legibleFonts` sube en la piel A todo texto menor de 12 px un 28 % (mín. +2 px, máx. 13 px);
+    `src/legible.css` añade grosor (600–700), más contraste en los textos secundarios y divisores dorados más marcados.
+    Barra de pestañas de las vistas: iconos y nombres más grandes.
+42. **Medallón:** gira sobre su eje y lleva una luz en órbita: verde con conexión, gris y lenta sin ella
+    (`navigator.onLine`, se actualiza sola). Respeta «reducir movimiento» del sistema.
+43. **Botones 3D:** relieve dorado con brillo superior y sombra inferior en botones de proyecto, chips y pestañas; se
+    hunden al pulsar.
+
+Verificación (HECHO): comprobador automático en 7 tamaños (1024×700 a 1920×1080): ninguna tarjeta recortada, la
+dashboard sigue entrando en una pantalla, sin textos montados (revisado además a la vista en 1280×740, 1024×700 y
+1366×1024). NO VERIFICADO: la tablet Samsung real del CEO (se desconoce su tamaño exacto de ventana).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

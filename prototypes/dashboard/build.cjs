@@ -47,6 +47,10 @@ let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('l
 const SkinMap = require('./tools/skin-map.cjs');
 const A_FILES = ['src/base.css', 'src/views.css', 'src/depth.css', 'lego/janus-activity/janus-activity.css', 'src/sala.css', 'lego/janus-gold/janus-gold.css', 'src/premium.css', 'src/phone.css', 'src/phonev.css', 'src/companero.css', 'src/phonea2.css', 'lego/janus-3d/janus-3d.css', 'src/adjuntos.css'];
 css += rd('src/skin.css');
+// Legibilidad (orden del CEO 10-nov-2026): en la piel A los textos pequeños suben ~28 % (mín. +2 px, máx. 13 px) y se
+// añade la capa de grosor, contraste y relieve. La piel B se genera aparte (cssB) y no cambia.
+const legibleFonts = (src) => src.replace(/font-size:\s*(\d*\.?\d+)px/g, (m, n) => { const v = parseFloat(n); if (v >= 12) return m; const up = Math.max(v * 1.28, v + 2); return 'font-size:' + (Math.round(Math.min(up, 13) * 2) / 2) + 'px'; });
+css = legibleFonts(css) + rd('src/legible.css');
 const cssB = A_FILES.map((f) => SkinMap.mapCss(rd(f))).join('\n');
 css = ':root{--marble:' + MARBLE + '}\n' + css + '\n' + cssB + '\n' + rd('src/dash-b.css') + '\n' + rd('src/companero-stage.css');
 for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = css.split(k).join(v); }
