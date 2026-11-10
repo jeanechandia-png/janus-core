@@ -1,7 +1,8 @@
 import { mountAppInstall } from './app-install.js';
 import './knowledge-review.js';
-import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { currentLanguage, mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { sessionToken } from './founder-session.js';
+import { mountTeamChip } from './team-chip.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
@@ -13,6 +14,20 @@ controls.setAttribute('aria-label', 'Idioma y acceso de JANUS');
 const languageControl = document.createElement('div');
 languageControl.className = 'janus-language-switch';
 controls.append(languageControl);
+// Acceso simplificado a «¿Cómo va el equipo?» (/work/team). Una sola pastilla; el resumen sale del mismo servicio que la vista de equipo.
+const teamText = {
+  es: { working: (n) => (n === 1 ? '1 persona trabajando' : `${n} personas trabajando`), attention: (n) => (n === 1 ? '1 asunto requiere atención' : `${n} asuntos requieren atención`) },
+  nl: { working: (n) => (n === 1 ? '1 persoon aan het werk' : `${n} personen aan het werk`), attention: (n) => (n === 1 ? '1 punt vraagt aandacht' : `${n} punten vragen aandacht`) },
+};
+const teamChip = mountTeamChip({
+  back: location.pathname === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a',
+  labels: () => ({
+    team: uiLabel('founder', 'team'),
+    open: uiLabel('founder', 'teamOpen'),
+    ...teamText[currentLanguage('founder')],
+  }),
+});
+controls.prepend(teamChip.element);
 const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');
@@ -65,6 +80,7 @@ menu.append(accessList);
 controls.append(menu);
 
 function refreshLabels() {
+  teamChip.repaint();
   for (const [key, element] of linkNodes) element.textContent = uiLabel('founder', key);
   install.textContent = uiLabel('founder', 'install');
 }

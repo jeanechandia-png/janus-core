@@ -407,7 +407,10 @@ const JanusWork = (() => {
   const langButtons = () => '<div class="janus-language-switch" role="group" aria-label="Idioma / Taal / Language">' + LANGS.map((code) =>
     '<button type="button" class="janus-language-button jw-flag' + (S.lang === code ? ' is-lit' : '') + (S.flash === code ? ' jw-flash' : '') + '" data-act="lang" data-v="' + code + '" data-language="' + code + '" aria-pressed="' + (S.lang === code) + '" aria-label="' + LANG_NAMES[code] + '" title="' + LANG_NAMES[code] + '">' +
     '<img alt="" width="48" height="48" decoding="async" draggable="false" src="' + ((typeof WORK_LANG_ART === 'object' && WORK_LANG_ART[code]) || '') + '"></button>').join('') + '</div>';
-  const wordmark = () => '<a class="cc-wordmark" href="#today">' + esc(t('brandTop')) + ' <em>' + esc(t('brandScript')) + '</em></a>';
+  // Sello oficial de InfinitySeed Group (logo aportado por el CEO); si el build no lo trae, queda el rótulo de texto.
+  const brandImg = () => (typeof WORK_BRAND === 'string' && WORK_BRAND ? '<img class="jw-brand-img" src="' + WORK_BRAND + '" alt="InfinitySeed Group" width="200" height="59" decoding="async" draggable="false">' : esc(t('brandTop')) + ' ');
+  const wordmark = () => '<a class="cc-wordmark jw-brand" href="#today">' + brandImg() + '<em>' + esc(t('brandScript')) + '</em></a>';
+  const brandBar = () => (typeof WORK_BRAND === 'string' && WORK_BRAND ? '<div class="jw-brand-bar" aria-hidden="true"><img src="' + WORK_BRAND + '" alt="" width="180" height="53" decoding="async" draggable="false"></div>' : '');
   const panelHead = (kicker, title, right) => '<div class="cc-panel-head"><div><small>' + esc(kicker) + '</small><h3>' + esc(title) + '</h3></div>' + (right || '') + '</div>';
   const exampleBar = () => (S.mode !== 'example' ? '' : '<div class="cc-notice jw-example" role="note"><b>' + esc(t('exampleBanner')) + '</b><span>' + esc(t('examplePersona')) + ' ' +
     Object.keys(S.examples || {}).map((id) => '<button type="button" data-act="persona" data-v="' + id + '" class="' + (S.persona === id ? 'active' : '') + '">' + esc(S.examples[id].profile.displayName) + ' · ' + S.examples[id].locale.toUpperCase() + '</button>').join('') + '</span></div>');
@@ -600,7 +603,7 @@ const JanusWork = (() => {
     return '<main class="cc-shell">' +
       '<aside class="cc-sidebar">' + wordmark() + '<nav aria-label="JANUS Work">' + nav.map((n, i) => '<a href="#' + n[0] + '"' + (i === 0 ? ' class="active"' : '') + '><span aria-hidden="true">' + n[1] + '</span>' + esc(t(n[2])) + '</a>').join('') + '</nav>' +
       '<div class="cc-sidebar-foot"><small>' + esc(d.profile.roleTitle || t('roleOperator')) + '</small><strong>' + esc(d.profile.displayName) + '</strong>' + (S.mode === 'core' ? '<button type="button" data-act="signout">' + esc(t('signOut')) + '</button>' : '<small>' + esc(t('skinNote')) + '</small>') + '</div></aside>' +
-      '<section class="cc-main">' + exampleBar() +
+      '<section class="cc-main">' + brandBar() + exampleBar() +
       '<header class="cc-topbar"><div><small>' + esc(fmtDay(new Date())) + ' · ' + esc(timeZone()) + '</small><h1>' + esc(t('question')) + '</h1></div>' +
       '<div class="cc-top-actions"><select data-act="project" aria-label="' + esc(t('projectSelect')) + '">' + d.projects.map((x) => '<option value="' + esc(x.id) + '"' + (p && x.id === p.id ? ' selected' : '') + '>' + esc(x.name) + '</option>').join('') + '</select>' +
       langButtons() +

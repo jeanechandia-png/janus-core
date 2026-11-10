@@ -207,6 +207,33 @@ NO VERIFICADO: iPhone/Safari físico (en iOS la llave de acceso exige HTTPS con 
 NO VERIFICADO: lectura con la cámara de un teléfono real (enfoque, reflejos, códigos girados). Las pruebas usan
 patrones dibujados con desenfoque, ruido y luz desigual simulados.
 
+## Actualización 10-nov-2026 (20:15) — sello oficial y pestaña «¿Cómo va el equipo?»
+
+Orden del CEO (19:52, con el logo adjunto): poner el sello oficial, que la vista de equipo sea una pestaña con ese título
+y que la dashboard original tenga un acceso simplificado que lleve a ella. Autorización expresa: «estás autorizado a hacerlo».
+
+32. **Sello oficial InfinitySeed Group** (`apps/pwa/brand/infinityseed-group-logo.webp`, 520×154, ~28 KB; recortado del PNG
+    que envió el CEO). Aparece en la barra lateral y en la entrada de JANUS Work y de la vista de equipo; en móvil, en una franja
+    superior. Una sola copia incrustada (`WORK_BRAND`) en las vistas previas autónomas.
+33. **Vista de equipo = «¿Cómo va el equipo?»** (`/work/team`): título nuevo y enlace «← Mi dashboard» (barra lateral y
+    cabecera). El retorno solo acepta una lista cerrada (`/dashboard/a`, `/dashboard/b`, `/`); cualquier otro valor de
+    `?back=` vuelve a `/dashboard/a` (sin redirecciones abiertas).
+34. **Acceso simplificado en la dashboard original** (`apps/pwa/team-chip.js`, nuevo): pastilla «Equipo» (NL: «Team») en la
+    cabecera de A y B, mismo tamaño y trazo que los demás controles. Muestra una insignia con las MISMAS cifras de la vista de
+    equipo (tareas bloqueadas + mensajes sin leer) y un punto verde si hay alguien trabajando. Sin sesión o sin permiso
+    (HTTP 401/403): solo el enlace, sin cifras. Se refresca cada 60 s y solo con la pestaña visible.
+
+**Cómo se hizo sin tocar lo aprobado (HECHO VERIFICADO):** la pastilla se monta desde `apps/pwa/dashboard-access.js`, la
+misma capa que ya añadía los medallones de idioma y el menú ☰. `git diff` sobre `prototypes/dashboard/src` y `dist`:
+0 archivos; `tests/team-chip.test.ts` lo vigila (las dashboards A/B no contienen `janus-team-chip`). Service worker:
+caché `janus-shell-v16` (`/team-chip.js` precacheado; dos pruebas existentes actualizadas de v15 a v16).
+Idiomas de la cabecera aprobada: solo ES/NL, como sus controles actuales (no se añadió inglés a esa capa).
+
+Prueba de extremo a extremo (scratchpad, no versionada): servidor mínimo que replica la inyección del runtime sobre la
+dashboard A real → clic en «Equipo» → `/work/team?back=…` → «← Mi dashboard». 24 comprobaciones ok en escritorio
+(1280 px) y móvil (430 px), con y sin permiso. NO VERIFICADO: iPhone/Safari físico; el resumen real contra un Núcleo vivo
+con datos reales (las pruebas usan datos ficticios).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·
@@ -218,11 +245,12 @@ proyectos (hilos, recursos, checkpoints), autoridad y adjuntos.
 | Prueba | Resultado |
 |---|---|
 | `npm run typecheck` | limpio |
-| `npm test` | 678 pruebas, 0 fallos (incluye 13 nuevas: sesiones y contrato) |
+| `npm test` | 714 pruebas, 713 ok, 0 fallos, 1 omitida previa (incluye 4 nuevas del acceso «Equipo») |
 | `node tests/runtime-smoke.mjs` (existente) | ok |
-| `npm run dashboard:test` | 20/20 (9 nuevas de la plantilla) |
-| `node tests/work-runtime-smoke.mjs` | 10 bloques ok, navegador real incluido |
-| `prototypes/dashboard/tests/e2e-work.cjs` | 111/111 en móvil, tablet y escritorio |
+| `npm run dashboard:test` | 26/26 |
+| `node tests/work-runtime-smoke.mjs` | 19 bloques ok, navegador real incluido |
+| `prototypes/dashboard/tests/e2e-work.cjs` | 153/153 en móvil, tablet y escritorio |
+| `prototypes/dashboard/tests/e2e-team.cjs` | 24/24 |
 
 **Faltan:** iPhone/Safari físico e instalación como app; lector de pantalla; el chat con un modelo real configurado
 (en las pruebas el Núcleo responde sin modelo); varios colaboradores a la vez durante horas; CI de GitHub para las

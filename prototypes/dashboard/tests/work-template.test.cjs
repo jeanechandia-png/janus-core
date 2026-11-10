@@ -119,9 +119,11 @@ test('build de vista previa: un solo archivo autónomo, sin red, con la piel de 
   assert.match(html, /Colaborador A/); assert.doesNotMatch(html, /__WORK_NAME_/);
   assert.doesNotMatch(html, /<script[^>]+src=|<link[^>]+href=|@import|url\(https?:/i, 'no debe cargar nada externo');
   assert.doesNotMatch(html, /const JanusGateway|async function signIn\(/, 'la vista previa no lleva cliente del Núcleo');
-  assert.ok(html.length < 400 * 1024);
+  assert.ok(html.length < 460 * 1024, "vista previa autónoma: incluye el logo oficial incrustado");
   // Selector de idioma: los tres medallones aprobados, incrustados, con el componente compartido de la PWA.
-  assert.equal((html.match(/data:image\/webp;base64,/g) || []).length, 3);
+  // 3 medallones de idioma aprobados + el sello oficial del grupo (una sola copia; se reutiliza en barra lateral, acceso y móvil).
+  assert.equal((html.match(/data:image\/webp;base64,/g) || []).length, 4);
+  assert.match(html, /const WORK_BRAND="data:image\/webp;base64,/); assert.match(html, /alt="InfinitySeed Group"/);
   assert.match(html, /\.janus-language-button\.is-lit/); assert.match(html, /janus-language-button jw-flag/);
 });
 
@@ -167,5 +169,9 @@ test('vista de equipo del CEO: página aparte, sin nombres reales y sin tocar la
   }
   assert.doesNotMatch(rd('work-team.js') + rd('work-team-example.js'), /\b(Julio|Robin|Mariel|Kendra|3 Kings)\b/);
   // No importa ni modifica nada de la dashboard personal aprobada.
-  assert.doesNotMatch(rd('work-team.js'), /src\/dash|JanusNexo|janus-gold|dashboard\/a|dashboard\/b/);
+  // Solo puede nombrar las dashboards aprobadas en la lista cerrada del enlace «← Mi dashboard»; nunca importar ni tocar su código.
+  const team = rd('work-team.js');
+  assert.doesNotMatch(team, /src\/dash|JanusNexo|janus-gold/);
+  const mentions = team.split('\n').filter((line) => /dashboard\/a|dashboard\/b/.test(line));
+  assert.ok(mentions.length > 0 && mentions.every((line) => /BACK_ALLOWED|backHref|En la vista previa no navega/.test(line)), 'solo la lista cerrada de retorno: ' + mentions.join(' | ').slice(0, 200));
 });

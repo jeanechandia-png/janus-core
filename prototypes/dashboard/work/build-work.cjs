@@ -26,10 +26,13 @@ function loadSkin(explicit) {
 }
 
 // Vista de equipo del CEO (página aparte, misma piel de IBA). 'team' habla con el Núcleo; 'team-example' es la vista previa.
+// Sello oficial de InfinitySeed Group (logo aportado por el CEO, 10-nov-2026). Un único archivo compartido por ambas páginas.
+const brandData = () => 'data:image/webp;base64,' + fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'brand', 'infinityseed-group-logo.webp')).toString('base64');
+
 function buildTeam(options) {
   const live = options && options.mode === 'team';
   const skin = loadSkin(options && options.skin);
-  const parts = ['const TEAM_MODE=' + JSON.stringify(live ? 'core' : 'example') + ';'];
+  const parts = ['const TEAM_MODE=' + JSON.stringify(live ? 'core' : 'example') + ';', 'const WORK_BRAND=' + JSON.stringify(brandData()) + ';'];
   if (live) parts.push(fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'founder-session.js'), 'utf8').replace(/^export\s+/gm, ''));
   else parts.push(rd('work/work-team-example.js'));
   parts.push(rd('work/work-team.js'));
@@ -41,7 +44,7 @@ function buildTeam(options) {
   for (const [k, v] of Object.entries(teamNames)) js = js.split(k).join(v);
   const css = skin + '\n' + rd('work/work-extra.css');
   return '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#11151a">\n<meta name="robots" content="noindex">\n' +
-    '<meta name="janus-work-template" content="janus-work-team-v1 · skin ' + LOCK.skin + '@' + LOCK.source.commit + ' · ' + (live ? 'core' : 'example') + '">\n<title>JANUS Work · Equipo</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n<div id="app"></div>\n<script>\n(function(){\n' + js + '\n})();\n</script>\n</body>\n</html>\n';
+    '<meta name="janus-work-template" content="janus-work-team-v1 · skin ' + LOCK.skin + '@' + LOCK.source.commit + ' · ' + (live ? 'core' : 'example') + '">\n<title>¿Cómo va el equipo? · JANUS</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n<div id="app"></div>\n<script>\n(function(){\n' + js + '\n})();\n</script>\n</body>\n</html>\n';
 }
 
 function buildWork(options) {
@@ -53,7 +56,7 @@ function buildWork(options) {
   // Medallones de idioma aprobados (arte original del Founder): un único juego compartido en apps/pwa/language-art.
   const art = (name) => 'data:image/webp;base64,' + fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'language-art', name + '-192.webp')).toString('base64');
   const LANG_ART = { es: art('espana'), nl: art('nederland'), en: art('english') };
-  const parts = ['const WORK_MODE=' + JSON.stringify(mode) + ';', 'const WORK_LANG_ART=' + JSON.stringify(LANG_ART) + ';', rd('work/work-i18n.js')];
+  const parts = ['const WORK_MODE=' + JSON.stringify(mode) + ';', 'const WORK_LANG_ART=' + JSON.stringify(LANG_ART) + ';', 'const WORK_BRAND=' + JSON.stringify(brandData()) + ';', rd('work/work-i18n.js')];
   if (mode === 'core') {
     // Mismas piezas que ya usa la PWA: sesión con llave del dispositivo y pasarela hacia el Núcleo.
     const session = fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'founder-session.js'), 'utf8').replace(/^export\s+/gm, '');

@@ -99,3 +99,20 @@ html,body{margin:0;background:#f5f7f9}
 .jat-theme-iba .jat-b.big,.jat-theme-iba .jat-b.on{background:#007aff;border-color:#007aff;color:#fff}
 .jat-theme-iba .jat-b .jat-i{color:#fff}
 .jat-theme-iba .jat-b{box-shadow:none}
+
+/* Sello oficial de InfinitySeed Group: sobre la barra oscura en escritorio; sobre placa oscura donde el fondo es claro. */
+.cc-sidebar .jw-brand{padding:2px 6px 26px}
+.jw-brand-img{display:block;width:100%;max-width:196px;height:auto}
+.cc-sidebar .jw-brand em{display:block;margin-top:10px;padding-left:4px}
+.cc-login-card .jw-brand{padding:0 0 22px}
+.cc-login-card .jw-brand-img{max-width:260px;box-sizing:border-box;background:#10151a;border-radius:16px;padding:12px 16px}
+.cc-login-card .jw-brand em{display:block;margin-top:10px}
+.jw-brand-bar{display:none}
+@media (max-width:900px){.cc-sidebar .jw-brand .jw-brand-img{display:none}.cc-sidebar .jw-brand{padding:4px 5px 24px}}
+@media (max-width:600px){.jw-brand-bar{display:block;margin:2px 0 14px;padding:12px 16px;background:#10151a;border-radius:16px}.jw-brand-bar img{display:block;width:min(180px,56vw);height:auto}}
+/* Vuelta a la dashboard del CEO desde su vista de equipo */
+.jt-back{display:inline-flex;align-items:center;min-height:36px;color:#9fb6d0;font-size:12px;font-weight:800;text-decoration:none}
+.cc-sidebar-foot .jt-back{margin-top:10px}
+.jt-back-top{padding:0 14px;border:1px solid #d9e2ec;border-radius:12px;background:#fff;color:#101318;min-height:40px}
+.jt-back:focus-visible{outline:2px solid #4da3ff;outline-offset:2px}
+@media (max-width:900px){.cc-sidebar-foot .jt-back{display:none}}
