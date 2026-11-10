@@ -25,6 +25,21 @@ function loadSkin(explicit) {
   return bytes.toString('utf8');
 }
 
+// Vista de equipo del CEO (página aparte, misma piel de IBA). 'team' habla con el Núcleo; 'team-example' es la vista previa.
+function buildTeam(options) {
+  const live = options && options.mode === 'team';
+  const skin = loadSkin(options && options.skin);
+  const parts = ['const TEAM_MODE=' + JSON.stringify(live ? 'core' : 'example') + ';'];
+  if (live) parts.push(fs.readFileSync(path.join(D, '..', '..', 'apps', 'pwa', 'founder-session.js'), 'utf8').replace(/^export\s+/gm, ''));
+  else parts.push(rd('work/work-team-example.js'));
+  parts.push(rd('work/work-team.js'));
+  let js = parts.join('\n').replace(/<\/script/gi, '<\\/script');
+  for (const [k, v] of Object.entries({ __WORK_NAME_A__: 'Colaborador A', __WORK_NAME_B__: 'Colaborador B', __WORK_NAME_C__: 'Colaborador C' })) js = js.split(k).join(v);
+  const css = skin + '\n' + rd('work/work-extra.css');
+  return '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="theme-color" content="#11151a">\n<meta name="robots" content="noindex">\n' +
+    '<meta name="janus-work-template" content="janus-work-team-v1 · skin ' + LOCK.skin + '@' + LOCK.source.commit + ' · ' + (live ? 'core' : 'example') + '">\n<title>JANUS Work · Equipo</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n<div id="app"></div>\n<script>\n(function(){\n' + js + '\n})();\n</script>\n</body>\n</html>\n';
+}
+
 function buildWork(options) {
   const mode = options && options.mode === 'core' ? 'core' : 'example';
   const skin = loadSkin(options && options.skin);
@@ -54,12 +69,14 @@ function buildWork(options) {
     '<title>JANUS Work</title>\n<style>\n' + css + '\n</style>\n</head>\n<body>\n<div id="app"></div>\n<script>\n(function(){\n' + js + '\n})();\n</script>\n</body>\n</html>\n';
 }
 
-module.exports = { buildWork, loadSkin, LOCK };
+module.exports = { buildWork, buildTeam, loadSkin, LOCK };
 if (require.main === module) {
-  const mode = arg('--mode') === 'core' ? 'core' : 'example';
-  const out = arg('--out') || path.join(D, 'dist', mode === 'core' ? 'Janus-Work-core.html' : 'Janus-Work-preview.html');
+  const raw = arg('--mode');
+  const mode = raw === 'core' || raw === 'team' || raw === 'team-example' ? raw : 'example';
+  const names = { core: 'Janus-Work-core.html', team: 'Janus-Work-team.html', 'team-example': 'Janus-Work-Equipo-preview.html', example: 'Janus-Work-preview.html' };
+  const out = arg('--out') || path.join(D, 'dist', names[mode]);
   try {
-    const html = buildWork({ mode, skin: arg('--skin'), publicSafe: process.env.JANUS_DASH_PUBLIC_SAFE === '1' });
+    const html = mode.startsWith('team') ? buildTeam({ mode, skin: arg('--skin') }) : buildWork({ mode, skin: arg('--skin'), publicSafe: process.env.JANUS_DASH_PUBLIC_SAFE === '1' });
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, html);
     console.log('ok', out, (html.length / 1024).toFixed(0) + ' KB', '· modo:', mode, '· piel:', LOCK.skin + '@' + LOCK.source.commit);

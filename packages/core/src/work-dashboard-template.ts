@@ -12,6 +12,7 @@ import type {
 } from './project-context.js';
 import type { WorkSessionSummary } from './work-session.js';
 import { agendaForOwner, type WorkAgendaItem } from './work-agenda.js';
+import type { WorkMessage } from './work-message.js';
 
 /**
  * Pure, reusable data contract for a collaborator dashboard. UI skins reuse
@@ -52,6 +53,10 @@ export interface WorkDashboardProject {
   /** Instrucciones permanentes del proyecto (las fija el Founder). */
   instructions?: string;
   canWrite: boolean;
+  /** El proyecto lo abrió esta persona. */
+  ownedByMe: boolean;
+  /** «Solo modelo propio»: su contenido no se envía a proveedores externos. */
+  localOnly: boolean;
   nextActions: string[];
   resumeFrom?: { subject: string; content: string; at: string };
   decisions: Array<{ subject: string; content: string; at: string }>;
@@ -106,6 +111,8 @@ export interface ReusableWorkDashboard {
     /** El tiempo es declarado por la persona; no prueba productividad por sí solo. */
     selfReported: true;
   };
+  /** Destinatarios internos admitidos y mensajes propios (los rechazados incluidos, con su motivo). */
+  messaging: { recipients: Array<{ id: string; label: string }>; sent: WorkMessage[] };
   /** Agenda propia (incluye lo privado: este contrato solo se entrega a su dueño). */
   agenda: WorkAgendaItem[];
   /** Consultas a JANUS hoy frente al límite diario fijado por el CEO (`limit` 0 = sin límite). */
@@ -134,6 +141,8 @@ export function buildReusableWorkDashboard(input: {
   skinSource?: ReusableWorkDashboard['skinSource'];
   usage?: { used: number; limit: number; remaining: number | null };
   agenda?: readonly WorkAgendaItem[];
+  recipients?: readonly { id: string; label: string }[];
+  messages?: readonly WorkMessage[];
   now?: string;
 }): ReusableWorkDashboard {
   if (!input.principal.active || input.principal.role !== 'operator') {
@@ -184,6 +193,8 @@ export function buildReusableWorkDashboard(input: {
       ...(description ? { description } : {}),
       ...(instructions ? { instructions } : {}),
       canWrite: detail.canWrite === true,
+      ownedByMe: detail.project.createdBy === input.principal.id,
+      localOnly: detail.project.modelPolicy === 'local_only',
       nextActions: checkpoint ? [...checkpoint.nextActions].slice(0, 12) : [],
       ...(checkpoint?.resumeFrom ? { resumeFrom: { ...checkpoint.resumeFrom } } : {}),
       decisions: checkpoint ? checkpoint.decisions.slice(-8).map((item) => ({ ...item })) : [],
@@ -240,6 +251,10 @@ export function buildReusableWorkDashboard(input: {
       recent: ownSessions.slice(-10).reverse(),
       todayActiveSeconds,
       selfReported: true,
+    },
+    messaging: {
+      recipients: (input.recipients ?? []).map((entry) => ({ ...entry })),
+      sent: (input.messages ?? []).filter((message) => message.fromPrincipalId === input.principal.id).slice(0, 20).map((message) => ({ ...message })),
     },
     agenda: agendaForOwner(input.agenda ?? [], input.principal.id, now.slice(0, 10)).slice(0, 80),
     usage: input.usage ? { ...input.usage } : { used: 0, limit: 0, remaining: null },

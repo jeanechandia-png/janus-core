@@ -138,3 +138,34 @@ test('build para el Núcleo: reutiliza la sesión de la PWA y la pasarela, sin d
   const js = fs.readFileSync(out, 'utf8').match(/<script>\n([\s\S]*)\n<\/script>/)[1];
   assert.doesNotThrow(() => new (require('vm').Script)(js));
 });
+
+test('«recuérdame…» en el chat se convierte en un elemento de agenda (ES · NL · EN), sin llamar a ningún modelo', () => {
+  const parse = new Function(rd('work-app.js').split('const JanusWork')[0] + '\nreturn parseWorkReminder;')();
+  const now = new Date(2026, 10, 10, 14, 0); // martes 10-nov-2026
+  assert.deepEqual(parse('Recuérdame mañana a las 17:30 llamar a Pedro', now), { date: '2026-11-11', text: 'Llamar a Pedro', time: '17:30' });
+  assert.deepEqual(parse('recuerdame el viernes enviar la propuesta', now), { date: '2026-11-13', text: 'Enviar la propuesta' });
+  assert.deepEqual(parse('recuérdame el miércoles a las 9 la demo', now), { date: '2026-11-11', text: 'La demo', time: '09:00' });
+  assert.deepEqual(parse('Recuérdame el martes revisar', now), { date: '2026-11-17', text: 'Revisar' }, 'el mismo día de la semana es la semana siguiente');
+  assert.deepEqual(parse('recuérdame comprar pan', now), { date: '2026-11-10', text: 'Comprar pan' });
+  assert.deepEqual(parse('Herinner me morgen om 9 uur aan de offerte', now), { date: '2026-11-11', text: 'De offerte', time: '09:00' });
+  assert.deepEqual(parse('remind me on 25/12 at 5pm to call mum', now), { date: '2026-12-25', text: 'Call mum', time: '17:00' });
+  assert.deepEqual(parse('recuérdame el 05/01 firmar', now), { date: '2027-01-05', text: 'Firmar' }, 'una fecha ya pasada este año es del año siguiente');
+  for (const other of ['hola qué tal', 'recuérdame', '¿qué me recuerdas del proyecto?', 'recuérdamelo', 'recuérdame el 31/02 algo imposible ya']) {
+    const result = parse(other, now);
+    if (other.includes('31/02')) assert.equal(result.date, '2026-11-10', 'fecha imposible: no se inventa otra'); else assert.equal(result, null, other);
+  }
+});
+
+test('vista de equipo del CEO: página aparte, sin nombres reales y sin tocar la dashboard personal', { skip: skinSkip }, () => {
+  const { buildTeam } = require(path.join(W, 'build-work.cjs'));
+  const preview = buildTeam({ mode: 'team-example' }), live = buildTeam({ mode: 'team' });
+  assert.match(preview, /const TEAM_MODE="example"/); assert.match(preview, /Colaborador A/); assert.doesNotMatch(preview, /__WORK_NAME_/);
+  assert.match(live, /const TEAM_MODE="core"/); assert.match(live, /async function signIn\(/); assert.doesNotMatch(live, /function teamExample/);
+  for (const html of [preview, live]) {
+    assert.doesNotMatch(html, /<script[^>]+src=|<link[^>]+href=|@import/i);
+    assert.doesNotThrow(() => new (require('vm').Script)(html.match(/<script>\n([\s\S]*)\n<\/script>/)[1]));
+  }
+  assert.doesNotMatch(rd('work-team.js') + rd('work-team-example.js'), /\b(Julio|Robin|Mariel|Kendra|3 Kings)\b/);
+  // No importa ni modifica nada de la dashboard personal aprobada.
+  assert.doesNotMatch(rd('work-team.js'), /src\/dash|JanusNexo|janus-gold|dashboard\/a|dashboard\/b/);
+});

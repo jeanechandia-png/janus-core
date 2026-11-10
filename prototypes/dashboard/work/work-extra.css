@@ -73,3 +73,8 @@ html,body{margin:0;background:#f5f7f9}
 /* velo: al pasar la app a segundo plano no queda contenido a la vista */
 .jw-veiled .cc-main,.jw-veiled .jw-viewer-body{filter:blur(22px)}
 @media print{body{display:none!important}}
+.jw-agenda-form textarea{width:100%;border:1px solid #d9e2ec;border-radius:11px;background:#fff;color:#101318;padding:8px 10px;font:inherit;font-size:12px;box-sizing:border-box;resize:vertical}
+.jw-msg-form label.wide,.jw-project-form label.wide{grid-column:1/-1}.jw-msg-form button,.jw-project-form button{grid-column:1/-1}
+.jt-agent{display:inline-flex;align-items:center;gap:8px;margin-top:8px}.jt-agent span{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8794}.jt-agent select{min-height:34px;border:1px solid #d9e2ec;border-radius:10px;background:#fff;color:#101318;padding:4px 8px;font:inherit;font-size:11px}
+.jt-toggle{display:inline-flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:#35648d;white-space:nowrap;cursor:pointer}.jt-toggle input{width:18px;height:18px;accent-color:#007aff}
+.jt-body{margin:8px 0 2px;font-size:12px;line-height:1.55;color:#27323c;white-space:pre-wrap}

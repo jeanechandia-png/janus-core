@@ -26,7 +26,7 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.t
     ...process.env, PORT: String(port), JANUS_DB: ':memory:', JANUS_TIME_ZONE: 'Europe/Amsterdam',
     GOOGLE_ACCESS_TOKEN: '', THREADS_ACCESS_TOKEN: '', JANUS_CREDENTIAL_VAULT_KEY: randomBytes(32).toString('base64'), JANUS_CREDENTIAL_VAULT_PATH: '',
     GOOGLE_OAUTH_CLIENT_ID: '', GOOGLE_OAUTH_CLIENT_SECRET: '', THREADS_APP_SECRET: '', GITHUB_TOKEN: '', NETLIFY_AUTH_TOKEN: '',
-    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2',
+    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2', JANUS_PUSH_VAPID_PRIVATE_KEY: randomBytes(32).toString('base64url'), JANUS_INTERNAL_RECIPIENTS: 'ceo:CEO,empresa:Empresa',
     JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'smoke-face-key',
   },
   stdio: ['ignore', 'pipe', 'pipe'],
@@ -166,6 +166,60 @@ try {
   assert.equal(dash.agenda.length, 3);
   ok('agenda: recordatorios privados, disponibilidad y proyecto visibles para el CEO');
 
+  // ── Mensajes internos: nada sale de la empresa ────────────────────────────────────────────────
+  const sentMsg = await call('POST', '/api/work/messages', dev, { recipient: 'ceo', subject: 'Necesito acceso', body: 'Para las pruebas E2E.', projectId: 'p-api' }, 201);
+  assert.equal(sentMsg.message.status, 'delivered');
+  const outside = await call('POST', '/api/work/messages', dev, { recipient: 'mi.correo@gmail.com', subject: 'Reenviarme la oferta', body: 'x' }, 422);
+  assert.equal(outside.code, 'recipient_outside_company'); assert.doesNotMatch(JSON.stringify(outside), /gmail/);
+  await call('POST', '/api/work/messages', dev, { recipient: 'ceo', subject: 'x', body: 'x', projectId: 'p-privado' }, 403);
+  await call('POST', '/api/work/messages', dev, { recipient: 'ceo', subject: '', body: 'x' }, 400);
+  await call('POST', '/api/work/messages', founder, { recipient: 'ceo', subject: 'x', body: 'x' }, 403);
+  assert.equal((await call('GET', '/api/work/messages', dev, undefined, 200)).messages.length, 2);
+  await call('PUT', `/api/work/messages/${sentMsg.message.id}/read`, dev, {}, 403);
+  assert.ok((await call('PUT', `/api/work/messages/${sentMsg.message.id}/read`, founder, {}, 200)).message.readAt);
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  assert.deepEqual(dash.messaging.recipients.map((r) => r.id), ['ceo', 'empresa']); assert.equal(dash.messaging.sent.length, 2);
+  ok('mensajes internos: entregados al CEO; destino externo rechazado sin molestar a nadie');
+
+  // ── Proyecto propio del colaborador y «solo modelo propio» ────────────────────────────────────
+  const ownProject = await call('POST', '/api/projects', dev, { name: 'Idea de mejora', description: 'Propuesta propia' }, 201);
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  assert.equal(dash.projects.find((p) => p.id === ownProject.project.id)?.ownedByMe, true);
+  assert.equal((await put(dev, ownProject.project.id, 'boceto.txt', 'idea')).status, 201, 'adjunta archivos a su propio proyecto');
+  await call('GET', `/api/projects/${ownProject.project.id}/context`, founder, undefined, 200); // el CEO lo ve desde el primer momento
+  await call('PUT', '/api/projects/p-api/model-policy', dev, { modelPolicy: 'local_only' }, 403);
+  await call('PUT', '/api/projects/p-api/model-policy', founder, { modelPolicy: 'otra' }, 400);
+  const policy = await call('PUT', '/api/projects/p-api/model-policy', founder, { modelPolicy: 'local_only' }, 200);
+  assert.equal(policy.project.modelPolicy, 'local_only'); assert.equal(policy.localModelConfigured, false);
+  dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
+  assert.equal(dash.projects.find((p) => p.id === 'p-api').localOnly, true);
+  ok('proyecto propio visible para el CEO; «solo modelo propio» lo fija solo el CEO');
+
+  // ── Avisos al teléfono ────────────────────────────────────────────────────────────────────────
+  const pushInfo = await call('GET', '/api/work/push', dev, undefined, 200);
+  assert.equal(pushInfo.enabled, true); assert.equal(Buffer.from(pushInfo.publicKey, 'base64url').length, 65);
+  const deviceKeys = { p256dh: Buffer.concat([Buffer.from([4]), randomBytes(64)]).toString('base64url'), auth: randomBytes(16).toString('base64url') };
+  await call('POST', '/api/work/push/subscription', dev, { endpoint: 'https://evil.example/push', keys: deviceKeys }, 400);
+  await call('POST', '/api/work/push/subscription', dev, { endpoint: 'http://127.0.0.1:1/push', keys: deviceKeys }, 400);
+  await call('POST', '/api/work/push/subscription', dev, { endpoint: 'https://web.push.apple.com/dispositivo-1', keys: deviceKeys }, 201);
+  assert.equal((await call('GET', '/api/work/push', dev, undefined, 200)).devices, 1);
+  await call('GET', '/api/work/push', founder, undefined, 403);
+  await call('DELETE', '/api/work/push/subscription', dev, { endpoint: 'https://web.push.apple.com/dispositivo-1' }, 200);
+  assert.equal((await call('GET', '/api/work/push', dev, undefined, 200)).devices, 0);
+  const sw = await fetch(`${base}/work-sw.js`);
+  assert.equal(sw.status, 200); assert.match(sw.headers.get('content-type') || '', /javascript/); assert.match(await sw.text(), /addEventListener\('push'/);
+  ok('avisos: suscripción solo a servicios conocidos, alta y baja del propio dispositivo');
+
+  // ── Vista de equipo del CEO ───────────────────────────────────────────────────────────────────
+  await call('GET', '/api/work/team', dev, undefined, 403); await call('GET', '/api/work/team', null, undefined, 401);
+  const team = await call('GET', '/api/work/team', founder, undefined, 200);
+  assert.ok(team.members.some((m) => m.principalId === 'colab-dev' && m.roleTitle === 'Desarrollo de API'));
+  assert.ok(team.assignments.some((a) => a.assignment.id === 'as-dev-1'));
+  assert.equal(team.messages.length, 2); assert.ok(team.fileAccess.length >= 1); assert.ok(team.projects.some((p) => p.id === ownProject.project.id && p.createdBy === 'colab-dev'));
+  assert.ok(team.agenda.length >= 2); assert.ok(team.agenda.every((item) => item.visibility === 'work'));
+  assert.doesNotMatch(JSON.stringify(team), /Recoger el coche/, 'la agenda privada nunca llega a la vista de equipo');
+  ok('vista de equipo: solo CEO y solo asuntos de empresa');
+
   // ── Avance/entrega (handoff) y chat por proyecto ──────────────────────────────────────────────
   await call('POST', '/api/coordination/assignments/as-dev-1/handoffs', dev, { executiveSummary: 'Listado listo', completed: ['Filtro'], pending: ['Paginación'], evidenceRefs: ['commit abc'] }, 201);
   dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
@@ -210,6 +264,8 @@ try {
     assert.doesNotMatch(html, /Persona Dev|Proyecto API|SECRETO-FOUNDER/, 'la página no lleva datos de nadie: llegan tras iniciar sesión');
     const manifest = await (await fetch(`${base}/work.webmanifest`)).json();
     assert.equal(manifest.start_url, '/work'); assert.equal(manifest.display, 'standalone');
+    const teamPage = await fetch(`${base}/work/team`);
+    assert.equal(teamPage.status, 200); assert.match(await teamPage.text(), /janus-work-team-v1/);
     ok('/work servida con la piel de IBA y manifest PWA propio');
     const playwright = loadPlaywright();
     if (playwright) { await browserFlow(playwright, founder); browserPhase = 'superada'; }

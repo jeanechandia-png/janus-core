@@ -43,6 +43,15 @@ export class FallbackModelRouter implements ModelGateway {
     return new FallbackModelRouter([preferred, ...this.providers.filter((provider) => provider !== preferred)]);
   }
 
+  /**
+   * «Solo modelo propio»: enrutador limitado a los proveedores indicados (p. ej. ['custom'] = local).
+   * Devuelve null si ninguno está configurado: el llamador debe seguir SIN modelo, nunca con uno externo.
+   */
+  only(allowedIds: readonly string[]): FallbackModelRouter | null {
+    const kept = this.providers.filter((provider) => allowedIds.includes(provider.id));
+    return kept.length ? new FallbackModelRouter(kept) : null;
+  }
+
   lastAttempts(): RouteAttempt[] {
     return this.attempts.map((attempt) => ({ ...attempt }));
   }

@@ -6,6 +6,33 @@
  * Globales que aporta el build: WORK_MODE ('core' | 'example'), WORK_I18N, workExample, JanusGateway (modo core)
  *        y las funciones de sesión de apps/pwa/founder-session.js (loadDeviceKey, createDeviceKey, signIn…).
  */
+/* «Recuérdame…» escrito en el chat → elemento de agenda. Puro y determinista (ES · NL · EN); no llama a ningún modelo.
+ * Devuelve { date:'AAAA-MM-DD', time?:'HH:MM', text } o null si el mensaje no es un recordatorio. */
+function parseWorkReminder(input, now) {
+  const m = /^\s*(?:recu[eé]rdame|recordarme|herinner me(?: eraan)?|remind me)(?![a-záéíóúñ])[\s:,]*(.*)$/i.exec(String(input || ''));
+  if (!m) return null;
+  let rest = m[1].trim(); if (!rest) return null;
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate()), key = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const add = (n) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + n);
+  let date = null, time = null;
+  const take = (re, fn) => { const x = re.exec(rest); if (!x) return false; if (fn(x) === false) return false; rest = (rest.slice(0, x.index) + ' ' + rest.slice(x.index + x[0].length)).replace(/\s+/g, ' ').trim(); return true; };
+  const B = '(?<![a-záéíóúñ0-9])', E = '(?![a-záéíóúñ0-9])'; // límites de palabra que entienden tildes y ñ
+  // hora: «a las 17:30», «om 9 uur», «at 5pm», o un HH:MM suelto
+  take(new RegExp(B + '(?:a las?|om|at)\\s+(\\d{1,2})(?:[:.h](\\d{2}))?\\s*(am|pm|uur)?' + E, 'i'), (x) => { let h = +x[1]; const mm = x[2] ? +x[2] : 0, ap = (x[3] || '').toLowerCase(); if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; if (h > 23 || mm > 59) return false; time = String(h).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); })
+    || take(new RegExp(B + '(\\d{1,2}):(\\d{2})' + E), (x) => { if (+x[1] > 23 || +x[2] > 59) return false; time = x[1].padStart(2, '0') + ':' + x[2]; });
+  // día
+  take(new RegExp(B + '(?:pasado ma[ñn]ana|overmorgen|the day after tomorrow)' + E, 'i'), () => { date = add(2); })
+    || take(new RegExp(B + '(?:ma[ñn]ana|morgen|tomorrow)' + E, 'i'), () => { date = add(1); })
+    || take(new RegExp(B + '(?:hoy|vandaag|today)' + E, 'i'), () => { date = add(0); })
+    || take(new RegExp(B + '(?:el |op |on )?(\\d{1,2})[\\/-](\\d{1,2})(?:[\\/-](\\d{4}))?' + E, 'i'), (x) => { const d = new Date(x[3] ? +x[3] : base.getFullYear(), +x[2] - 1, +x[1]); if (d.getMonth() !== +x[2] - 1 || d.getDate() !== +x[1]) return false; if (!x[3] && d < base) d.setFullYear(d.getFullYear() + 1); date = d; })
+    || take(new RegExp(B + '(?:el pr[oó]ximo |el |op |on |next |volgende )?(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|zondag|maandag|dinsdag|woensdag|donderdag|vrijdag|zaterdag|sunday|monday|tuesday|wednesday|thursday|friday|saturday)' + E, 'i'), (x) => {
+      const names = ['domingo|zondag|sunday', 'lunes|maandag|monday', 'martes|dinsdag|tuesday', 'mi[eé]rcoles|woensdag|wednesday', 'jueves|donderdag|thursday', 'viernes|vrijdag|friday', 's[aá]bado|zaterdag|saturday'];
+      const wd = names.findIndex((n) => new RegExp('^(?:' + n + ')$', 'i').test(x[1])); let delta = (wd - base.getDay() + 7) % 7; if (delta === 0) delta = 7; date = add(delta); });
+  rest = rest.replace(/^(?:que|de|om|aan|to|that|about)\s+/i, '').replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, '');
+  if (!rest) return null;
+  return Object.assign({ date: key(date || base), text: rest.charAt(0).toUpperCase() + rest.slice(1) }, time ? { time } : {});
+}
+
 const JanusWork = (() => {
   const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   const LANGS = ['es', 'nl', 'en'];
@@ -14,7 +41,7 @@ const JanusWork = (() => {
     lang: 'es', data: null, projectId: '', loading: false, notice: '', noticeTone: '',
     form: null, formBusy: false, chat: {}, chatBusy: false, threads: {}, draft: '',
     login: { id: '', busy: false, error: '', pem: '', copied: false, hasKey: null },
-    persona: 'colab-a', examples: null, uploadBusy: false, flash: '',
+    persona: 'colab-a', examples: null, uploadBusy: false, flash: '', newProject: false, alerted: {}, pushOn: false,
   };
   let $root = null, timer = null, loadedAt = 0;
 
@@ -71,6 +98,7 @@ const JanusWork = (() => {
       } else {
         const body = await api('/api/dashboard/work');
         adopt(body.dashboard); S.lang = LANGS.includes(body.dashboard.locale) ? body.dashboard.locale : 'es';
+        if (pushSupported() && Notification.permission === 'granted') navigator.serviceWorker.getRegistration('/work').then((r) => (r ? r.pushManager.getSubscription() : null)).then((sub) => { if (sub && !S.pushOn) { S.pushOn = true; render(); } }).catch(() => {});
       }
     } catch (error) {
       if (error.status === 401) { S.data = null; if (typeof signOut === 'function') await signOut(); }
@@ -152,6 +180,15 @@ const JanusWork = (() => {
     if (!p || !p.canWrite || !text || S.chatBusy) return;
     const log = S.chat[p.id] || (S.chat[p.id] = []);
     log.push({ role: 'user', text, at: new Date().toISOString() });
+    const reminder = parseWorkReminder(text, new Date());
+    if (reminder) {
+      // No es una consulta al modelo: JANUS lo anota en la agenda (personal por defecto) y lo confirma.
+      S.draft = ''; let saved = true;
+      try { await agendaCreate(Object.assign({ kind: 'reminder', visibility: 'private' }, reminder)); } catch (error) { saved = false; log.push({ role: 'janus', text: t('chatError', { error: String(error.message || error) }), at: new Date().toISOString(), failed: true }); }
+      if (saved) log.push({ role: 'janus', text: t('chatReminderSaved', { when: fmtDayKey(reminder.date) + (reminder.time ? ' · ' + reminder.time : ''), text: reminder.text }), at: new Date().toISOString(), meta: t('chatReminderMeta') });
+      if (S.mode === 'core' && saved) await load(true); else render();
+      return;
+    }
     S.draft = ''; S.chatBusy = true; render();
     const reply = { role: 'janus', text: '', meta: '', at: '' };
     try {
@@ -225,6 +262,48 @@ const JanusWork = (() => {
   /* ── agenda personal ── */
   const todayKey = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const fmtDayKey = (key) => { const d = new Date(key + 'T12:00:00'); return isNaN(d) ? key : new Intl.DateTimeFormat(localeTag(), { weekday: 'short', day: 'numeric', month: 'short' }).format(d); };
+  async function agendaCreate(body) {
+    if (S.mode === 'example') {
+      const now = new Date().toISOString();
+      S.data.agenda.push(Object.assign({ id: 'ag-' + Date.now(), principalId: S.data.principalId, done: false, createdAt: now, updatedAt: now }, body, body.kind === 'availability' ? { visibility: 'work' } : {}));
+      return;
+    }
+    let timeZone = ''; try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) { /* sin zona */ }
+    await api('/api/work/agenda', { method: 'POST', body: JSON.stringify(Object.assign({}, body, timeZone ? { timeZone } : {})) });
+  }
+  // Avisos: al llegar la hora de un recordatorio de hoy se muestra en el panel y, si la persona lo permitió, como notificación.
+  function checkDueReminders() {
+    if (!S.data) return;
+    const now = new Date(), today = todayKey(), hm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+    const due = (S.data.agenda || []).filter((x) => x.kind === 'reminder' && !x.done && x.date === today && x.time && x.time <= hm && !S.alerted[x.id]);
+    if (!due.length) return;
+    for (const x of due) {
+      S.alerted[x.id] = true;
+      try { if (typeof Notification === 'function' && Notification.permission === 'granted') new Notification('JANUS Work', { body: x.time + ' · ' + x.text, tag: x.id }); } catch (_) { /* sin notificaciones del sistema */ }
+    }
+    S.notice = t('agendaDue', { text: due.map((x) => x.time + ' ' + x.text).join(' · ') }); S.noticeTone = '';
+    if (!document.querySelector('#jw-form') && !(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) render();
+  }
+  // Avisos al teléfono (Web Push): permiso del sistema → service worker → suscripción guardada en JANUS.
+  const pushSupported = () => typeof navigator !== 'undefined' && 'serviceWorker' in navigator && typeof window.PushManager === 'function' && typeof Notification === 'function';
+  const canAskNotify = () => typeof Notification === 'function' && !S.pushOn && Notification.permission !== 'denied';
+  async function enablePush() {
+    try {
+      if (S.mode !== 'core') { S.notice = t('pushPreview'); S.noticeTone = ''; render(); return; }
+      if (!pushSupported()) throw new Error(t('pushUnsupported'));
+      const info = await api('/api/work/push');
+      if (!info.enabled) throw new Error(t('pushPending'));
+      if ((await Notification.requestPermission()) !== 'granted') throw new Error(t('pushDenied'));
+      const registration = await navigator.serviceWorker.register('/work-sw.js', { scope: '/work' });
+      await navigator.serviceWorker.ready;
+      const pad = '='.repeat((4 - (info.publicKey.length % 4)) % 4), raw = atob((info.publicKey + pad).replace(/-/g, '+').replace(/_/g, '/'));
+      const key = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i += 1) key[i] = raw.charCodeAt(i);
+      const subscription = (await registration.pushManager.getSubscription()) || (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }));
+      await api('/api/work/push/subscription', { method: 'POST', body: JSON.stringify(subscription.toJSON()) });
+      S.pushOn = true; S.notice = t('pushOn'); S.noticeTone = '';
+    } catch (error) { S.notice = String(error.message || error); S.noticeTone = 'warn'; }
+    render();
+  }
   async function agendaAdd(form) {
     const data = new FormData(form), kind = data.get('kind') === 'availability' ? 'availability' : 'reminder';
     const body = { kind, visibility: data.get('visibility') === 'work' ? 'work' : 'private', date: String(data.get('date') || ''), text: String(data.get('text') || '').trim() };
@@ -232,12 +311,8 @@ const JanusWork = (() => {
     if (data.get('endTime')) body.endTime = String(data.get('endTime'));
     if (!body.date || (kind === 'reminder' && !body.text)) { S.notice = t('agendaNeed'); S.noticeTone = 'warn'; render(); return; }
     try {
-      if (S.mode === 'example') {
-        const now = new Date().toISOString();
-        S.data.agenda.push(Object.assign({ id: 'ag-' + Date.now(), principalId: S.data.principalId, done: false, createdAt: now, updatedAt: now }, body, kind === 'availability' ? { visibility: 'work' } : {}));
-        S.notice = ''; render(); return;
-      }
-      await api('/api/work/agenda', { method: 'POST', body: JSON.stringify(body) });
+      await agendaCreate(body);
+      if (S.mode === 'example') { S.notice = ''; render(); return; }
       await load();
     } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; render(); }
   }
@@ -271,6 +346,7 @@ const JanusWork = (() => {
       '<label class="wide"><span>' + esc(t('agendaText')) + '</span><input type="text" name="text" maxlength="500" autocomplete="off" placeholder="' + esc(t('agendaPlaceholder')) + '"></label>' +
       '<button type="submit">＋ ' + esc(t('agendaAdd')) + '</button></form>' +
       '<div class="cc-list compact">' + (items.length ? items.map(row).join('') : '<p class="empty">' + esc(t('agendaEmpty')) + '</p>') + '</div>' +
+      (canAskNotify() ? '<div class="cc-row-actions jw-actions"><button type="button" data-act="notify">◔ ' + esc(t('agendaNotify')) + '</button></div><div class="cc-inline-notice">' + esc(t('pushHint')) + '</div>' : (S.pushOn ? '<div class="cc-inline-notice">● ' + esc(t('pushOn')) + '</div>' : '')) +
       '<div class="cc-admin-strip">' + esc(t('agendaTruth')) + '</div></section>';
   }
 
@@ -334,7 +410,7 @@ const JanusWork = (() => {
       ? log.map((m) => '<div class="cc-assistant-answer jw-msg jw-' + m.role + '"><small>' + esc(m.role === 'user' ? t('chatYou') : t('chatJanus')) + ' · ' + esc(fmtDate(m.at)) + '</small><p>' + esc(m.text) + '</p>' + (m.meta ? '<small class="cc-assistant-limit">' + esc(m.meta) + '</small>' : '') + '</div>').join('')
       : '';
     return '<section class="cc-panel cc-assistant-panel" id="assistant">' +
-      panelHead(t('chatKicker', { project: p ? p.name : '—' }), t('chatTitle'), '<div class="cc-assistant-head-actions">' + usageBadge() + '<span class="cc-readonly-badge">' + esc(t('chatBadge')) + '</span><button type="button" class="cc-new-chat" data-act="chat-new">' + esc(t('chatNew')) + '</button></div>') +
+      panelHead(t('chatKicker', { project: p ? p.name : '—' }), t('chatTitle'), '<div class="cc-assistant-head-actions">' + usageBadge() + (p && p.localOnly ? '<span class="cc-readonly-badge">' + esc(t('projLocalOnly')) + '</span>' : '') + '<span class="cc-readonly-badge">' + esc(t('chatBadge')) + '</span><button type="button" class="cc-new-chat" data-act="chat-new">' + esc(t('chatNew')) + '</button></div>') +
       (canChat
         ? '<form class="cc-assistant-form" data-form="chat"><input id="jw-chat-input" name="text" maxlength="4000" autocomplete="off" placeholder="' + esc(t('chatPlaceholder')) + '" value="' + esc(S.draft) + '" aria-label="' + esc(t('chatTitle')) + '"' + (S.chatBusy ? ' disabled' : '') + '><button type="submit"' + (S.chatBusy ? ' disabled' : '') + '>' + esc(S.chatBusy ? t('chatSending') : t('chatSend')) + '</button></form>' +
           '<div class="cc-assistant-prompts">' + ['prompt1', 'prompt2', 'prompt3'].map((k) => '<button type="button" data-act="prompt" data-v="' + k + '">' + esc(t(k)) + '</button>').join('') + '</div>'
@@ -372,11 +448,54 @@ const JanusWork = (() => {
       }).join('') : '<p class="empty">' + esc(t('tasksEmpty')) + '</p>') + '</div></section>';
   }
 
+  const newProjectBlock = () => (S.newProject
+    ? '<form class="jw-agenda-form jw-project-form" data-form="project"><label class="wide"><span>' + esc(t('projNewName')) + '</span><input type="text" name="name" maxlength="80" required autocomplete="off"></label><label class="wide"><span>' + esc(t('projNewDesc')) + '</span><input type="text" name="description" maxlength="300" autocomplete="off"></label><button type="submit">' + esc(t('projNewCreate')) + '</button></form><div class="cc-inline-notice">' + esc(t('projNewTruth')) + '</div>'
+    : '<div class="cc-row-actions jw-actions"><button type="button" data-act="project-new">＋ ' + esc(t('projNew')) + '</button></div>');
+  async function projectCreate(form) {
+    const data = new FormData(form), name = String(data.get('name') || '').trim(), description = String(data.get('description') || '').trim();
+    if (!name) return;
+    try {
+      if (S.mode === 'example') {
+        const id = 'p-' + Date.now();
+        S.data.projects.push({ id, name, status: 'active', description, canWrite: true, ownedByMe: true, localOnly: false, nextActions: [], decisions: [], unresolvedErrors: [], threads: [], resources: [] });
+        S.projectId = id; S.newProject = false; render(); return;
+      }
+      const body = await api('/api/projects', { method: 'POST', body: JSON.stringify(description ? { name, description } : { name }) });
+      S.projectId = body.project.id; S.newProject = false; await load();
+    } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; render(); }
+  }
+
+  /* ── mensajes internos ── */
+  async function messageSend(form) {
+    const data = new FormData(form), body = { recipient: String(data.get('recipient') || ''), subject: String(data.get('subject') || '').trim(), body: String(data.get('body') || '').trim() };
+    if (!body.subject || !body.body) { S.notice = t('msgNeed'); S.noticeTone = 'warn'; render(); return; }
+    if (S.projectId) body.projectId = S.projectId;
+    try {
+      if (S.mode === 'example') {
+        S.data.messaging.sent.unshift({ id: 'm-' + Date.now(), fromPrincipalId: S.data.principalId, recipientId: body.recipient, subject: body.subject, body: body.body, status: 'delivered', decision: 'internal_recipient', createdAt: new Date().toISOString() });
+        S.notice = t('msgSent'); S.noticeTone = ''; render(); return;
+      }
+      await api('/api/work/messages', { method: 'POST', body: JSON.stringify(body) });
+      S.notice = t('msgSent'); S.noticeTone = ''; await load(true);
+    } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; if (S.mode === 'core') await load(true); else render(); }
+  }
+  function viewMessages() {
+    const M = S.data.messaging || { recipients: [], sent: [] }, label = (id) => { const r = M.recipients.find((x) => x.id === id); return r ? r.label : t('msgExternal'); };
+    return '<section class="cc-panel" id="messages">' + panelHead(t('msgKicker'), t('msgTitle'), '<b>' + M.sent.length + '</b>') +
+      '<form class="jw-agenda-form jw-msg-form" data-form="message">' +
+      '<label class="wide"><span>' + esc(t('msgTo')) + '</span><select name="recipient">' + M.recipients.map((r) => '<option value="' + esc(r.id) + '">' + esc(r.label) + '</option>').join('') + '</select></label>' +
+      '<label class="wide"><span>' + esc(t('msgSubject')) + '</span><input type="text" name="subject" maxlength="160" autocomplete="off"></label>' +
+      '<label class="wide"><span>' + esc(t('msgBody')) + '</span><textarea name="body" rows="3" maxlength="4000"></textarea></label>' +
+      '<button type="submit">' + esc(t('msgSend')) + '</button></form>' +
+      '<div class="cc-list compact">' + (M.sent.length ? M.sent.slice(0, 5).map((x) => '<article><div class="grow"><strong>' + esc(x.subject) + '</strong><small>' + esc(label(x.recipientId)) + ' · ' + esc(fmtDate(x.createdAt)) + '</small></div><span class="status status-' + (x.status === 'rejected' ? 'blocked' : x.readAt ? 'completed' : 'submitted') + '">' + esc(x.status === 'rejected' ? t('msgRejected') : x.readAt ? t('msgRead') : t('msgDelivered')) + '</span></article>').join('') : '<p class="empty">' + esc(t('msgEmpty')) + '</p>') + '</div>' +
+      '<div class="cc-admin-strip">' + esc(t('msgTruth')) + '</div></section>';
+  }
+
   function viewProject(p) {
     if (!p) return '<section class="cc-panel" id="project">' + panelHead(t('projectKicker'), '—') + '<p class="empty">' + esc(t('projectEmpty')) + '</p></section>';
     const row = (title, body) => '<div><span class="priority priority-normal"></span><p class="grow"><strong>' + esc(title) + '</strong><small class="jw-wrap">' + body + '</small></p></div>';
     const list = (items, map) => (items.length ? items.map(map).join('<br>') : esc(t('projNone')));
-    return '<section class="cc-panel" id="project">' + panelHead(t('projectKicker'), p.name, '<div class="cc-inline-metrics"><span>' + esc(t('projDocs', { n: p.resources.length })) + '</span><span>' + esc(t('projThreads', { n: p.threads.length })) + '</span>' + (p.canWrite ? '' : '<span>' + esc(t('projReadOnly')) + '</span>') + '</div>') +
+    return '<section class="cc-panel" id="project">' + panelHead(t('projectKicker'), p.name, '<div class="cc-inline-metrics"><span>' + esc(t('projDocs', { n: p.resources.length })) + '</span><span>' + esc(t('projThreads', { n: p.threads.length })) + '</span>' + (p.canWrite ? '' : '<span>' + esc(t('projReadOnly')) + '</span>') + (p.localOnly ? '<span>' + esc(t('projLocalOnly')) + '</span>' : '') + (p.ownedByMe ? '<span>' + esc(t('projMine')) + '</span>' : '') + '</div>') +
       '<div class="cc-mini-list">' +
       (p.description ? row(t('projDescription'), esc(p.description)) : '') +
       row(t('projResume'), p.resumeFrom ? '<b>' + esc(p.resumeFrom.subject) + '</b> — ' + esc(p.resumeFrom.content) + ' · ' + esc(fmtDate(p.resumeFrom.at)) : esc(t('projNone'))) +
@@ -384,6 +503,7 @@ const JanusWork = (() => {
       row(t('projDecisions'), list(p.decisions, (x) => '• <b>' + esc(x.subject) + ':</b> ' + esc(x.content))) +
       row(t('projErrors'), list(p.unresolvedErrors, (x) => '• <b>' + esc(x.subject) + ':</b> ' + esc(x.content))) +
       '</div>' +
+      newProjectBlock() +
       (p.instructions ? '<div class="cc-admin-strip"><strong>' + esc(t('projInstructions')) + ':</strong> ' + esc(p.instructions) + ' <span class="cc-readonly-badge">' + esc(t('projInstructionsBy')) + '</span></div>' : '') +
       '</section>';
   }
@@ -447,7 +567,7 @@ const JanusWork = (() => {
     const queued = d.assignments.filter((x) => x.assignment.status === 'queued' || x.assignment.status === 'handoff_required').length;
     const urgent = tasks.filter((x) => x.assignment.priority === 'high' || x.assignment.priority === 'critical').length;
     const attentionTotal = blocked + urgent;
-    const nav = [['today', '⌂', 'navToday'], ['agenda', '▤', 'navAgenda'], ['tasks', '✓', 'navTasks'], ['project', '◫', 'navProjects'], ['assistant', '◌', 'navChat'], ['session', '◎', 'navSession'], ['documents', '◇', 'navDocs'], ['deliveries', '↗', 'navDeliveries'], ['instructions', '◆', 'navInstructions'], ['permissions', '⌁', 'navPermissions']];
+    const nav = [['today', '⌂', 'navToday'], ['agenda', '▤', 'navAgenda'], ['tasks', '✓', 'navTasks'], ['project', '◫', 'navProjects'], ['assistant', '◌', 'navChat'], ['session', '◎', 'navSession'], ['documents', '◇', 'navDocs'], ['deliveries', '↗', 'navDeliveries'], ['messages', '✉', 'navMessages'], ['instructions', '◆', 'navInstructions'], ['permissions', '⌁', 'navPermissions']];
     const card = (label, value, tone) => '<article class="cc-attention ' + tone + '"><small>' + esc(label) + '</small><strong>' + value + '</strong><span>' + (value ? esc(t('attention')) : esc(t('ok'))) + '</span></article>';
     const info = (label, value) => '<article class="cc-attention"><small>' + esc(label) + '</small><strong>' + value + '</strong><span>&nbsp;</span></article>';
     return '<main class="cc-shell">' +
@@ -469,7 +589,7 @@ const JanusWork = (() => {
       '<div class="cc-two-col">' + viewAgenda() + viewSession() + '</div>' +
       '<div class="cc-two-col">' + viewTasks() + viewProject(p) + '</div>' +
       '<div class="cc-two-col">' + viewDocs(p) + viewDeliveries() + '</div>' +
-      '<div class="cc-two-col">' + viewInstructions() + viewPermissions() + '</div>' +
+      '<div class="cc-three-col">' + viewInstructions() + viewMessages() + viewPermissions() + '</div>' +
       (S.mode === 'core' ? '<div class="cc-prepare-generic jw-foot"><span>' + esc(d.profile.displayName) + ' · ' + esc(d.profile.roleTitle || t('roleOperator')) + '</span><button type="button" data-act="signout">' + esc(t('signOut')) + '</button></div>' : '') +
       '</section></main>';
   }
@@ -511,6 +631,8 @@ const JanusWork = (() => {
       else if (act === 'pick-cam') { const input = document.getElementById('jw-cam'); if (input) input.click(); }
       else if (act === 'view') void viewFile(v, el.dataset.name, el.dataset.mime);
       else if (act === 'agenda-done') void agendaChange(v, 'done');
+      else if (act === 'project-new') { S.newProject = true; render(); const input = document.querySelector('.jw-project-form input[name=name]'); if (input) input.focus(); }
+      else if (act === 'notify') void enablePush();
       else if (act === 'agenda-del') void agendaChange(v, 'delete');
       else if (act === 'scan') void scanCode();
       else if (act === 'link') void linkDevice();
@@ -533,6 +655,8 @@ const JanusWork = (() => {
       else if (form.dataset.form === 'progress') { syncForm(form); void submitForm(); }
       else if (form.dataset.form === 'login') void doLogin();
       else if (form.dataset.form === 'agenda') void agendaAdd(form);
+      else if (form.dataset.form === 'project') void projectCreate(form);
+      else if (form.dataset.form === 'message') void messageSend(form);
     });
   }
 
@@ -548,6 +672,7 @@ const JanusWork = (() => {
     timer = setInterval(() => {
       const s = liveSession(), el = document.getElementById('jw-active');
       if (s && el) el.textContent = fmtDur(s.activeSeconds);
+      checkDueReminders();
     }, 30000);
   }
   return { start, state: S, t };

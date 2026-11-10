@@ -27,6 +27,7 @@ import type {
 import type { ReusableLibraryItem } from './reusable-library.js';
 import type { WorkSessionEvent } from './work-session.js';
 import type { WorkAgendaItem } from './work-agenda.js';
+import type { WorkMessage } from './work-message.js';
 import type {
   ProjectContextCheckpoint,
   ProjectResourceRef,
@@ -773,6 +774,52 @@ export class SqliteStore {
     return rows.map((row) => (
       JSON.parse(String(row.assignment_json)) as CoordinationAssignment
     ));
+  }
+
+  /** Suscripciones de avisos (Web Push) por dispositivo. Las claves son públicas del dispositivo, no secretos de JANUS. */
+  upsertPushSubscription(input: { endpoint: string; principalId: string; p256dh: string; auth: string; createdAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO work_push_subscriptions (endpoint, principal_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET principal_id = excluded.principal_id, p256dh = excluded.p256dh, auth = excluded.auth
+    `).run(input.endpoint, input.principalId, input.p256dh, input.auth, input.createdAt);
+  }
+
+  deletePushSubscription(endpoint: string, principalId?: string): void {
+    if (principalId) this.db.prepare('DELETE FROM work_push_subscriptions WHERE endpoint = ? AND principal_id = ?').run(endpoint, principalId);
+    else this.db.prepare('DELETE FROM work_push_subscriptions WHERE endpoint = ?').run(endpoint);
+  }
+
+  listPushSubscriptions(principalId: string): Array<{ endpoint: string; p256dh: string; auth: string }> {
+    const rows = this.db.prepare('SELECT endpoint, p256dh, auth FROM work_push_subscriptions WHERE principal_id = ?').all(principalId) as Record<string, unknown>[];
+    return rows.map((row) => ({ endpoint: String(row.endpoint), p256dh: String(row.p256dh), auth: String(row.auth) }));
+  }
+
+  /** Marca un recordatorio como avisado. Devuelve false si ya lo estaba (evita avisos repetidos). */
+  markReminderPushed(itemId: string, at: string): boolean {
+    const result = this.db.prepare('INSERT OR IGNORE INTO work_push_sent (item_id, at) VALUES (?, ?)').run(itemId, at);
+    return Number(result.changes) > 0;
+  }
+
+  /** Mensajes internos del equipo (bandeja del CEO). Los rechazados también se guardan como rastro. */
+  upsertWorkMessage(message: WorkMessage): void {
+    this.db.prepare(`
+      INSERT INTO work_messages (id, from_principal_id, created_at, message_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET message_json = excluded.message_json
+      WHERE work_messages.from_principal_id = excluded.from_principal_id
+    `).run(message.id, message.fromPrincipalId, message.createdAt, JSON.stringify(message));
+  }
+
+  getWorkMessage(id: string): WorkMessage | null {
+    const row = this.db.prepare('SELECT message_json FROM work_messages WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.message_json)) as WorkMessage : null;
+  }
+
+  listWorkMessages(fromPrincipalId?: string, limit = 200): WorkMessage[] {
+    const capped = Math.max(1, Math.min(1000, Math.floor(limit)));
+    const rows = (fromPrincipalId
+      ? this.db.prepare('SELECT message_json FROM work_messages WHERE from_principal_id = ? ORDER BY created_at DESC, id DESC LIMIT ?').all(fromPrincipalId, capped)
+      : this.db.prepare('SELECT message_json FROM work_messages ORDER BY created_at DESC, id DESC LIMIT ?').all(capped)) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.message_json)) as WorkMessage);
   }
 
   /** Agenda del colaborador. La privacidad (private/work) se aplica en el runtime al leer. */
@@ -2123,6 +2170,28 @@ export class SqliteStore {
         updated_at TEXT NOT NULL,
         profile_json TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS work_push_subscriptions (
+        endpoint TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS work_push_sent (
+        item_id TEXT PRIMARY KEY,
+        at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS work_messages (
+        id TEXT PRIMARY KEY,
+        from_principal_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        message_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_messages_from ON work_messages(from_principal_id, created_at);
 
       CREATE TABLE IF NOT EXISTS work_agenda_items (
         id TEXT PRIMARY KEY,

@@ -98,6 +98,46 @@ no puede enviar ningún correo) · los datos privados de la agenda se guardan si
 exigiría una app nativa, y en iPhone ni siquiera así se bloquea del todo · el contenido del chat sigue viajando al
 proveedor del modelo elegido (falta la opción «solo modelo propio» por proyecto).
 
+## Actualización 10-nov-2026 (14:45) — cierre de pendientes
+
+Orden del CEO: avanzar hasta que solo queden (1) la clonación de voces y (2) las criaturas y el robot 3D, que él
+aportará desde otra plataforma. Decisión adicional: dentro de un proyecto de empresa NADA es privado (se descartó
+un espacio «privado» dentro de los proyectos); lo único privado es la agenda personal.
+
+17. **Mensajes internos** (`work-message.ts`, tabla `work_messages`): el colaborador escribe a un destinatario
+    INTERNO (`JANUS_INTERNAL_RECIPIENTS`, por defecto solo el CEO). JANUS decide con reglas fijas: destino externo →
+    rechazado automáticamente (422), queda rastro sin guardar la dirección y sin avisar al CEO. `GET/POST
+    /api/work/messages`, `PUT /api/work/messages/:id/read` (CEO). No es correo: nada sale del ecosistema.
+18. **Agenda privada cifrada en reposo** (AES-256-GCM, clave derivada por HKDF de `JANUS_CREDENTIAL_VAULT_KEY`).
+    Sin esa clave se guarda en claro.
+19. **«Solo modelo propio» por proyecto** (`modelPolicy:'local_only'`, `PUT /api/projects/:id/model-policy`, solo CEO):
+    en esos proyectos JANUS no usa proveedores externos; si no hay modelo local configurado, responde sin modelo.
+20. **Proyecto propio del colaborador:** botón «Nuevo proyecto» (la API ya lo permitía). Nace en la empresa; el CEO lo
+    ve desde el primer momento; solo el CEO da acceso a terceros.
+21. **«Recuérdame…» en el chat** (ES/NL/EN): analizador determinista en el panel (hoy, mañana, día de la semana,
+    DD/MM, «a las HH:MM»); crea el recordatorio personal y lo confirma. No consume consultas del modelo.
+22. **Avisos al teléfono** (`web-push.ts`, sin dependencias: RFC 8291 + VAPID; `apps/pwa/work-sw.js`): suscripción por
+    dispositivo solo hacia servicios de avisos conocidos (Apple, Google, Mozilla, Windows); barrido cada 30 s; cada
+    recordatorio avisa una vez, a la hora LOCAL de la persona (`timeZone` del elemento). Apagado hasta definir
+    `JANUS_PUSH_VAPID_PRIVATE_KEY` (`npm run work:push-key` genera una). Con el panel abierto el aviso sale en pantalla.
+23. **Vista de equipo del CEO** (`/work/team`, `work-team.js`, `GET /api/work/team`): página APARTE con la piel de IBA;
+    no modifica la dashboard personal aprobada. Personas y sesiones, disponibilidad, tareas (con selector de agente),
+    entregas, bandeja de mensajes, archivos abiertos y proyectos (con «solo modelo propio»). Solo asuntos de empresa.
+
+Pruebas: typecheck limpio · `npm test` 700/0 fallos · runtime-smoke ok · work-runtime-smoke 16 bloques con navegador ·
+E2E panel 144/144 · E2E equipo 16/16 · dashboard:test 22/22.
+
+### Qué queda realmente (además de voces y criaturas/robot)
+
+- **No verificable desde este entorno:** entrega real de avisos por Apple/Google (el cifrado está probado de ida y
+  vuelta contra un receptor simulado, no contra el servicio real) · llamadas reales a Claude/ChatGPT/Gemini (sin
+  credenciales) · iPhone/Safari físico e instalación como app.
+- **Requiere decisión o acción del CEO:** aprobación visual · fusionar la PR #82 · servidor donde corra JANUS con HTTPS
+  (sin él, ni `/work` ni los avisos llegan a los teléfonos) · claves en el servidor (VAPID, almacén, proveedores).
+- **No construido:** envío de correo real a direcciones de empresa a través de JANUS (hoy la comunicación es interna) ·
+  reparto automático de un trabajo entre varios agentes a la vez · códigos de barras 1D · lector QR en NL/EN y con la
+  piel de IBA · panel del CEO integrado dentro de su dashboard personal (la vista de equipo es una página aparte).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

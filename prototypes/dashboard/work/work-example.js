@@ -34,20 +34,20 @@ function workExample(nowIso) {
       task('a-3', 'colab-a', 'Integración de adjuntos', 'Subida de archivos por proyecto', 'blocked', 'normal', ['Esperar autorización del CEO para activar la puerta de carga'], 700),
     ],
     projects: [
-      { id: 'p-api', name: 'Proyecto API', status: 'active', description: 'Servicio que conecta la web con el núcleo de datos.', instructions: 'TypeScript estricto. Cada endpoint con prueba de permisos. Ningún secreto en el repositorio.', canWrite: true,
+      { id: 'p-api', name: 'Proyecto API', status: 'active', description: 'Servicio que conecta la web con el núcleo de datos.', instructions: 'TypeScript estricto. Cada endpoint con prueba de permisos. Ningún secreto en el repositorio.', canWrite: true, ownedByMe: false, localOnly: true,
         nextActions: ['Añadir paginación al listado', 'Documentar códigos de error', 'Revisar con JANUS el plan de pruebas E2E'],
         resumeFrom: { subject: 'Listado de proyectos', content: 'Falta la paginación (cursor) en GET /projects; el filtro por permisos ya pasa las pruebas.', at: iso(95) },
         decisions: [{ subject: 'Autenticación', content: 'Desafío y firma con llave del dispositivo; sin contraseñas compartidas.', at: iso(2900) }, { subject: 'Errores', content: 'Respuesta uniforme para acceso denegado y recurso inexistente.', at: iso(1600) }],
         unresolvedErrors: [{ subject: 'Prueba intermitente', content: 'La prueba de caducidad falla 1 de cada 20 ejecuciones; pendiente de aislar.', at: iso(300) }],
         checkpointAt: iso(95), threads: [{ id: 't-a1', title: 'Paginación', status: 'active', updatedAt: iso(95) }],
         resources: [res('r1', 'Especificación de la API.pdf', 'google_drive', 'application/pdf', 4000), res('r2', 'Plan de pruebas.md', 'upload', 'text/markdown', 1700), res('r3', 'Diagrama de permisos.png', 'upload', 'image/png', 900)] },
-      { id: 'p-web', name: 'Web corporativa', status: 'active', description: 'Mantenimiento de la web institucional.', canWrite: false, nextActions: [], decisions: [], unresolvedErrors: [], threads: [], resources: [res('r4', 'Guía de estilo.pdf', 'google_drive', 'application/pdf', 9000)] },
+      { id: 'p-web', name: 'Web corporativa', status: 'active', description: 'Mantenimiento de la web institucional.', canWrite: false, ownedByMe: false, localOnly: false, nextActions: [], decisions: [], unresolvedErrors: [], threads: [], resources: [res('r4', 'Guía de estilo.pdf', 'google_drive', 'application/pdf', 9000)] },
     ],
     deliveries: [aH, hand('h-a0', 'a-1', 'colab-a', 'Esquema de datos acordado y migración inicial.', ['Tablas de proyectos y miembros'], ['Endpoints de lectura'], [], 4300, [])],
     sessions: { open: { sessionId: 'ws-demo', principalId: 'colab-a', state: 'running', startedAt: iso(128), activeSeconds: 6780, pausedSeconds: 900, pauses: 1, projectId: 'p-api', progress: [{ at: iso(60), note: 'Filtro por permisos en verde' }], blockers: [], deliveries: [], lastEventAt: iso(60) },
       recent: [{ sessionId: 'ws-old', principalId: 'colab-a', state: 'ended', startedAt: iso(1560), endedAt: iso(1290), activeSeconds: 14400, pausedSeconds: 1800, pauses: 2, projectId: 'p-api', progress: [], blockers: [], deliveries: [], lastEventAt: iso(1290) }],
       todayActiveSeconds: 6780, selfReported: true },
-    agenda: [ag('g1', 'colab-a', 'availability', 'work', 0, '09:00', '14:00', ''), ag('g2', 'colab-a', 'reminder', 'work', 0, '12:30', '', 'Enviar al CEO el avance de la paginación', 'p-api'), ag('g3', 'colab-a', 'reminder', 'private', 1, '17:00', '', 'Recoger el coche del taller'), ag('g4', 'colab-a', 'availability', 'work', 2, '09:00', '13:00', '')],
+    messaging: { recipients: [{ id: 'ceo', label: 'CEO' }], sent: [] }, agenda: [ag('g1', 'colab-a', 'availability', 'work', 0, '09:00', '14:00', ''), ag('g2', 'colab-a', 'reminder', 'work', 0, '12:30', '', 'Enviar al CEO el avance de la paginación', 'p-api'), ag('g3', 'colab-a', 'reminder', 'private', 1, '17:00', '', 'Recoger el coche del taller'), ag('g4', 'colab-a', 'availability', 'work', 2, '09:00', '13:00', '')],
     usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
 
@@ -64,14 +64,14 @@ function workExample(nowIso) {
       task('b-2', 'colab-b', 'Opvolging offerte', 'Reactie op verstuurde offerte krijgen', 'queued', 'normal', ['Donderdag nabellen'], 1300),
     ],
     projects: [
-      { id: 'p-nl', name: 'Acquisitie Nederland', status: 'active', description: 'Lokale ondernemers benaderen voor de chatbot-pilot.', instructions: 'Schrijf en spreek in het Nederlands. Gebruik alleen goedgekeurd materiaal.', canWrite: true,
+      { id: 'p-nl', name: 'Acquisitie Nederland', status: 'active', description: 'Lokale ondernemers benaderen voor de chatbot-pilot.', instructions: 'Schrijf en spreek in het Nederlands. Gebruik alleen goedgekeurd materiaal.', canWrite: true, ownedByMe: false, localOnly: false,
         nextActions: ['Twee tijdsloten voorstellen per zaak', 'Demo-script doornemen met JANUS'],
         resumeFrom: { subject: 'Belronde', content: 'Drie zaken willen een demo; data nog niet bevestigd.', at: iso(220) },
         decisions: [{ subject: 'Doelgroep', content: 'Eerst kappers en barbershops in de regio.', at: iso(5000) }], unresolvedErrors: [], checkpointAt: iso(220),
         threads: [{ id: 't-b1', title: 'Belronde', status: 'active', updatedAt: iso(220) }],
         resources: [res('r5', 'Prijslijst 2026.pdf', 'google_drive', 'application/pdf', 6000), res('r6', 'Demo-script.docx', 'upload', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 2500)] },
     ],
-    deliveries: [bH], sessions: emptySessions, agenda: [ag('g5', 'colab-b', 'availability', 'work', 0, '10:00', '16:00', ''), ag('g6', 'colab-b', 'reminder', 'work', 2, '11:00', '', 'Offerte nabellen', 'p-nl')],
+    deliveries: [bH], sessions: emptySessions, messaging: { recipients: [{ id: 'ceo', label: 'CEO' }], sent: [] }, agenda: [ag('g5', 'colab-b', 'availability', 'work', 0, '10:00', '16:00', ''), ag('g6', 'colab-b', 'reminder', 'work', 2, '11:00', '', 'Offerte nabellen', 'p-nl')],
     usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
 
@@ -83,11 +83,11 @@ function workExample(nowIso) {
     capabilities: caps, reservedToCeo: reserved,
     assignments: [task('c-1', 'colab-c', 'Selección de fotos para la web', 'Entregar 20 fotos editadas', 'active', 'normal', ['Editar la segunda tanda', 'Subir la selección al proyecto'], 600)],
     projects: [
-      { id: 'p-foto', name: 'Contenido visual', status: 'active', description: 'Fotografía y vídeo para web y redes.', canWrite: true,
+      { id: 'p-foto', name: 'Contenido visual', status: 'active', description: 'Fotografía y vídeo para web y redes.', canWrite: true, ownedByMe: false, localOnly: false,
         nextActions: ['Editar la segunda tanda'], decisions: [], unresolvedErrors: [], threads: [],
         resources: [res('r7', 'Referencia de estilo.jpg', 'upload', 'image/jpeg', 3000)] },
     ],
-    deliveries: [], sessions: emptySessions, agenda: [],
+    deliveries: [], sessions: emptySessions, messaging: { recipients: [{ id: 'ceo', label: 'CEO' }], sent: [] }, agenda: [],
     usage: { used: 7, limit: 60, remaining: 53 }, generatedAt: nowIso,
   };
   return { 'colab-a': A, 'colab-b': B, 'colab-c': C };

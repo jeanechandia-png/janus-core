@@ -23,6 +23,8 @@ export interface WorkAgendaItem {
   endTime?: string;
   text: string;
   projectId?: string;
+  /** Zona horaria IANA del dispositivo que lo creó: los avisos saltan a la hora local de la persona. */
+  timeZone?: string;
   done: boolean;
   createdAt: string;
   updatedAt: string;
@@ -39,6 +41,11 @@ function validDate(value: string): boolean {
   if (!DATE.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
+function validTimeZone(value: string | undefined): value is string {
+  if (!value || value.length > 64) return false;
+  try { new Intl.DateTimeFormat('en', { timeZone: value }); return true; } catch { return false; }
 }
 
 export function validateWorkAgendaItem(item: WorkAgendaItem): WorkAgendaItem {
@@ -70,6 +77,7 @@ export function validateWorkAgendaItem(item: WorkAgendaItem): WorkAgendaItem {
     ...(item.endTime ? { endTime: item.endTime } : {}),
     text,
     ...(item.projectId ? { projectId: item.projectId } : {}),
+    ...(validTimeZone(item.timeZone) ? { timeZone: item.timeZone } : {}),
     done: item.done === true,
     createdAt: new Date(item.createdAt).toISOString(),
     updatedAt: new Date(item.updatedAt).toISOString(),

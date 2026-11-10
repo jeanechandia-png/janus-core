@@ -117,6 +117,14 @@ import {
 } from '../../packages/core/src/work-agenda.js';
 import { WORK_VIEWABLE_MIME } from '../../packages/core/src/work-dashboard-template.js';
 import {
+  derivePrivateTextKey,
+  evaluateWorkMessage,
+  openPrivateText,
+  parseInternalRecipients,
+  sealPrivateText,
+} from '../../packages/core/src/work-message.js';
+import { buildPushRequest, loadVapidKeys, localDateTime, validatePushSubscription } from '../../packages/core/src/web-push.js';
+import {
   operatorDailyUsage,
   parseOperatorDailyRuns,
 } from '../../packages/core/src/operator-usage-limit.js';
@@ -1294,6 +1302,47 @@ const workOperatorUploadsEnabled = process.env.JANUS_WORK_OPERATOR_UPLOADS?.trim
 
 const operatorDailyRunLimit = parseOperatorDailyRuns(process.env.JANUS_OPERATOR_DAILY_RUNS);
 
+// Agenda privada cifrada en reposo cuando existe la clave del almacén de credenciales (sin clave: texto plano).
+const privateTextKey = derivePrivateTextKey(process.env.JANUS_CREDENTIAL_VAULT_KEY);
+const agendaSeal = (item: WorkAgendaItem): WorkAgendaItem =>
+  (item.visibility === 'private' ? { ...item, text: sealPrivateText(item.text, privateTextKey) } : item);
+const agendaOpen = (item: WorkAgendaItem): WorkAgendaItem => ({ ...item, text: openPrivateText(item.text, privateTextKey) });
+// Destinatarios internos de los mensajes del equipo (solo etiquetas; por defecto, el CEO).
+const internalRecipients = parseInternalRecipients(process.env.JANUS_INTERNAL_RECIPIENTS);
+const configuredModelProviderIds = resolveModelProviders(process.env).map((provider) => provider.id);
+
+// Avisos al teléfono (Web Push). Sin clave VAPID quedan «pendientes de activación»: el panel sigue avisando en pantalla.
+const pushKeys = loadVapidKeys(process.env.JANUS_PUSH_VAPID_PRIVATE_KEY, process.env.JANUS_PUSH_SUBJECT);
+let pushSweepRunning = false;
+async function sweepDueReminders(): Promise<{ due: number; sent: number }> {
+  if (!pushKeys || pushSweepRunning) return { due: 0, sent: 0 };
+  pushSweepRunning = true;
+  let due = 0, sent = 0;
+  try {
+    const nowIso = new Date().toISOString();
+    for (const stored of store.listWorkAgendaItems()) {
+      if (stored.kind !== 'reminder' || stored.done || !stored.time) continue;
+      const local = localDateTime(nowIso, stored.timeZone ?? timeZone);
+      // Solo el día del recordatorio y a partir de su hora; lo atrasado de días anteriores no se dispara.
+      if (stored.date !== local.date || stored.time > local.time) continue;
+      const subscriptions = store.listPushSubscriptions(stored.principalId);
+      if (!subscriptions.length || !store.markReminderPushed(stored.id, nowIso)) continue;
+      due += 1;
+      const item = agendaOpen(stored);
+      for (const subscription of subscriptions) {
+        try {
+          const request = buildPushRequest(subscription, { title: 'JANUS Work', body: `${item.time} · ${item.text}`, tag: item.id }, pushKeys);
+          const result = await fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) });
+          if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint); // dispositivo dado de baja
+          else if (result.ok) sent += 1;
+        } catch { /* sin red: el aviso en pantalla del panel sigue funcionando */ }
+      }
+    }
+  } finally { pushSweepRunning = false; }
+  return { due, sent };
+}
+if (pushKeys) setInterval(() => { void sweepDueReminders(); }, 30_000).unref();
+
 /** Consultas de hoy de un colaborador frente al límite diario del CEO (registro durable en SQLite). */
 function operatorUsageFor(principalId: string) {
   const now = new Date();
@@ -1340,7 +1389,9 @@ function workDashboardFor(principal: AuthorityPrincipal) {
     projects,
     handoffs: store.listCoordinationHandoffs(),
     sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
-    agenda: store.listWorkAgendaItems(principal.id),
+    agenda: store.listWorkAgendaItems(principal.id).map(agendaOpen),
+    recipients: internalRecipients,
+    messages: store.listWorkMessages(principal.id, 20),
     uploadAttachments: workOperatorUploadsEnabled,
     skinSource: 'iba-command-center',
     usage: (({ used, limit, remaining }) => ({ used, limit, remaining }))(operatorUsageFor(principal.id)),
@@ -2081,9 +2132,17 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     const preferredProvider = runAssignment
       ? store.getCoordinationAssignment(runAssignment.assignmentId)?.preferredProvider
       : undefined;
-    const routedGateway = preferredProvider && modelGateway instanceof FallbackModelRouter
+    let routedGateway: ModelGateway = preferredProvider && modelGateway instanceof FallbackModelRouter
       ? modelGateway.withPreference(preferredProvider)
       : modelGateway;
+    // «Solo modelo propio»: el contenido de un proyecto marcado así nunca viaja a un proveedor externo.
+    const runProject = projectLink ? store.getProjectWorkspace(projectLink.projectId) : null;
+    if (runProject?.modelPolicy === 'local_only') {
+      const local = modelGateway instanceof FallbackModelRouter
+        ? modelGateway.only(['custom'])
+        : configuredModelProviderIds.length === 1 && configuredModelProviderIds[0] === 'custom' ? modelGateway : null;
+      routedGateway = local ?? { complete: async () => { throw new Error('Proyecto «solo modelo propio»: no hay modelo local configurado.'); } };
+    }
     const runModelGateway = new BudgetedModelGateway(routedGateway, runEffort?.budget.maxModelCalls ?? 3);
     runModelBudgets.set(runId, runModelGateway);
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
@@ -3222,16 +3281,18 @@ const server = createServer(async (request, response) => {
   // Plantilla laboral única (JANUS Work): misma página para cualquier colaborador; los datos y
   // permisos salen de su sesión. Piel = dashboard de IBA, verificada por huella. Si la piel no está
   // instalada se responde 503: nunca se sirve otro diseño en su lugar.
-  if (url.pathname === '/work' || url.pathname === '/work/') {
+  const workPage = url.pathname === '/work' || url.pathname === '/work/' ? 'core'
+    : url.pathname === '/work/team' || url.pathname === '/work/team/' ? 'team' : '';
+  if (workPage) {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
     }
     const workBuild = join(dashboardRoot, 'work', 'build-work.cjs');
-    const workFile = join(dashboardRoot, 'dist', 'Janus-Work-core.html');
+    const workFile = join(dashboardRoot, 'dist', `Janus-Work-${workPage}.html`);
     try {
       if (!existsSync(workFile)) {
         if (!existsSync(workBuild)) throw new Error('Módulo de plantilla laboral no instalado');
-        execFileSync(process.execPath, [workBuild, '--mode', 'core', '--out', workFile], {
+        execFileSync(process.execPath, [workBuild, '--mode', workPage, '--out', workFile], {
           cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
         });
       }
@@ -5892,11 +5953,175 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // «Solo modelo propio» por proyecto: lo decide el Founder. null lo quita.
+  const projectPolicyMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/model-policy$/);
+  if (request.method === 'PUT' && projectPolicyMatch) {
+    try {
+      requireFounderAuthority(request);
+      const project = store.getProjectWorkspace(decodeURIComponent(projectPolicyMatch[1]!));
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      const body = await readJson(request);
+      if (body.modelPolicy !== 'local_only' && body.modelPolicy !== null) throw new HttpRequestError(400, 'modelPolicy must be local_only or null');
+      const { modelPolicy: _previous, ...rest } = project;
+      const updated = validateProjectWorkspace({ ...rest, ...(body.modelPolicy ? { modelPolicy: 'local_only' as const } : {}), updatedAt: new Date().toISOString() });
+      store.upsertProjectWorkspace(updated);
+      json(response, 200, { ok: true, project: updated, localModelConfigured: configuredModelProviderIds.includes('custom') });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Mensajes internos: el colaborador escribe a un destinatario INTERNO; JANUS decide con reglas fijas.
+  // Fuera de la lista interna → rechazado automáticamente (queda rastro, no se molesta al CEO).
+  if (url.pathname === '/api/work/messages' && (request.method === 'GET' || request.method === 'POST')) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (request.method === 'GET') {
+        if (principal.role === 'founder_director') {
+          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages() });
+        } else {
+          requireActiveOperatorProfile(principal);
+          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages(principal.id) });
+        }
+        return;
+      }
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      const today = new Date(Date.now() - 24 * 3_600_000).toISOString();
+      if (store.listWorkMessages(principal.id, 200).filter((message) => message.createdAt >= today).length >= 30) {
+        throw new HttpRequestError(429, 'daily message limit reached');
+      }
+      let message;
+      try {
+        message = evaluateWorkMessage({
+          id: `msg_${randomUUID()}`,
+          fromPrincipalId: principal.id,
+          recipient: typeof body.recipient === 'string' ? body.recipient : '',
+          subject: typeof body.subject === 'string' ? body.subject : '',
+          body: typeof body.body === 'string' ? body.body : '',
+          ...(projectId ? { projectId } : {}),
+          allowed: internalRecipients,
+          now: new Date().toISOString(),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid message');
+      }
+      store.upsertWorkMessage(message);
+      json(response, message.status === 'delivered' ? 201 : 422, { ok: message.status === 'delivered', message, ...(message.status === 'rejected' ? { code: message.decision, error: 'Solo se puede escribir a destinatarios internos de la empresa.' } : {}) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const workMessageReadMatch = url.pathname.match(/^\/api\/work\/messages\/([^/]+)\/read$/);
+  if (request.method === 'PUT' && workMessageReadMatch) {
+    try {
+      requireFounderAuthority(request);
+      const message = store.getWorkMessage(decodeURIComponent(workMessageReadMatch[1]!));
+      if (!message) throw new HttpRequestError(404, 'message not found');
+      const updated = { ...message, readAt: message.readAt ?? new Date().toISOString() };
+      store.upsertWorkMessage(updated);
+      json(response, 200, { ok: true, message: updated });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Vista de equipo del CEO: un solo resumen con lo de EMPRESA de todo el equipo. Nunca incluye agenda privada.
+  if (request.method === 'GET' && url.pathname === '/api/work/team') {
+    try {
+      requireFounderAuthority(request);
+      const now = new Date().toISOString();
+      const handoffs = store.listCoordinationHandoffs();
+      const sessionEvents = store.listWorkSessionEvents();
+      const projects = store.listProjectWorkspaces();
+      json(response, 200, {
+        ok: true,
+        generatedAt: now,
+        members: store.listCoordinationOperators().map((profile) => {
+          const sessions = summarizeWorkSessions(sessionEvents, profile.principalId, now);
+          const usage = operatorUsageFor(profile.principalId);
+          return {
+            principalId: profile.principalId,
+            displayName: profile.displayName ?? profile.principalId,
+            roleTitle: profile.roleTitle ?? null,
+            locale: profile.locale ?? 'es',
+            status: profile.status,
+            openSession: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
+            todayActiveSeconds: sessions.filter((session) => session.startedAt.slice(0, 10) === now.slice(0, 10)).reduce((total, session) => total + session.activeSeconds, 0),
+            usage: { used: usage.used, limit: usage.limit },
+          };
+        }),
+        assignments: store.listCoordinationAssignments().map((assignment) => ({
+          assignment,
+          latestHandoff: handoffs.filter((handoff) => handoff.assignmentId === assignment.id).at(-1) ?? null,
+        })),
+        deliveries: [...handoffs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 40),
+        agenda: agendaForFounder(store.listWorkAgendaItems()).filter((item) => item.date >= now.slice(0, 10)).slice(0, 80),
+        fileAccess: store.listFileAccess(60),
+        messages: store.listWorkMessages(undefined, 60),
+        recipients: internalRecipients,
+        projects: projects.map((project) => ({
+          id: project.id, name: project.name, status: project.status, createdBy: project.createdBy,
+          localOnly: project.modelPolicy === 'local_only',
+        })),
+        providers: { configured: configuredModelProviderIds, dailyLimit: operatorDailyRunLimit },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   // Registro de aperturas de archivos por el equipo: solo el CEO.
   if (request.method === 'GET' && url.pathname === '/api/work/file-access') {
     try {
       requireFounderAuthority(request);
       json(response, 200, { ok: true, entries: store.listFileAccess(Number(url.searchParams.get('limit')) || 200) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Avisos al teléfono: clave pública para suscribirse y alta/baja del dispositivo de la propia persona.
+  if (request.method === 'GET' && url.pathname === '/api/work/push') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      json(response, 200, { ok: true, enabled: Boolean(pushKeys), publicKey: pushKeys?.publicKey ?? null, devices: store.listPushSubscriptions(principal.id).length });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+  if (url.pathname === '/api/work/push/subscription' && (request.method === 'POST' || request.method === 'DELETE')) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      if (request.method === 'DELETE') {
+        if (typeof body.endpoint === 'string') store.deletePushSubscription(body.endpoint, principal.id);
+        json(response, 200, { ok: true });
+        return;
+      }
+      if (!pushKeys) throw new HttpRequestError(409, 'push is not activated');
+      let subscription;
+      try { subscription = validatePushSubscription(body); } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid subscription');
+      }
+      if (store.listPushSubscriptions(principal.id).length >= 8) throw new HttpRequestError(409, 'too many devices');
+      store.upsertPushSubscription({ ...subscription, principalId: principal.id, createdAt: new Date().toISOString() });
+      json(response, 201, { ok: true, devices: store.listPushSubscriptions(principal.id).length });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }
@@ -5912,7 +6137,7 @@ const server = createServer(async (request, response) => {
         json(response, 200, { ok: true, scope: 'work-only', items: agendaForFounder(store.listWorkAgendaItems(filter), filter) });
       } else {
         requireActiveOperatorProfile(principal);
-        json(response, 200, { ok: true, scope: 'own', items: agendaForOwner(store.listWorkAgendaItems(principal.id), principal.id) });
+        json(response, 200, { ok: true, scope: 'own', items: agendaForOwner(store.listWorkAgendaItems(principal.id).map(agendaOpen), principal.id) });
       }
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
@@ -5926,7 +6151,8 @@ const server = createServer(async (request, response) => {
     try {
       const { principal } = requireAuthoritySession(request);
       requireActiveOperatorProfile(principal);
-      const existing = agendaItemMatch ? store.getWorkAgendaItem(decodeURIComponent(agendaItemMatch[1]!)) : null;
+      const storedItem = agendaItemMatch ? store.getWorkAgendaItem(decodeURIComponent(agendaItemMatch[1]!)) : null;
+      const existing = storedItem && storedItem.principalId === principal.id ? agendaOpen(storedItem) : storedItem;
       // Un elemento ajeno se trata como inexistente: ni se lee, ni se cambia, ni se confirma que existe.
       if (agendaItemMatch && (!existing || existing.principalId !== principal.id)) throw new HttpRequestError(404, 'agenda item not found');
       if (request.method === 'DELETE') {
@@ -5960,6 +6186,7 @@ const server = createServer(async (request, response) => {
           ...(endTime ? { endTime } : {}),
           text: text('text') ?? existing?.text ?? '',
           ...(projectId ? { projectId } : {}),
+          ...((text('timeZone') ?? existing?.timeZone) ? { timeZone: text('timeZone') ?? existing?.timeZone } : {}),
           done: typeof body.done === 'boolean' ? body.done : existing?.done ?? false,
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
@@ -5967,7 +6194,7 @@ const server = createServer(async (request, response) => {
       } catch (error) {
         throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid agenda item');
       }
-      store.upsertWorkAgendaItem(item);
+      store.upsertWorkAgendaItem(agendaSeal(item));
       json(response, existing ? 200 : 201, { ok: true, item });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
