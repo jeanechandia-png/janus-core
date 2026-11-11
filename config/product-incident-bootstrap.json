@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "sourceRef": "https://github.com/jeanechandia-png/infinity-chatbox-platform/blob/2a8cf17ef3615e9eee21c0ac66bd8b65234b4de3/config/product-incidents.json",
+  "feed": {
+    "schemaVersion": 1,
+    "productId": "infinity-chatbox",
+    "revision": 1,
+    "updatedAt": "2026-11-11T11:31:34.784Z",
+    "incidents": [
+      {
+        "id": "ICB-20261111-AUTH-REDIRECT",
+        "revision": 1,
+        "productId": "infinity-chatbox",
+        "fingerprint": "operator-auth-transient-preview-callback",
+        "occurredAt": "2026-11-11T10:53:00.000Z",
+        "updatedAt": "2026-11-11T11:31:34.784Z",
+        "severity": "high",
+        "status": "mitigated",
+        "summary": "El enlace de acceso por correo termina en la landing en lugar del panel.",
+        "causeStatus": "confirmed",
+        "cause": "El callback usaba el origen del permalink temporal de Netlify. Supabase no permitía esa URL y aplicaba el dominio raíz como destino de reserva; la ruta estable del panel sí estaba permitida.",
+        "impact": "Acceso al panel interrumpido durante la preparación comercial del piloto.",
+        "lesson": "Un HTTP 200 del panel y pruebas sintéticas no acreditan el recorrido completo de autenticación.",
+        "preventiveRule": "Usar un callback estable permitido, probar el destino real del correo y completar sesión, lectura y guardado antes de declarar operativo el panel.",
+        "change": "Callback estable configurable y pruebas de rechazo de destinos externos incorporados en 4352fe27.",
+        "requiredEvidence": [
+          "regression",
+          "runtime",
+          "e2e"
+        ],
+        "evidence": [
+          {
+            "kind": "regression",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/actions/runs/43008930135",
+            "verified": true
+          },
+          {
+            "kind": "runtime",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/commit/4352fe279d452fa9e4ab808c01a31a537b6724f6",
+            "verified": true
+          },
+          {
+            "kind": "e2e",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/blob/8c1a7527b6dd74a8c07c00c42b949c3dd8ae90db/HANDOFF.md",
+            "verified": false
+          }
+        ]
+      },
+      {
+        "id": "ICB-20261111-WHATSAPP-INGRESS",
+        "revision": 1,
+        "productId": "infinity-chatbox",
+        "fingerprint": "whatsapp-meta-to-backend-ingress-not-observed",
+        "occurredAt": "2026-11-11T10:51:18.000Z",
+        "updatedAt": "2026-11-11T11:31:34.784Z",
+        "severity": "critical",
+        "status": "open",
+        "summary": "Meta recibe un mensaje real de ensayo pero el backend no registra entrada ni respuesta.",
+        "causeStatus": "investigating",
+        "cause": "Fallo localizado entre recepción en Meta y entrega al callback. La suscripción app/WABA y los overrides están pendientes de comprobar; no se ha confirmado la causa final del proveedor.",
+        "impact": "Conversación de WhatsApp sin respuesta; aceptación comercial del canal bloqueada.",
+        "lesson": "El envío de plantilla y un evento sintético aceptado no demuestran recepción ni respuesta a mensajes reales.",
+        "preventiveRule": "Verificar app publicada, campo messages, suscripción app/WABA, callback, recepción persistida, respuesta entregada, deduplicación y OFF con el recorrido real. Nunca cerrar por un HTTP 200 sintético.",
+        "change": "Diagnóstico y evidencia conservados; renovación de permisos pendiente de autorización explícita. No se ha eludido la revisión.",
+        "requiredEvidence": [
+          "inbound",
+          "response",
+          "delivery",
+          "dedup",
+          "off"
+        ],
+        "evidence": [
+          {
+            "kind": "observation",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/blob/8c1a7527b6dd74a8c07c00c42b949c3dd8ae90db/HANDOFF.md",
+            "verified": true
+          }
+        ]
+      },
+      {
+        "id": "ICB-20261111-QA-CHROMIUM",
+        "revision": 1,
+        "productId": "infinity-chatbox",
+        "fingerprint": "visual-qa-target-session-aborts-report",
+        "occurredAt": "2026-11-11T01:24:53.000Z",
+        "updatedAt": "2026-11-11T11:31:34.784Z",
+        "severity": "high",
+        "status": "resolved",
+        "summary": "El navegador de QA perdió la sesión antes de la última captura y no guardó el informe.",
+        "causeStatus": "confirmed",
+        "cause": "La creación de la página estaba fuera del manejo de errores y se reutilizaba una sesión de Chromium para todas las capturas. Una excepción Target.createTarget interrumpía la escritura final del informe.",
+        "impact": "Evidencia visual incompleta y control de calidad fallido; no había prueba de que el aviso de privacidad estuviera visualmente roto.",
+        "lesson": "Los fallos de la infraestructura de pruebas también deben quedar registrados y fallar cerrado.",
+        "preventiveRule": "Aislar las capturas, incluir arranque y nueva página en el manejo de fallos, persistir informes parciales y no pasar con capturas ausentes.",
+        "change": "Capturas aisladas e informe parcial en e81e4ace; prueba de regresión del arranque y sesión.",
+        "requiredEvidence": [
+          "regression",
+          "runtime"
+        ],
+        "evidence": [
+          {
+            "kind": "regression",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/actions/runs/43003073352",
+            "verified": true
+          },
+          {
+            "kind": "runtime",
+            "ref": "https://github.com/jeanechandia-png/infinity-chatbox-platform/blob/9b9ff6a5b9cc44ef33aae2f7f650ece7b0b19d1b/docs/qa/visual-evidence/e81e4ace94acc9926d2bfe374b6436d38780f3f0/report.json",
+            "verified": true
+          }
+        ]
+      }
+    ]
+  }
+}

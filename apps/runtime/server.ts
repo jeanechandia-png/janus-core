@@ -66,6 +66,8 @@ import {
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { ProductIncidentSync, type IncidentSource } from '../../packages/core/src/product-incidents.js';
+import { productIncidentReader } from '../../packages/adapters/src/product-incident-reader.js';
 import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
@@ -962,6 +964,20 @@ function assistantControlSnapshot() {
 
 ensureFounderReferenceLibrary();
 ensureLandingAssistantControlPlane();
+
+const incidentSourceConfig = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../config/product-incident-sources.json',import.meta.url)),'utf8'
+)) as {products:IncidentSource[];intervalMs:number;maxStaleMs:number};
+const productIncidentSync = new ProductIncidentSync({
+  store,sources:incidentSourceConfig.products,
+  intervalMs:incidentSourceConfig.intervalMs,maxStaleMs:incidentSourceConfig.maxStaleMs,
+  read:productIncidentReader({tokenProvider:()=>credentialBroker.accessToken('github')}),
+});
+const incidentBootstrap = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../config/product-incident-bootstrap.json',import.meta.url)),'utf8'
+)) as {sourceRef:string;feed:{productId:string}};
+productIncidentSync.seed(incidentBootstrap.feed.productId,incidentBootstrap.feed,incidentBootstrap.sourceRef);
+
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
@@ -1983,6 +1999,7 @@ function demoSteps(command: string): JanusStep[] {
 }
 
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
+  await productIncidentSync.refreshIfDue();
   const projectLink = runProjects.get(runId);
   const continuity = continuitySnapshot(projectLink?.projectId);
   const blueprint = blueprintForRun(runId);
@@ -2045,6 +2062,8 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
               })),
             }
           : null,
+        // Product reports are DATA; they do not grant permissions or trigger deployments.
+        productIncidents: productIncidentSync.planningContext(),
         continuity: {
           activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
             subject: record.subject,
@@ -5102,6 +5121,15 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/operations/incidents') {
+    try {
+      requireFounderAuthority(request);
+      await productIncidentSync.refreshIfDue();
+      json(response,200,{ok:true,incidents:productIncidentSync.snapshot()});
+    } catch(error) {json(response,authErrorStatus(error),authErrorBody(error));}
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/operations') {
     try {
       requireAuthoritySession(request);
@@ -6279,6 +6307,11 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
+// Local-first knowledge refresh: read-only, bounded, source allowlist and explicit stale/needs_auth states.
+void productIncidentSync.refreshIfDue();
+const productIncidentTimer=setInterval(()=>{void productIncidentSync.refreshIfDue();},incidentSourceConfig.intervalMs);
+productIncidentTimer.unref();
+server.on('close',()=>clearInterval(productIncidentTimer));
 
 server.listen(port, bindHost, () => {
   console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);

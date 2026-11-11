@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "intervalMs": 300000,
+  "maxStaleMs": 900000,
+  "products": [
+    {
+      "productId": "infinity-chatbox",
+      "name": "Infinity ChatBox",
+      "repository": "jeanechandia-png/infinity-chatbox-platform",
+      "ref": "fix/chatbox-visual-parity-20260927",
+      "path": "config/product-incidents.json"
+    },
+    {
+      "productId": "infinity-business-assistant",
+      "name": "Infinity Business Assistant (IBA)"
+    },
+    {
+      "productId": "janus",
+      "name": "Janus"
+    },
+    {
+      "productId": "la-tribuna-virtual",
+      "name": "La Tribuna Virtual"
+    },
+    {
+      "productId": "infinityseed-group",
+      "name": "InfinitySeed Group"
+    },
+    {
+      "productId": "infinity-connect-ai",
+      "name": "Infinity Connect AI"
+    },
+    {
+      "productId": "edschool",
+      "name": "EdSchool"
+    }
+  ]
+}
