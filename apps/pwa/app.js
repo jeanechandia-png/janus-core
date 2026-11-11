@@ -7,6 +7,48 @@ import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.j
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
+// Founder-only private cases. No case identifiers, mail addresses or sensitive text in the public bundle.
+// Never render this area for anonymous or expired sessions. The Core is the only authority.
+const privateCasesSection = document.querySelector('#founderPrivateCases');
+const privateCasesStatus = document.querySelector('#privateCasesStatus');
+const privateCasesList = document.querySelector('#privateCasesList');
+async function refreshFounderPrivateCases() {
+  if (!privateCasesSection || !privateCasesStatus || !privateCasesList) return;
+  privateCasesSection.hidden = true;
+  privateCasesList.replaceChildren();
+  if (!sessionToken()) return;
+  privateCasesSection.hidden = false;
+  privateCasesStatus.textContent = 'Consultando casos privados en Janus Core…';
+  try {
+    const response = await fetch('/api/founder/private-cases', {
+      headers: authHeaders(), cache: 'no-store', credentials: 'same-origin'
+    });
+    if (!sessionToken() || response.status === 401 || response.status === 403) {
+      privateCasesSection.hidden = true;
+      return;
+    }
+    if (!response.ok) throw new Error('private-cases-not-ready');
+    const payload = await response.json();
+    if (!Array.isArray(payload.cases)) throw new Error('invalid-private-cases-response');
+    privateCasesStatus.textContent = payload.cases.length ? 'Casos privados verificados por Core' : 'No hay casos privados registrados en Core.';
+    for (const item of payload.cases) {
+      if (!sessionToken()) { privateCasesSection.hidden = true; privateCasesList.replaceChildren(); return; }
+      const entry = document.createElement('article');
+      entry.className = 'event-card';
+      const heading = document.createElement('strong');
+      heading.textContent = String(item.title || 'Caso privado');
+      const detail = document.createElement('p');
+      detail.textContent = String(item.status || 'Sin estado verificado');
+      entry.append(heading, detail);
+      privateCasesList.append(entry);
+    }
+  } catch {
+    privateCasesStatus.textContent = 'Integración de casos privados pendiente: Core aún no confirma el servicio.';
+  }
+}
+void refreshFounderPrivateCases();
+setInterval(() => { if (document.visibilityState === 'visible') void refreshFounderPrivateCases(); }, 60_000);
+
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
 const connection = document.querySelector('#connection');
