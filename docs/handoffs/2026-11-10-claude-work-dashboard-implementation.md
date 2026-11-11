@@ -329,6 +329,15 @@ Pruebas: `tests/opportunity-radar.test.ts` 14/14; bloque del radar en `work-runt
 `npm test` 735/0. Pendiente previo ajeno a esta entrega: `e2e-slot.cjs` espera 5 huecos de criaturas y la rama
 base tiene otra cantidad (archivos no tocados por Claude).
 
+## Actualización 11-nov-2026 (10:45) — arquitectura anti-obsolescencia (cuatro pilares)
+
+Instrucción de arquitectura del CEO. Decisiones, límites y siguiente paso en
+`docs/ADR-012-anti-obsolescence-architecture.md`. Resumen: `spec-connector.ts` (servicios por OpenAPI/GraphQL/MCP,
+rutas `/api/integrations*`), `sandbox-runner.ts` (`/api/sandbox/status`, `/api/changes*`, apagado por defecto),
+`knowledge-memory.ts` (`/api/memory*`, consultada en `/api/command`), `operation-risk.ts` (puerta humana sobre la
+`ApprovalQueue` existente, con aviso al dispositivo del CEO). Tablas `knowledge_items` y `service_catalogs`.
+Pruebas: 22 unitarias nuevas + bloque de extremo a extremo; `npm test` 757/0; smoke 23 bloques.
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

@@ -3,6 +3,8 @@ import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
 import type { Opportunity, QuotaWindow, RadarSourceState } from './opportunity-radar.js';
+import { blobToVector, vectorToBlob, type MemoryItem, type VectorStore } from './knowledge-memory.js';
+import type { ServiceCatalog } from '../../gateways/src/spec-connector.js';
 import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
 import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
 import type { DecisionReceipt } from './decision-receipt.js';
@@ -863,6 +865,64 @@ export class SqliteStore {
   }
 
   /** Mensajes internos del equipo (bandeja del CEO). Los rechazados también se guardan como rastro. */
+  /* ── Memoria por significado (contrato VectorStore de knowledge-memory.ts) ── */
+  knowledgeVectorStore(): VectorStore {
+    const db = this.db;
+    const parse = (row: Record<string, unknown>) => JSON.parse(String(row.item_json)) as MemoryItem;
+    return {
+      upsert(item, vector) {
+        db.prepare(`
+          INSERT INTO knowledge_items (id, hash, kind, scope, active, updated_at, item_json, model, vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET active = excluded.active, updated_at = excluded.updated_at, item_json = excluded.item_json, model = excluded.model, vector = excluded.vector
+        `).run(item.id, item.hash, item.kind, item.scope, item.supersededBy ? 0 : 1, item.updatedAt, JSON.stringify(item), vector.model, vectorToBlob(vector.vector));
+      },
+      getByHash(hash) {
+        const row = db.prepare('SELECT item_json FROM knowledge_items WHERE hash = ? ORDER BY active DESC, updated_at DESC LIMIT 1').get(hash) as Record<string, unknown> | undefined;
+        return row ? parse(row) : null;
+      },
+      get(id) {
+        const row = db.prepare('SELECT item_json FROM knowledge_items WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+        return row ? parse(row) : null;
+      },
+      all() {
+        return (db.prepare('SELECT item_json FROM knowledge_items ORDER BY updated_at DESC LIMIT 20000').all() as Record<string, unknown>[]).map(parse);
+      },
+      candidates(filter) {
+        if (!filter.scopes.length) return [];
+        const marks = filter.scopes.map(() => '?').join(',');
+        const rows = db.prepare(`SELECT item_json, vector FROM knowledge_items WHERE active = 1 AND model = ? AND scope IN (${marks}) LIMIT 20000`).all(filter.model, ...filter.scopes) as Record<string, unknown>[];
+        return rows.map((row) => ({ item: parse(row), vector: blobToVector(row.vector as Uint8Array) })).filter((entry) => !filter.kinds || filter.kinds.includes(entry.item.kind));
+      },
+    };
+  }
+
+  countKnowledgeItems(): { total: number; active: number } {
+    const row = this.db.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(active), 0) AS active FROM knowledge_items').get() as Record<string, unknown>;
+    return { total: Number(row.total), active: Number(row.active) };
+  }
+
+  /* ── Catálogos de servicios leídos de su especificación (spec-connector.ts) ── */
+  upsertServiceCatalog(catalog: ServiceCatalog, registeredBy: string, at: string): void {
+    this.db.prepare(`
+      INSERT INTO service_catalogs (service, updated_at, registered_by, catalog_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(service) DO UPDATE SET updated_at = excluded.updated_at, registered_by = excluded.registered_by, catalog_json = excluded.catalog_json
+    `).run(catalog.service, at, registeredBy, JSON.stringify(catalog));
+  }
+
+  getServiceCatalog(service: string): ServiceCatalog | null {
+    const row = this.db.prepare('SELECT catalog_json FROM service_catalogs WHERE service = ?').get(service) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.catalog_json)) as ServiceCatalog : null;
+  }
+
+  listServiceCatalogs(): Array<{ service: string; updatedAt: string; registeredBy: string; catalog: ServiceCatalog }> {
+    const rows = this.db.prepare('SELECT service, updated_at, registered_by, catalog_json FROM service_catalogs ORDER BY service LIMIT 200').all() as Record<string, unknown>[];
+    return rows.map((row) => ({ service: String(row.service), updatedAt: String(row.updated_at), registeredBy: String(row.registered_by), catalog: JSON.parse(String(row.catalog_json)) as ServiceCatalog }));
+  }
+
+  deleteServiceCatalog(service: string): boolean {
+    return Number(this.db.prepare('DELETE FROM service_catalogs WHERE service = ?').run(service).changes) > 0;
+  }
+
   /* ── Opportunity Radar ── */
   upsertRadarOpportunity(opportunity: Opportunity): void {
     // La huella es única: una segunda inserción de la misma oferta con otro id se rechaza (no hay duplicados).
@@ -2316,6 +2376,28 @@ export class SqliteStore {
         expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL,
         invite_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS knowledge_items (
+        id TEXT PRIMARY KEY,
+        hash TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL,
+        item_json TEXT NOT NULL,
+        model TEXT NOT NULL,
+        vector BLOB NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_knowledge_items_scope ON knowledge_items(scope, active, model);
+      CREATE INDEX IF NOT EXISTS idx_knowledge_items_hash ON knowledge_items(hash);
+
+      CREATE TABLE IF NOT EXISTS service_catalogs (
+        service TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        registered_by TEXT NOT NULL,
+        catalog_json TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS radar_opportunities (

@@ -104,6 +104,13 @@ import {
   sanitizeWorkProfilePatch,
 } from '../../packages/core/src/work-dashboard-template.js';
 import { WorkPresenceTracker, resolveWorkPresence } from '../../packages/core/src/work-presence.js';
+import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
+import { HashingEmbedder, HttpEmbedder, KnowledgeMemory, MEMORY_KINDS, type MemoryKind } from '../../packages/core/src/knowledge-memory.js';
+import { ChangePipeline, DockerSandboxDriver, ProcessSandboxDriver, selectSandboxDriver, type PreparedChange } from '../../packages/core/src/sandbox-runner.js';
+import {
+  McpHttpClient, SpecError, SpecToolAdapter, fetchTransport, findOperations, parseGraphqlIntrospection, parseOpenApi,
+  type ServiceCatalog,
+} from '../../packages/gateways/src/spec-connector.js';
 import {
   OPPORTUNITY_STAGES, advanceStage, buildRadarView, createOpportunity, dueOpportunityAlerts, lateDetection, markNotified,
   mergeOpportunity, parseRadarSources, runRadar, validateQuotaWindow, verifyOpportunity,
@@ -546,6 +553,8 @@ const approvalTimeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(30_000, Number(
 const approvalQueue = new ApprovalQueue({
   timeoutMs: approvalTimeoutMs,
   onTransition: (record) => {
+    // HITL: al quedar pendiente, aviso al dispositivo del CEO (si tiene avisos activados). La decisión se toma en el dashboard.
+    if (record.status === 'pending') { try { pushToFounders('JANUS · aprobación pendiente', record.label, record.id); } catch { /* el aviso es ayuda */ } }
     recordDecision({
       runId: record.runId,
       decisionKind: 'founder_approval',
@@ -1398,6 +1407,91 @@ function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | 
     ? value as CoordinationPreferredProvider
     : null;
 }
+
+/* ══ Arquitectura anti-obsolescencia: cuatro pilares sobre lo ya existente ═══════════════════════════════════
+ *  1 spec-connector.ts   servicios descritos por su especificación (OpenAPI / GraphQL / MCP), sin integraciones a mano
+ *  2 sandbox-runner.ts   cambio → pruebas en entorno aislado → commit preparado; publicar exige aprobación
+ *  3 knowledge-memory.ts memoria por significado, consultada antes de planificar
+ *  4 operation-risk.ts   lectura automática · escritura con aprobación · destructivo restringido (cola de aprobaciones existente)
+ */
+function pushToFounders(title: string, body: string, tag: string): void {
+  if (!pushKeys) return;
+  for (const founder of store.listAuthorityCredentials().filter((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt)) {
+    pushToMember(founder.principal.id, title, body, tag);
+  }
+}
+
+// Pilar 4 — puerta humana para operaciones descubiertas dinámicamente. Reutiliza ApprovalQueue (pausa, caducidad, auditoría).
+const hitlGate = new HitlGate({
+  policy: { trustedForMinorWrites: (process.env.JANUS_TRUSTED_MINOR_WRITES ?? '').split(',').map((entry) => entry.trim()).filter(Boolean) },
+  requestApproval: async (request) => {
+    const { record, outcome } = approvalQueue.request({
+      runId: request.runId, actionId: request.actionId, label: request.label, tool: request.operation.split('.')[0]!, operation: request.operation,
+      risk: request.risk === 'restricted' ? 'critical' : 'high', reversible: request.reversible, ...(request.target ? { target: request.target } : {}), reason: request.reason,
+    });
+    const result = await outcome;
+    return { approved: result.approved, status: result.status, approvalId: record.id, ...(result.record.decidedBy ? { decidedBy: result.record.decidedBy } : {}) };
+  },
+});
+
+// Pilar 3 — memoria. Local por defecto (huella léxica); con JANUS_EMBEDDINGS_URL usa un modelo de embeddings real.
+const embeddingsUrl = process.env.JANUS_EMBEDDINGS_URL?.trim();
+let knowledgeEmbedderNote = 'Huella léxica local (sin red): encuentra por vocabulario, no por sinónimos. Configure JANUS_EMBEDDINGS_URL para búsqueda semántica.';
+let knowledgeEmbedder: HashingEmbedder | HttpEmbedder = new HashingEmbedder();
+if (embeddingsUrl) {
+  try {
+    knowledgeEmbedder = new HttpEmbedder({ endpoint: embeddingsUrl, modelName: process.env.JANUS_EMBEDDINGS_MODEL?.trim() || 'text-embedding', dimensions: Number(process.env.JANUS_EMBEDDINGS_DIMENSIONS) || 1536, apiKey: async () => (await credentialBroker.accessToken('embeddings')) ?? null });
+    knowledgeEmbedderNote = 'Modelo de embeddings por HTTP (configurado; no verificado en el arranque).';
+  } catch (error) { knowledgeEmbedderNote = `JANUS_EMBEDDINGS_URL no válida (${error instanceof Error ? error.message : 'error'}): se usa la huella local.`; }
+}
+const knowledgeMemory = new KnowledgeMemory({ embedder: knowledgeEmbedder, store: store.knowledgeVectorStore(), newId: () => `mem_${randomUUID()}` });
+
+/** Vuelca a la memoria lo que JANUS ya sabe por otras vías: lecciones de errores e instrucciones de proyecto. Idempotente. */
+async function syncKnowledgeMemory(): Promise<{ lessons: number; projects: number; created: number }> {
+  let created = 0;
+  const lessons = store.listErrorLessons();
+  for (const lesson of lessons) {
+    const text = `Error pasado: ${lesson.error} Lección: ${lesson.lesson} Regla preventiva: ${lesson.preventiveRule}`.slice(0, 1900);
+    if ((await knowledgeMemory.remember({ kind: 'correction', scope: 'work', text, source: `lesson:${lesson.id}` })).created) created += 1;
+  }
+  const projects = store.listProjectWorkspaces().filter((project) => project.status === 'active' && project.instructions?.trim());
+  for (const project of projects) {
+    const text = `Instrucciones del proyecto «${project.name}»: ${project.instructions}`.slice(0, 1900);
+    if ((await knowledgeMemory.remember({ kind: 'rule', scope: 'work', text, source: `project:${project.id}` })).created) created += 1;
+  }
+  return { lessons: lessons.length, projects: projects.length, created };
+}
+
+// Pilar 1 — llamadas a servicios registrados por su especificación. Resultados recientes en memoria (no se persisten respuestas).
+const specCalls = new Map<string, { id: string; service: string; operation: string; status: 'pending_approval' | 'running' | 'done' | 'denied' | 'failed'; level: string; approvalId?: string; result?: unknown; error?: string; at: string }>();
+function rememberSpecCall(entry: { id: string; service: string; operation: string; status: 'pending_approval' | 'running' | 'done' | 'denied' | 'failed'; level: string; approvalId?: string; result?: unknown; error?: string; at: string }): void {
+  specCalls.set(entry.id, entry);
+  if (specCalls.size > 200) specCalls.delete(specCalls.keys().next().value!);
+}
+function specAdapterFor(catalog: ServiceCatalog): SpecToolAdapter {
+  return new SpecToolAdapter({
+    catalog,
+    transport: fetchTransport(catalog),
+    // La credencial sale de la bóveda (servicio `spec:<id>` o `<id>`), nunca del catálogo ni de la petición. Límite: solo Bearer.
+    authHeaders: async (): Promise<Record<string, string>> => { const token = (await credentialBroker.accessToken(`spec:${catalog.service}`)) ?? (await credentialBroker.accessToken(catalog.service)); const headers: Record<string, string> = {}; if (token) headers.authorization = `Bearer ${token}`; return headers; },
+  });
+}
+async function fetchSpecDocument(rawUrl: string): Promise<unknown> {
+  const target = new URL(rawUrl);
+  if (target.protocol !== 'https:') throw new HttpRequestError(400, 'la especificación debe leerse por https');
+  const result = await fetch(target, { redirect: 'follow', signal: AbortSignal.timeout(20_000), headers: { accept: 'application/json' } });
+  if (!result.url.startsWith('https://')) throw new HttpRequestError(400, 'la especificación redirige fuera de https');
+  if (!result.ok) throw new HttpRequestError(502, `la documentación del servicio respondió ${result.status}`);
+  const text = new TextDecoder().decode(new Uint8Array(await result.arrayBuffer()).subarray(0, 5_000_000));
+  try { return JSON.parse(text); } catch { throw new HttpRequestError(422, 'la especificación no es JSON (si es YAML, use su variante JSON)'); }
+}
+
+// Pilar 2 — sandbox. Contenedor si hay Docker en este equipo; si no, proceso (aislamiento débil, declarado en cada resultado).
+const sandboxDrivers = [new DockerSandboxDriver({ image: process.env.JANUS_SANDBOX_IMAGE?.trim() || 'node:22-slim' }), new ProcessSandboxDriver()];
+const selfChangeEnabled = process.env.JANUS_SELF_CHANGE === 'on';
+const selfChangeRepo = process.env.JANUS_SELF_CHANGE_REPO?.trim() || process.cwd();
+const SELF_CHANGE_CHECKS: Readonly<Record<string, readonly string[]>> = Object.freeze({ typecheck: ['npm', 'run', 'typecheck'], test: ['npm', 'test'], 'dashboard-test': ['npm', 'run', 'dashboard:test'] });
+const preparedChanges = new Map<string, PreparedChange>();
 
 /* ── Opportunity Radar (incidencia JANUS-OPPORTUNITY-20261110) ─────────────────────────────────────────────
  * Vigila fuentes OFICIALES (solo lectura, solo https de la lista), guarda oportunidades sin duplicar y avisa.
@@ -2435,12 +2529,15 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     const runModelGateway = new BudgetedModelGateway(routedGateway, runEffort?.budget.maxModelCalls ?? 3);
     runModelBudgets.set(runId, runModelGateway);
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
+    // Pilar 3: consulta obligatoria de la memoria antes de planificar. Solo ámbito laboral (lo personal y familiar no entra).
+    const memoryBrief = await knowledgeMemory.briefFor(command, ['work']).catch(() => null);
     const modelResult = await planWithModel(command, {
       modelGateway: runModelGateway,
       toolCatalog: executionPolicy.toolCatalog,
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        ...(memoryBrief?.text ? { memory: memoryBrief.text } : {}),
         ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
@@ -6499,6 +6596,178 @@ const server = createServer(async (request, response) => {
   }
 
   // Vista de equipo del CEO: un solo resumen con lo de EMPRESA de todo el equipo. Nunca incluye agenda privada.
+  // ── Pilar 3 · Memoria (solo CEO) ─────────────────────────────────────────────────────────────────────────
+  if (url.pathname === '/api/memory/status' && request.method === 'GET') {
+    try { requireFounderAuthority(request); json(response, 200, { ok: true, model: knowledgeMemory.model, embedder: knowledgeEmbedderNote, store: 'SQLite local (knowledge_items)', ...store.countKnowledgeItems(), kinds: MEMORY_KINDS, consultedBeforePlanning: true }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      let saved;
+      try {
+        saved = await knowledgeMemory.remember({
+          kind: (MEMORY_KINDS.includes(body.kind as MemoryKind) ? body.kind : 'rule') as MemoryKind,
+          scope: typeof body.scope === 'string' ? body.scope : 'work', text: typeof body.text === 'string' ? body.text : '',
+          source: typeof body.source === 'string' && body.source ? body.source : 'founder', ...(typeof body.supersedes === 'string' ? { supersedes: body.supersedes } : {}),
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid memory'); }
+      json(response, saved.created ? 201 : 200, { ok: true, ...saved });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory/search' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      const scopes = (url.searchParams.get('scopes') ?? 'work').split(',').map((entry) => entry.trim()).filter(Boolean).slice(0, 8);
+      const hits = await knowledgeMemory.recall(url.searchParams.get('q') ?? '', { scopes, limit: Number(url.searchParams.get('limit')) || 8 });
+      json(response, 200, { ok: true, scopes, hits: hits.map((hit) => ({ score: Math.round(hit.score * 1000) / 1000, ...hit.item })) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory/sync' && request.method === 'POST') {
+    try { requireFounderAuthority(request); json(response, 200, { ok: true, ...(await syncKnowledgeMemory()) }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Pilar 1 · Servicios por especificación (solo CEO) ────────────────────────────────────────────────────
+  if (url.pathname === '/api/integrations' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, integrations: store.listServiceCatalogs().map((entry) => {
+        const levels = { auto: 0, approval: 0, restricted: 0 };
+        for (const operation of entry.catalog.operations) levels[hitlGate.classify({ service: entry.service, operation: operation.id, method: operation.method, path: operation.path, summary: operation.summary, ...(operation.graphql ? { graphql: operation.graphql } : {}), ...(operation.readOnlyHint ? { readOnlyHint: true } : {}), ...(operation.destructiveHint ? { destructiveHint: true } : {}) }).level] += 1;
+        return { service: entry.service, title: entry.catalog.title, version: entry.catalog.version, source: entry.catalog.source, baseUrl: entry.catalog.baseUrl, operations: entry.catalog.operations.length, levels, auth: entry.catalog.auth, warnings: entry.catalog.warnings.slice(0, 10), updatedAt: entry.updatedAt };
+      }) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/integrations' && request.method === 'POST') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const service = typeof body.service === 'string' ? body.service.trim() : '';
+      const kind = body.kind === 'graphql' || body.kind === 'mcp' ? body.kind : 'openapi';
+      let catalog: ServiceCatalog;
+      try {
+        if (kind === 'mcp') {
+          const endpoint = typeof body.endpoint === 'string' ? body.endpoint : '';
+          const token = (await credentialBroker.accessToken(`spec:${service}`)) ?? null;
+          catalog = await new McpHttpClient(endpoint, async (payload, headers) => { const result = await fetch(endpoint, { method: 'POST', headers, body: payload, redirect: 'error', signal: AbortSignal.timeout(20_000) }); return { status: result.status, headers: {}, text: await result.text() }; }, token ? { authorization: `Bearer ${token}` } : {}).discover(service);
+        } else {
+          const document = body.document !== undefined ? body.document : typeof body.url === 'string' ? await fetchSpecDocument(body.url) : undefined;
+          if (document === undefined) throw new HttpRequestError(400, 'document or url is required');
+          catalog = kind === 'graphql' ? parseGraphqlIntrospection(service, document, typeof body.endpoint === 'string' ? body.endpoint : '') : parseOpenApi(service, document, typeof body.baseUrl === 'string' ? { baseUrl: body.baseUrl } : {});
+        }
+      } catch (error) {
+        if (error instanceof HttpRequestError) throw error;
+        throw new HttpRequestError(error instanceof SpecError ? 422 : 502, error instanceof Error ? error.message : 'no se pudo leer la especificación');
+      }
+      const now = new Date().toISOString();
+      store.upsertServiceCatalog(catalog, principal.id, now);
+      void knowledgeMemory.remember({ kind: 'infrastructure', scope: 'work', text: `Servicio conectado por especificación: ${catalog.title} (${catalog.service}), ${catalog.source}, ${catalog.operations.length} operaciones, en ${new URL(catalog.baseUrl).host}.`, source: `integration:${catalog.service}` }).catch(() => {});
+      json(response, 201, { ok: true, service: catalog.service, title: catalog.title, source: catalog.source, baseUrl: catalog.baseUrl, operations: catalog.operations.length, warnings: catalog.warnings });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const integrationMatch = url.pathname.match(/^\/api\/integrations\/([a-z][a-z0-9-]{1,39})(?:\/(operations|call))?$/);
+  if (integrationMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const catalog = store.getServiceCatalog(integrationMatch[1]!);
+      if (!catalog) throw new HttpRequestError(404, 'integration not found');
+      const describe = (operation: ServiceCatalog['operations'][number]) => ({ service: catalog.service, operation: operation.id, method: operation.method, path: operation.path, summary: operation.summary, ...(operation.graphql ? { graphql: operation.graphql } : {}), ...(operation.readOnlyHint ? { readOnlyHint: true } : {}), ...(operation.destructiveHint ? { destructiveHint: true } : {}) });
+      if (!integrationMatch[2] && request.method === 'DELETE') { store.deleteServiceCatalog(catalog.service); json(response, 200, { ok: true }); return; }
+      if (integrationMatch[2] === 'operations' && request.method === 'GET') {
+        const found = findOperations(catalog, url.searchParams.get('q') ?? '', Math.min(50, Number(url.searchParams.get('limit')) || 12));
+        json(response, 200, { ok: true, service: catalog.service, operations: found.map((operation) => ({ id: operation.id, method: operation.method, path: operation.path, summary: operation.summary, parameters: operation.parameters, bodyRequired: operation.bodyRequired, risk: classifyOperation(describe(operation), { trustedForMinorWrites: [] }).level, effectiveRisk: hitlGate.classify(describe(operation)).level })) });
+        return;
+      }
+      if (integrationMatch[2] === 'call' && request.method === 'POST') {
+        const body = await readJson(request);
+        const operation = catalog.operations.find((candidate) => candidate.id === body.operation);
+        if (!operation) throw new HttpRequestError(404, 'operation not found in this integration');
+        const args = body.args && typeof body.args === 'object' && !Array.isArray(body.args) ? body.args as Record<string, unknown> : {};
+        const risk = hitlGate.classify(describe(operation));
+        const callId = `call_${randomUUID()}`;
+        const adapter = specAdapterFor(catalog);
+        const runCall = async () => {
+          // Un fallo de red o del servicio es un resultado (ok:false) que se informa tal cual; nunca se inventa una respuesta.
+          const result = await adapter.execute({ tool: catalog.service, action: operation.id, input: args, idempotencyKey: callId }, () => {})
+            .catch((error: unknown) => ({ ok: false, output: undefined, error: `El servicio no respondió: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}` }));
+          rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: result.ok ? 'done' : 'failed', level: risk.level, result: result.output, ...(result.error ? { error: result.error } : {}), at: new Date().toISOString() });
+          return result;
+        };
+        if (risk.level === 'auto') { const result = await runCall(); json(response, 200, { ok: result.ok, callId, level: 'auto', reasons: risk.reasons, result: result.output ?? null, error: result.error ?? null }); return; }
+        // Escritura o acción restringida: el hilo queda en pausa hasta la decisión del CEO; la respuesta HTTP no espera.
+        rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: 'pending_approval', level: risk.level, at: new Date().toISOString() });
+        void hitlGate.authorize(describe(operation), { runId: `integration:${principal.id}`, actionId: callId, target: new URL(catalog.baseUrl).host })
+          .then(async (granted) => { rememberSpecCall({ ...specCalls.get(callId)!, status: 'running', ...(granted.approvalId ? { approvalId: granted.approvalId } : {}) }); await runCall(); })
+          .catch((error) => rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: error instanceof HitlDeniedError ? 'denied' : 'failed', level: risk.level, error: error instanceof Error ? error.message : 'error', at: new Date().toISOString() }));
+        const pending = approvalQueue.pending().find((record) => record.actionId === callId);
+        json(response, 202, { ok: true, callId, level: risk.level, reasons: risk.reasons, status: 'pending_approval', approvalId: pending?.id ?? null });
+        return;
+      }
+      throw new HttpRequestError(405, 'method not allowed');
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const specCallMatch = url.pathname.match(/^\/api\/integration-calls\/(call_[0-9a-f-]{36})$/);
+  if (specCallMatch && request.method === 'GET') {
+    try { requireFounderAuthority(request); const call = specCalls.get(specCallMatch[1]!); if (!call) throw new HttpRequestError(404, 'call not found'); json(response, 200, { ok: true, call }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Pilar 2 · Sandbox y cambios de código (solo CEO) ─────────────────────────────────────────────────────
+  if (url.pathname === '/api/sandbox/status' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      const drivers = sandboxDrivers.map((driver) => ({ name: driver.name, isolation: driver.isolation, available: driver.available() }));
+      json(response, 200, { ok: true, drivers, selected: drivers.find((driver) => driver.isolation === 'container' && driver.available)?.name ?? 'process', containerAvailable: drivers.some((driver) => driver.isolation === 'container' && driver.available), selfChange: { enabled: selfChangeEnabled, reason: selfChangeEnabled ? null : 'Apagado: defina JANUS_SELF_CHANGE=on en el equipo donde corre JANUS.', checks: Object.keys(SELF_CHANGE_CHECKS) } });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/changes' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!selfChangeEnabled) throw new HttpRequestError(409, 'self-change is disabled on this node');
+      const body = await readJson(request);
+      const checks = coordinationStringList(body.checks).map((name) => SELF_CHANGE_CHECKS[name]).filter((argv): argv is readonly string[] => Boolean(argv));
+      if (!checks.length) throw new HttpRequestError(400, `checks must name at least one of: ${Object.keys(SELF_CHANGE_CHECKS).join(', ')}`);
+      const driver = selectSandboxDriver(sandboxDrivers, { requireContainer: body.requireContainer === true });
+      let prepared: PreparedChange;
+      try {
+        prepared = await new ChangePipeline({ driver }).propose({
+          id: typeof body.id === 'string' ? body.id : '', repoDir: selfChangeRepo, summary: typeof body.summary === 'string' ? body.summary : '',
+          changes: Array.isArray(body.changes) ? body.changes as never : [], checks, dependencyDirs: ['node_modules'], timeoutMs: 20 * 60_000,
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      if (prepared.status === 'ready') preparedChanges.set(prepared.id, prepared);
+      const { workdir: _workdir, ...publicView } = prepared;
+      json(response, prepared.status === 'ready' ? 201 : 422, { ok: prepared.status === 'ready', change: publicView });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const changePublishMatch = url.pathname.match(/^\/api\/changes\/([a-z0-9][a-z0-9-]{2,40})\/publish$/);
+  if (changePublishMatch && request.method === 'POST') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const prepared = preparedChanges.get(changePublishMatch[1]!);
+      if (!prepared) throw new HttpRequestError(404, 'prepared change not found');
+      const remoteUrl = process.env.JANUS_SELF_CHANGE_REMOTE?.trim();
+      if (!remoteUrl) throw new HttpRequestError(409, 'JANUS_SELF_CHANGE_REMOTE is not configured');
+      // Empujar código es una operación restringida: espera la aprobación en el dispositivo aunque la pida el propio CEO.
+      const granted = await hitlGate.authorize({ service: 'janus', operation: 'pushChangeBranch', method: 'POST', summary: `Empuja la rama ${prepared.branch} (${prepared.filesChanged.length} archivos)` }, { runId: `change:${principal.id}`, actionId: `change:${prepared.id}`, target: prepared.branch ?? '' });
+      const pushed = new ChangePipeline({ driver: sandboxDrivers[1]! }).publish(prepared, { remoteUrl, approval: { approvalId: granted.approvalId ?? '', approved: true } });
+      json(response, pushed.ok ? 200 : 502, { ok: pushed.ok, branch: prepared.branch, commit: prepared.commit, detail: pushed.ok ? 'Rama empujada. La fusión o el despliegue son otro paso con su propia aprobación.' : pushed.out.slice(0, 300) });
+    } catch (error) { json(response, error instanceof HitlDeniedError ? 403 : authErrorStatus(error), error instanceof HitlDeniedError ? { ok: false, error: error.message } : authErrorBody(error)); }
+    return;
+  }
+
   // ── Opportunity Radar (solo CEO) ─────────────────────────────────────────────────────────────────────────
   if (url.pathname === '/api/radar' && request.method === 'GET') {
     try { requireFounderAuthority(request); json(response, 200, radarPayload()); }
@@ -7647,6 +7916,7 @@ process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
 radarScheduler?.start();
+void syncKnowledgeMemory().catch((error) => console.warn(`Knowledge memory sync skipped: ${error instanceof Error ? error.message.slice(0, 160) : 'error'}`));
 
 server.listen(port, bindHost, () => {
   console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);

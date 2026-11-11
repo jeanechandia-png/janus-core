@@ -361,6 +361,58 @@ try {
   await call('GET', '/api/work/team', founder, undefined, 200); await call('GET', '/api/dashboard/work', dev, undefined, 200);
   ok('Opportunity Radar: solo CEO, incidencia registrada, sin duplicados, cambios de condiciones, cupos, fuente caída y monitor apagado dicho con verdad');
 
+  // ── Arquitectura anti-obsolescencia: memoria, servicios por especificación, puerta humana y sandbox ──────────
+  // Pilar 3 · memoria
+  await call('GET', '/api/memory/status', dev, undefined, 403); await call('POST', '/api/memory', dev, { text: 'x' }, 403);
+  const memStatus = await call('GET', '/api/memory/status', founder, undefined, 200);
+  assert.equal(memStatus.consultedBeforePlanning, true); assert.match(memStatus.embedder, /local/i, 'sin modelo de embeddings configurado se dice');
+  await call('POST', '/api/memory', founder, { text: '   ' }, 400);
+  const rule = await call('POST', '/api/memory', founder, { kind: 'rule', scope: 'work', text: 'Las facturas de proveedores se revisan los viernes antes de pagar.' }, 201);
+  assert.equal((await call('POST', '/api/memory', founder, { kind: 'rule', scope: 'work', text: 'Las facturas de proveedores se revisan los viernes antes de pagar.' }, 200)).created, false, 'sin duplicados');
+  await call('POST', '/api/memory', founder, { kind: 'rule', scope: 'family', text: 'Las facturas del colegio se pagan el día cinco.' }, 201);
+  const hits = (await call('GET', '/api/memory/search?q=' + encodeURIComponent('cuándo reviso las facturas de proveedores'), founder, undefined, 200)).hits;
+  assert.equal(hits[0].id, rule.item.id); assert.ok(hits.every((h) => h.scope === 'work'), 'lo familiar no entra en una consulta laboral');
+  const sync = await call('POST', '/api/memory/sync', founder, {}, 200);
+  assert.ok(sync.lessons >= 1, 'las lecciones de errores pasan a la memoria');
+  assert.ok((await call('GET', '/api/memory/search?q=' + encodeURIComponent('oportunidad promoción detectada tarde'), founder, undefined, 200)).hits.some((h) => h.source === 'lesson:JANUS-OPPORTUNITY-20261110'));
+  // Pilar 1 · un servicio nuevo entra por su especificación, sin código a medida
+  const spec = { openapi: '3.0.3', info: { title: 'Servicio de prueba', version: '1.0' }, servers: [{ url: 'https://servicio-de-prueba.invalid/v1' }], paths: {
+    '/items': { get: { operationId: 'listItems', summary: 'List items', parameters: [{ name: 'limit', in: 'query', schema: { type: 'integer' } }] }, post: { operationId: 'createItem', summary: 'Create an item', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', required: ['name'], properties: { name: { type: 'string' } } } } } } } },
+    '/items/{id}': { delete: { operationId: 'deleteItem', summary: 'Delete an item', parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }] } } } };
+  await call('POST', '/api/integrations', dev, { service: 'prueba', document: spec }, 403);
+  await call('POST', '/api/integrations', founder, { service: 'prueba', document: { openapi: '3.0.3', info: {}, servers: [{ url: 'http://inseguro.invalid' }], paths: {} } }, 422);
+  const reg = await call('POST', '/api/integrations', founder, { service: 'prueba', document: spec }, 201);
+  assert.equal(reg.operations, 3);
+  const listedSvc = (await call('GET', '/api/integrations', founder, undefined, 200)).integrations.find((x) => x.service === 'prueba');
+  assert.deepEqual(listedSvc.levels, { auto: 1, approval: 1, restricted: 1 }, 'lectura automática, escritura con aprobación, borrado restringido');
+  const ops = (await call('GET', '/api/integrations/prueba/operations?q=' + encodeURIComponent('borrar item delete'), founder, undefined, 200)).operations;
+  assert.equal(ops[0].id, 'deleteItem'); assert.equal(ops[0].risk, 'restricted'); assert.equal(ops[0].effectiveRisk, 'restricted');
+  await call('POST', '/api/integrations/prueba/call', founder, { operation: 'noExiste' }, 404);
+  const read = await call('POST', '/api/integrations/prueba/call', founder, { operation: 'listItems', args: { limit: 5 } }, 200);
+  assert.equal(read.level, 'auto'); assert.equal(read.ok, false, 'el host de prueba no existe: se informa el fallo, no se inventa una respuesta');
+  // Pilar 4 · una operación destructiva queda en pausa hasta la decisión del CEO
+  const del = await call('POST', '/api/integrations/prueba/call', founder, { operation: 'deleteItem', args: { id: '7' } }, 202);
+  assert.equal(del.status, 'pending_approval'); assert.equal(del.level, 'restricted'); assert.match(del.approvalId, /^approval_/);
+  assert.equal((await call('GET', `/api/integration-calls/${del.callId}`, founder, undefined, 200)).call.status, 'pending_approval');
+  const queued = (await call('GET', '/api/approvals', founder, undefined, 200)).pending.find((a) => a.id === del.approvalId);
+  assert.equal(queued.risk, 'critical'); assert.equal(queued.operation, 'prueba.deleteItem');
+  await call('POST', `/api/approvals/${del.approvalId}/decision`, dev, { approved: true }, 403);
+  await call('POST', `/api/approvals/${del.approvalId}/decision`, founder, { approved: false, note: 'no borrar' }, 200);
+  await new Promise((r) => setTimeout(r, 150));
+  assert.equal((await call('GET', `/api/integration-calls/${del.callId}`, founder, undefined, 200)).call.status, 'denied', 'denegado: no se ejecuta');
+  const write = await call('POST', '/api/integrations/prueba/call', founder, { operation: 'createItem', args: { body: { name: 'a' } } }, 202);
+  assert.equal(write.level, 'approval');
+  await call('POST', `/api/approvals/${write.approvalId}/decision`, founder, { approved: true }, 200);
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.ok(['failed', 'done', 'running'].includes((await call('GET', `/api/integration-calls/${write.callId}`, founder, undefined, 200)).call.status), 'aprobado: se intenta ejecutar');
+  await call('DELETE', '/api/integrations/prueba', founder, undefined, 200); await call('GET', '/api/integrations/prueba/operations', founder, undefined, 404);
+  // Pilar 2 · sandbox: estado veraz y cambios de código apagados por defecto
+  const sandbox = await call('GET', '/api/sandbox/status', founder, undefined, 200);
+  assert.equal(sandbox.selfChange.enabled, false); assert.ok(sandbox.drivers.some((d) => d.isolation === 'process' && d.available));
+  await call('POST', '/api/changes', founder, { id: 'cambio-uno', summary: 'x', changes: [], checks: ['typecheck'] }, 409);
+  await call('GET', '/api/sandbox/status', dev, undefined, 403);
+  ok('anti-obsolescencia: memoria sin mezclar ámbitos, servicio por especificación, borrado en pausa hasta decidir, sandbox veraz');
+
   // ── /work: una sola página para todos; sin piel verificada no se sirve otro diseño ────────────
   const page = await fetch(`${base}/work`);
   let browserPhase = 'omitida';
