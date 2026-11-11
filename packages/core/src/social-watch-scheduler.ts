@@ -6,22 +6,22 @@ import type { SocialWatchReport } from './social-watch.js';
  * Es opt-in: sin intervalo configurado no arranca. Cada ejecución solo lee (el Tool Gateway no permite más a estos adaptadores);
  * no publica, no responde, no gasta. Los temporizadores son inyectables para poder probarlo sin esperar.
  */
-export interface SocialWatchSchedulerOptions {
+export interface SocialWatchSchedulerOptions<R extends { summary: { read: number; failed: number } } = SocialWatchReport> {
   /** Intervalo base en milisegundos (mínimo 15 minutos). */
   intervalMs: number;
   /** Espera antes de la primera ejecución tras arrancar. */
   initialDelayMs?: number;
   /** Tope del retroceso tras fallos consecutivos. */
   maxBackoffMs?: number;
-  run(): Promise<SocialWatchReport>;
-  onReport?(report: SocialWatchReport): void;
+  run(): Promise<R>;
+  onReport?(report: R): void;
   onError?(error: unknown): void;
   now?: () => Date;
   setTimer?(callback: () => void, ms: number): unknown;
   clearTimer?(handle: unknown): void;
 }
 
-export interface SocialWatchStatus {
+export interface SocialWatchStatus<R extends { summary: { read: number; failed: number } } = SocialWatchReport> {
   enabled: boolean;
   running: boolean;
   intervalMs: number;
@@ -30,7 +30,7 @@ export interface SocialWatchStatus {
   nextRunAt: string | null;
   consecutiveFailures: number;
   lastError: string | null;
-  lastSummary: SocialWatchReport['summary'] | null;
+  lastSummary: R['summary'] | null;
 }
 
 export const MIN_WATCH_INTERVAL_MS = 15 * 60_000;
@@ -44,22 +44,23 @@ export function parseWatchIntervalMinutes(value: string | undefined): number | n
   return Math.max(MIN_WATCH_INTERVAL_MS, Math.round(minutes * 60_000));
 }
 
-export class SocialWatchScheduler {
+/** Genérico: también lo usa el Opportunity Radar (misma disciplina: sin solapes, con retroceso, opt-in). */
+export class SocialWatchScheduler<R extends { summary: { read: number; failed: number } } = SocialWatchReport> {
   private readonly now: () => Date;
   private readonly setTimer: (callback: () => void, ms: number) => unknown;
   private readonly clearTimer: (handle: unknown) => void;
   private readonly maxBackoffMs: number;
   private timer: unknown = null;
-  private current: Promise<SocialWatchReport> | null = null;
+  private current: Promise<R> | null = null;
   private started = false;
   private lastRunAt: string | null = null;
   private lastDurationMs: number | null = null;
   private nextRunAt: string | null = null;
   private failures = 0;
   private lastError: string | null = null;
-  private lastSummary: SocialWatchReport['summary'] | null = null;
+  private lastSummary: R['summary'] | null = null;
 
-  constructor(private readonly options: SocialWatchSchedulerOptions) {
+  constructor(private readonly options: SocialWatchSchedulerOptions<R>) {
     if (!(options.intervalMs >= MIN_WATCH_INTERVAL_MS)) throw new Error('Social watch interval must be at least 15 minutes');
     this.now = options.now ?? (() => new Date());
     this.setTimer = options.setTimer ?? ((callback, ms) => {
@@ -86,7 +87,7 @@ export class SocialWatchScheduler {
   }
 
   /** Ejecución inmediata (p. ej. a petición del Founder). Si ya hay una en curso, devuelve esa misma: nunca dos a la vez. */
-  runNow(): Promise<SocialWatchReport> {
+  runNow(): Promise<R> {
     if (this.current) return this.current;
     const startedAt = this.now().getTime();
     const task = (async () => {
@@ -121,7 +122,7 @@ export class SocialWatchScheduler {
     return task;
   }
 
-  status(): SocialWatchStatus {
+  status(): SocialWatchStatus<R> {
     return {
       enabled: this.started,
       running: this.current !== null,

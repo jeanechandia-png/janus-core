@@ -308,6 +308,27 @@ una tarea, enviarles un archivo». La dashboard es el canal; no WhatsApp.
 Pruebas: `npm test` 721/0; smoke 21 bloques (aislamiento entre personas, permisos, adjuntos, acceso por tarea);
 navegador sobre las vistas previas 18/18. NO VERIFICADO: entrega real del aviso por Apple/Google; iPhone físico.
 
+## Actualización 11-nov-2026 (02:30) — Opportunity Radar (incidencia JANUS-OPPORTUNITY-20261110)
+
+Instrucción prioritaria del propietario. Detalle completo, estado real y pasos siguientes en
+`docs/incidents/JANUS-OPPORTUNITY-20261110.md`.
+
+49. **Núcleo** `packages/core/src/opportunity-radar.ts` (puro): oportunidades con huella anti-duplicados, historial,
+    cambios de condiciones, estados verificada / por verificar / caducada, prioridad, avisos (nueva crítica, 72 h,
+    24 h), detección tardía, seguimiento de aprovechamiento, cupos declarados y plan en fases A/B, criba de fuentes.
+50. **Reutilizado:** `SocialWatchScheduler` (ahora genérico) para el monitor; `ErrorLedger`/`error_lessons` para la
+    incidencia; Web Push existente para avisos; marco de pestañas de la dashboard A/B para la vista.
+51. **Runtime:** tablas `radar_opportunities`, `radar_quota_windows`, `radar_source_state`; rutas solo-CEO
+    `GET /api/radar`, `POST /api/radar/opportunities`, `PUT …/:id/stage|verify`, `POST|DELETE /api/radar/quotas`,
+    `POST /api/radar/run`. Siembra idempotente: incidencia, oportunidad de referencia (por verificar) y cupo declarado.
+52. **Dashboard:** pestaña «Radar» (`src/radar.js`) y aviso 📡 en la cabecera de la portada. Sin Núcleo muestra el
+    «registro inicial», marcado como tal.
+53. **Monitor automático: implementado y APAGADO** (`JANUS_RADAR_INTERVAL_MIN`). No verificado contra webs reales.
+
+Pruebas: `tests/opportunity-radar.test.ts` 14/14; bloque del radar en `work-runtime-smoke` (22 bloques);
+`npm test` 735/0. Pendiente previo ajeno a esta entrega: `e2e-slot.cjs` espera 5 huecos de criaturas y la rama
+base tiene otra cantidad (archivos no tocados por Claude).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

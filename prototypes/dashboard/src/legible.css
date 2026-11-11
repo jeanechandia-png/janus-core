@@ -81,3 +81,5 @@
 #dash .cd>.lb{white-space:nowrap}
 #dash .stk .cd>.lb{letter-spacing:.1em;gap:5px}
 #dash .stk .cd>.lb .mt{letter-spacing:0}
+/* Aviso del Radar en la portada: en pantallas estrechas se oculta para no desbordar la cabecera (la pestaña Radar sigue ahí). */
+@media(max-width:1100px){#dash .hd .chip[data-go="radar"]{display:none}}

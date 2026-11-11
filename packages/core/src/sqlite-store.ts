@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
+import type { Opportunity, QuotaWindow, RadarSourceState } from './opportunity-radar.js';
 import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
 import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
 import type { DecisionReceipt } from './decision-receipt.js';
@@ -862,6 +863,54 @@ export class SqliteStore {
   }
 
   /** Mensajes internos del equipo (bandeja del CEO). Los rechazados también se guardan como rastro. */
+  /* ── Opportunity Radar ── */
+  upsertRadarOpportunity(opportunity: Opportunity): void {
+    // La huella es única: una segunda inserción de la misma oferta con otro id se rechaza (no hay duplicados).
+    this.db.prepare(`
+      INSERT INTO radar_opportunities (id, fingerprint, updated_at, opportunity_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, opportunity_json = excluded.opportunity_json
+      WHERE radar_opportunities.fingerprint = excluded.fingerprint
+    `).run(opportunity.id, opportunity.fingerprint, opportunity.updatedAt, JSON.stringify(opportunity));
+  }
+
+  getRadarOpportunity(id: string): Opportunity | null {
+    const row = this.db.prepare('SELECT opportunity_json FROM radar_opportunities WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.opportunity_json)) as Opportunity : null;
+  }
+
+  listRadarOpportunities(): Opportunity[] {
+    const rows = this.db.prepare('SELECT opportunity_json FROM radar_opportunities ORDER BY updated_at DESC, id LIMIT 500').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.opportunity_json)) as Opportunity);
+  }
+
+  upsertRadarQuotaWindow(quota: QuotaWindow): void {
+    this.db.prepare(`
+      INSERT INTO radar_quota_windows (id, updated_at, quota_json) VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, quota_json = excluded.quota_json
+    `).run(quota.id, quota.updatedAt, JSON.stringify(quota));
+  }
+
+  listRadarQuotaWindows(): QuotaWindow[] {
+    const rows = this.db.prepare('SELECT quota_json FROM radar_quota_windows ORDER BY id LIMIT 100').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.quota_json)) as QuotaWindow);
+  }
+
+  deleteRadarQuotaWindow(id: string): boolean {
+    return Number(this.db.prepare('DELETE FROM radar_quota_windows WHERE id = ?').run(id).changes) > 0;
+  }
+
+  upsertRadarSourceState(state: RadarSourceState): void {
+    this.db.prepare(`
+      INSERT INTO radar_source_state (source_id, checked_at, state_json) VALUES (?, ?, ?)
+      ON CONFLICT(source_id) DO UPDATE SET checked_at = excluded.checked_at, state_json = excluded.state_json
+    `).run(state.sourceId, state.checkedAt, JSON.stringify(state));
+  }
+
+  listRadarSourceStates(): RadarSourceState[] {
+    const rows = this.db.prepare('SELECT state_json FROM radar_source_state ORDER BY source_id').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.state_json)) as RadarSourceState);
+  }
+
   upsertWorkMessage(message: WorkMessage): void {
     this.db.prepare(`
       INSERT INTO work_messages (id, from_principal_id, created_at, message_json) VALUES (?, ?, ?, ?)
@@ -2267,6 +2316,25 @@ export class SqliteStore {
         expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL,
         invite_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_opportunities (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL UNIQUE,
+        updated_at TEXT NOT NULL,
+        opportunity_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_quota_windows (
+        id TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        quota_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_source_state (
+        source_id TEXT PRIMARY KEY,
+        checked_at TEXT NOT NULL,
+        state_json TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS work_messages (

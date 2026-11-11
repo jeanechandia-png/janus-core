@@ -105,6 +105,11 @@ import {
 } from '../../packages/core/src/work-dashboard-template.js';
 import { WorkPresenceTracker, resolveWorkPresence } from '../../packages/core/src/work-presence.js';
 import {
+  OPPORTUNITY_STAGES, advanceStage, buildRadarView, createOpportunity, dueOpportunityAlerts, lateDetection, markNotified,
+  mergeOpportunity, parseRadarSources, runRadar, validateQuotaWindow, verifyOpportunity,
+  type OpportunityStage, type RadarRunReport,
+} from '../../packages/core/src/opportunity-radar.js';
+import {
   WORK_SESSION_EVENT_KINDS,
   nextWorkSessionEvent,
   summarizeWorkSessions,
@@ -1392,6 +1397,142 @@ function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | 
   return typeof value === 'string' && (COORDINATION_PREFERRED_PROVIDERS as readonly string[]).includes(value)
     ? value as CoordinationPreferredProvider
     : null;
+}
+
+/* ── Opportunity Radar (incidencia JANUS-OPPORTUNITY-20261110) ─────────────────────────────────────────────
+ * Vigila fuentes OFICIALES (solo lectura, solo https de la lista), guarda oportunidades sin duplicar y avisa.
+ * El monitor es opt-in: sin JANUS_RADAR_INTERVAL_MIN no arranca y el estado lo dice («desactivado»). */
+let radarSources: ReturnType<typeof parseRadarSources>;
+let radarSourcesError: string | null = null;
+try { radarSources = parseRadarSources(process.env.JANUS_RADAR_SOURCES); } catch (error) { radarSources = []; radarSourcesError = error instanceof Error ? error.message : 'invalid JANUS_RADAR_SOURCES'; }
+let lastRadarReport: RadarRunReport | null = null;
+
+async function fetchRadarSource(url: string): Promise<string> {
+  if (!radarSources.some((source) => source.url === url)) throw new Error('source not allowed');
+  const result = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15_000), headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'JANUS-OpportunityRadar/1 (+solo lectura)' } });
+  if (!result.url.startsWith('https://')) throw new Error('redirected outside https');
+  if (!result.ok) throw new Error(`HTTP ${result.status}`);
+  const bytes = new Uint8Array(await result.arrayBuffer());
+  return new TextDecoder().decode(bytes.subarray(0, 1_500_000));
+}
+
+async function runOpportunityRadar(): Promise<RadarRunReport> {
+  const report = await runRadar({
+    sources: radarSources,
+    fetchText: fetchRadarSource,
+    list: () => store.listRadarOpportunities(),
+    save: (opportunity) => store.upsertRadarOpportunity(opportunity),
+    previousState: (sourceId) => store.listRadarSourceStates().find((state) => state.sourceId === sourceId),
+    saveState: (state) => store.upsertRadarSourceState(state),
+    newId: () => `opp_${randomUUID()}`,
+    now: () => new Date().toISOString(),
+  });
+  lastRadarReport = report;
+  void sweepOpportunityAlerts();
+  return report;
+}
+
+const radarIntervalMs = parseWatchIntervalMinutes(process.env.JANUS_RADAR_INTERVAL_MIN);
+const radarScheduler = radarIntervalMs && radarSources.length
+  ? new SocialWatchScheduler<RadarRunReport>({
+      intervalMs: radarIntervalMs,
+      run: runOpportunityRadar,
+      onError: (error) => console.warn(`Opportunity radar failed: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}`),
+    })
+  : null;
+
+/** Avisos al teléfono del CEO por oportunidades críticas o a punto de vencer. Solo se da por enviado si salió. */
+async function sweepOpportunityAlerts(): Promise<number> {
+  if (!pushKeys) return 0;
+  const now = new Date().toISOString();
+  const opportunities = store.listRadarOpportunities();
+  let sent = 0;
+  for (const alert of dueOpportunityAlerts(opportunities, now)) {
+    const founders = store.listAuthorityCredentials().filter((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt);
+    let delivered = false;
+    for (const founder of founders) {
+      for (const subscription of store.listPushSubscriptions(founder.principal.id)) {
+        try {
+          const request = buildPushRequest(subscription, { title: `Radar · ${alert.title}`.slice(0, 80), body: alert.body, tag: `${alert.opportunityId}:${alert.key}` }, pushKeys);
+          const result = await fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) });
+          if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint);
+          else if (result.ok) delivered = true;
+        } catch { /* sin red: el aviso sigue visible en el dashboard */ }
+      }
+    }
+    if (delivered) {
+      const current = store.getRadarOpportunity(alert.opportunityId);
+      if (current) store.upsertRadarOpportunity(markNotified(current, alert.key, now));
+      sent += 1;
+    }
+  }
+  return sent;
+}
+if (pushKeys) setInterval(() => { void sweepOpportunityAlerts(); }, 10 * 60_000).unref();
+
+/**
+ * Registro inicial, idempotente: la incidencia que motivó el radar, la oportunidad de referencia y el cupo que indicó
+ * el propietario. No sobrescribe nada que ya exista. No afirma un fallo técnico concreto: la causa queda por confirmar.
+ */
+function seedOpportunityRadar(): void {
+  const incidentFingerprint = 'JANUS-OPPORTUNITY-20261110';
+  if (!store.listErrorLessons().some((lesson) => lesson.id === incidentFingerprint)) {
+    const lesson = new ErrorLedger(store.listErrorLessons()).record({
+      id: incidentFingerprint, fingerprint: incidentFingerprint, at: '2026-11-10T12:00:00.000Z',
+      error: 'Oportunidad temporal (Claude Fable 5.2 incluido en Pro hasta el 16-nov) comunicada por el propietario; JANUS no había generado una alerta temprana verificable.',
+      cause: 'POR CONFIRMAR. No se ha identificado un fallo técnico específico: no existía un monitor de oportunidades en ejecución.',
+      impact: 'Parte de la ventana de la promoción transcurrió sin planificación del cupo ni de las tareas a adelantar.',
+      lesson: 'Las oportunidades tecnológicas temporales deben detectarse al publicarse, evaluarse y planificarse contra el cupo real, no cuando están por terminar.',
+      preventiveRule: 'Vigilar fuentes oficiales de proveedores con el Opportunity Radar; toda oportunidad se registra con fuente, fechas, condiciones, cupo y seguimiento de aprovechamiento.',
+      solutions: ['Módulo Opportunity Radar (registro, prioridad, avisos, cupos y fases)', 'Monitor de fuentes oficiales, activable con JANUS_RADAR_INTERVAL_MIN'],
+      change: 'packages/core/src/opportunity-radar.ts, /api/radar y pestaña «Radar» del dashboard',
+      verification: 'tests/opportunity-radar.test.ts y tests/runtime-smoke; monitor real pendiente de activar y verificar en el equipo donde corra JANUS',
+      verified: false,
+    });
+    store.upsertErrorLesson(lesson);
+  }
+  const reference = createOpportunity({
+    provider: 'Anthropic', title: 'Claude Fable 5.2 incluido en el plan Pro (semana de lanzamiento)', kind: 'promotion', verification: 'pending',
+    sourceUrl: 'https://support.claude.com/en/articles/17506494', sourceLabel: 'Ayuda de Claude (citada por prensa; JANUS no ha leído la página oficial)',
+    publishedAt: '2026-11-09T18:00:00Z', startsAt: '2026-11-09T18:00:00Z', expiresAt: '2026-11-17T07:59:00Z',
+    conditions: 'Según prensa que cita la ayuda oficial: incluido en Pro hasta el 16-nov 23:59 PT (17-nov 08:59 en Países Bajos); hasta el 50 % del límite semanal en Fable; un restablecimiento gratuito («Reset for free» en Ajustes → Uso) que caduca al terminar la semana de lanzamiento; después, Fable vuelve a consumir créditos de uso.',
+    eligibility: 'Plan Pro. El restablecimiento gratuito exige facturación de pago anterior al 9-nov 10:00 PT.',
+    projects: ['JANUS', 'IBA', 'ChatBox', 'Melanie'], benefit: 5, cost: 'none', risk: 1, compatible: true, detectedBy: 'owner',
+    notes: 'Comunicada por el propietario el 10-nov (hora aproximada). Ya en uso en la cuenta Claude Pro.',
+  }, { id: 'opp_fable52_pro_launch', now: '2026-11-10T12:00:00.000Z' });
+  if (!store.listRadarOpportunities().some((item) => item.fingerprint === reference.fingerprint)) {
+    store.upsertRadarOpportunity(advanceStage(advanceStage(reference, 'activated', '2026-11-10T12:00:00.000Z', 'En uso en la cuenta Claude Pro'), 'used', '2026-11-10T12:00:00.000Z'));
+  }
+  if (store.listRadarQuotaWindows().length === 0) {
+    store.upsertRadarQuotaWindow(validateQuotaWindow({
+      id: 'quota_claude_pro_weekly', account: 'Claude Pro (propietario)', kind: 'weekly', label: 'Cupo semanal de Claude',
+      resetsAt: '2026-11-14T14:00:00Z', verified: false,
+      note: 'Indicado por el propietario: restablecimiento el sábado 14-nov hacia las 15:00 (Países Bajos). Hora exacta y límites por verificar en la cuenta; JANUS no tiene acceso a esos contadores.',
+    }, '2026-11-10T12:00:00.000Z'));
+    store.upsertRadarQuotaWindow(validateQuotaWindow({
+      id: 'quota_claude_pro_5h', account: 'Claude Pro (propietario)', kind: 'short', label: 'Ventana corta (5 horas)', verified: false,
+      note: 'Los límites por ventanas cortas siguen aplicando: no hay disponibilidad continua garantizada.',
+    }, '2026-11-10T12:00:00.000Z'));
+  }
+}
+try { seedOpportunityRadar(); } catch (error) { console.warn(`Opportunity radar seed skipped: ${error instanceof Error ? error.message.slice(0, 160) : 'error'}`); }
+
+function radarPayload() {
+  const now = new Date().toISOString();
+  const states = store.listRadarSourceStates();
+  return {
+    ok: true,
+    ...buildRadarView(store.listRadarOpportunities(), store.listRadarQuotaWindows(), now),
+    monitor: {
+      enabled: Boolean(radarScheduler),
+      reason: radarScheduler ? null : radarSourcesError ?? 'Monitor automático desactivado: defina JANUS_RADAR_INTERVAL_MIN (minutos, mínimo 15). Mientras tanto solo se registra lo que se anota a mano o con «Revisar ahora».',
+      scheduler: radarScheduler?.status() ?? null,
+      lastRun: lastRadarReport ? { at: lastRadarReport.at, summary: lastRadarReport.summary } : null,
+      pushConfigured: Boolean(pushKeys),
+      sources: radarSources.map((source) => ({ ...source, state: states.find((state) => state.sourceId === source.id) ?? null })),
+    },
+    incidents: store.listErrorLessons().filter((lesson) => /^JANUS-OPPORTUNITY-/.test(lesson.id)).map((lesson) => ({ id: lesson.id, at: lesson.at, error: lesson.error, cause: lesson.cause, lesson: lesson.lesson, preventiveRule: lesson.preventiveRule, verified: lesson.verified ?? false })),
+  };
 }
 
 /** Presencia («lucecitas» del CEO): última señal por colaborador, solo en memoria. Ver work-presence.ts. */
@@ -6358,6 +6499,84 @@ const server = createServer(async (request, response) => {
   }
 
   // Vista de equipo del CEO: un solo resumen con lo de EMPRESA de todo el equipo. Nunca incluye agenda privada.
+  // ── Opportunity Radar (solo CEO) ─────────────────────────────────────────────────────────────────────────
+  if (url.pathname === '/api/radar' && request.method === 'GET') {
+    try { requireFounderAuthority(request); json(response, 200, radarPayload()); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/radar/opportunities' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      let incoming;
+      try { incoming = createOpportunity({ ...(body as Record<string, unknown>), detectedBy: body.detectedBy === 'agent' ? 'agent' : 'owner' } as never, { id: `opp_${randomUUID()}`, now }); }
+      catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid opportunity'); }
+      const existing = store.listRadarOpportunities().find((item) => item.fingerprint === incoming.fingerprint);
+      if (existing) {
+        const merged = mergeOpportunity(existing, incoming, now);
+        store.upsertRadarOpportunity(merged.opportunity);
+        json(response, 200, { ok: true, duplicate: true, changed: merged.changed, opportunity: merged.opportunity });
+      } else {
+        store.upsertRadarOpportunity(incoming);
+        void sweepOpportunityAlerts();
+        json(response, 201, { ok: true, duplicate: false, opportunity: incoming, late: lateDetection(incoming) });
+      }
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const radarOpportunityMatch = url.pathname.match(/^\/api\/radar\/opportunities\/([^/]+)\/(stage|verify)$/);
+  if (radarOpportunityMatch && request.method === 'PUT') {
+    try {
+      requireFounderAuthority(request);
+      const current = store.getRadarOpportunity(decodeURIComponent(radarOpportunityMatch[1]!));
+      if (!current) throw new HttpRequestError(404, 'opportunity not found');
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      let next;
+      try {
+        next = radarOpportunityMatch[2] === 'verify'
+          ? verifyOpportunity(current, typeof body.sourceUrl === 'string' ? body.sourceUrl : current.sourceUrl ?? '', now)
+          : advanceStage(current, (OPPORTUNITY_STAGES.includes(body.stage as OpportunityStage) ? body.stage : '') as OpportunityStage, now, typeof body.note === 'string' ? body.note : undefined);
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      store.upsertRadarOpportunity(next);
+      json(response, 200, { ok: true, opportunity: next });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/radar/quotas' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      let quota;
+      try { quota = validateQuotaWindow({ ...(body as Record<string, unknown>), id: typeof body.id === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(body.id) ? body.id : `quota_${randomUUID()}` } as never, new Date().toISOString()); }
+      catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid quota'); }
+      store.upsertRadarQuotaWindow(quota);
+      json(response, 200, { ok: true, quota });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const radarQuotaMatch = url.pathname.match(/^\/api\/radar\/quotas\/([^/]+)$/);
+  if (radarQuotaMatch && request.method === 'DELETE') {
+    try {
+      requireFounderAuthority(request);
+      if (!store.deleteRadarQuotaWindow(decodeURIComponent(radarQuotaMatch[1]!))) throw new HttpRequestError(404, 'quota not found');
+      json(response, 200, { ok: true });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  // Leer ahora las fuentes oficiales (solo lectura). Devuelve qué fuentes respondieron y cuáles no.
+  if (url.pathname === '/api/radar/run' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!radarSources.length) throw new HttpRequestError(409, radarSourcesError ?? 'no radar sources configured');
+      const report = radarScheduler ? await radarScheduler.runNow() : await runOpportunityRadar();
+      json(response, 200, { ok: true, report });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
   // Señal de presencia: el panel abierto la envía cada 30 s. Solo marca «conectado ahora»; no guarda nada.
   if (request.method === 'POST' && url.pathname === '/api/work/presence') {
     try {
@@ -7427,6 +7646,7 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
+radarScheduler?.start();
 
 server.listen(port, bindHost, () => {
   console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);

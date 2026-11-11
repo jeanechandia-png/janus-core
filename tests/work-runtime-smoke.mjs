@@ -26,7 +26,7 @@ const child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.t
     ...process.env, PORT: String(port), JANUS_DB: ':memory:', JANUS_TIME_ZONE: 'Europe/Amsterdam',
     GOOGLE_ACCESS_TOKEN: '', THREADS_ACCESS_TOKEN: '', JANUS_CREDENTIAL_VAULT_KEY: randomBytes(32).toString('base64'), JANUS_CREDENTIAL_VAULT_PATH: '',
     GOOGLE_OAUTH_CLIENT_ID: '', GOOGLE_OAUTH_CLIENT_SECRET: '', THREADS_APP_SECRET: '', GITHUB_TOKEN: '', NETLIFY_AUTH_TOKEN: '',
-    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2', JANUS_PUSH_VAPID_PRIVATE_KEY: randomBytes(32).toString('base64url'), JANUS_INTERNAL_RECIPIENTS: 'ceo:CEO,empresa:Empresa',
+    JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_WORK_OPERATOR_UPLOADS: '', JANUS_OPERATOR_DAILY_RUNS: '2', JANUS_RADAR_SOURCES: JSON.stringify([{ id: 'caida', provider: 'Proveedor', label: 'Fuente caída', url: 'https://radar-fuente.invalid/news' }]), JANUS_RADAR_INTERVAL_MIN: '', JANUS_PUSH_VAPID_PRIVATE_KEY: randomBytes(32).toString('base64url'), JANUS_INTERNAL_RECIPIENTS: 'ceo:CEO,empresa:Empresa',
     JANUS_ALLOW_PASSKEY_BOOTSTRAP: 'true',
     JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'smoke-face-key',
   },
@@ -317,6 +317,49 @@ try {
   const teamNow = await call('GET', '/api/work/team', founder, undefined, 200);
   assert.deepEqual(teamNow.members.find((m) => m.principalId === 'colab-peer').projects, [{ id: 'p-fotos', name: 'Fotos de obra' }]);
   ok('el CEO escribe, responde, envía archivos y da tareas; cada persona ve solo lo suyo');
+
+  // ── Opportunity Radar (incidencia JANUS-OPPORTUNITY-20261110) ─────────────────────────────────
+  await call('GET', '/api/radar', dev, undefined, 403); await call('GET', '/api/radar', null, undefined, 401);
+  let radar = await call('GET', '/api/radar', founder, undefined, 200);
+  const seeded = radar.opportunities.find((o) => o.id === 'opp_fable52_pro_launch');
+  assert.ok(seeded, 'la oportunidad de referencia queda registrada');
+  assert.equal(seeded.verification, 'pending', 'no se da por verificada sin leer la fuente oficial'); assert.equal(seeded.stage, 'used');
+  assert.equal(seeded.late.late, true);
+  assert.deepEqual(radar.incidents.map((i) => i.id), ['JANUS-OPPORTUNITY-20261110']); assert.match(radar.incidents[0].cause, /POR CONFIRMAR/);
+  assert.equal(radar.quotas.length, 2); assert.ok(radar.quotas.every((q) => q.verified === false), 'los cupos son datos declarados');
+  assert.equal(radar.monitor.enabled, false, 'el monitor no se declara operativo sin intervalo configurado'); assert.match(radar.monitor.reason, /desactivado/);
+  const far = new Date(Date.now() + 20 * 86400000).toISOString(), soon = new Date(Date.now() + 30 * 3600000).toISOString();
+  await call('POST', '/api/radar/opportunities', dev, { provider: 'OpenAI', title: 'Créditos de lanzamiento' }, 403);
+  await call('POST', '/api/radar/opportunities', founder, { provider: '', title: 'x' }, 400);
+  await call('POST', '/api/radar/opportunities', founder, { provider: 'OpenAI', title: 'Créditos', verification: 'verified' }, 400);
+  const made = await call('POST', '/api/radar/opportunities', founder, { provider: 'OpenAI', title: 'Créditos de lanzamiento para la API', kind: 'credits', expiresAt: far, projects: ['IBA'], benefit: 4 }, 201);
+  assert.equal(made.duplicate, false); assert.equal(made.opportunity.verification, 'pending');
+  const dup = await call('POST', '/api/radar/opportunities', founder, { provider: 'openai', title: 'Créditos de LANZAMIENTO — para la API', expiresAt: far }, 200);
+  assert.equal(dup.duplicate, true); assert.deepEqual(dup.changed, []); assert.equal(dup.opportunity.id, made.opportunity.id);
+  const moved = await call('POST', '/api/radar/opportunities', founder, { provider: 'OpenAI', title: 'Créditos de lanzamiento para la API', expiresAt: soon, conditions: 'Solo cuentas nuevas' }, 200);
+  assert.deepEqual(moved.changed.sort(), ['conditions', 'expiresAt']);
+  radar = await call('GET', '/api/radar', founder, undefined, 200);
+  assert.equal(radar.opportunities.filter((o) => o.provider === 'OpenAI').length, 1, 'sin duplicados');
+  assert.ok(radar.alerts.some((a) => a.opportunityId === made.opportunity.id && a.key === 'expires-72h'), 'alerta por vencimiento próximo');
+  const oid = made.opportunity.id;
+  await call('PUT', `/api/radar/opportunities/${oid}/verify`, founder, {}, 400);
+  assert.equal((await call('PUT', `/api/radar/opportunities/${oid}/verify`, founder, { sourceUrl: 'https://openai.com/news/' }, 200)).opportunity.verification, 'verified');
+  await call('PUT', `/api/radar/opportunities/${oid}/stage`, founder, { stage: 'dismissed' }, 400);
+  await call('PUT', `/api/radar/opportunities/${oid}/stage`, founder, { stage: 'activated' }, 200);
+  await call('PUT', `/api/radar/opportunities/${oid}/stage`, founder, { stage: 'detected' }, 400);
+  await call('PUT', `/api/radar/opportunities/no-existe/stage`, founder, { stage: 'used' }, 404);
+  assert.equal((await call('PUT', `/api/radar/opportunities/${oid}/stage`, founder, { stage: 'finished' }, 200)).opportunity.stage, 'finished');
+  await call('POST', '/api/radar/quotas', founder, { account: 'Cuenta', label: 'Semanal', usedPercent: 130 }, 400);
+  const quota = (await call('POST', '/api/radar/quotas', founder, { account: 'Cuenta de prueba', label: 'Cupo semanal', kind: 'weekly', usedPercent: 40, resetsAt: far, verified: true }, 200)).quota;
+  assert.equal(quota.usedPercent, 40); await call('DELETE', `/api/radar/quotas/${quota.id}`, founder, undefined, 200); await call('DELETE', `/api/radar/quotas/${quota.id}`, founder, undefined, 404);
+  await call('POST', '/api/radar/run', dev, {}, 403);
+  const run = (await call('POST', '/api/radar/run', founder, {}, 200)).report;
+  assert.deepEqual(run.summary, { sources: 1, reachable: 0, created: 0, updated: 0, read: 0, failed: 1 }, 'fuente inaccesible: se informa, no se inventa');
+  radar = await call('GET', '/api/radar', founder, undefined, 200);
+  assert.equal(radar.monitor.sources[0].state.ok, false); assert.equal(radar.monitor.sources[0].state.consecutiveFailures, 1);
+  // Lo existente sigue igual: equipo y panel del colaborador responden como antes.
+  await call('GET', '/api/work/team', founder, undefined, 200); await call('GET', '/api/dashboard/work', dev, undefined, 200);
+  ok('Opportunity Radar: solo CEO, incidencia registrada, sin duplicados, cambios de condiciones, cupos, fuente caída y monitor apagado dicho con verdad');
 
   // ── /work: una sola página para todos; sin piel verificada no se sirve otro diseño ────────────
   const page = await fetch(`${base}/work`);
