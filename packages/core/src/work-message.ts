@@ -40,7 +40,56 @@ export interface WorkMessage {
   decision: 'internal_recipient' | 'recipient_outside_company';
   createdAt: string;
   readAt?: string;
+  /** Solo en mensajes del CEO hacia un colaborador: quién lo recibe. Sin este campo, el mensaje va hacia el CEO. */
+  toPrincipalId?: string;
+  /** Mensaje al que responde (mismo hilo). */
+  replyToId?: string;
+  /** Archivos del proyecto que acompañan al mensaje (se abren dentro del panel, con los permisos del proyecto). */
+  attachments?: Array<{ resourceId: string; name: string }>;
 }
+
+export const WORK_MESSAGE_ATTACHMENTS_MAX = 8;
+
+/** Mensaje del CEO a un colaborador. Nunca sale del ecosistema: se entrega en el panel de esa persona. */
+export function composeFounderMessage(input: {
+  id: string;
+  fromPrincipalId: string;
+  toPrincipalId: string;
+  subject: string;
+  body: string;
+  projectId?: string;
+  replyToId?: string;
+  attachments?: ReadonlyArray<{ resourceId: string; name: string }>;
+  now: string;
+}): WorkMessage {
+  const subject = input.subject.trim();
+  const body = input.body.trim();
+  const attachments = (input.attachments ?? []).map((entry) => ({ resourceId: String(entry.resourceId).trim(), name: String(entry.name).trim().slice(0, 200) })).filter((entry) => entry.resourceId && entry.name);
+  if (!subject) throw new Error('message subject is required');
+  if (subject.length > WORK_MESSAGE_SUBJECT_MAX) throw new Error('message subject is too long');
+  if (!body && attachments.length === 0) throw new Error('message body is required');
+  if (body.length > WORK_MESSAGE_BODY_MAX) throw new Error('message body is too long');
+  if (!/^[A-Za-z0-9_.:-]{1,128}$/.test(input.toPrincipalId)) throw new Error('message recipient is required');
+  if (attachments.length > WORK_MESSAGE_ATTACHMENTS_MAX) throw new Error('too many attachments');
+  if (attachments.length && !input.projectId) throw new Error('attachments need a project');
+  return {
+    id: input.id,
+    fromPrincipalId: input.fromPrincipalId,
+    recipientId: input.toPrincipalId,
+    toPrincipalId: input.toPrincipalId,
+    ...(input.projectId ? { projectId: input.projectId } : {}),
+    ...(input.replyToId ? { replyToId: input.replyToId } : {}),
+    ...(attachments.length ? { attachments } : {}),
+    subject,
+    body: body || '(archivo adjunto)',
+    status: 'delivered',
+    decision: 'internal_recipient',
+    createdAt: new Date(input.now).toISOString(),
+  };
+}
+
+/** ¿Este mensaje espera lectura del CEO? (los que el CEO envía no cuentan como «nuevos» para él). */
+export const isMessageForFounder = (message: WorkMessage): boolean => !message.toPrincipalId;
 
 export const WORK_MESSAGE_SUBJECT_MAX = 160;
 export const WORK_MESSAGE_BODY_MAX = 4000;

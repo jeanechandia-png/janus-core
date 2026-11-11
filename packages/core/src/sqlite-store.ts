@@ -883,6 +883,13 @@ export class SqliteStore {
     return rows.map((row) => JSON.parse(String(row.message_json)) as WorkMessage);
   }
 
+  /** Mensajes que el CEO ha enviado a una persona (bandeja de entrada del colaborador). */
+  listWorkMessagesTo(toPrincipalId: string, limit = 50): WorkMessage[] {
+    const capped = Math.max(1, Math.min(500, Math.floor(limit)));
+    const rows = this.db.prepare("SELECT message_json FROM work_messages WHERE json_extract(message_json, '$.toPrincipalId') = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(toPrincipalId, capped) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.message_json)) as WorkMessage);
+  }
+
   /** Agenda del colaborador. La privacidad (private/work) se aplica en el runtime al leer. */
   upsertWorkAgendaItem(item: WorkAgendaItem): void {
     this.db.prepare(`

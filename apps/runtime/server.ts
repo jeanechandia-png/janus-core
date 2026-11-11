@@ -120,7 +120,9 @@ import {
 import { WORK_VIEWABLE_MIME } from '../../packages/core/src/work-dashboard-template.js';
 import {
   derivePrivateTextKey,
+  composeFounderMessage,
   evaluateWorkMessage,
+  isMessageForFounder,
   openPrivateText,
   parseInternalRecipients,
   sealPrivateText,
@@ -1404,6 +1406,66 @@ function requireActiveOperatorProfile(principal: AuthorityPrincipal) {
   return profile;
 }
 
+/** Proyectos activos en los que una persona puede trabajar (para que el CEO elija dónde le deja tarea o archivo). */
+function memberProjects(principalId: string, projects: ReturnType<SqliteStore['listProjectWorkspaces']>) {
+  const credential = store.getAuthorityCredential(principalId);
+  if (!credential || !credential.principal.active || credential.revokedAt) return [];
+  return projects
+    .filter((project) => project.status === 'active' && canAccessProject(credential.principal, project, 'write_work'))
+    .map((project) => ({ id: project.id, name: project.name }));
+}
+
+/** Colaborador activo y con llave vigente, o error claro para el CEO. */
+function requireActiveMember(principalId: string) {
+  const profile = store.getCoordinationOperator(principalId);
+  const credential = store.getAuthorityCredential(principalId);
+  if (!profile || profile.status !== 'active' || !credential || !credential.principal.active || credential.revokedAt || credential.principal.role !== 'operator') {
+    throw new HttpRequestError(404, 'active collaborator not found');
+  }
+  return { profile, principal: credential.principal };
+}
+
+/**
+ * El CEO pone a una persona a trabajar en un proyecto: si el proyecto no tiene ámbito se le crea uno propio y,
+ * si la persona no tenía permiso de trabajo en él, se le concede (leer, trabajar y entregar; nunca coordinar).
+ * Solo se llama desde rutas del Founder: es SU decisión de permisos, tomada al asignar.
+ */
+function ensureMemberCanWork(founderId: string, memberPrincipal: AuthorityPrincipal, projectId: string) {
+  const project = store.getProjectWorkspace(projectId);
+  if (!project || project.status !== 'active') throw new HttpRequestError(404, 'project not found');
+  const now = new Date().toISOString();
+  let scopeId = project.coordinationScopeId;
+  let grantedNow = false;
+  if (!scopeId || !store.listCoordinationScopes().some((scope) => scope.id === scopeId)) {
+    const scope = validateCoordinationScope({ id: `scope_${randomUUID()}`, label: project.name.slice(0, 80), classification: 'project', ownerPrincipalId: founderId, createdAt: now });
+    store.upsertCoordinationScope(scope);
+    scopeId = scope.id;
+    store.upsertProjectWorkspace(validateProjectWorkspace({ ...project, coordinationScopeId: scopeId, updatedAt: now }));
+  }
+  const updated = store.getProjectWorkspace(projectId)!;
+  if (!canAccessProject(memberPrincipal, updated, 'write_work')) {
+    store.upsertCoordinationGrant(validateCoordinationGrant({
+      id: `grant_${randomUUID()}`, principalId: memberPrincipal.id, scopeId,
+      permissions: ['read_context', 'write_work', 'handoff'], grantedBy: founderId, createdAt: now,
+    }));
+    grantedNow = true;
+  }
+  return { project: updated, scopeId, grantedNow };
+}
+
+/** Aviso al teléfono de una persona (si lo tiene activado). Nunca bloquea ni falla la petición. */
+function pushToMember(principalId: string, title: string, body: string, tag: string): void {
+  if (!pushKeys) return;
+  for (const subscription of store.listPushSubscriptions(principalId)) {
+    try {
+      const request = buildPushRequest(subscription, { title, body: body.slice(0, 140), tag }, pushKeys);
+      void fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) })
+        .then((result) => { if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint); })
+        .catch(() => { /* sin red: lo verá al abrir su panel */ });
+    } catch { /* suscripción inválida: se ignora */ }
+  }
+}
+
 /** Estado de presencia de cada colaborador activo, para la vista y las lucecitas del CEO. */
 function teamPresenceFor(now: string) {
   const nowMs = Date.parse(now);
@@ -1446,7 +1508,7 @@ function workDashboardFor(principal: AuthorityPrincipal) {
     sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
     agenda: store.listWorkAgendaItems(principal.id).map(agendaOpen),
     recipients: internalRecipients,
-    messages: store.listWorkMessages(principal.id, 20),
+    messages: [...store.listWorkMessages(principal.id, 20), ...store.listWorkMessagesTo(principal.id, 30)],
     uploadAttachments: workOperatorUploadsEnabled,
     skinSource: 'iba-command-center',
     usage: (({ used, limit, remaining }) => ({ used, limit, remaining }))(operatorUsageFor(principal.id)),
@@ -6235,7 +6297,7 @@ const server = createServer(async (request, response) => {
           json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages() });
         } else {
           requireActiveOperatorProfile(principal);
-          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages(principal.id) });
+          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages(principal.id), inbox: store.listWorkMessagesTo(principal.id) });
         }
         return;
       }
@@ -6277,9 +6339,15 @@ const server = createServer(async (request, response) => {
   const workMessageReadMatch = url.pathname.match(/^\/api\/work\/messages\/([^/]+)\/read$/);
   if (request.method === 'PUT' && workMessageReadMatch) {
     try {
-      requireFounderAuthority(request);
+      const { principal } = requireAuthoritySession(request);
       const message = store.getWorkMessage(decodeURIComponent(workMessageReadMatch[1]!));
-      if (!message) throw new HttpRequestError(404, 'message not found');
+      // Lee quien lo recibe: el CEO lo que va hacia él; el colaborador solo lo que el CEO le envió a él (404 si no).
+      if (principal.role === 'founder_director') {
+        if (!message || !isMessageForFounder(message)) throw new HttpRequestError(404, 'message not found');
+      } else {
+        requireActiveOperatorProfile(principal);
+        if (!message || message.toPrincipalId !== principal.id) throw new HttpRequestError(404, 'message not found');
+      }
       const updated = { ...message, readAt: message.readAt ?? new Date().toISOString() };
       store.upsertWorkMessage(updated);
       json(response, 200, { ok: true, message: updated });
@@ -6302,6 +6370,118 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // ── El CEO se comunica con su equipo desde «¿Cómo va el equipo?» (todo queda dentro de JANUS) ──────────────
+  // Escribir o responder a una persona.
+  if (request.method === 'POST' && url.pathname === '/api/work/team/messages') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const toPrincipalId = typeof body.toPrincipalId === 'string' ? body.toPrincipalId.trim() : '';
+      const member = requireActiveMember(toPrincipalId);
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const replyToId = typeof body.replyToId === 'string' ? body.replyToId.trim() : '';
+      if (replyToId) {
+        const original = store.getWorkMessage(replyToId);
+        if (!original || original.fromPrincipalId !== toPrincipalId) throw new HttpRequestError(404, 'message to reply not found');
+      }
+      const resourceIds = coordinationStringList(body.resourceIds);
+      let attachments: Array<{ resourceId: string; name: string }> = [];
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project || !canAccessProject(member.principal, project, 'read_context')) throw new HttpRequestError(409, 'collaborator has no access to that project');
+        const resources = store.listProjectResources(projectId);
+        attachments = resourceIds.map((id) => resources.find((resource) => resource.id === id)).map((resource) => {
+          if (!resource) throw new HttpRequestError(404, 'attachment not found in that project');
+          return { resourceId: resource.id, name: resource.name };
+        });
+      } else if (resourceIds.length) throw new HttpRequestError(400, 'attachments need a project');
+      let message;
+      try {
+        message = composeFounderMessage({
+          id: `msg_${randomUUID()}`, fromPrincipalId: principal.id, toPrincipalId,
+          subject: typeof body.subject === 'string' ? body.subject : '',
+          body: typeof body.body === 'string' ? body.body : '',
+          ...(projectId ? { projectId } : {}), ...(replyToId ? { replyToId } : {}),
+          attachments, now: new Date().toISOString(),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid message');
+      }
+      store.upsertWorkMessage(message);
+      if (replyToId) { const original = store.getWorkMessage(replyToId); if (original && !original.readAt) store.upsertWorkMessage({ ...original, readAt: message.createdAt }); }
+      pushToMember(toPrincipalId, 'Mensaje del CEO', message.subject, message.id);
+      json(response, 201, { ok: true, message });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Dar una tarea con instrucciones a una persona, dentro de un proyecto (le da acceso a ese proyecto si no lo tenía).
+  if (request.method === 'POST' && url.pathname === '/api/work/team/tasks') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const assigneePrincipalId = typeof body.assigneePrincipalId === 'string' ? body.assigneePrincipalId.trim() : '';
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const goal = typeof body.goal === 'string' ? body.goal.trim() : '';
+      if (!assigneePrincipalId || !projectId || !title || !goal) throw new HttpRequestError(400, 'assigneePrincipalId, projectId, title and goal are required');
+      if (title.length > 160 || goal.length > 4000) throw new HttpRequestError(400, 'title or goal is too long');
+      const member = requireActiveMember(assigneePrincipalId);
+      const access = ensureMemberCanWork(principal.id, member.principal, projectId);
+      const now = new Date().toISOString();
+      const priority = body.priority === 'low' || body.priority === 'high' || body.priority === 'critical' ? body.priority : 'normal';
+      const requestedProvider = preferredProviderFrom(body.preferredProvider);
+      if (requestedProvider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
+      let assignment;
+      try {
+        assignment = validateCoordinationAssignment({
+          id: `assignment_${randomUUID()}`, title, goal, assigneePrincipalId, scopeIds: [access.scopeId],
+          status: 'queued', priority, createdBy: principal.id, createdAt: now, updatedAt: now,
+          nextActions: coordinationStringList(body.nextActions),
+          ...(requestedProvider ? { preferredProvider: requestedProvider } : {}),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid task');
+      }
+      store.upsertCoordinationAssignment(assignment);
+      pushToMember(assigneePrincipalId, 'Nueva tarea del CEO', title, assignment.id);
+      json(response, 201, { ok: true, assignment, projectId: access.project.id, accessGranted: access.grantedNow });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Subir un archivo o foto del CEO a un proyecto (después se adjunta a un mensaje o queda en los documentos del proyecto).
+  if (request.method === 'POST' && url.pathname === '/api/work/team/attachments') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const uploadProjectId = headerValue(request, 'x-attachment-project-id').trim();
+      const project = uploadProjectId ? store.getProjectWorkspace(uploadProjectId) : null;
+      if (!project || project.status !== 'active') throw new HttpRequestError(404, 'project not found');
+      const profile = ATTACHMENT_PROFILES['business-dashboard'];
+      const source = (headerValue(request, 'x-attachment-source') || 'device-file') as AttachmentSource;
+      if (!profile.sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, profile.maxFileBytes);
+      const result = attachmentStore.put({ bytes, claimedName, claimedType: headerValue(request, 'content-type'), source, profile: 'business-dashboard', principalId: principal.id });
+      if (!result.ok) { json(response, result.status, { ok: false, code: result.code, error: result.message }); return; }
+      const { attachment } = result;
+      const resource = validateProjectResource({
+        id: `resource_${randomUUID()}`, projectId: project.id, name: attachment.name, source: 'upload', sourceRef: attachment.id,
+        createdAt: new Date().toISOString(), addedBy: principal.id, mimeType: attachment.type, checksum: attachment.sha256,
+      });
+      store.upsertProjectResource(resource);
+      json(response, 201, { ok: true, projectResourceId: resource.id, name: attachment.name, type: attachment.type, size: attachment.size });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   // Lucecitas del CEO («Mi equipo»): ligero, solo nombres, estado y dos contadores de atención. Solo Founder.
   if (request.method === 'GET' && url.pathname === '/api/work/team/presence') {
     try {
@@ -6313,7 +6493,7 @@ const server = createServer(async (request, response) => {
         members: teamPresenceFor(now),
         attention: {
           blocked: store.listCoordinationAssignments().filter((assignment) => assignment.status === 'blocked').length,
-          unread: store.listWorkMessages(undefined, 60).filter((message) => message.status === 'delivered' && !message.readAt).length,
+          unread: store.listWorkMessages(undefined, 200).filter((message) => isMessageForFounder(message) && message.status === 'delivered' && !message.readAt).length,
         },
       });
     } catch (error) {
@@ -6341,6 +6521,7 @@ const server = createServer(async (request, response) => {
             roleTitle: profile.roleTitle ?? null,
             locale: profile.locale ?? 'es',
             status: profile.status,
+            projects: memberProjects(profile.principalId, projects),
             presence: resolveWorkPresence({
               session: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
               lastSeenMs: workPresence.lastSeen(profile.principalId),
@@ -6359,7 +6540,7 @@ const server = createServer(async (request, response) => {
         agenda: agendaForFounder(store.listWorkAgendaItems()).filter((item) => item.date >= now.slice(0, 10)).slice(0, 80),
         fileAccess: store.listFileAccess(60),
         invites: store.listOperatorInvites(20).map((invite) => publicOperatorInvite(invite, new Date(now))),
-        messages: store.listWorkMessages(undefined, 60),
+        messages: store.listWorkMessages(undefined, 120),
         recipients: internalRecipients,
         projects: projects.map((project) => ({
           id: project.id, name: project.name, status: project.status, createdBy: project.createdBy,

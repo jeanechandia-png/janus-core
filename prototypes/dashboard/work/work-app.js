@@ -496,6 +496,20 @@ const JanusWork = (() => {
   }
 
   /* ── mensajes internos ── */
+  async function inboxOpen(id) {
+    S.openMsg = S.openMsg === id ? '' : id;
+    const m = ((S.data.messaging || {}).inbox || []).find((x) => x.id === id);
+    if (m && !m.readAt && S.openMsg) {
+      m.readAt = new Date().toISOString();
+      if (S.mode === 'core') { try { await api('/api/work/messages/' + encodeURIComponent(id) + '/read', { method: 'PUT' }); } catch (_) { /* se reintenta al volver a abrir */ } }
+    }
+    render();
+  }
+  function inboxReply(id) {
+    const m = ((S.data.messaging || {}).inbox || []).find((x) => x.id === id); if (!m) return;
+    S.replySubject = (/^re:/i.test(m.subject) ? '' : 'Re: ') + m.subject; render();
+    const field = document.querySelector('.jw-msg-form textarea[name=body]'); if (field) { field.focus(); field.scrollIntoView({ block: 'center' }); }
+  }
   async function messageSend(form) {
     const data = new FormData(form), body = { recipient: String(data.get('recipient') || ''), subject: String(data.get('subject') || '').trim(), body: String(data.get('body') || '').trim() };
     if (!body.subject || !body.body) { S.notice = t('msgNeed'); S.noticeTone = 'warn'; render(); return; }
@@ -503,18 +517,23 @@ const JanusWork = (() => {
     try {
       if (S.mode === 'example') {
         S.data.messaging.sent.unshift({ id: 'm-' + Date.now(), fromPrincipalId: S.data.principalId, recipientId: body.recipient, subject: body.subject, body: body.body, status: 'delivered', decision: 'internal_recipient', createdAt: new Date().toISOString() });
-        S.notice = t('msgSent'); S.noticeTone = ''; render(); return;
+        S.replySubject = ''; S.notice = t('msgSent'); S.noticeTone = ''; render(); return;
       }
       await api('/api/work/messages', { method: 'POST', body: JSON.stringify(body) });
-      S.notice = t('msgSent'); S.noticeTone = ''; await load(true);
+      S.replySubject = ''; S.notice = t('msgSent'); S.noticeTone = ''; await load(true);
     } catch (error) { S.notice = error.message; S.noticeTone = 'warn'; if (S.mode === 'core') await load(true); else render(); }
   }
   function viewMessages() {
     const M = S.data.messaging || { recipients: [], sent: [] }, label = (id) => { const r = M.recipients.find((x) => x.id === id); return r ? r.label : t('msgExternal'); };
-    return '<section class="cc-panel" id="messages">' + panelHead(t('msgKicker'), t('msgTitle'), '<b>' + M.sent.length + '</b>') +
+    const inbox = M.inbox || [], unread = inbox.filter((x) => !x.readAt).length;
+    const inboxHtml = '<h3 class="jw-inbox-title">' + esc(t('inboxTitle')) + (unread ? ' <b class="jw-inbox-new">' + unread + '</b>' : '') + '</h3><div class="cc-list compact jw-inbox">' + (inbox.length ? inbox.slice(0, 10).map((x) => '<article' + (x.readAt ? '' : ' class="jw-unread"') + '><div class="grow"><strong>' + esc(x.subject) + '</strong><small>' + esc(t('inboxFrom')) + ' · ' + esc(fmtDate(x.createdAt)) + '</small>' +
+      (S.openMsg === x.id ? '<p class="jw-inbox-body">' + esc(x.body) + '</p>' + ((x.attachments || []).length ? '<div class="cc-operation-links cc-row-actions jw-links">' + x.attachments.map((f) => '<button type="button" data-act="view" data-v="' + esc(f.resourceId) + '" data-name="' + esc(f.name) + '">📎 ' + esc(f.name) + '</button>').join('') + '</div>' : '') : '') +
+      '<div class="cc-operation-links cc-row-actions jw-links"><button type="button" data-act="inbox-open" data-v="' + esc(x.id) + '">' + esc(S.openMsg === x.id ? t('inboxClose') : t('inboxRead')) + '</button>' + (S.openMsg === x.id ? '<button type="button" data-act="inbox-reply" data-v="' + esc(x.id) + '">' + esc(t('inboxReply')) + '</button>' : '') + '</div></div>' +
+      '<span class="status status-' + (x.readAt ? 'completed' : 'in-progress') + '">' + esc(x.readAt ? t('msgRead') : t('inboxNew')) + '</span></article>').join('') : '<p class="empty">' + esc(t('inboxEmpty')) + '</p>') + '</div>';
+    return '<section class="cc-panel" id="messages">' + panelHead(t('msgKicker'), t('msgTitle'), '<b>' + (unread || M.sent.length) + '</b>') + inboxHtml +
       '<form class="jw-agenda-form jw-msg-form" data-form="message">' +
       '<label class="wide"><span>' + esc(t('msgTo')) + '</span><select name="recipient">' + M.recipients.map((r) => '<option value="' + esc(r.id) + '">' + esc(r.label) + '</option>').join('') + '</select></label>' +
-      '<label class="wide"><span>' + esc(t('msgSubject')) + '</span><input type="text" name="subject" maxlength="160" autocomplete="off"></label>' +
+      '<label class="wide"><span>' + esc(t('msgSubject')) + '</span><input type="text" name="subject" maxlength="160" autocomplete="off" value="' + esc(S.replySubject || '') + '"></label>' +
       '<label class="wide"><span>' + esc(t('msgBody')) + '</span><textarea name="body" rows="3" maxlength="4000"></textarea></label>' +
       '<button type="submit">' + esc(t('msgSend')) + '</button></form>' +
       '<div class="cc-list compact">' + (M.sent.length ? M.sent.slice(0, 5).map((x) => '<article><div class="grow"><strong>' + esc(x.subject) + '</strong><small>' + esc(label(x.recipientId)) + ' · ' + esc(fmtDate(x.createdAt)) + '</small></div><span class="status status-' + (x.status === 'rejected' ? 'blocked' : x.readAt ? 'completed' : 'submitted') + '">' + esc(x.status === 'rejected' ? t('msgRejected') : x.readAt ? t('msgRead') : t('msgDelivered')) + '</span></article>').join('') : '<p class="empty">' + esc(t('msgEmpty')) + '</p>') + '</div>' +
@@ -660,6 +679,8 @@ const JanusWork = (() => {
       else if (act === 'pick-file') { const input = document.getElementById('jw-file'); if (input) input.click(); }
       else if (act === 'pick-cam') { const input = document.getElementById('jw-cam'); if (input) input.click(); }
       else if (act === 'view') void viewFile(v, el.dataset.name, el.dataset.mime);
+      else if (act === 'inbox-open') void inboxOpen(v);
+      else if (act === 'inbox-reply') inboxReply(v);
       else if (act === 'agenda-done') void agendaChange(v, 'done');
       else if (act === 'project-new') { S.newProject = true; render(); const input = document.querySelector('.jw-project-form input[name=name]'); if (input) input.focus(); }
       else if (act === 'notify') void enablePush();

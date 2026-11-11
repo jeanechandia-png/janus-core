@@ -112,7 +112,7 @@ export interface ReusableWorkDashboard {
     selfReported: true;
   };
   /** Destinatarios internos admitidos y mensajes propios (los rechazados incluidos, con su motivo). */
-  messaging: { recipients: Array<{ id: string; label: string }>; sent: WorkMessage[] };
+  messaging: { recipients: Array<{ id: string; label: string }>; sent: WorkMessage[]; inbox: WorkMessage[] };
   /** Agenda propia (incluye lo privado: este contrato solo se entrega a su dueño). */
   agenda: WorkAgendaItem[];
   /** Consultas a JANUS hoy frente al límite diario fijado por el CEO (`limit` 0 = sin límite). */
@@ -255,6 +255,8 @@ export function buildReusableWorkDashboard(input: {
     messaging: {
       recipients: (input.recipients ?? []).map((entry) => ({ ...entry })),
       sent: (input.messages ?? []).filter((message) => message.fromPrincipalId === input.principal.id).slice(0, 20).map((message) => ({ ...message })),
+      // Lo que el CEO le ha escrito a ESTA persona (nunca lo dirigido a otras).
+      inbox: (input.messages ?? []).filter((message) => message.toPrincipalId === input.principal.id).slice(0, 30).map((message) => ({ ...message })),
     },
     agenda: agendaForOwner(input.agenda ?? [], input.principal.id, now.slice(0, 10)).slice(0, 80),
     usage: input.usage ? { ...input.usage } : { used: 0, limit: 0, remaining: null },

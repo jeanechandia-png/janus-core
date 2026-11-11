@@ -116,3 +116,28 @@ html,body{margin:0;background:#f5f7f9}
 .jt-back-top{padding:0 14px;border:1px solid #d9e2ec;border-radius:12px;background:#fff;color:#101318;min-height:40px}
 .jt-back:focus-visible{outline:2px solid #4da3ff;outline-offset:2px}
 @media (max-width:900px){.cc-sidebar-foot .jt-back{display:none}}
+
+/* ── Comunicación del CEO con su equipo (vista de equipo) y bandeja «Mensajes del CEO» (panel) ── */
+.jt-primary{border:0;border-radius:12px;padding:10px 14px;background:#11151a;color:#fff;font:600 13px/1 inherit;cursor:pointer;box-shadow:0 2px 0 #000}
+.jt-primary:active{transform:translateY(1px);box-shadow:none}
+.jt-compose{border:2px solid #11151a}
+.jt-compose .cc-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.jt-compose .cc-panel-head>button{border:0;background:#eef1f5;border-radius:10px;inline-size:36px;block-size:36px;font-size:15px;cursor:pointer}
+.jt-compose-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:6px}
+.jt-compose-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#3d4653}
+.jt-compose-form .wide{grid-column:1/-1}
+.jt-compose-form input[type=text],.jt-compose-form select,.jt-compose-form textarea{font:500 15px/1.35 inherit;padding:11px 12px;border:1.5px solid #c9d1dc;border-radius:12px;background:#fff;color:#11151a;inline-size:100%;box-sizing:border-box}
+.jt-compose-form input[type=file]{font:500 13px/1.3 inherit}
+.jt-compose-form small{font-weight:500;color:#5b6573}
+.jt-compose-actions{display:flex;gap:10px}
+.jt-compose-actions button{border:0;border-radius:12px;padding:12px 20px;background:#11151a;color:#fff;font:700 14px/1 inherit;cursor:pointer}
+.jt-compose-actions button.ghost{background:#eef1f5;color:#11151a}
+.jt-compose-actions button:disabled{opacity:.55}
+.jt-dir{display:inline-block;font-size:11px;font-weight:700;color:#1d5fae;background:#e6f0ff;border-radius:99px;padding:2px 8px;margin-right:4px}
+.jt-unread,.jw-unread{background:linear-gradient(90deg,rgba(29,95,174,.09),transparent 60%)}
+.jt-files{font-size:12.5px;color:#3d4653}
+.jw-inbox-title{margin:4px 0 8px;font-size:14px;font-weight:700}
+.jw-inbox-new{display:inline-grid;place-items:center;min-inline-size:20px;block-size:20px;border-radius:99px;background:#d93838;color:#fff;font-size:11px;padding:0 5px}
+.jw-inbox{margin-bottom:16px}
+.jw-inbox-body{margin:8px 0;white-space:pre-wrap;font-size:14px;line-height:1.45}
+@media (max-width:600px){.jt-compose-form{grid-template-columns:1fr}.cc-top-actions{flex-wrap:wrap}}

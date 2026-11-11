@@ -286,6 +286,28 @@ Verificación (HECHO): comprobador automático en 7 tamaños (1024×700 a 1920×
 dashboard sigue entrando en una pantalla, sin textos montados (revisado además a la vista en 1280×740, 1024×700 y
 1366×1024). NO VERIFICADO: la tablet Samsung real del CEO (se desconoce su tamaño exacto de ventana).
 
+## Actualización 11-nov-2026 (01:10) — comunicación en los dos sentidos (CEO ↔ equipo)
+
+Orden del CEO (10-nov, 21:48): «yo tengo que poder enviar mensajes al igual que recibir… responder un mensaje, crear
+una tarea, enviarles un archivo». La dashboard es el canal; no WhatsApp.
+
+44. **Mensajes del CEO a una persona** (`composeFounderMessage`, `POST /api/work/team/messages`): con `toPrincipalId`,
+    respuesta opcional (`replyToId`, que marca el original como leído) y adjuntos del proyecto. El colaborador los
+    recibe en `messaging.inbox` / `GET /api/work/messages → inbox`, los marca leídos (solo el destinatario; 404 para
+    cualquier otro) y responde. Lo que envía el CEO no cuenta como «nuevo» para él.
+45. **Tareas con instrucciones** (`POST /api/work/team/tasks`): persona + proyecto + título + instrucciones + prioridad.
+    Si la persona no trabajaba en ese proyecto, se le da acceso SOLO a ese (leer, trabajar, entregar); si el proyecto
+    no tenía ámbito, se le crea uno propio. Es decisión de permisos del CEO, tomada al asignar.
+46. **Archivos y fotos del CEO** (`POST /api/work/team/attachments`): se guardan en el proyecto y se adjuntan al
+    mensaje; la persona los abre en su visor interno (sin descarga), con los permisos del proyecto.
+47. **Avisos al teléfono** de la persona al recibir mensaje o tarea (si tiene los avisos activados y hay clave VAPID).
+48. **Pantallas:** en «¿Cómo va el equipo?», botones «✉ Escribir» y «✓ Dar tarea» (arriba y en cada persona) y
+    «↩ Responder» en cada mensaje; bandeja con los dos sentidos. En el panel del colaborador, «Mensajes del CEO» con
+    leer, adjuntos y responder (ES/NL/EN).
+
+Pruebas: `npm test` 721/0; smoke 21 bloques (aislamiento entre personas, permisos, adjuntos, acceso por tarea);
+navegador sobre las vistas previas 18/18. NO VERIFICADO: entrega real del aviso por Apple/Google; iPhone físico.
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

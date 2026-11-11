@@ -176,7 +176,7 @@ try {
   await call('POST', '/api/work/messages', dev, { recipient: 'ceo', subject: '', body: 'x' }, 400);
   await call('POST', '/api/work/messages', founder, { recipient: 'ceo', subject: 'x', body: 'x' }, 403);
   assert.equal((await call('GET', '/api/work/messages', dev, undefined, 200)).messages.length, 2);
-  await call('PUT', `/api/work/messages/${sentMsg.message.id}/read`, dev, {}, 403);
+  await call('PUT', `/api/work/messages/${sentMsg.message.id}/read`, dev, {}, 404); // solo lo lee quien lo recibe
   assert.ok((await call('PUT', `/api/work/messages/${sentMsg.message.id}/read`, founder, {}, 200)).message.readAt);
   dash = (await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard;
   assert.deepEqual(dash.messaging.recipients.map((r) => r.id), ['ceo', 'empresa']); assert.equal(dash.messaging.sent.length, 2);
@@ -264,6 +264,59 @@ try {
   const cleared = await call('PUT', '/api/coordination/assignments/as-dev-1/provider', founder, { preferredProvider: null }, 200);
   assert.equal(cleared.assignment.preferredProvider, undefined);
   ok('agente por tarea (solo CEO) y límite diario de consultas por colaborador');
+
+  // ── El CEO se comunica con su equipo: mensajes, respuestas, archivos y tareas ─────────────────
+  const peerKeys = ecKeys();
+  await delegate(founder, { principalId: 'colab-peer', displayName: 'Persona Par', publicKeyPem: peerKeys.publicKey, locale: 'es' });
+  const peer = await authenticate('colab-peer', peerKeys.privateKey);
+  await call('POST', '/api/work/team/messages', dev, { toPrincipalId: 'colab-peer', subject: 'x', body: 'x' }, 403);
+  await call('POST', '/api/work/team/messages', null, { toPrincipalId: 'colab-dev', subject: 'x', body: 'x' }, 401);
+  await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'no-existe', subject: 'x', body: 'x' }, 404);
+  await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-dev', subject: '', body: 'x' }, 400);
+  const sent = (await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-dev', subject: 'Prioridad', body: 'Primero la paginación.' }, 201)).message;
+  assert.equal(sent.toPrincipalId, 'colab-dev'); assert.equal(sent.status, 'delivered');
+  let devBox = await call('GET', '/api/work/messages', dev, undefined, 200);
+  assert.equal(devBox.inbox.length, 1); assert.equal(devBox.inbox[0].body, 'Primero la paginación.');
+  assert.equal((await call('GET', '/api/work/messages', peer, undefined, 200)).inbox.length, 0, 'otra persona no ve ese mensaje');
+  assert.equal((await call('GET', '/api/dashboard/work', dev, undefined, 200)).dashboard.messaging.inbox.length, 1);
+  assert.equal((await call('GET', '/api/dashboard/work', peer, undefined, 200)).dashboard.messaging.inbox.length, 0);
+  await call('PUT', `/api/work/messages/${sent.id}/read`, peer, undefined, 404);
+  await call('PUT', `/api/work/messages/${sent.id}/read`, founder, undefined, 404);
+  assert.ok((await call('PUT', `/api/work/messages/${sent.id}/read`, dev, undefined, 200)).message.readAt);
+  // Lo enviado por el CEO no cuenta como «nuevo» para él.
+  const before = (await call('GET', '/api/work/team/presence', founder, undefined, 200)).attention.unread;
+  const fromDev = (await call('POST', '/api/work/messages', dev, { recipient: 'ceo', subject: 'Duda', body: '¿Paginamos de 20 en 20?' }, 201)).message;
+  assert.equal((await call('GET', '/api/work/team/presence', founder, undefined, 200)).attention.unread, before + 1);
+  await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-peer', subject: 'Re', body: 'x', replyToId: fromDev.id }, 404);
+  const reply = (await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-dev', subject: 'Re: Duda', body: 'Sí, de 20.', replyToId: fromDev.id }, 201)).message;
+  assert.equal(reply.replyToId, fromDev.id);
+  assert.equal((await call('GET', '/api/work/team/presence', founder, undefined, 200)).attention.unread, before, 'responder marca el original como leído');
+  // Archivos: el CEO sube al proyecto y los adjunta; la persona los ve dentro de su panel.
+  const upCeo = (token, projectId, name, body) => fetch(`${base}/api/work/team/attachments`, { method: 'POST', headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), 'content-type': 'text/plain', 'x-attachment-project-id': projectId, 'x-attachment-source': 'device-file', 'x-attachment-name': encodeURIComponent(name) }, body });
+  assert.equal((await upCeo(dev, 'p-api', 'x.txt', 'x')).status, 403); assert.equal((await upCeo(founder, 'no-existe', 'x.txt', 'x')).status, 404);
+  const upRes = await upCeo(founder, 'p-api', 'instrucciones.txt', 'Paso 1. Paso 2.'); assert.equal(upRes.status, 201);
+  const upBody = await upRes.json();
+  const withFile = (await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-dev', subject: 'Instrucciones', body: '', projectId: 'p-api', resourceIds: [upBody.projectResourceId] }, 201)).message;
+  assert.deepEqual(withFile.attachments, [{ resourceId: upBody.projectResourceId, name: 'instrucciones.txt' }]);
+  const ceoFile = await fetch(`${base}/api/work/files/${upBody.projectResourceId}/view`, { headers: { authorization: `Bearer ${dev}` } });
+  assert.equal(ceoFile.status, 200); assert.equal(await ceoFile.text(), 'Paso 1. Paso 2.');
+  await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-peer', subject: 'x', body: 'x', projectId: 'p-api', resourceIds: [upBody.projectResourceId] }, 409); // no tiene ese proyecto
+  await call('POST', '/api/work/team/messages', founder, { toPrincipalId: 'colab-dev', subject: 'x', body: 'x', resourceIds: [upBody.projectResourceId] }, 400);
+  // Tareas: al darla en un proyecto, la persona recibe acceso SOLO a ese proyecto.
+  await call('POST', '/api/work/team/tasks', dev, { assigneePrincipalId: 'colab-peer', projectId: 'p-api', title: 'x', goal: 'x' }, 403);
+  await call('POST', '/api/work/team/tasks', founder, { assigneePrincipalId: 'colab-peer', projectId: 'p-api', title: '', goal: 'x' }, 400);
+  await call('POST', '/api/projects', founder, { id: 'p-fotos', name: 'Fotos de obra' }, 201);
+  assert.deepEqual((await call('GET', '/api/dashboard/work', peer, undefined, 200)).dashboard.projects, []);
+  const task = await call('POST', '/api/work/team/tasks', founder, { assigneePrincipalId: 'colab-peer', projectId: 'p-fotos', title: 'Fotos de la fachada', goal: 'Diez fotos, horizontales, antes del viernes.', priority: 'high' }, 201);
+  assert.equal(task.accessGranted, true); assert.equal(task.assignment.status, 'queued');
+  const peerDash = (await call('GET', '/api/dashboard/work', peer, undefined, 200)).dashboard;
+  assert.deepEqual(peerDash.projects.map((p) => p.id), ['p-fotos'], 'acceso solo al proyecto de la tarea');
+  assert.deepEqual(peerDash.assignments.map((a) => a.assignment.title), ['Fotos de la fachada']);
+  assert.doesNotMatch(JSON.stringify(peerDash), /SECRETO-FOUNDER|p-privado|Proyecto API/);
+  assert.equal((await call('POST', '/api/work/team/tasks', founder, { assigneePrincipalId: 'colab-peer', projectId: 'p-fotos', title: 'Retoque', goal: 'Ajustar luz.' }, 201)).accessGranted, false);
+  const teamNow = await call('GET', '/api/work/team', founder, undefined, 200);
+  assert.deepEqual(teamNow.members.find((m) => m.principalId === 'colab-peer').projects, [{ id: 'p-fotos', name: 'Fotos de obra' }]);
+  ok('el CEO escribe, responde, envía archivos y da tareas; cada persona ve solo lo suyo');
 
   // ── /work: una sola página para todos; sin piel verificada no se sirve otro diseño ────────────
   const page = await fetch(`${base}/work`);
