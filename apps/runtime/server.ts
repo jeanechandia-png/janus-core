@@ -66,6 +66,8 @@ import {
   type SocialChannelSnapshot,
 } from '../../packages/core/src/business-operations.js';
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
+import { ProductIncidentSync, type IncidentSource } from '../../packages/core/src/product-incidents.js';
+import { productIncidentReader } from '../../packages/adapters/src/product-incident-reader.js';
 import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
@@ -98,6 +100,7 @@ import {
   validateCoordinationGrant,
   validateCoordinationScope,
 } from '../../packages/core/src/operator-coordination.js';
+import { buildReusableWorkDashboard } from '../../packages/core/src/work-dashboard-template.js';
 import {
   buildProjectCheckpoint,
   projectRecords,
@@ -961,6 +964,20 @@ function assistantControlSnapshot() {
 
 ensureFounderReferenceLibrary();
 ensureLandingAssistantControlPlane();
+
+const incidentSourceConfig = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../config/product-incident-sources.json',import.meta.url)),'utf8'
+)) as {products:IncidentSource[];intervalMs:number;maxStaleMs:number};
+const productIncidentSync = new ProductIncidentSync({
+  store,sources:incidentSourceConfig.products,
+  intervalMs:incidentSourceConfig.intervalMs,maxStaleMs:incidentSourceConfig.maxStaleMs,
+  read:productIncidentReader({tokenProvider:()=>credentialBroker.accessToken('github')}),
+});
+const incidentBootstrap = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../config/product-incident-bootstrap.json',import.meta.url)),'utf8'
+)) as {sourceRef:string;feed:{productId:string}};
+productIncidentSync.seed(incidentBootstrap.feed.productId,incidentBootstrap.feed,incidentBootstrap.sourceRef);
+
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
   store,
@@ -1982,6 +1999,7 @@ function demoSteps(command: string): JanusStep[] {
 }
 
 async function prepareSteps(command: string, runId: string): Promise<JanusStep[] | null> {
+  await productIncidentSync.refreshIfDue();
   const projectLink = runProjects.get(runId);
   const continuity = continuitySnapshot(projectLink?.projectId);
   const blueprint = blueprintForRun(runId);
@@ -2031,6 +2049,9 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
           ? {
               id: projectLink.projectId,
               threadId: projectLink.threadId,
+              name: store.getProjectWorkspace(projectLink.projectId)?.name ?? '',
+              description: store.getProjectWorkspace(projectLink.projectId)?.description ?? '',
+              instructions: store.getProjectWorkspace(projectLink.projectId)?.instructions ?? '',
               latestCheckpoint: store.latestProjectCheckpoint(projectLink.projectId),
               resources: store.listProjectResources(projectLink.projectId).slice(-100).map((resource) => ({
                 id: resource.id,
@@ -2041,6 +2062,8 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
               })),
             }
           : null,
+        // Product reports are DATA; they do not grant permissions or trigger deployments.
+        productIncidents: productIncidentSync.planningContext(),
         continuity: {
           activeInstructions: continuity.activeInstructions.slice(-50).map((record) => ({
             subject: record.subject,
@@ -3755,6 +3778,7 @@ const server = createServer(async (request, response) => {
       const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
       const displayName = typeof body.displayName === 'string' ? body.displayName.trim() : undefined;
       const notes = typeof body.notes === 'string' ? body.notes.trim() : undefined;
+      const locale = body.locale === 'nl' || body.locale === 'en' ? body.locale : 'es';
       if (!principalId || !publicKeyPem.trim()) {
         throw new HttpRequestError(400, 'principalId and publicKeyPem are required');
       }
@@ -3770,6 +3794,7 @@ const server = createServer(async (request, response) => {
         updatedAt: credential.createdAt,
         ...(displayName ? { displayName } : {}),
         ...(notes ? { notes } : {}),
+        locale,
       });
       json(response, 201, {
         ok: true,
@@ -5096,6 +5121,15 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/operations/incidents') {
+    try {
+      requireFounderAuthority(request);
+      await productIncidentSync.refreshIfDue();
+      json(response,200,{ok:true,incidents:productIncidentSync.snapshot()});
+    } catch(error) {json(response,authErrorStatus(error),authErrorBody(error));}
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/operations') {
     try {
       requireAuthoritySession(request);
@@ -5557,6 +5591,32 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // Reusable staff dashboard data contract: authenticated, permission-scoped and text-only.
+  // The existing Founder dashboard and Kendra's private experience remain untouched.
+  if (request.method === 'GET' && url.pathname === '/api/dashboard/work') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
+      const profile = store.getCoordinationOperator(principal.id);
+      if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
+      const projects = store.listProjectWorkspaces().filter(
+        (project) => canAccessProject(principal, project, 'read_context'),
+      );
+      json(response, 200, {
+        ok: true,
+        dashboard: buildReusableWorkDashboard({
+          principal,
+          profile,
+          coordination: coordinationBriefFor(principal),
+          projects,
+        }),
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/projects') {
     try {
       const { principal } = requireAuthoritySession(request);
@@ -5609,6 +5669,8 @@ const server = createServer(async (request, response) => {
         createdBy: principal.id,
         ...(coordinationScopeId ? { coordinationScopeId } : {}),
         description: typeof body.description === 'string' ? body.description : undefined,
+        instructions: principal.role === 'founder_director' && typeof body.instructions === 'string'
+          ? body.instructions : undefined,
       });
       if (store.getProjectWorkspace(project.id)) {
         throw new HttpRequestError(409, 'project id already exists');
@@ -5647,6 +5709,33 @@ const server = createServer(async (request, response) => {
       const status = error instanceof AuthorityAuthenticationError || error instanceof HttpRequestError
         ? authErrorStatus(error)
         : 409;
+      json(response, status, authErrorBody(error));
+    }
+    return;
+  }
+
+  // Project instructions are editable only by the Founder and persist across threads.
+  const projectInstructionsMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/instructions$/);
+  if (request.method === 'PUT' && projectInstructionsMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const projectId = decodeURIComponent(projectInstructionsMatch[1]!);
+      const project = store.getProjectWorkspace(projectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      const body = await readJson(request);
+      if (typeof body.instructions !== 'string' || body.instructions.length > 12000) {
+        throw new HttpRequestError(400, 'instructions must be a string of at most 12000 characters');
+      }
+      const updated = validateProjectWorkspace({
+        ...project,
+        instructions: body.instructions,
+        updatedAt: new Date().toISOString(),
+      });
+      store.upsertProjectWorkspace(updated);
+      json(response, 200, { ok: true, project: updated, updatedBy: principal.id });
+    } catch (error) {
+      const status = error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError
+        ? authErrorStatus(error) : 400;
       json(response, status, authErrorBody(error));
     }
     return;
@@ -5738,6 +5827,10 @@ const server = createServer(async (request, response) => {
           throw new HttpRequestError(409, 'thread does not belong to project');
         }
       }
+      // Uploads must belong to the requesting principal; a metadata ref is not a file upload.
+      if (source === 'upload' && (!isAttachmentId(sourceRef) || !attachmentStore.get(sourceRef, principal.id))) {
+        throw new HttpRequestError(403, 'upload resource not owned by authenticated principal');
+      }
       const resource = validateProjectResource({
         id: typeof body.id === 'string' && body.id.trim()
           ? body.id.trim()
@@ -5794,6 +5887,20 @@ const server = createServer(async (request, response) => {
     try {
       const { principal } = requireFounderAuthority(request);
       const profileId = headerValue(request, 'x-attachment-profile') || 'founder-admin';
+      const uploadProjectId = headerValue(request, 'x-attachment-project-id').trim();
+      const uploadThreadId = headerValue(request, 'x-attachment-thread-id').trim();
+      if (uploadThreadId && !uploadProjectId) throw new HttpRequestError(400, 'project id required with thread id');
+      if (uploadProjectId) {
+        const project = store.getProjectWorkspace(uploadProjectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'write_work');
+        if (uploadThreadId) {
+          const thread = store.getProjectThread(uploadThreadId);
+          if (!thread || thread.projectId !== uploadProjectId) {
+            throw new HttpRequestError(409, 'thread does not belong to project');
+          }
+        }
+      }
       // Este endpoint solo atiende al Founder. Otros perfiles (niña, panel de negocio) tendrán su propia puerta y su propia credencial.
       if (profileId !== 'founder-admin') throw new HttpRequestError(403, 'Perfil de adjuntos no permitido en esta puerta.');
       const source = headerValue(request, 'x-attachment-source') as AttachmentSource;
@@ -5814,8 +5921,28 @@ const server = createServer(async (request, response) => {
         return;
       }
       const { attachment } = result;
+      // A project upload is stored once in the existing secure attachment vault,
+      // and linked to the durable project record; no binary is copied to GitHub.
+      let projectResourceId: string | undefined;
+      if (uploadProjectId) {
+        const resource = validateProjectResource({
+          id: `resource_${randomUUID()}`,
+          projectId: uploadProjectId,
+          ...(uploadThreadId ? { threadId: uploadThreadId } : {}),
+          name: attachment.name,
+          source: 'upload',
+          sourceRef: attachment.id,
+          createdAt: new Date().toISOString(),
+          addedBy: principal.id,
+          mimeType: attachment.type,
+          checksum: attachment.sha256,
+        });
+        store.upsertProjectResource(resource);
+        projectResourceId = resource.id;
+      }
       json(response, 201, {
         ok: true,
+        ...(projectResourceId ? { projectResourceId } : {}),
         id: attachment.id,
         sha256: attachment.sha256,
         name: attachment.name,
@@ -6180,6 +6307,11 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
+// Local-first knowledge refresh: read-only, bounded, source allowlist and explicit stale/needs_auth states.
+void productIncidentSync.refreshIfDue();
+const productIncidentTimer=setInterval(()=>{void productIncidentSync.refreshIfDue();},incidentSourceConfig.intervalMs);
+productIncidentTimer.unref();
+server.on('close',()=>clearInterval(productIncidentTimer));
 
 server.listen(port, bindHost, () => {
   console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);

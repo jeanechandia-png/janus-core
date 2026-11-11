@@ -212,6 +212,36 @@ export class SqliteStore {
     }));
   }
 
+  /** Latest revision per incident/source; full append-only chronology remains intact. */
+  listProductIncidentRecords(): ChronologyRecord[] {
+    const rows = this.db.prepare(
+      "SELECT id,session_id,at,seq,kind,subject,content,status,supersedes_id,metadata_json FROM (" +
+      "SELECT *,ROW_NUMBER() OVER (PARTITION BY subject ORDER BY " +
+      "COALESCE(json_extract(metadata_json,'$.incident.revision'),json_extract(metadata_json,'$.feedRevision'),0) DESC,at DESC,id DESC) AS current_rank " +
+      "FROM chronology_records WHERE session_id='product-incidents') WHERE current_rank=1 ORDER BY at ASC,id ASC"
+    ).all() as Record<string,unknown>[];
+    return rows.map(row=>({
+      id:String(row.id),sessionId:String(row.session_id),at:String(row.at),
+      ...(row.seq==null?{}:{sequence:Number(row.seq)}),
+      kind:String(row.kind) as ChronologyRecord['kind'],subject:String(row.subject),
+      content:String(row.content),status:String(row.status) as ChronologyRecord['status'],
+      ...(row.supersedes_id==null?{}:{supersedesId:String(row.supersedes_id)}),
+      metadata:JSON.parse(String(row.metadata_json)) as Record<string,unknown>,
+    }));
+  }
+
+  productIncidentTransaction(work:()=>void): void {
+    this.db.exec('SAVEPOINT product_incidents_ingest');
+    try {
+      work();
+      this.db.exec('RELEASE SAVEPOINT product_incidents_ingest');
+    } catch(error) {
+      this.db.exec('ROLLBACK TO SAVEPOINT product_incidents_ingest');
+      this.db.exec('RELEASE SAVEPOINT product_incidents_ingest');
+      throw error;
+    }
+  }
+
   appendChronologyRecord(record: ChronologyRecord): void {
     this.db.prepare(`
       INSERT INTO chronology_records

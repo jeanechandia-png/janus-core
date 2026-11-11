@@ -1,3 +1,32 @@
+## 11-nov-2026 — Validación de memoria transversal completada en código
+
+- Fuente nueva Janus 0fc4f59f7754c721bb2f7ac6a3dab3f662de8bd7; código final probado 990ce63788e18bb4ac255b43cf6331e4dafe6729 en la misma rama/PR81. CI 43014290142 y 43014713684 SUCCESS; 671 pruebas, 670 PASS, cero FAIL y 1 omitida preexistente; typecheck y runtime smoke PASS.
+- Smoke real: seed de tres incidencias de ChatBox en SQLite, endpoint /api/operations/incidents deniega sesión ausente y permite Founder autenticado. Fuente remota sin credencial en smoke aparece needs_auth; seis productos restantes not_connected; ningún estado se inventa como saludable. No equivale a despliegue Janus ni a credencial/configuración del equipo real.
+- Persistencia/reinicio, idempotencia, nuevas revisiones sin falsa reincidencia, escalado por nueva ocurrencia, transacción/rollback, protección contra pérdida/reescritura/retroceso/debilitamiento de evidencia y frescura/fallo de fuente verificados. Planificador recibe registro como DATA y resumen acotado; reglas preventivas persisten en ErrorLedger. No autoridad, permisos o promoción inferidos de un informe.
+- ChatBox código productor 2a8cf17ef3615e9eee21c0ac66bd8b65234b4de3, CI 43012946783 verde, mismo Netlify READY. Su /api/readiness ahora declara not_ready/incidentAcceptance=false mientras las dos incidencias altas/críticas sigan pendientes; database=true comprobado. Registro canónico config/product-incidents.json; el bootstrap Janus es caché versionada de ese registro, no otra aplicación.
+- Cierre de alcance actual: aprendizaje y controles implementados en ambos productos existentes. Operación 24/7 y conexión de las demás fuentes requieren runtime real en ejecución/conectado; no se certifican con CI. WhatsApp sigue abierto y permisos Meta siguen pendientes de autorización; no se eludió la revisión. No se tocaron interfaces aprobadas ni se crearon copias/repos/ramas/PR/hosting.
+- Integridad remota 12 archivos, cero eliminaciones. La carpeta local mantiene el avance visual previo y los deltas de prueba sin reset. Próximo agente: recuperar HEAD remoto actual y leer docs/product-incident-memory.md; completar la conexión de fuentes y la validación real del producto sin cerrar por evidencia sintética.
+
+## 11-nov-2026 — Memoria de incidencias de productos y prevención
+
+- Orden nueva del Founder: Janus debe conocer incidencias y aprendizaje de todos los productos, sin copias ni reconstrucción. Fuente remota inicial 72e1776bf9db64727a0ca42cb8db7a0d5e365c43, misma rama chatgpt/janus-approved-characters-integration-20261106 y PR81 existentes. La interfaz Founder/Kendra/laboral no se modifica.
+- Se reutilizan ErrorLedger, cronología y SQLite: importación transaccional por producto/ID/revisión; nueva ocurrencia incrementa huella, relectura/actualización no. No se borran problemas conocidos ni se aceptan retrocesos/revisiones reescritas. Una fuente nunca concede autoridad ni verifica por sí sola el runtime.
+- ChatBox publica registro sanitizado en commit 2a8cf17ef3615e9eee21c0ac66bd8b65234b4de3; instantánea de arranque en config/product-incident-bootstrap.json. Tres casos: retorno del correo (mitigado), WhatsApp sin entrada al backend (abierto, causa final sin confirmar), sesión Chromium de QA (resuelto con evidencia). Sin mensajes, teléfonos, correos ni claves.
+- Runtime carga memoria al inicio, refresca antes de planificar y cada 5 minutos mediante GitHubAdapter/broker existentes, GETs acotados, sin permisos/gastos nuevos. Endpoint Founder /api/operations/incidents y contexto del planificador con máximo 20 incidentes prioritarios. Frescura máxima 15 minutos; conserva caché y declara needs_auth/stale/fallo, nunca inventa conocimiento en tiempo real.
+- Catálogo de siete productos; ChatBox tiene fuente configurada. Los otros constan not_connected hasta conectar sus fuentes reales. Norma permanente founder-policy:product-incident-learning y docs/operating-norms.md actualizados. No afirmar que todos están conectados ni que hay un servicio 24/7 desplegado.
+- Cuatro pruebas nuevas dirigidas PASS y typecheck local PASS antes del cierre; el smoke añade arranque real, rechazo sin sesión y lectura Founder. CI del commit remoto pendiente hasta ejecución. Detalle en docs/product-incident-memory.md. No merge ni despliegue Janus a producción.
+- La carpeta local de Janus contiene un avance visual distinto ya comprometido y ahora los deltas locales de prueba de este módulo; no se restablece ni se empuja su árbol sobre remoto. Los commits remotos usan el árbol completo de la rama autorizada y lease. Continuar desde HEAD remoto y preservar UI aprobada.
+
+## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable
+
+**Orden del Founder:** El dashboard aprobado del CEO y la experiencia Kendra continúan con Claude y NO se reemplazan. Claude debe localizar SU artefacto aprobado e integrarlo como baseline verificada antes de cualquier cambio. SOLO adaptar una plantilla laboral reutilizable para Julio/Robin/Mariel, inspirada en módulos JANUS o dashboard IBA (fuente: `infinity-chatbox-platform`). Texto únicamente; no voz en personal laboral; aplicaciones PWA con acceso autenticado; proyectos e instrucciones por usuario; permisos de Core y tareas concurrentes; NO crear copias/repos/hosting ni cambiar webs productivas.
+
+**En GitHub existe** el contrato de backend del módulo de trabajo y proyectos del commit `01228836` (CI `42728704831` verde), pero **no el diseño visual final**. Ruta de instrucciones canónica para Claude: `docs/handoffs/2026-11-10-claude-workforce-dashboard-directive.md`. Registrar SHA/CI de cada delta y evitar sobreescribir trabajo concurrente. **Jean/ChatGPT** priorizan por separado el piloto ChatBox para miércoles 11-nov-2026.
+
+## Actualización 10-nov-2026 — plantilla laboral + instrucciones de proyectos
+
+Véase `docs/handoffs/2026-11-10-project-workspace-template.md` para cambios, límites y continuación. Rama `chatgpt/janus-approved-characters-integration-20261106`; conservar la interfaz A/B aprobada y no duplicar el producto.
+
 # JANUS — Estado vigente
 
 Fecha: 2026-11-06

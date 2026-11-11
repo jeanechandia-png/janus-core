@@ -9,20 +9,24 @@
   <meta name="theme-color" content="#7b5cff" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="Mi compañero" />
+  <meta name="apple-mobile-web-app-title" content="Kendra" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>Mi compañero</title>
+  <title>Kendra</title>
   <link rel="manifest" href="/kendra.webmanifest" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/janus-icon-192.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/janus-icon-180.png" />
   <link rel="stylesheet" href="/kendra.css" />
   <link rel="stylesheet" href="/language-buttons.css" />
+  <link rel="stylesheet" href="/approved-presence.css" />
 </head>
 <body>
   <div id="app" class="app" aria-live="polite">
     <p class="loading">Cargando…</p>
   </div>
-  <noscript><p style="padding:1rem">Necesitas activar JavaScript para usar tu compañero.</p></noscript>
+  <noscript><p style="padding:1rem">Necesitas activar JavaScript para usar Kendra.</p></noscript>
+  <script src="/approved-3d/vendor/three-r160.min.js"></script>
+  <script src="/approved-3d/vendor/gltf-kit.js"></script>
+  <script src="/approved-3d/janus-creature-slot.js"></script>
   <script type="module" src="/kendra.js"></script>
 </body>
 </html>

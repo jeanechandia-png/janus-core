@@ -80,6 +80,8 @@ try {
   }
   const unauthorizedEvolution = await fetch(`${base}/api/evolution`);
   assert.equal(unauthorizedEvolution.status, 401, 'premortem requiere Founder autenticado');
+  const unauthorizedIncidents=await fetch(base+'/api/operations/incidents');
+  assert.equal(unauthorizedIncidents.status,401,'product incident memory requires Founder authentication');
   assert.equal(health.durable, true);
   assert.equal(health.db, 'memory');
   assert.equal(health.timeZone, 'Europe/Amsterdam');
@@ -188,6 +190,16 @@ try {
   assert.equal(unauthenticatedAssistantControl.status, 401);
 
   const founderToken = await authenticate(base, 'founder', founderKeys.privateKey);
+  const incidentResponse=await fetch(base+'/api/operations/incidents',{headers:{authorization:'Bearer '+founderToken}});
+  assert.equal(incidentResponse.status,200);
+  const incidentBody=await incidentResponse.json();
+  assert.equal(incidentBody.incidents.runtimeVerified,false);
+  const chatboxIncidents=incidentBody.incidents.products.find(p=>p.productId==='infinity-chatbox');
+  assert.equal(chatboxIncidents.incidents.length,3);
+  assert.equal(chatboxIncidents.syncState,'needs_auth');
+  assert.ok(chatboxIncidents.incidents.some(i=>i.status==='open'&&i.causeStatus==='investigating'));
+  assert.ok(incidentBody.incidents.products.filter(p=>p.productId!=='infinity-chatbox').every(p=>p.syncState==='not_connected'));
+
 
   const iconItem = await postJson(base, '/api/library/items', {
     id: 'icon.translator.medallion',

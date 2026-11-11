@@ -30,6 +30,8 @@ export interface CoordinationOperatorProfile {
   createdAt: string;
   updatedAt: string;
   notes?: string;
+  /** Presentation language for the reusable text-only work dashboard. */
+  locale?: 'es' | 'nl' | 'en';
 }
 
 export interface CoordinationScope {
