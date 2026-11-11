@@ -923,6 +923,22 @@ export class SqliteStore {
     return Number(this.db.prepare('DELETE FROM service_catalogs WHERE service = ?').run(service).changes) > 0;
   }
 
+  /* ── Casos prioritarios del Founder: el contenido llega ya cifrado (el runtime lo sella); aquí solo se guarda. ── */
+  upsertPriorityCaseSealed(id: string, ownerPrincipalId: string, updatedAt: string, sealed: string): void {
+    this.db.prepare(`
+      INSERT INTO priority_cases (id, owner_principal_id, updated_at, case_sealed) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, case_sealed = excluded.case_sealed
+      WHERE priority_cases.owner_principal_id = excluded.owner_principal_id
+    `).run(id, ownerPrincipalId, updatedAt, sealed);
+  }
+
+  listPriorityCasesSealed(ownerPrincipalId?: string): Array<{ id: string; ownerPrincipalId: string; sealed: string }> {
+    const rows = (ownerPrincipalId
+      ? this.db.prepare('SELECT id, owner_principal_id, case_sealed FROM priority_cases WHERE owner_principal_id = ? ORDER BY updated_at DESC LIMIT 100').all(ownerPrincipalId)
+      : this.db.prepare('SELECT id, owner_principal_id, case_sealed FROM priority_cases ORDER BY updated_at DESC LIMIT 100').all()) as Record<string, unknown>[];
+    return rows.map((row) => ({ id: String(row.id), ownerPrincipalId: String(row.owner_principal_id), sealed: String(row.case_sealed) }));
+  }
+
   /* ── Opportunity Radar ── */
   upsertRadarOpportunity(opportunity: Opportunity): void {
     // La huella es única: una segunda inserción de la misma oferta con otro id se rechaza (no hay duplicados).
@@ -2398,6 +2414,13 @@ export class SqliteStore {
         updated_at TEXT NOT NULL,
         registered_by TEXT NOT NULL,
         catalog_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS priority_cases (
+        id TEXT PRIMARY KEY,
+        owner_principal_id TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        case_sealed TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS radar_opportunities (

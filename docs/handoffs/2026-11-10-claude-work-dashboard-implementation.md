@@ -345,6 +345,23 @@ Aprobado por el CEO («Ejecuta»). Detalle en `docs/ADR-012-anti-obsolescence-ar
 (herramienta `integration`; pendiente que el CEO la permita en el Blueprint), `packages/core/src/change-drafter.ts` y
 `POST /api/changes/draft`. Pruebas: `npm test` 768/0; smoke 23 bloques; navegador 15/15 (aprobar) y 76/76 (Mi equipo).
 
+## Actualización 11-nov-2026 (15:00) — casos prioritarios del Founder (privados)
+
+Orden del Founder. Módulo GENÉRICO: el repositorio no contiene ningún dato de ningún caso.
+- `packages/core/src/priority-case.ts`: caso con hilo de correo, historial, alertas (respuesta, cita, plazo,
+  documentación, cambio importante), próxima acción con aprobación, traducción adjunta. Un correo entra solo si es del
+  mismo hilo, o de un dominio oficial del caso Y del remitente conocido o con una palabra clave del caso.
+- Runtime: tabla `priority_cases` con el caso **sellado** (AES-256-GCM, clave derivada de la bóveda); rutas
+  `/api/cases*` solo para el Founder dueño; vigilancia de Gmail cada 10 min reutilizando `google-workspace`
+  (`gmail.messages.search`, ahora con extracto); estado veraz «Conexión pendiente / Monitorización activa / Error»;
+  aviso al teléfono sin contenido del caso. JANUS solo lee: no responde ni envía.
+- Importación privada: `*.case.json` en `JANUS_PRIVATE_IMPORT_DIR` (el instalador crea `~/janus-secrets/import`);
+  se importa una vez y el archivo se borra.
+- Dashboard A: franja «CASOS PRIORITARIOS» dentro de Prioridades (escritorio/tablet), tarjeta en el teléfono y
+  pestaña «Casos». Sin sesión del Founder no aparece nada.
+Pruebas: `tests/priority-case.test.ts` (6), `tests/priority-case-runtime.mjs` (privacidad, cifrado en disco,
+reinicio, importación), navegador 27/27. NO VERIFICADO: lectura real de Gmail desde el runtime (no conectado).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

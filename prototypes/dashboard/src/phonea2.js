@@ -51,5 +51,5 @@ function renderPhoneA2(M, X) {
   const bots = a2card('chatbots', 'bot', 'Chatbots', 'en vivo', D.bots.map((b) => '<div class="a2bt"><span class="dot ' + (b.warn ? 'w' : '') + '"></span><span class="tx">' + esc(b.n) + '</span>' + gNum(b.c, 'kn s') + '</div>' + a2spark(b.days, '#86B6FF')).join(''));
   const reels = a2card('contenido', 'clapperboard', 'Reels', 'top 3', D.reels.map((r, i) => a2row(String(i + 1), '', esc(r.t), '<b class="v">' + r.views + 'K</b>')).join(''));
   const fun = a2card('clientes', 'handshake', 'Embudo', '30 d', '<div class="a2fn">' + D.F.map((f, i) => '<span style="width:' + (100 - i * 24) + '%"><b>' + f.n + '</b>' + f.t + '</span>').join('') + '</div>');
-  return '<main class="pa2">' + head + sala + (typeof phoneWxCard === 'function' ? phoneWxCard(M) : '') + pro + dia + fam + pri + casa + ofertas + kpi + '<div class="a2two">' + bots + reels + '</div>' + fun + '</main>';
+  return '<main class="pa2">' + head + sala + (typeof phoneWxCard === 'function' ? phoneWxCard(M) : '') + (typeof casosPhoneCard === 'function' ? casosPhoneCard() : '') + pro + dia + fam + pri + casa + ofertas + kpi + '<div class="a2two">' + bots + reels + '</div>' + fun + '</main>';
 }

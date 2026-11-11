@@ -356,3 +356,24 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 .rdi .pill2{flex:none;max-width:60%;overflow:hidden;text-overflow:ellipsis}
 .rdh{margin-bottom:6px}
 .vb-radar .col3>.cd{justify-content:flex-start}
+
+/* ---------- Casos prioritarios (privados; los datos solo llegan del Núcleo con la sesión del Founder) ---------- */
+.vb-casos{grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1fr)}
+.vb-casos .col3>.cd{overflow:auto;justify-content:flex-start}
+.vb-casos .pb{display:block;overflow:visible}
+.cspb,.cspa2{cursor:pointer;border:1px solid rgba(255,120,120,.75);border-radius:12px;padding:6px 9px;margin:2px 0 6px;background:linear-gradient(rgba(255,80,80,.16),rgba(255,80,80,.05));box-shadow:0 0 14px -4px rgba(255,90,90,.6),inset 0 1px 0 rgba(255,255,255,.18)}
+.cspa2{padding:11px 13px;margin:0}
+.cspb:active,.cspa2:active{transform:translateY(2px);box-shadow:inset 0 3px 9px rgba(0,0,0,.6)}
+.csph{display:flex;align-items:center;gap:7px;font-size:10px;letter-spacing:.16em;font-weight:700;color:#FFB0A8}
+.csph span{margin-left:auto;background:#e4504f;color:#fff;border-radius:99px;padding:1px 7px;letter-spacing:0}
+.cspd{inline-size:9px;block-size:9px;border-radius:50%;background:#ff5d5d;box-shadow:0 0 9px 2px rgba(255,93,93,.85);animation:cspp 1.6s ease-in-out infinite}
+@keyframes cspp{50%{box-shadow:0 0 16px 5px rgba(255,93,93,1)}}
+.cspr{display:flex;align-items:center;gap:8px;margin-top:4px;min-width:0;font-size:13px}
+.cspr b{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#fff}
+.cspr em{flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal;font-size:11.5px;color:#f1d9c9;text-align:right}
+.cspr.new em{color:#FF9A8F;font-weight:700}
+.cspt{flex:none;font:800 9.5px/1 "IBM Plex Mono",monospace;letter-spacing:.08em;padding:3px 6px;border-radius:6px;background:#e4504f;color:#fff}
+/* Con un caso a la vista, la tarjeta muestra un correo menos para no montar textos. */
+#dash .cd.has-case .ml:nth-of-type(n+4){display:none}
+.csin{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.35);color:inherit;font:inherit;font-size:12.5px;padding:8px 10px}
+@media(prefers-reduced-motion:reduce){.cspd{animation:none}}

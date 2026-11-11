@@ -172,7 +172,7 @@ export class GoogleWorkspaceAdapter implements ToolAdapter {
       detailUrl.searchParams.append('metadataHeaders', 'Date');
       detailUrl.searchParams.set(
         'fields',
-        'id,threadId,labelIds,internalDate,payload(headers)',
+        'id,threadId,labelIds,internalDate,snippet,payload(headers)',
       );
       const detail = await this.requestJson(detailUrl, token);
       if (!detail.ok) return detail;
@@ -269,6 +269,8 @@ function normalizeGmailMessage(message: JsonRecord): JsonRecord {
     subject: headerMap.subject,
     from: headerMap.from,
     date: headerMap.date,
+    // Extracto corto que da Gmail (no el cuerpo): permite avisar de citas, plazos o documentos sin leer el correo entero.
+    ...(typeof message.snippet === 'string' && message.snippet ? { snippet: message.snippet.slice(0, 400) } : {}),
   };
 }
 

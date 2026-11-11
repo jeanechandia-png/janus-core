@@ -67,6 +67,10 @@ for SKIN_SRC in "$SECRETS_DIR/iba-command-center.css" "$HOME_DIR/storage/downloa
 done
 [ -f "$SKIN_DEST" ] || printf 'Aviso: falta iba-command-center.css (Descargas de la tablet). JANUS Work no se mostrará hasta ponerlo y repetir este instalador.\n'
 # Avisos al teléfono: la llave se genera en la tablet y se queda en ella (nunca en el repositorio).
+# Carpeta privada de importación (casos prioritarios del Founder): fuera del repositorio; cada archivo se borra al importarlo.
+mkdir -p "$SECRETS_DIR/import" && chmod 700 "$SECRETS_DIR/import"
+if ! grep -q '^JANUS_PRIVATE_IMPORT_DIR=' "$ENV_FILE" 2>/dev/null; then printf '\nJANUS_PRIVATE_IMPORT_DIR=%s\n' "$SECRETS_DIR/import" >> "$ENV_FILE"; fi
+
 if ! grep -q '^JANUS_PUSH_VAPID_PRIVATE_KEY=.' "$ENV_FILE" 2>/dev/null; then
   PUSH_KEY="$( cd "$APP_DIR" && npm run -s work:push-key 2>/dev/null | sed -n 's/^JANUS_PUSH_VAPID_PRIVATE_KEY=//p' | head -n 1 || true )"
   if [ -n "$PUSH_KEY" ]; then printf '\nJANUS_PUSH_VAPID_PRIVATE_KEY=%s\n' "$PUSH_KEY" >> "$ENV_FILE"; printf 'Llave de avisos creada en %s\n' "$ENV_FILE"; fi
