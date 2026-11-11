@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
+import { createServer as createHttpServer } from 'node:http';
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,11 +21,11 @@ let base = '', child = null, stderr = '';
 const ok = (text) => console.log('  ✓ ' + text);
 
 async function freePort() { const s = createServer(); await new Promise((res, rej) => { s.once('error', rej); s.listen(0, '127.0.0.1', res); }); const p = s.address().port; await new Promise((res) => s.close(res)); return p; }
-async function start() {
+async function start(extraEnv = {}) {
   const port = await freePort(); base = `http://127.0.0.1:${port}`; stderr = '';
   child = spawn(process.execPath, ['--import', 'tsx', 'apps/runtime/server.ts'], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, PORT: String(port), JANUS_DB: dbFile,
     GOOGLE_ACCESS_TOKEN: '', GOOGLE_OAUTH_CLIENT_ID: '', GOOGLE_OAUTH_CLIENT_SECRET: '', JANUS_MODEL_BASE_URL: '', JANUS_MODEL_NAME: '', JANUS_CREDENTIAL_VAULT_KEY: vaultKey, JANUS_CREDENTIAL_VAULT_PATH: '',
-    JANUS_PRIVATE_IMPORT_DIR: importDir, JANUS_RADAR_INTERVAL_MIN: '', JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'k' } });
+    JANUS_PRIVATE_IMPORT_DIR: importDir, JANUS_RADAR_INTERVAL_MIN: '', JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_PUBLIC_KEY_PEM: faceKeys.publicKey, JANUS_FOUNDER_BIOMETRIC_KEY_ID: 'k', ...extraEnv } });
   child.stderr.on('data', (c) => { stderr += c.toString(); });
   const deadline = Date.now() + 20000;
   while (Date.now() < deadline) { try { if ((await fetch(base + '/health')).ok) return; } catch { /* arrancando */ } await delay(120); }
@@ -45,7 +46,7 @@ const demo = { id: 'caso-demo', title: SECRET_TITLE, category: 'Personal / Priva
 
 try {
   // Importación privada: el archivo vive fuera del repositorio y se borra al quedar guardado y sellado.
-  writeFileSync(join(importDir, 'importado.case.json'), JSON.stringify({ ...demo, id: 'caso-importado', title: 'Importado ficticio Kappa-22' }));
+  writeFileSync(join(importDir, 'importado.case.json'), JSON.stringify({ ...demo, id: 'caso-importado', title: 'Importado ficticio Kappa-22', interpreterBrief: 'Expediente ficticio Lambda-5\nSegunda línea', interpreterGlossary: [{ nl: 'buurman', es: 'vecino' }] }));
   await start();
   let founder = await authenticate('founder', founderKeys.privateKey);
   await call('GET', '/api/cases', null, undefined, 401);
@@ -53,13 +54,21 @@ try {
   const proof = (await call('POST', '/api/auth/biometric/verify', founder, { challengeId: proofChallenge.id, keyId: 'k', signature: sign('sha256', Buffer.from(proofChallenge.signingPayload, 'utf8'), faceKeys.privateKey).toString('base64url') }, 200)).proof.proofId;
   await call('POST', '/api/auth/operator/delegate', founder, { principalId: 'colab-x', displayName: 'Persona X', publicKeyPem: devKeys.publicKey, locale: 'es' }, 201, { 'x-janus-biometric-proof': proof });
   const dev = await authenticate('colab-x', devKeys.privateKey);
-  for (const [m, p, b] of [['GET', '/api/cases'], ['POST', '/api/cases', demo], ['POST', '/api/cases/caso-importado/check', {}], ['POST', '/api/cases/caso-importado/notes', { text: 'x' }], ['PUT', '/api/cases/caso-importado/status', { status: 'closed' }]]) await call(m, p, dev, b, 403);
+  for (const [m, p, b] of [['POST', '/api/cases/caso-importado/interpret', { from: 'nl', text: 'Hallo' }], ['POST', '/api/interpreter/turn', { from: 'nl', text: 'Hallo' }], ['GET', '/api/interpreter/notice'], ['GET', '/api/cases'], ['POST', '/api/cases', demo], ['POST', '/api/cases/caso-importado/check', {}], ['POST', '/api/cases/caso-importado/notes', { text: 'x' }], ['PUT', '/api/cases/caso-importado/status', { status: 'closed' }]]) await call(m, p, dev, b, 403);
   ok('sin sesión 401; un colaborador recibe 403 en todas las rutas de casos');
 
   let list = await call('GET', '/api/cases', founder, undefined, 200);
   assert.deepEqual(list.cases.map((c) => c.id), ['caso-importado']); assert.equal(list.encryptedAtRest, true);
   assert.deepEqual(readdirSync(importDir), [], 'el archivo privado se borra tras importarlo');
   ok('importación privada: crea el caso una vez y no deja copia en claro');
+  const imported = list.cases[0];
+  assert.deepEqual(imported.interpreter, { ready: true, briefChars: 42, glossaryTerms: 1 });
+  assert.doesNotMatch(JSON.stringify(list), /Lambda-5/, 'el expediente del intérprete no viaja a la pantalla');
+  const noModel = await call('POST', '/api/cases/caso-importado/interpret', founder, { from: 'nl', text: 'Wanneer was het incident?' }, 409);
+  assert.match(noModel.error, /modelo/);
+  await call('POST', '/api/cases/caso-importado/interpret', founder, { from: 'xx', text: 'Hallo' }, 400);
+  assert.equal((await call('GET', '/api/interpreter/notice?name=Ana', founder, undefined, 200)).modelReady, false);
+  ok('intérprete: solo el Founder; sin modelo dice que no puede traducir (409) y no inventa nada');
 
   await call('POST', '/api/cases', founder, { ...demo, thread: { ...demo.thread, account: 'no-es-correo' } }, 400);
   const created = (await call('POST', '/api/cases', founder, demo, 201)).case;
@@ -88,18 +97,41 @@ try {
   await stop();
   const disk = readdirSync(dir).filter((f) => f.startsWith('janus.db')).map((f) => readFileSync(join(dir, f)).toString('latin1')).join('');
   assert.ok(disk.includes('priority_cases'), 'la tabla existe en el disco');
-  for (const secret of ['Zeta-4471', 'Omega-9', 'Sigma-7', 'Kappa-22', 'agente@gemeente.example', 'Voorbeeldstraat']) assert.ok(!disk.includes(secret), `«${secret}» no está en claro en la base de datos`);
+  for (const secret of ['Zeta-4471', 'Omega-9', 'Sigma-7', 'Kappa-22', 'Lambda-5', 'agente@gemeente.example', 'Voorbeeldstraat']) assert.ok(!disk.includes(secret), `«${secret}» no está en claro en la base de datos`);
   assert.doesNotMatch(stderr, /Zeta-4471|Omega-9|Sigma-7|Kappa-22/, 'nada del caso en los registros');
   ok('privado: no sale por otras rutas, no está en claro en el disco ni en los registros');
 
-  // Persistencia tras reiniciar (mismo archivo de base de datos, misma clave).
-  await start();
+  // Persistencia tras reiniciar (mismo archivo de base de datos, misma clave) — ahora con un modelo simulado compatible OpenAI.
+  const modelSeen = [];
+  const fakeModel = createHttpServer((req, res) => {
+    let raw = ''; req.on('data', (c) => { raw += c; }); req.on('end', () => {
+      const body = JSON.parse(raw); modelSeen.push(body);
+      const utterance = body.messages.at(-1).content;
+      const content = /ROMPER/.test(utterance) ? 'Lo siento, no sé' : JSON.stringify({ translation: '¿Cuándo ocurrió el incidente? ¿El 9 de septiembre?', uncertain: [], clarify: null });
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ choices: [{ message: { content } }] }));
+    });
+  });
+  await new Promise((res) => fakeModel.listen(0, '127.0.0.1', res));
+  await start({ JANUS_MODEL_BASE_URL: `http://127.0.0.1:${fakeModel.address().port}`, JANUS_MODEL_NAME: 'fake-interpreter' });
   founder = await authenticate('founder', founderKeys.privateKey);
   list = await call('GET', '/api/cases', founder, undefined, 200);
   const after = list.cases.find((c) => c.id === 'caso-demo');
   assert.equal(after.title, SECRET_TITLE); assert.equal(after.nextAction.state, 'approved'); assert.equal(after.timeline.length, before.timeline.length);
   assert.equal(list.cases.length, 2);
   ok('persistencia: tras reiniciar JANUS el caso, su historial y sus decisiones siguen ahí');
+
+  const turn = await call('POST', '/api/cases/caso-importado/interpret', founder, { from: 'nl', text: 'Wanneer was het incident? Op 9 september om 18:00?', speaker: 'counterpart', counterpartRole: 'police officer', history: [{ from: 'es', source: 'Hola', target: 'Hallo' }] }, 200);
+  assert.equal(turn.result.to, 'es'); assert.equal(turn.result.translation, '¿Cuándo ocurrió el incidente? ¿El 9 de septiembre?');
+  assert.deepEqual(turn.result.confirm, ['18:00'], 'la hora que falta se marca para confirmar');
+  assert.equal(turn.context.briefLoaded, true);
+  const sent = JSON.stringify(modelSeen.at(-1).messages);
+  assert.match(sent, /Lambda-5/); assert.match(sent, /FIRST PERSON/); assert.match(sent, /RECENT EXCHANGE/);
+  await call('POST', '/api/cases/caso-importado/interpret', founder, { from: 'es', text: 'ROMPER esto' }, 502);
+  const free = await call('POST', '/api/interpreter/turn', founder, { from: 'es', to: 'nl', text: 'Buenos días' }, 200);
+  assert.equal(free.context, null); assert.doesNotMatch(JSON.stringify(modelSeen.at(-1).messages), /Lambda-5/, 'sin caso no viaja ningún expediente');
+  assert.doesNotMatch(stderr, /Lambda-5|Wanneer was het incident/, 'nada de la conversación en los registros');
+  ok('intérprete con modelo: usa el expediente del caso, marca la hora a confirmar, no inventa si el modelo falla (502)');
+  fakeModel.close();
   console.log('priority case runtime ok');
 } catch (error) {
   console.error(error); if (stderr) console.error(stderr.replace(/Zeta-4471|Omega-9|Sigma-7|Kappa-22/g, '***').slice(-800)); process.exitCode = 1;

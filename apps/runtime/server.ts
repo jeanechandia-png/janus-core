@@ -108,6 +108,7 @@ import {
   CASE_STATUSES, acknowledgeAlert, addCaseNote, attachTranslation, caseView, createPriorityCase, decideNextAction, gmailQueryFor,
   ingestMessages, proposeNextAction, setCaseStatus, setMonitoring, type CaseStatus, type MailMessage, type PriorityCase,
 } from '../../packages/core/src/priority-case.js';
+import { interpretUtterance, isSupportedLang, openingNotice, type InterpreterTurnContext } from '../../packages/modules/contextual-interpreter/src/index.js';
 import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
 import { IntegrationHubAdapter, integrationBrief } from '../../packages/adapters/src/integration-hub-adapter.js';
 import { HashingEmbedder, HttpEmbedder, KnowledgeMemory, MEMORY_KINDS, type MemoryKind } from '../../packages/core/src/knowledge-memory.js';
@@ -1596,7 +1597,11 @@ function importPrivateCases(): void {
       const data = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
       const owner = store.listAuthorityCredentials().find((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt)?.principal.id;
       if (!owner) { console.warn('Private case import waiting: no Founder registered yet.'); return; }
-      if (!loadCases(owner).some((c) => c.id === data.id)) saveCase(createPriorityCase({ ...(data as never as Parameters<typeof createPriorityCase>[0]), ownerPrincipalId: owner }, new Date().toISOString()));
+      const fresh = createPriorityCase({ ...(data as never as Parameters<typeof createPriorityCase>[0]), ownerPrincipalId: owner }, new Date().toISOString());
+      const existing = loadCases(owner).find((c) => c.id === fresh.id);
+      if (!existing) saveCase(fresh);
+      // Un caso ya importado solo recibe el expediente del intérprete (no se pisa su historial ni su estado).
+      else if (fresh.interpreterBrief || fresh.interpreterGlossary) saveCase({ ...existing, interpreterBrief: fresh.interpreterBrief ?? existing.interpreterBrief, interpreterGlossary: fresh.interpreterGlossary ?? existing.interpreterGlossary, updatedAt: new Date().toISOString() });
       rmSync(file, { force: true });
     } catch { console.warn('A private case file could not be imported (content not logged).'); }
   }
@@ -6972,6 +6977,46 @@ const server = createServer(async (request, response) => {
       }
       if (caseMatch[2] !== 'check') saveCase(next);
       json(response, 200, { ok: true, case: caseView(next), ...extra });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Pieza LEGO «contextual-interpreter» (piloto): intérprete consecutivo, solo Founder. No guarda nada. ──
+  const interpCaseMatch = url.pathname.match(/^\/api\/cases\/([^/]+)\/interpret$/);
+  if (request.method === 'POST' && (interpCaseMatch || url.pathname === '/api/interpreter/turn')) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const caseData = interpCaseMatch ? loadCase(decodeURIComponent(interpCaseMatch[1]!), principal.id) : null;
+      const from = typeof body.from === 'string' ? body.from : '';
+      const to = typeof body.to === 'string' ? body.to : undefined;
+      if (!isSupportedLang(from) || (to !== undefined && !isSupportedLang(to))) throw new HttpRequestError(400, 'idioma no admitido');
+      const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (!text) throw new HttpRequestError(400, 'text is required');
+      if (!modelGateway) throw new HttpRequestError(409, 'no hay ningún modelo configurado: el intérprete no puede traducir');
+      const history: InterpreterTurnContext[] = Array.isArray(body.history) ? body.history.slice(-6).flatMap((turn: unknown) => {
+        const t = turn as Record<string, unknown>;
+        return t && typeof t.from === 'string' && typeof t.source === 'string' && typeof t.target === 'string' ? [{ from: t.from, source: t.source.slice(0, 400), target: t.target.slice(0, 400) }] : [];
+      }) : [];
+      let result;
+      try {
+        result = await interpretUtterance(modelGateway, {
+          from, ...(to ? { to } : {}), text, history,
+          speaker: body.speaker === 'counterpart' ? 'counterpart' : 'founder',
+          counterpartRole: typeof body.counterpartRole === 'string' ? body.counterpartRole : 'official',
+          brief: caseData?.interpreterBrief, glossary: caseData?.interpreterGlossary as never,
+        });
+      } catch (error) {
+        throw new HttpRequestError(502, `el intérprete no obtuvo una traducción válida (${error instanceof Error ? error.message : 'error'}); no se inventa ninguna`);
+      }
+      json(response, 200, { ok: true, result, context: caseData ? { caseId: caseData.id, briefLoaded: !!caseData.interpreterBrief } : null });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/api/interpreter/notice') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, notice: openingNotice(url.searchParams.get('name') ?? '', 'JANUS'), modelReady: !!modelGateway });
     } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
     return;
   }

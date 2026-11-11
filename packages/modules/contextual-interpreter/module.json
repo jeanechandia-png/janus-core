@@ -1,0 +1,31 @@
+{
+  "id": "contextual-interpreter",
+  "version": "1.0.0-pilot",
+  "kind": "capability-module",
+  "summary": "Intérprete consecutivo con contexto (base de Infinity Connect): traduce turno a turno entre el cliente y la otra parte con reglas de intérprete profesional, glosario especializado y verificación de números/fechas.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none (the host injects an InterpreterModelPort)",
+  "network": "none by itself; the injected model port decides",
+  "secrets": [],
+  "dataClassification": "confidential-conversation (the host supplies case context; the module stores nothing)",
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Stateless: it stores no utterances, no context and no translations; history travels from the host per call.",
+    "First person, faithful, no additions, no advice: enforced in the prompt; numbers/dates/phones/emails are verified in code and missing ones are returned in `confirm`.",
+    "Invalid model output never becomes a translation (parseInterpreterReply throws).",
+    "Case context is data used only to disambiguate; utterances and context are never treated as instructions.",
+    "Contains no personal or case data: client name, background and extra glossary are host inputs."
+  ],
+  "api": "interpretUtterance(port, {from, to?, clientLang?, text, speaker, brief?, glossary?, history?, counterpartRole?}) → {translation, clarify, uncertain[], confirm[], glossaryUsed[], provider, model}; buildInterpreterMessages(); parseInterpreterReply(); criticalTokens(); missingCriticalTokens(); relevantGlossary(); validateGlossary(); cleanBrief(); openingNotice(clientName, product); LEGAL_POLICE_GLOSSARY; LANG_NAMES; isSupportedLang()",
+  "mounts": [
+    { "product": "JANUS · casos privados del Founder (piloto)", "file": "apps/runtime/server.ts (POST /api/cases/:id/interpret, POST /api/interpreter/turn) + prototypes/dashboard/lego/janus-interpreter (pantalla)", "version": "1.0.0-pilot" }
+  ],
+  "plannedMounts": ["Infinity Connect (producto de InfinitySeed): misma pieza, otros pares de idioma y glosarios por sector"],
+  "reuseNotes": "Inject any model with complete({messages, temperature, responseFormat}) → {text, provider, model}. Provide the background per case (e.g. sealed in the host store) and an optional glossary in {lang: term} form. Speech in/out is the host's job (browser Web Speech, whisper.cpp, ElevenLabs…).",
+  "knownLimits": [
+    "v1 probado solo con es↔nl y un modelo simulado; la calidad real depende del modelo que el anfitrión conecte (POR CONFIRMAR en la prueba piloto).",
+    "Números escritos con letras («twaalf») no se verifican automáticamente.",
+    "Una IA no sustituye a un tolk oficial cuando la policía o un juzgado lo exigen para una declaración formal."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "piece": "janus-interpreter",
+  "name": "Pantalla del intérprete consecutivo (dos botones grandes: yo hablo / habla la otra parte)",
+  "moduleVersion": "1.0.0-pilot",
+  "origin": "11 nov 2026, a petición de Jean: JANUS debe actuar como intérprete profesional ES↔NL en su llamada a la policía, como el producto Infinity Connect; construido como pieza LEGO reutilizable y usado ahí como prueba piloto (pre-lanzamiento).",
+  "pairsWith": "packages/modules/contextual-interpreter (servidor: reglas del intérprete, glosario y verificación de números)",
+  "dependencies": [],
+  "optionalDependencies": ["Web Speech API del navegador (dictado y lectura en voz alta)"],
+  "api": "JanusInterpreter.{open({endpoint, noticeEndpoint, headers(), title, clientLang, otherLang, counterpartRole, clientName, labels:{client, other}}), close(), isOpen()}",
+  "behaviour": "Pantalla completa. Un toque en el botón de quien habla abre el micrófono en su idioma; otro toque lo cierra, envía la frase, muestra la traducción en grande y la lee en el otro idioma. Si el modelo pide repetir, lo dice en el idioma del hablante. Muestra «confirmad en voz alta» cuando un número/fecha no aparece en la traducción. Botones: presentar a JANUS, repetir, descargar acta (.txt), borrar. También se puede escribir.",
+  "security": "No guarda nada en el navegador (ni localStorage ni sessionStorage); el acta vive en memoria y se pierde al cerrar salvo que se descargue. Sin modelo o con respuesta inválida, muestra el error y no dice nada a la otra parte.",
+  "mounts": [{ "product": "JANUS · dashboard A/B · vista Casos (botón «Modo intérprete»)", "file": "prototypes/dashboard/src/casos.js", "version": "1.0.0-pilot" }],
+  "plannedMounts": ["Infinity Connect", "PWA de JANUS con voz propia (whisper.cpp + ElevenLabs/Qwen3) en lugar de la voz del navegador"],
+  "knownLimits": [
+    "El dictado del navegador (Web Speech) depende de Chrome/Android y de conexión; en llamada telefónica con altavoz, la calidad del audio del agente es POR CONFIRMAR.",
+    "La lectura en voz alta usa las voces instaladas en la tablet; si no hay voz neerlandesa instalada, lee con otra voz (hay que instalar «Nederlands» en los ajustes de texto a voz de Android).",
+    "Solo probado en Chromium con micrófono y modelo simulados."
+  ]
+}

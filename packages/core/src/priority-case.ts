@@ -66,6 +66,10 @@ export interface PriorityCase {
   statusLabel: string;
   ownerPrincipalId: string;
   context?: string;
+  /** Expediente privado para la pieza intérprete (solo desambigua; nunca se muestra al equipo). */
+  interpreterBrief?: string;
+  /** Glosario extra del caso para el intérprete ({nl, es, note?}). */
+  interpreterGlossary?: Array<{ [lang: string]: string | undefined; note?: string }>;
   thread?: CaseThread;
   nextAction?: { text: string; state: NextActionState; decidedAt?: string };
   monitoring: { state: CaseMonitoringState; lastCheckedAt?: string; detail?: string };
@@ -126,7 +130,7 @@ export function validateCaseThread(input: Partial<CaseThread>): CaseThread {
   };
 }
 
-export function createPriorityCase(input: { id: string; title: string; category?: string; priority?: CasePriority; ownerPrincipalId: string; context?: string; thread?: Partial<CaseThread>; nextAction?: string; status?: CaseStatus }, now: string): PriorityCase {
+export function createPriorityCase(input: { id: string; title: string; category?: string; priority?: CasePriority; ownerPrincipalId: string; context?: string; interpreterBrief?: string; interpreterGlossary?: unknown; thread?: Partial<CaseThread>; nextAction?: string; status?: CaseStatus }, now: string): PriorityCase {
   const title = clean(input.title, 160);
   if (!/^[A-Za-z0-9_.-]{3,80}$/.test(input.id)) throw new Error('case id is not valid');
   if (!title) throw new Error('case title is required');
@@ -136,12 +140,21 @@ export function createPriorityCase(input: { id: string; title: string; category?
   const status: CaseStatus = input.status && CASE_STATUSES.includes(input.status) ? input.status : 'waiting_reply';
   const context = clean(input.context, 1500);
   const nextAction = clean(input.nextAction, 500);
+  const interpreterBrief = typeof input.interpreterBrief === 'string' ? input.interpreterBrief.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').trim().slice(0, 12_000) : '';
+  const interpreterGlossary = Array.isArray(input.interpreterGlossary)
+    ? input.interpreterGlossary.slice(0, 80).flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const term: { [lang: string]: string | undefined; note?: string } = {};
+      for (const [key, value] of Object.entries(item as Record<string, unknown>)) if (typeof value === 'string' && value.trim() && /^(note|[a-z]{2})$/.test(key)) term[key] = value.trim().slice(0, 160);
+      return Object.keys(term).filter((key) => key !== 'note').length >= 2 ? [term] : [];
+    })
+    : [];
   const timeline: CaseEvent[] = [{ id: 'ev-1', at, kind: 'created', summary: 'Caso creado', source: 'founder' }];
   if (thread) timeline.unshift({ id: 'ev-0', at: thread.sentAt, kind: 'sent', summary: `Correo enviado a ${thread.counterpart.name || thread.counterpart.email}`, source: 'founder', messageId: thread.messageId });
   return {
     id: input.id, title, category: clean(input.category, 60) || 'Personal / Privado', priority: input.priority === 'normal' ? 'normal' : 'high',
     status, statusLabel: STATUS_LABELS[status], ownerPrincipalId: input.ownerPrincipalId,
-    ...(context ? { context } : {}), ...(thread ? { thread } : {}),
+    ...(context ? { context } : {}), ...(interpreterBrief ? { interpreterBrief } : {}), ...(interpreterGlossary.length ? { interpreterGlossary } : {}), ...(thread ? { thread } : {}),
     ...(nextAction ? { nextAction: { text: nextAction, state: 'pending_approval' as const } } : {}),
     monitoring: { state: 'connection_pending', detail: 'Gmail aún no está conectado a JANUS.' },
     timeline: timeline.sort((a, b) => a.at.localeCompare(b.at)), alerts: [], seenMessageIds: thread ? [thread.messageId] : [], createdAt: at, updatedAt: at,
@@ -269,8 +282,11 @@ export function gmailThreadUrl(thread: Pick<CaseThread, 'account' | 'threadId'>)
 /** Vista para la tarjeta y la pestaña. Nunca se sirve a nadie que no sea el dueño del caso. */
 export function caseView(c: PriorityCase) {
   const pending = c.alerts.filter((alert) => !alert.acknowledgedAt);
+  const { interpreterBrief, interpreterGlossary, ...rest } = c;
   return {
-    ...c,
+    ...rest,
+    // El expediente del intérprete no viaja a la pantalla: solo se indica que existe.
+    interpreter: { ready: !!interpreterBrief, briefChars: interpreterBrief?.length ?? 0, glossaryTerms: interpreterGlossary?.length ?? 0 },
     gmailUrl: c.thread ? gmailThreadUrl(c.thread) : null,
     pendingAlerts: pending.length,
     monitoringLabel: c.monitoring.state === 'active' ? 'Monitorización activa' : c.monitoring.state === 'error' ? 'Error de conexión' : 'Conexión pendiente',

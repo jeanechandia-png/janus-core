@@ -362,6 +362,26 @@ Orden del Founder. Módulo GENÉRICO: el repositorio no contiene ningún dato de
 Pruebas: `tests/priority-case.test.ts` (6), `tests/priority-case-runtime.mjs` (privacidad, cifrado en disco,
 reinicio, importación), navegador 27/27. NO VERIFICADO: lectura real de Gmail desde el runtime (no conectado).
 
+## Actualización 11-nov-2026 (16:00) — pieza LEGO «intérprete contextual» (piloto de Infinity Connect)
+
+Orden del Founder: JANUS debe hacer de intérprete profesional ES↔NL en su llamada a la policía, como Infinity Connect,
+y construirse como módulo LEGO reutilizable; la llamada es la prueba piloto.
+- Servidor `packages/modules/contextual-interpreter` (1.0.0-pilot, `module.json`): no importa nada de fuera; puerto de
+  modelo inyectado; primera persona, fiel, sin consejos; glosario base + glosario del caso; `confirm` = números, fechas,
+  horas, teléfonos o correos del original que faltan en la traducción (comprobado en código); `clarify` si no se
+  entiende; respuesta inválida → error, nunca traducción inventada. Sin estado.
+- Pantalla `prototypes/dashboard/lego/janus-interpreter` (manifest + README): «Yo hablo» / «Agente», dictado y lectura
+  del navegador, presentación transparente («soy un intérprete digital»), repetir, acta .txt bajo demanda; no usa
+  almacenamiento del navegador.
+- Anfitrión JANUS: `PriorityCase.interpreterBrief/interpreterGlossary` (sellados con el caso; `caseView` solo dice
+  `interpreter.ready`); la importación privada actualiza el expediente de un caso ya existente sin tocar su historial;
+  rutas `/api/cases/:id/interpret`, `/api/interpreter/turn`, `/api/interpreter/notice` (solo Founder; 409 sin modelo;
+  502 si el modelo no da una traducción válida). Botón «🎧 Modo intérprete ES ↔ NL» en la pestaña Casos.
+Pruebas: `tests/lego-contextual-interpreter.test.ts` (6), `tests/priority-case-runtime.mjs` (+2 bloques: sin modelo,
+con modelo simulado compatible OpenAI, sin fugas a registros/disco), navegador 32/32 (escritorio y móvil).
+NO VERIFICADO: calidad con un modelo real, dictado neerlandés por altavoz telefónico, voces instaladas en la tablet.
+El expediente del caso real vive solo fuera del repositorio (archivo privado para `JANUS_PRIVATE_IMPORT_DIR`).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·
