@@ -59,6 +59,19 @@ else
 fi
 chmod 600 "$ENV_FILE"
 
+# JANUS Work: la piel de IBA es privada y no viaja en este repositorio. Si el archivo está en la tablet se instala
+# (el propio JANUS comprueba su huella antes de usarlo); si no, /work responde 503 y el resto funciona igual.
+SKIN_DEST="$APP_DIR/prototypes/dashboard/local/iba-command-center.css"
+for SKIN_SRC in "$SECRETS_DIR/iba-command-center.css" "$HOME_DIR/storage/downloads/iba-command-center.css" "$HOME_DIR/storage/shared/Download/iba-command-center.css"; do
+  if [ -f "$SKIN_SRC" ]; then mkdir -p "$(dirname "$SKIN_DEST")"; cp "$SKIN_SRC" "$SKIN_DEST"; printf 'Diseño de JANUS Work instalado desde %s\n' "$SKIN_SRC"; break; fi
+done
+[ -f "$SKIN_DEST" ] || printf 'Aviso: falta iba-command-center.css (Descargas de la tablet). JANUS Work no se mostrará hasta ponerlo y repetir este instalador.\n'
+# Avisos al teléfono: la llave se genera en la tablet y se queda en ella (nunca en el repositorio).
+if ! grep -q '^JANUS_PUSH_VAPID_PRIVATE_KEY=.' "$ENV_FILE" 2>/dev/null; then
+  PUSH_KEY="$( cd "$APP_DIR" && npm run -s work:push-key 2>/dev/null | sed -n 's/^JANUS_PUSH_VAPID_PRIVATE_KEY=//p' | head -n 1 || true )"
+  if [ -n "$PUSH_KEY" ]; then printf '\nJANUS_PUSH_VAPID_PRIVATE_KEY=%s\n' "$PUSH_KEY" >> "$ENV_FILE"; printf 'Llave de avisos creada en %s\n' "$ENV_FILE"; fi
+fi
+
 say "6/6 Arranque automático (solo si tienes Termux:Boot instalado)"
 mkdir -p "$HOME_DIR/.termux/boot"
 cat > "$HOME_DIR/.termux/boot/janus-start.sh" <<BOOT

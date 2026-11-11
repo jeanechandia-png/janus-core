@@ -22,6 +22,11 @@ export interface ProjectWorkspace {
   description?: string;
   /** Founder-approved, durable project instructions (not system authority). */
   instructions?: string;
+  /**
+   * 'local_only': el contenido de este proyecto no se envía a proveedores externos (Claude, ChatGPT, Gemini…);
+   * JANUS solo usa el modelo propio/local. Lo fija el Founder.
+   */
+  modelPolicy?: 'local_only';
   metadata?: Record<string, unknown>;
 }
 
@@ -89,6 +94,7 @@ export function validateProjectWorkspace(project: ProjectWorkspace): ProjectWork
   if (!project.name.trim()) throw new Error('project name is required');
   if (!project.createdBy.trim()) throw new Error('project createdBy is required');
   if (project.instructions && project.instructions.length > 12000) throw new Error('project instructions are too long');
+  if (project.modelPolicy !== undefined && project.modelPolicy !== 'local_only') throw new Error('project modelPolicy is invalid');
   validateIso(project.createdAt, 'project createdAt');
   validateIso(project.updatedAt, 'project updatedAt');
   return {

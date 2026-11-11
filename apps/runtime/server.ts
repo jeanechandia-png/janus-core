@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
@@ -86,6 +86,7 @@ import {
 } from '../../packages/core/src/founder-social-identity-binding.js';
 import { DeliveryGate, FOUNDER_REQUIRED_DIMENSIONS } from '../../packages/core/src/delivery-gate.js';
 import {
+  DEFAULT_AUTHORITY_POLICY,
   evaluateAuthority,
   type AuthorityPrincipal,
 } from '../../packages/core/src/authority.js';
@@ -98,7 +99,68 @@ import {
   validateCoordinationGrant,
   validateCoordinationScope,
 } from '../../packages/core/src/operator-coordination.js';
-import { buildReusableWorkDashboard } from '../../packages/core/src/work-dashboard-template.js';
+import {
+  buildReusableWorkDashboard,
+  sanitizeWorkProfilePatch,
+} from '../../packages/core/src/work-dashboard-template.js';
+import { WorkPresenceTracker, resolveWorkPresence } from '../../packages/core/src/work-presence.js';
+import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
+import { IntegrationHubAdapter, integrationBrief } from '../../packages/adapters/src/integration-hub-adapter.js';
+import { HashingEmbedder, HttpEmbedder, KnowledgeMemory, MEMORY_KINDS, type MemoryKind } from '../../packages/core/src/knowledge-memory.js';
+import { ChangeDraftError, assertDraftablePath, draftChange } from '../../packages/core/src/change-drafter.js';
+import { ChangePipeline, DockerSandboxDriver, ProcessSandboxDriver, selectSandboxDriver, type PreparedChange } from '../../packages/core/src/sandbox-runner.js';
+import {
+  McpHttpClient, SpecError, SpecToolAdapter, fetchTransport, findOperations, parseGraphqlIntrospection, parseOpenApi,
+  type ServiceCatalog,
+} from '../../packages/gateways/src/spec-connector.js';
+import {
+  OPPORTUNITY_STAGES, advanceStage, buildRadarView, createOpportunity, dueOpportunityAlerts, lateDetection, markNotified,
+  mergeOpportunity, parseRadarSources, runRadar, validateQuotaWindow, verifyOpportunity,
+  type OpportunityStage, type RadarRunReport,
+} from '../../packages/core/src/opportunity-radar.js';
+import {
+  WORK_SESSION_EVENT_KINDS,
+  nextWorkSessionEvent,
+  summarizeWorkSessions,
+  type WorkSessionEventKind,
+} from '../../packages/core/src/work-session.js';
+import {
+  WORK_AGENDA_MAX_ITEMS,
+  agendaForFounder,
+  agendaForOwner,
+  validateWorkAgendaItem,
+  type WorkAgendaItem,
+} from '../../packages/core/src/work-agenda.js';
+import { WORK_VIEWABLE_MIME } from '../../packages/core/src/work-dashboard-template.js';
+import {
+  derivePrivateTextKey,
+  composeFounderMessage,
+  evaluateWorkMessage,
+  isMessageForFounder,
+  openPrivateText,
+  parseInternalRecipients,
+  sealPrivateText,
+} from '../../packages/core/src/work-message.js';
+import {
+  FounderPasskeyError,
+  FounderPasskeyService,
+  parsePasskeyOrigins,
+  type FounderPasskeyRecord,
+} from '../../packages/security/src/founder-passkey.js';
+import {
+  OperatorInviteError,
+  assertInviteUsable,
+  createOperatorInvite,
+  hashInviteCode,
+  isInviteCodeShape,
+  publicOperatorInvite,
+} from '../../packages/core/src/operator-invite.js';
+import { buildPushRequest, loadVapidKeys, localDateTime, validatePushSubscription } from '../../packages/core/src/web-push.js';
+import {
+  operatorDailyUsage,
+  parseOperatorDailyRuns,
+} from '../../packages/core/src/operator-usage-limit.js';
+import { COORDINATION_PREFERRED_PROVIDERS, type CoordinationPreferredProvider } from '../../packages/core/src/operator-coordination.js';
 import {
   buildProjectCheckpoint,
   projectRecords,
@@ -449,6 +511,20 @@ const founderBiometricKeyStore: BiometricKeyStore = {
   revoke: (keyId, revokedAt) => store.revokeBiometricPublicKey(keyId, revokedAt),
 };
 const founderBiometric = new FounderBiometricService(founderBiometricKeyStore);
+// Llave de acceso del navegador (Face ID de Safari) como segunda vía de confirmación del CEO, SOLO para las acciones
+// de `passkeyActions` (dar acceso a colaboradores). Decisión del CEO del 10-nov-2026; `JANUS_FOUNDER_PASSKEY=off` la apaga.
+const founderPasskeyEnabled = process.env.JANUS_FOUNDER_PASSKEY?.trim().toLowerCase() !== 'off';
+const allowPasskeyBootstrap = process.env.JANUS_ALLOW_PASSKEY_BOOTSTRAP === 'true';
+const founderPasskey = founderPasskeyEnabled
+  ? new FounderPasskeyService({
+      get: (credentialId) => store.getFounderPasskey<FounderPasskeyRecord>(credentialId),
+      list: (activeOnly) => store.listFounderPasskeys<FounderPasskeyRecord>(activeOnly),
+      upsert: (record) => store.upsertFounderPasskey(record),
+    }, {
+      origins: parsePasskeyOrigins(process.env.JANUS_PASSKEY_ORIGINS, port),
+      allowedActions: DEFAULT_AUTHORITY_POLICY.passkeyActions ?? [],
+    })
+  : null;
 const configuredFounderPublicKey = environmentPem('JANUS_FOUNDER_PUBLIC_KEY_PEM');
 if (configuredFounderPublicKey) {
   authorityAuth.ensureFounderCredential(
@@ -479,6 +555,8 @@ const approvalTimeoutMs = Math.min(24 * 60 * 60 * 1000, Math.max(30_000, Number(
 const approvalQueue = new ApprovalQueue({
   timeoutMs: approvalTimeoutMs,
   onTransition: (record) => {
+    // HITL: al quedar pendiente, aviso al dispositivo del CEO (si tiene avisos activados). La decisión se toma en el dashboard.
+    if (record.status === 'pending') { try { pushToFounders('JANUS · aprobación pendiente', record.label, record.id); } catch { /* el aviso es ayuda */ } }
     recordDecision({
       runId: record.runId,
       decisionKind: 'founder_approval',
@@ -1267,6 +1345,424 @@ function requireProjectAccess(
   }
 }
 
+// Autorizado por el CEO el 10-nov-2026: los colaboradores adjuntan archivos a SUS proyectos. `off` lo apaga.
+const workOperatorUploadsEnabled = process.env.JANUS_WORK_OPERATOR_UPLOADS?.trim().toLowerCase() !== 'off';
+
+const operatorDailyRunLimit = parseOperatorDailyRuns(process.env.JANUS_OPERATOR_DAILY_RUNS);
+
+// Agenda privada cifrada en reposo cuando existe la clave del almacén de credenciales (sin clave: texto plano).
+const privateTextKey = derivePrivateTextKey(process.env.JANUS_CREDENTIAL_VAULT_KEY);
+const agendaSeal = (item: WorkAgendaItem): WorkAgendaItem =>
+  (item.visibility === 'private' ? { ...item, text: sealPrivateText(item.text, privateTextKey) } : item);
+const agendaOpen = (item: WorkAgendaItem): WorkAgendaItem => ({ ...item, text: openPrivateText(item.text, privateTextKey) });
+// Destinatarios internos de los mensajes del equipo (solo etiquetas; por defecto, el CEO).
+const internalRecipients = parseInternalRecipients(process.env.JANUS_INTERNAL_RECIPIENTS);
+const configuredModelProviderIds = resolveModelProviders(process.env).map((provider) => provider.id);
+
+// Avisos al teléfono (Web Push). Sin clave VAPID quedan «pendientes de activación»: el panel sigue avisando en pantalla.
+const pushKeys = loadVapidKeys(process.env.JANUS_PUSH_VAPID_PRIVATE_KEY, process.env.JANUS_PUSH_SUBJECT);
+let pushSweepRunning = false;
+async function sweepDueReminders(): Promise<{ due: number; sent: number }> {
+  if (!pushKeys || pushSweepRunning) return { due: 0, sent: 0 };
+  pushSweepRunning = true;
+  let due = 0, sent = 0;
+  try {
+    const nowIso = new Date().toISOString();
+    for (const stored of store.listWorkAgendaItems()) {
+      if (stored.kind !== 'reminder' || stored.done || !stored.time) continue;
+      const local = localDateTime(nowIso, stored.timeZone ?? timeZone);
+      // Solo el día del recordatorio y a partir de su hora; lo atrasado de días anteriores no se dispara.
+      if (stored.date !== local.date || stored.time > local.time) continue;
+      const subscriptions = store.listPushSubscriptions(stored.principalId);
+      if (!subscriptions.length || !store.markReminderPushed(stored.id, nowIso)) continue;
+      due += 1;
+      const item = agendaOpen(stored);
+      for (const subscription of subscriptions) {
+        try {
+          const request = buildPushRequest(subscription, { title: 'JANUS Work', body: `${item.time} · ${item.text}`, tag: item.id }, pushKeys);
+          const result = await fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) });
+          if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint); // dispositivo dado de baja
+          else if (result.ok) sent += 1;
+        } catch { /* sin red: el aviso en pantalla del panel sigue funcionando */ }
+      }
+    }
+  } finally { pushSweepRunning = false; }
+  return { due, sent };
+}
+if (pushKeys) setInterval(() => { void sweepDueReminders(); }, 30_000).unref();
+
+/** Consultas de hoy de un colaborador frente al límite diario del CEO (registro durable en SQLite). */
+function operatorUsageFor(principalId: string) {
+  const now = new Date();
+  const since = new Date(now.getTime() - 36 * 3_600_000).toISOString();
+  return operatorDailyUsage({
+    runTimestamps: store.listOperatorRunTimes(principalId, since),
+    now: now.toISOString(),
+    timeZone: timeZone ?? 'UTC',
+    limit: operatorDailyRunLimit,
+  });
+}
+
+function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | undefined | null {
+  if (value === undefined || value === null || value === '') return undefined;
+  return typeof value === 'string' && (COORDINATION_PREFERRED_PROVIDERS as readonly string[]).includes(value)
+    ? value as CoordinationPreferredProvider
+    : null;
+}
+
+/* ══ Arquitectura anti-obsolescencia: cuatro pilares sobre lo ya existente ═══════════════════════════════════
+ *  1 spec-connector.ts   servicios descritos por su especificación (OpenAPI / GraphQL / MCP), sin integraciones a mano
+ *  2 sandbox-runner.ts   cambio → pruebas en entorno aislado → commit preparado; publicar exige aprobación
+ *  3 knowledge-memory.ts memoria por significado, consultada antes de planificar
+ *  4 operation-risk.ts   lectura automática · escritura con aprobación · destructivo restringido (cola de aprobaciones existente)
+ */
+function pushToFounders(title: string, body: string, tag: string): void {
+  if (!pushKeys) return;
+  for (const founder of store.listAuthorityCredentials().filter((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt)) {
+    pushToMember(founder.principal.id, title, body, tag);
+  }
+}
+
+// Pilar 4 — puerta humana para operaciones descubiertas dinámicamente. Reutiliza ApprovalQueue (pausa, caducidad, auditoría).
+const hitlGate = new HitlGate({
+  policy: { trustedForMinorWrites: (process.env.JANUS_TRUSTED_MINOR_WRITES ?? '').split(',').map((entry) => entry.trim()).filter(Boolean) },
+  requestApproval: async (request) => {
+    const { record, outcome } = approvalQueue.request({
+      runId: request.runId, actionId: request.actionId, label: request.label, tool: request.operation.split('.')[0]!, operation: request.operation,
+      risk: request.risk === 'restricted' ? 'critical' : 'high', reversible: request.reversible, ...(request.target ? { target: request.target } : {}), reason: request.reason,
+    });
+    const result = await outcome;
+    return { approved: result.approved, status: result.status, approvalId: record.id, ...(result.record.decidedBy ? { decidedBy: result.record.decidedBy } : {}) };
+  },
+});
+
+// Pilar 3 — memoria. Local por defecto (huella léxica); con JANUS_EMBEDDINGS_URL usa un modelo de embeddings real.
+const embeddingsUrl = process.env.JANUS_EMBEDDINGS_URL?.trim();
+let knowledgeEmbedderNote = 'Huella léxica local (sin red): encuentra por vocabulario, no por sinónimos. Configure JANUS_EMBEDDINGS_URL para búsqueda semántica.';
+let knowledgeEmbedder: HashingEmbedder | HttpEmbedder = new HashingEmbedder();
+if (embeddingsUrl) {
+  try {
+    knowledgeEmbedder = new HttpEmbedder({ endpoint: embeddingsUrl, modelName: process.env.JANUS_EMBEDDINGS_MODEL?.trim() || 'text-embedding', dimensions: Number(process.env.JANUS_EMBEDDINGS_DIMENSIONS) || 1536, apiKey: async () => (await credentialBroker.accessToken('embeddings')) ?? null });
+    knowledgeEmbedderNote = 'Modelo de embeddings por HTTP (configurado; no verificado en el arranque).';
+  } catch (error) { knowledgeEmbedderNote = `JANUS_EMBEDDINGS_URL no válida (${error instanceof Error ? error.message : 'error'}): se usa la huella local.`; }
+}
+const knowledgeMemory = new KnowledgeMemory({ embedder: knowledgeEmbedder, store: store.knowledgeVectorStore(), newId: () => `mem_${randomUUID()}` });
+
+/** Vuelca a la memoria lo que JANUS ya sabe por otras vías: lecciones de errores e instrucciones de proyecto. Idempotente. */
+async function syncKnowledgeMemory(): Promise<{ lessons: number; projects: number; created: number }> {
+  let created = 0;
+  const lessons = store.listErrorLessons();
+  for (const lesson of lessons) {
+    const text = `Error pasado: ${lesson.error} Lección: ${lesson.lesson} Regla preventiva: ${lesson.preventiveRule}`.slice(0, 1900);
+    if ((await knowledgeMemory.remember({ kind: 'correction', scope: 'work', text, source: `lesson:${lesson.id}` })).created) created += 1;
+  }
+  const projects = store.listProjectWorkspaces().filter((project) => project.status === 'active' && project.instructions?.trim());
+  for (const project of projects) {
+    const text = `Instrucciones del proyecto «${project.name}»: ${project.instructions}`.slice(0, 1900);
+    if ((await knowledgeMemory.remember({ kind: 'rule', scope: 'work', text, source: `project:${project.id}` })).created) created += 1;
+  }
+  return { lessons: lessons.length, projects: projects.length, created };
+}
+
+// Pilar 1 — llamadas a servicios registrados por su especificación. Resultados recientes en memoria (no se persisten respuestas).
+const specCalls = new Map<string, { id: string; service: string; operation: string; status: 'pending_approval' | 'running' | 'done' | 'denied' | 'failed'; level: string; approvalId?: string; result?: unknown; error?: string; at: string }>();
+function rememberSpecCall(entry: { id: string; service: string; operation: string; status: 'pending_approval' | 'running' | 'done' | 'denied' | 'failed'; level: string; approvalId?: string; result?: unknown; error?: string; at: string }): void {
+  specCalls.set(entry.id, entry);
+  if (specCalls.size > 200) specCalls.delete(specCalls.keys().next().value!);
+}
+function specAdapterFor(catalog: ServiceCatalog): SpecToolAdapter {
+  return new SpecToolAdapter({
+    catalog,
+    transport: fetchTransport(catalog),
+    // La credencial sale de la bóveda (servicio `spec:<id>` o `<id>`), nunca del catálogo ni de la petición. Límite: solo Bearer.
+    authHeaders: async (): Promise<Record<string, string>> => { const token = (await credentialBroker.accessToken(`spec:${catalog.service}`)) ?? (await credentialBroker.accessToken(catalog.service)); const headers: Record<string, string> = {}; if (token) headers.authorization = `Bearer ${token}`; return headers; },
+  });
+}
+async function fetchSpecDocument(rawUrl: string): Promise<unknown> {
+  const target = new URL(rawUrl);
+  if (target.protocol !== 'https:') throw new HttpRequestError(400, 'la especificación debe leerse por https');
+  const result = await fetch(target, { redirect: 'follow', signal: AbortSignal.timeout(20_000), headers: { accept: 'application/json' } });
+  if (!result.url.startsWith('https://')) throw new HttpRequestError(400, 'la especificación redirige fuera de https');
+  if (!result.ok) throw new HttpRequestError(502, `la documentación del servicio respondió ${result.status}`);
+  const text = new TextDecoder().decode(new Uint8Array(await result.arrayBuffer()).subarray(0, 5_000_000));
+  try { return JSON.parse(text); } catch { throw new HttpRequestError(422, 'la especificación no es JSON (si es YAML, use su variante JSON)'); }
+}
+
+// Voz y planificador → cualquier servicio conectado, por una sola herramienta (`integration`). Las escrituras esperan
+// la aprobación del CEO por la política de acciones sensibles existente; las lecturas pasan solas.
+toolGateway.register(new IntegrationHubAdapter({
+  listCatalogs: () => store.listServiceCatalogs().map((entry) => entry.catalog),
+  classify: (descriptor) => hitlGate.classify(descriptor),
+  executeOperation: (catalog, _operation, request, onProgress) => specAdapterFor(catalog).execute(request, onProgress),
+}));
+capabilities.register({ tool: 'integration', actions: ['operation.find', 'operation.read'], state: 'available' });
+capabilities.register({ tool: 'integration', actions: ['operation.write'], state: 'available' });
+
+// Pilar 2 — sandbox. Contenedor si hay Docker en este equipo; si no, proceso (aislamiento débil, declarado en cada resultado).
+const sandboxDrivers = [new DockerSandboxDriver({ image: process.env.JANUS_SANDBOX_IMAGE?.trim() || 'node:22-slim' }), new ProcessSandboxDriver()];
+const selfChangeEnabled = process.env.JANUS_SELF_CHANGE === 'on';
+const selfChangeRepo = process.env.JANUS_SELF_CHANGE_REPO?.trim() || process.cwd();
+const SELF_CHANGE_CHECKS: Readonly<Record<string, readonly string[]>> = Object.freeze({ typecheck: ['npm', 'run', 'typecheck'], test: ['npm', 'test'], 'dashboard-test': ['npm', 'run', 'dashboard:test'] });
+const preparedChanges = new Map<string, PreparedChange>();
+
+/* ── Opportunity Radar (incidencia JANUS-OPPORTUNITY-20261110) ─────────────────────────────────────────────
+ * Vigila fuentes OFICIALES (solo lectura, solo https de la lista), guarda oportunidades sin duplicar y avisa.
+ * El monitor es opt-in: sin JANUS_RADAR_INTERVAL_MIN no arranca y el estado lo dice («desactivado»). */
+let radarSources: ReturnType<typeof parseRadarSources>;
+let radarSourcesError: string | null = null;
+try { radarSources = parseRadarSources(process.env.JANUS_RADAR_SOURCES); } catch (error) { radarSources = []; radarSourcesError = error instanceof Error ? error.message : 'invalid JANUS_RADAR_SOURCES'; }
+let lastRadarReport: RadarRunReport | null = null;
+
+async function fetchRadarSource(url: string): Promise<string> {
+  if (!radarSources.some((source) => source.url === url)) throw new Error('source not allowed');
+  const result = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15_000), headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'JANUS-OpportunityRadar/1 (+solo lectura)' } });
+  if (!result.url.startsWith('https://')) throw new Error('redirected outside https');
+  if (!result.ok) throw new Error(`HTTP ${result.status}`);
+  const bytes = new Uint8Array(await result.arrayBuffer());
+  return new TextDecoder().decode(bytes.subarray(0, 1_500_000));
+}
+
+async function runOpportunityRadar(): Promise<RadarRunReport> {
+  const report = await runRadar({
+    sources: radarSources,
+    fetchText: fetchRadarSource,
+    list: () => store.listRadarOpportunities(),
+    save: (opportunity) => store.upsertRadarOpportunity(opportunity),
+    previousState: (sourceId) => store.listRadarSourceStates().find((state) => state.sourceId === sourceId),
+    saveState: (state) => store.upsertRadarSourceState(state),
+    newId: () => `opp_${randomUUID()}`,
+    now: () => new Date().toISOString(),
+  });
+  lastRadarReport = report;
+  void sweepOpportunityAlerts();
+  return report;
+}
+
+const radarIntervalMs = parseWatchIntervalMinutes(process.env.JANUS_RADAR_INTERVAL_MIN);
+const radarScheduler = radarIntervalMs && radarSources.length
+  ? new SocialWatchScheduler<RadarRunReport>({
+      intervalMs: radarIntervalMs,
+      run: runOpportunityRadar,
+      onError: (error) => console.warn(`Opportunity radar failed: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}`),
+    })
+  : null;
+
+/** Avisos al teléfono del CEO por oportunidades críticas o a punto de vencer. Solo se da por enviado si salió. */
+async function sweepOpportunityAlerts(): Promise<number> {
+  if (!pushKeys) return 0;
+  const now = new Date().toISOString();
+  const opportunities = store.listRadarOpportunities();
+  let sent = 0;
+  for (const alert of dueOpportunityAlerts(opportunities, now)) {
+    const founders = store.listAuthorityCredentials().filter((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt);
+    let delivered = false;
+    for (const founder of founders) {
+      for (const subscription of store.listPushSubscriptions(founder.principal.id)) {
+        try {
+          const request = buildPushRequest(subscription, { title: `Radar · ${alert.title}`.slice(0, 80), body: alert.body, tag: `${alert.opportunityId}:${alert.key}` }, pushKeys);
+          const result = await fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) });
+          if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint);
+          else if (result.ok) delivered = true;
+        } catch { /* sin red: el aviso sigue visible en el dashboard */ }
+      }
+    }
+    if (delivered) {
+      const current = store.getRadarOpportunity(alert.opportunityId);
+      if (current) store.upsertRadarOpportunity(markNotified(current, alert.key, now));
+      sent += 1;
+    }
+  }
+  return sent;
+}
+if (pushKeys) setInterval(() => { void sweepOpportunityAlerts(); }, 10 * 60_000).unref();
+
+/**
+ * Registro inicial, idempotente: la incidencia que motivó el radar, la oportunidad de referencia y el cupo que indicó
+ * el propietario. No sobrescribe nada que ya exista. No afirma un fallo técnico concreto: la causa queda por confirmar.
+ */
+function seedOpportunityRadar(): void {
+  const incidentFingerprint = 'JANUS-OPPORTUNITY-20261110';
+  if (!store.listErrorLessons().some((lesson) => lesson.id === incidentFingerprint)) {
+    const lesson = new ErrorLedger(store.listErrorLessons()).record({
+      id: incidentFingerprint, fingerprint: incidentFingerprint, at: '2026-11-10T12:00:00.000Z',
+      error: 'Oportunidad temporal (Claude Fable 5.2 incluido en Pro hasta el 16-nov) comunicada por el propietario; JANUS no había generado una alerta temprana verificable.',
+      cause: 'POR CONFIRMAR. No se ha identificado un fallo técnico específico: no existía un monitor de oportunidades en ejecución.',
+      impact: 'Parte de la ventana de la promoción transcurrió sin planificación del cupo ni de las tareas a adelantar.',
+      lesson: 'Las oportunidades tecnológicas temporales deben detectarse al publicarse, evaluarse y planificarse contra el cupo real, no cuando están por terminar.',
+      preventiveRule: 'Vigilar fuentes oficiales de proveedores con el Opportunity Radar; toda oportunidad se registra con fuente, fechas, condiciones, cupo y seguimiento de aprovechamiento.',
+      solutions: ['Módulo Opportunity Radar (registro, prioridad, avisos, cupos y fases)', 'Monitor de fuentes oficiales, activable con JANUS_RADAR_INTERVAL_MIN'],
+      change: 'packages/core/src/opportunity-radar.ts, /api/radar y pestaña «Radar» del dashboard',
+      verification: 'tests/opportunity-radar.test.ts y tests/runtime-smoke; monitor real pendiente de activar y verificar en el equipo donde corra JANUS',
+      verified: false,
+    });
+    store.upsertErrorLesson(lesson);
+  }
+  const reference = createOpportunity({
+    provider: 'Anthropic', title: 'Claude Fable 5.2 incluido en el plan Pro (semana de lanzamiento)', kind: 'promotion', verification: 'pending',
+    sourceUrl: 'https://support.claude.com/en/articles/17506494', sourceLabel: 'Ayuda de Claude (citada por prensa; JANUS no ha leído la página oficial)',
+    publishedAt: '2026-11-09T18:00:00Z', startsAt: '2026-11-09T18:00:00Z', expiresAt: '2026-11-17T07:59:00Z',
+    conditions: 'Según prensa que cita la ayuda oficial: incluido en Pro hasta el 16-nov 23:59 PT (17-nov 08:59 en Países Bajos); hasta el 50 % del límite semanal en Fable; un restablecimiento gratuito («Reset for free» en Ajustes → Uso) que caduca al terminar la semana de lanzamiento; después, Fable vuelve a consumir créditos de uso.',
+    eligibility: 'Plan Pro. El restablecimiento gratuito exige facturación de pago anterior al 9-nov 10:00 PT.',
+    projects: ['JANUS', 'IBA', 'ChatBox', 'Melanie'], benefit: 5, cost: 'none', risk: 1, compatible: true, detectedBy: 'owner',
+    notes: 'Comunicada por el propietario el 10-nov (hora aproximada). Ya en uso en la cuenta Claude Pro.',
+  }, { id: 'opp_fable52_pro_launch', now: '2026-11-10T12:00:00.000Z' });
+  if (!store.listRadarOpportunities().some((item) => item.fingerprint === reference.fingerprint)) {
+    store.upsertRadarOpportunity(advanceStage(advanceStage(reference, 'activated', '2026-11-10T12:00:00.000Z', 'En uso en la cuenta Claude Pro'), 'used', '2026-11-10T12:00:00.000Z'));
+  }
+  if (store.listRadarQuotaWindows().length === 0) {
+    store.upsertRadarQuotaWindow(validateQuotaWindow({
+      id: 'quota_claude_pro_weekly', account: 'Claude Pro (propietario)', kind: 'weekly', label: 'Cupo semanal de Claude',
+      resetsAt: '2026-11-14T14:00:00Z', verified: false,
+      note: 'Indicado por el propietario: restablecimiento el sábado 14-nov hacia las 15:00 (Países Bajos). Hora exacta y límites por verificar en la cuenta; JANUS no tiene acceso a esos contadores.',
+    }, '2026-11-10T12:00:00.000Z'));
+    store.upsertRadarQuotaWindow(validateQuotaWindow({
+      id: 'quota_claude_pro_5h', account: 'Claude Pro (propietario)', kind: 'short', label: 'Ventana corta (5 horas)', verified: false,
+      note: 'Los límites por ventanas cortas siguen aplicando: no hay disponibilidad continua garantizada.',
+    }, '2026-11-10T12:00:00.000Z'));
+  }
+}
+try { seedOpportunityRadar(); } catch (error) { console.warn(`Opportunity radar seed skipped: ${error instanceof Error ? error.message.slice(0, 160) : 'error'}`); }
+
+function radarPayload() {
+  const now = new Date().toISOString();
+  const states = store.listRadarSourceStates();
+  return {
+    ok: true,
+    ...buildRadarView(store.listRadarOpportunities(), store.listRadarQuotaWindows(), now),
+    monitor: {
+      enabled: Boolean(radarScheduler),
+      reason: radarScheduler ? null : radarSourcesError ?? 'Monitor automático desactivado: defina JANUS_RADAR_INTERVAL_MIN (minutos, mínimo 15). Mientras tanto solo se registra lo que se anota a mano o con «Revisar ahora».',
+      scheduler: radarScheduler?.status() ?? null,
+      lastRun: lastRadarReport ? { at: lastRadarReport.at, summary: lastRadarReport.summary } : null,
+      pushConfigured: Boolean(pushKeys),
+      sources: radarSources.map((source) => ({ ...source, state: states.find((state) => state.sourceId === source.id) ?? null })),
+    },
+    incidents: store.listErrorLessons().filter((lesson) => /^JANUS-OPPORTUNITY-/.test(lesson.id)).map((lesson) => ({ id: lesson.id, at: lesson.at, error: lesson.error, cause: lesson.cause, lesson: lesson.lesson, preventiveRule: lesson.preventiveRule, verified: lesson.verified ?? false })),
+  };
+}
+
+/** Presencia («lucecitas» del CEO): última señal por colaborador, solo en memoria. Ver work-presence.ts. */
+const workPresence = new WorkPresenceTracker();
+
+function requireActiveOperatorProfile(principal: AuthorityPrincipal) {
+  if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
+  const profile = store.getCoordinationOperator(principal.id);
+  if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
+  // Cualquier petición válida de un colaborador activo cuenta como señal de que está conectado.
+  workPresence.touch(principal.id);
+  return profile;
+}
+
+/** Proyectos activos en los que una persona puede trabajar (para que el CEO elija dónde le deja tarea o archivo). */
+function memberProjects(principalId: string, projects: ReturnType<SqliteStore['listProjectWorkspaces']>) {
+  const credential = store.getAuthorityCredential(principalId);
+  if (!credential || !credential.principal.active || credential.revokedAt) return [];
+  return projects
+    .filter((project) => project.status === 'active' && canAccessProject(credential.principal, project, 'write_work'))
+    .map((project) => ({ id: project.id, name: project.name }));
+}
+
+/** Colaborador activo y con llave vigente, o error claro para el CEO. */
+function requireActiveMember(principalId: string) {
+  const profile = store.getCoordinationOperator(principalId);
+  const credential = store.getAuthorityCredential(principalId);
+  if (!profile || profile.status !== 'active' || !credential || !credential.principal.active || credential.revokedAt || credential.principal.role !== 'operator') {
+    throw new HttpRequestError(404, 'active collaborator not found');
+  }
+  return { profile, principal: credential.principal };
+}
+
+/**
+ * El CEO pone a una persona a trabajar en un proyecto: si el proyecto no tiene ámbito se le crea uno propio y,
+ * si la persona no tenía permiso de trabajo en él, se le concede (leer, trabajar y entregar; nunca coordinar).
+ * Solo se llama desde rutas del Founder: es SU decisión de permisos, tomada al asignar.
+ */
+function ensureMemberCanWork(founderId: string, memberPrincipal: AuthorityPrincipal, projectId: string) {
+  const project = store.getProjectWorkspace(projectId);
+  if (!project || project.status !== 'active') throw new HttpRequestError(404, 'project not found');
+  const now = new Date().toISOString();
+  let scopeId = project.coordinationScopeId;
+  let grantedNow = false;
+  if (!scopeId || !store.listCoordinationScopes().some((scope) => scope.id === scopeId)) {
+    const scope = validateCoordinationScope({ id: `scope_${randomUUID()}`, label: project.name.slice(0, 80), classification: 'project', ownerPrincipalId: founderId, createdAt: now });
+    store.upsertCoordinationScope(scope);
+    scopeId = scope.id;
+    store.upsertProjectWorkspace(validateProjectWorkspace({ ...project, coordinationScopeId: scopeId, updatedAt: now }));
+  }
+  const updated = store.getProjectWorkspace(projectId)!;
+  if (!canAccessProject(memberPrincipal, updated, 'write_work')) {
+    store.upsertCoordinationGrant(validateCoordinationGrant({
+      id: `grant_${randomUUID()}`, principalId: memberPrincipal.id, scopeId,
+      permissions: ['read_context', 'write_work', 'handoff'], grantedBy: founderId, createdAt: now,
+    }));
+    grantedNow = true;
+  }
+  return { project: updated, scopeId, grantedNow };
+}
+
+/** Aviso al teléfono de una persona (si lo tiene activado). Nunca bloquea ni falla la petición. */
+function pushToMember(principalId: string, title: string, body: string, tag: string): void {
+  if (!pushKeys) return;
+  for (const subscription of store.listPushSubscriptions(principalId)) {
+    try {
+      const request = buildPushRequest(subscription, { title, body: body.slice(0, 140), tag }, pushKeys);
+      void fetch(request.url, { method: 'POST', headers: request.headers, body: new Uint8Array(request.body), signal: AbortSignal.timeout(10_000) })
+        .then((result) => { if (result.status === 404 || result.status === 410) store.deletePushSubscription(subscription.endpoint); })
+        .catch(() => { /* sin red: lo verá al abrir su panel */ });
+    } catch { /* suscripción inválida: se ignora */ }
+  }
+}
+
+/** Estado de presencia de cada colaborador activo, para la vista y las lucecitas del CEO. */
+function teamPresenceFor(now: string) {
+  const nowMs = Date.parse(now);
+  const events = store.listWorkSessionEvents();
+  return store.listCoordinationOperators()
+    .filter((profile) => profile.status === 'active')
+    .map((profile) => {
+      const open = summarizeWorkSessions(events, profile.principalId, now).filter((session) => session.state !== 'ended').at(-1) ?? null;
+      const presence = resolveWorkPresence({ session: open, lastSeenMs: workPresence.lastSeen(profile.principalId), nowMs });
+      return {
+        principalId: profile.principalId,
+        displayName: profile.displayName ?? profile.principalId,
+        roleTitle: profile.roleTitle ?? null,
+        state: presence.state,
+        seenSecondsAgo: presence.seenSecondsAgo,
+        sessionSince: presence.sessionSince,
+      };
+    });
+}
+
+/** Plantilla laboral única: mismos datos para cualquier colaborador, acotados a SUS permisos. */
+function workDashboardFor(principal: AuthorityPrincipal) {
+  const profile = requireActiveOperatorProfile(principal);
+  const now = new Date().toISOString();
+  const projects = store.listProjectWorkspaces()
+    .filter((project) => project.status === 'active' && canAccessProject(principal, project, 'read_context'))
+    .map((project) => ({
+      project,
+      canWrite: canAccessProject(principal, project, 'write_work'),
+      threads: store.listProjectThreads(project.id).filter((thread) => thread.createdBy === principal.id),
+      resources: store.listProjectResources(project.id),
+      latestCheckpoint: store.latestProjectCheckpoint(project.id),
+    }));
+  return buildReusableWorkDashboard({
+    principal,
+    profile,
+    coordination: coordinationBriefFor(principal),
+    projects,
+    handoffs: store.listCoordinationHandoffs(),
+    sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
+    agenda: store.listWorkAgendaItems(principal.id).map(agendaOpen),
+    recipients: internalRecipients,
+    messages: [...store.listWorkMessages(principal.id, 20), ...store.listWorkMessagesTo(principal.id, 30)],
+    uploadAttachments: workOperatorUploadsEnabled,
+    skinSource: 'iba-command-center',
+    usage: (({ used, limit, remaining }) => ({ used, limit, remaining }))(operatorUsageFor(principal.id)),
+    now,
+  });
+}
+
 function projectContextFor(projectId: string, principal: AuthorityPrincipal) {
   const project = store.getProjectWorkspace(projectId);
   if (!project) throw new HttpRequestError(404, 'project not found');
@@ -1666,6 +2162,30 @@ class HttpRequestError extends Error {
   }
 }
 
+/** Fecha de modificación más reciente entre archivos y carpetas (un nivel). Lo que no existe cuenta como 0. */
+function newestMtimeMs(paths: readonly string[]): number {
+  let newest = 0;
+  for (const path of paths) {
+    try {
+      const info = statSync(path);
+      newest = Math.max(newest, info.mtimeMs);
+      if (info.isDirectory()) for (const name of readdirSync(path)) { try { newest = Math.max(newest, statSync(join(path, name)).mtimeMs); } catch { /* se ignora */ } }
+    } catch { /* no existe */ }
+  }
+  return newest;
+}
+
+/** Freno de intentos de canje por origen: 10 cada 10 minutos (el código ya es de 256 bits; esto solo corta el ruido). */
+const inviteRedeemAttempts = new Map<string, number[]>();
+function inviteRedeemLimiter(source: string, nowMs = Date.now()): boolean {
+  const recent = (inviteRedeemAttempts.get(source) ?? []).filter((at) => nowMs - at < 600_000);
+  if (recent.length >= 10) { inviteRedeemAttempts.set(source, recent); return false; }
+  recent.push(nowMs);
+  inviteRedeemAttempts.set(source, recent);
+  if (inviteRedeemAttempts.size > 2000) inviteRedeemAttempts.clear();
+  return true;
+}
+
 function requireSecureAuthorityTransport(request: IncomingMessage): void {
   const forwardedProto = request.headers['x-forwarded-proto'];
   if (isSecureAuthorityTransport({
@@ -1743,13 +2263,10 @@ function requireFounderBiometricAuthority(
   const session = requireFounderAuthority(request);
   const requestedAt = new Date().toISOString();
   const proofId = founderBiometricProofId(request);
-  const biometricAttestation = proofId
-    ? founderBiometric.consumeProof({
-        proofId,
-        principalId: session.principal.id,
-        action,
-        requestedAt,
-      })
+  const proofInput = proofId ? { proofId, principalId: session.principal.id, action, requestedAt } : undefined;
+  // Primero el puente nativo; si la prueba no es suya, la llave de acceso (que la política solo admite en `passkeyActions`).
+  const biometricAttestation = proofInput
+    ? founderBiometric.consumeProof(proofInput) ?? founderPasskey?.consumeProof(proofInput)
     : undefined;
   const decision = evaluateAuthority(
     session.principal,
@@ -1799,6 +2316,16 @@ function authorityContextForCommand(
 function authErrorStatus(error: unknown): number {
   if (error instanceof VoiceAuthorityError) return error.status;
   if (error instanceof HttpRequestError) return error.status;
+  if (error instanceof FounderPasskeyError) {
+    switch (error.code) {
+      case 'passkey_unavailable': return 409;
+      case 'invalid_origin':
+      case 'invalid_action': return 403;
+      case 'invalid_signature':
+      case 'user_verification_required': return 401;
+      default: return 400;
+    }
+  }
   if (error instanceof FounderBiometricError) {
     switch (error.code) {
       case 'invalid_key':
@@ -1835,7 +2362,7 @@ function authErrorStatus(error: unknown): number {
 }
 
 function authErrorBody(error: unknown): { ok: false; error: string; code?: string } {
-  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError) {
+  if (error instanceof AuthorityAuthenticationError || error instanceof FounderBiometricError || error instanceof FounderPasskeyError) {
     return { ok: false, error: error.message, code: error.code };
   }
   if (error instanceof HttpRequestError) {
@@ -1995,15 +2522,36 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
   const runEffort = runEfforts.get(runId);
   if (!plan && modelGateway) {
     // Effort budget: the provider adapter stays replaceable; Janus Core caps calls per run.
-    const runModelGateway = new BudgetedModelGateway(modelGateway, runEffort?.budget.maxModelCalls ?? 3);
+    // Delegación por tarea: si el CEO fijó un agente para la tarea, va primero; el resto queda de respaldo.
+    const runAssignment = runAssignments.get(runId);
+    const preferredProvider = runAssignment
+      ? store.getCoordinationAssignment(runAssignment.assignmentId)?.preferredProvider
+      : undefined;
+    let routedGateway: ModelGateway = preferredProvider && modelGateway instanceof FallbackModelRouter
+      ? modelGateway.withPreference(preferredProvider)
+      : modelGateway;
+    // «Solo modelo propio»: el contenido de un proyecto marcado así nunca viaja a un proveedor externo.
+    const runProject = projectLink ? store.getProjectWorkspace(projectLink.projectId) : null;
+    if (runProject?.modelPolicy === 'local_only') {
+      const local = modelGateway instanceof FallbackModelRouter
+        ? modelGateway.only(['custom'])
+        : configuredModelProviderIds.length === 1 && configuredModelProviderIds[0] === 'custom' ? modelGateway : null;
+      routedGateway = local ?? { complete: async () => { throw new Error('Proyecto «solo modelo propio»: no hay modelo local configurado.'); } };
+    }
+    const runModelGateway = new BudgetedModelGateway(routedGateway, runEffort?.budget.maxModelCalls ?? 3);
     runModelBudgets.set(runId, runModelGateway);
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
+    // Pilar 3: consulta obligatoria de la memoria antes de planificar. Solo ámbito laboral (lo personal y familiar no entra).
+    const memoryBrief = await knowledgeMemory.briefFor(command, ['work']).catch(() => null);
+    const connectedServices = integrationBrief(store.listServiceCatalogs().map((entry) => entry.catalog), command, (descriptor) => hitlGate.classify(descriptor));
     const modelResult = await planWithModel(command, {
       modelGateway: runModelGateway,
       toolCatalog: executionPolicy.toolCatalog,
       context: {
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
+        ...(memoryBrief?.text ? { memory: memoryBrief.text } : {}),
+        ...(connectedServices.length ? { connectedServices: { note: 'Services connected by their specification. Use tool "integration": operation.read for level "auto", operation.write for anything else (it waits for the Founder approval). Input: { service, operation, args }. Parameters marked * are required; put a request body in args.body.', services: connectedServices } } : {}),
         ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
@@ -3130,6 +3678,46 @@ const server = createServer(async (request, response) => {
 
 
 
+  // Plantilla laboral única (JANUS Work): misma página para cualquier colaborador; los datos y
+  // permisos salen de su sesión. Piel = dashboard de IBA, verificada por huella. Si la piel no está
+  // instalada se responde 503: nunca se sirve otro diseño en su lugar.
+  const workPage = url.pathname === '/work' || url.pathname === '/work/' ? 'core'
+    : url.pathname === '/work/team' || url.pathname === '/work/team/' ? 'team' : '';
+  if (workPage) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      response.writeHead(405, { allow: 'GET, HEAD' }); response.end(); return;
+    }
+    const workBuild = join(dashboardRoot, 'work', 'build-work.cjs');
+    const workFile = join(dashboardRoot, 'dist', `Janus-Work-${workPage}.html`);
+    try {
+      // Se reconstruye si falta o si alguna pieza de origen es más reciente (tras una actualización no se sirve lo viejo).
+      const workSources = [join(dashboardRoot, 'work'), join(dashboardRoot, 'local'), join(root, 'founder-session.js'), join(root, 'language-art'), join(dashboardRoot, 'lego', 'janus-model-gateway')];
+      if (!existsSync(workFile) || newestMtimeMs(workSources) > statSync(workFile).mtimeMs) {
+        if (!existsSync(workBuild)) throw new Error('Módulo de plantilla laboral no instalado');
+        execFileSync(process.execPath, [workBuild, '--mode', workPage, '--out', workFile], {
+          cwd: dashboardRoot, timeout: 60_000, stdio: 'pipe',
+        });
+      }
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'referrer-policy': 'no-referrer',
+        'x-frame-options': 'DENY',
+      });
+      if (request.method === 'HEAD') response.end();
+      else {
+        response.end(readFileSync(workFile, 'utf8').replace('</head>',
+          '<meta name="janus-runtime" content="core"><link rel="manifest" href="/work.webmanifest"><link rel="icon" href="/icons/janus-icon-192.png"><link rel="apple-touch-icon" href="/icons/janus-icon-180.png"></head>'));
+      }
+    } catch (error) {
+      const stderr = (error as { stderr?: unknown })?.stderr;
+      json(response, 503, { ok: false, error: 'Plantilla laboral no disponible',
+        detail: (stderr ? String(stderr) : error instanceof Error ? error.message : String(error)).trim().slice(0, 400) });
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/health') {
     json(response, 200, {
       ok: true,
@@ -3791,6 +4379,171 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // ── Llave de acceso del CEO (passkey con Face ID del navegador) ──
+  if (url.pathname.startsWith('/api/auth/passkey/')) {
+    try {
+      const session = requireFounderAuthority(request);
+      if (request.method === 'GET' && url.pathname === '/api/auth/passkey/status') {
+        const status = founderPasskey?.status();
+        json(response, 200, {
+          ok: true,
+          enabled: Boolean(founderPasskey),
+          activePasskeys: status?.activePasskeys ?? 0,
+          allowedActions: status?.allowedActions ?? [],
+          // La primera llave solo se puede crear con el interruptor temporal encendido; las siguientes, con Face ID nativo.
+          canEnrollNow: Boolean(founderPasskey) && (status?.activePasskeys ?? 0) === 0 && allowPasskeyBootstrap,
+        });
+        return;
+      }
+      if (request.method !== 'POST') { response.writeHead(405, { allow: 'GET, POST' }); response.end(); return; }
+      if (!founderPasskey) throw new HttpRequestError(409, 'La llave de acceso del CEO está desactivada en este JANUS.');
+      const originHeader = request.headers.origin;
+      const origin = typeof originHeader === 'string' ? originHeader : '';
+      const body = await readJson(request);
+      const requireEnrollGate = () => {
+        if (founderPasskey.status().activePasskeys === 0) {
+          if (!allowPasskeyBootstrap) {
+            throw new HttpRequestError(409, 'El alta de la primera llave de acceso está cerrada. Enciéndala temporalmente con JANUS_ALLOW_PASSKEY_BOOTSTRAP=true.');
+          }
+        } else {
+          requireFounderBiometricAuthority(request, 'security.biometric.enroll');
+        }
+      };
+      if (url.pathname === '/api/auth/passkey/register/options') {
+        requireEnrollGate();
+        json(response, 200, { ok: true, options: founderPasskey.registrationOptions(origin, session.principal.displayName ?? 'CEO') });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/register/verify') {
+        if (founderPasskey.status().activePasskeys === 0 && !allowPasskeyBootstrap) {
+          throw new HttpRequestError(409, 'El alta de la primera llave de acceso está cerrada.');
+        }
+        const record = founderPasskey.verifyRegistration({ challengeId: body.challengeId, clientDataJSON: body.clientDataJSON, attestationObject: body.attestationObject });
+        json(response, 201, { ok: true, passkey: { createdAt: record.createdAt, rpId: record.rpId } });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/assert/options') {
+        json(response, 200, { ok: true, options: founderPasskey.assertionOptions(origin, typeof body.action === 'string' ? body.action : '') });
+        return;
+      }
+      if (url.pathname === '/api/auth/passkey/assert/verify') {
+        const proof = founderPasskey.verifyAssertion({
+          challengeId: body.challengeId, credentialId: body.credentialId, clientDataJSON: body.clientDataJSON,
+          authenticatorData: body.authenticatorData, signature: body.signature,
+        });
+        json(response, 200, { ok: true, proof });
+        return;
+      }
+      throw new HttpRequestError(404, 'Not found');
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // ── Invitaciones de acceso (JANUS Work) ──
+  // El CEO crea el enlace con la MISMA autoridad biométrica que la delegación directa. El colaborador lo abre en su
+  // teléfono y canjea el código una sola vez; el código solo viaja en el fragmento (#) del enlace y nunca se guarda.
+  if (url.pathname === '/api/auth/operator/invites' && (request.method === 'POST' || request.method === 'GET')) {
+    try {
+      if (request.method === 'GET') {
+        requireFounderAuthority(request);
+        const now = new Date();
+        json(response, 200, { ok: true, invites: store.listOperatorInvites().map((invite) => publicOperatorInvite(invite, now)) });
+        return;
+      }
+      const { principal } = requireFounderBiometricAuthority(request, 'security.authority.delegate_operator');
+      const body = await readJson(request);
+      const now = new Date();
+      const { invite, code } = createOperatorInvite({
+        principalId: typeof body.principalId === 'string' ? body.principalId : '',
+        displayName: typeof body.displayName === 'string' ? body.displayName : '',
+        locale: typeof body.locale === 'string' ? body.locale : 'es',
+        createdBy: principal.id,
+        now,
+        ...(typeof body.ttlHours === 'number' && Number.isFinite(body.ttlHours) ? { ttlMs: body.ttlHours * 3_600_000 } : {}),
+        reservedPrincipalIds: [principal.id, 'founder', 'kendra'],
+      });
+      const existing = authorityCredentialStore.get(invite.principalId);
+      if (existing && existing.principal.role !== 'operator') throw new OperatorInviteError('invalid_input', 'Ese identificador pertenece a otra función.');
+      store.revokePendingOperatorInvites(invite.principalId, now.toISOString());
+      store.insertOperatorInvite(invite);
+      json(response, 201, {
+        ok: true,
+        invite: publicOperatorInvite(invite, now),
+        // Se muestra UNA vez. Quien tenga este enlace antes de que caduque puede vincular un dispositivo como esa persona.
+        code,
+        path: `/work#invite=${code}`,
+      });
+    } catch (error) {
+      if (error instanceof OperatorInviteError) json(response, 400, { ok: false, code: error.code, error: error.message });
+      else json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const inviteRevokeMatch = /^\/api\/auth\/operator\/invites\/(invite_[A-Za-z0-9-]{8,64})$/.exec(url.pathname);
+  if (inviteRevokeMatch && request.method === 'DELETE') {
+    try {
+      requireFounderAuthority(request);
+      const invite = store.getOperatorInvite(inviteRevokeMatch[1]!);
+      if (!invite) throw new HttpRequestError(404, 'Invitación no encontrada');
+      const nowIso = new Date().toISOString();
+      const revoked = invite.status === 'pending'
+        && store.transitionOperatorInvite({ ...invite, status: 'revoked', revokedAt: nowIso }, 'pending', '');
+      json(response, 200, { ok: true, revoked });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/auth/operator/invites/redeem') {
+    try {
+      requireSecureAuthorityTransport(request);
+      const source = request.socket.remoteAddress ?? 'unknown';
+      if (!inviteRedeemLimiter(source)) throw new HttpRequestError(429, 'Demasiados intentos. Espera unos minutos.');
+      const body = await readJson(request);
+      const code = body.code;
+      const publicKeyPem = typeof body.publicKeyPem === 'string' ? body.publicKeyPem : '';
+      if (!isInviteCodeShape(code) || !publicKeyPem.trim()) throw new OperatorInviteError('invalid_code', 'Invitación no válida.');
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const invite = store.getOperatorInviteByHash(hashInviteCode(code));
+      assertInviteUsable(invite, now);
+      // Primero se consume (atómico: solo un canje gana); si la llave resulta inválida se devuelve a pendiente.
+      const redeemed = { ...invite, status: 'redeemed' as const, redeemedAt: nowIso };
+      if (!store.transitionOperatorInvite(redeemed, 'pending', nowIso)) throw new OperatorInviteError('already_used', 'Esta invitación ya se usó. Pide una nueva.');
+      let credential;
+      try {
+        credential = authorityAuth.enrollOperatorFromInvitation({
+          principalId: invite.principalId,
+          publicKeyPem,
+          displayName: invite.displayName,
+          authorizedBy: invite.createdBy,
+        });
+      } catch (error) {
+        store.transitionOperatorInvite(invite, 'redeemed', nowIso);
+        throw error;
+      }
+      const previous = store.getCoordinationOperator(invite.principalId);
+      store.upsertCoordinationOperator({
+        ...(previous ?? {}),
+        principalId: invite.principalId,
+        status: 'active',
+        createdAt: previous?.createdAt ?? credential.createdAt,
+        updatedAt: credential.createdAt,
+        displayName: invite.displayName,
+        locale: invite.locale,
+      });
+      json(response, 201, { ok: true, principalId: invite.principalId, displayName: invite.displayName, locale: invite.locale });
+    } catch (error) {
+      if (error instanceof OperatorInviteError) json(response, error.code === 'invalid_code' ? 404 : 410, { ok: false, code: error.code, error: error.message });
+      else json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/auth/operator/revoke') {
     try {
       const { token } = requireFounderBiometricAuthority(
@@ -4206,6 +4959,8 @@ const server = createServer(async (request, response) => {
         || body.priority === 'critical'
         ? body.priority
         : 'normal';
+      const requestedProvider = preferredProviderFrom(body.preferredProvider);
+      if (requestedProvider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
       const assignment = validateCoordinationAssignment({
         id: typeof body.id === 'string' && body.id.trim()
           ? body.id.trim()
@@ -4220,6 +4975,7 @@ const server = createServer(async (request, response) => {
         createdAt: now,
         updatedAt: now,
         nextActions: coordinationStringList(body.nextActions),
+        ...(requestedProvider ? { preferredProvider: requestedProvider } : {}),
       });
       assertAssignmentAccess({
         principal: assigneeCredential.principal,
@@ -5568,20 +6324,941 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/api/dashboard/work') {
     try {
       const { principal } = requireAuthoritySession(request);
-      if (principal.role !== 'operator') throw new HttpRequestError(403, 'work dashboard is for delegated operators');
-      const profile = store.getCoordinationOperator(principal.id);
-      if (!profile || profile.status !== 'active') throw new HttpRequestError(403, 'active operator profile required');
-      const projects = store.listProjectWorkspaces().filter(
-        (project) => canAccessProject(principal, project, 'read_context'),
-      );
+      json(response, 200, { ok: true, dashboard: workDashboardFor(principal) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // El idioma de presentación es configuración propia de cada persona (no es un permiso).
+  if (request.method === 'PUT' && url.pathname === '/api/dashboard/work/locale') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const profile = requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      if (body.locale !== 'es' && body.locale !== 'nl' && body.locale !== 'en') {
+        throw new HttpRequestError(400, 'locale must be es, nl or en');
+      }
+      store.upsertCoordinationOperator({ ...profile, locale: body.locale, updatedAt: new Date().toISOString() });
+      json(response, 200, { ok: true, locale: body.locale });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Identidad laboral, funciones e instrucciones individuales: solo las fija el Founder.
+  const workProfileMatch = url.pathname.match(/^\/api\/coordination\/operators\/([^/]+)\/profile$/);
+  if (request.method === 'PUT' && workProfileMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const operatorId = decodeURIComponent(workProfileMatch[1]!);
+      const profile = store.getCoordinationOperator(operatorId);
+      if (!profile) throw new HttpRequestError(404, 'operator profile not found');
+      let patch: ReturnType<typeof sanitizeWorkProfilePatch>;
+      try { patch = sanitizeWorkProfilePatch(await readJson(request)); } catch (error) {
+        if (error instanceof HttpRequestError) throw error;
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid profile');
+      }
+      const updated = { ...profile, ...patch, updatedAt: new Date().toISOString() };
+      store.upsertCoordinationOperator(updated);
+      json(response, 200, { ok: true, profile: updated, updatedBy: principal.id });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Agente de una tarea (Claude, ChatGPT, Gemini, local…): lo decide el Founder; null lo quita.
+  const assignmentProviderMatch = url.pathname.match(/^\/api\/coordination\/assignments\/([^/]+)\/provider$/);
+  if (request.method === 'PUT' && assignmentProviderMatch) {
+    try {
+      requireFounderAuthority(request);
+      const assignment = store.getCoordinationAssignment(decodeURIComponent(assignmentProviderMatch[1]!));
+      if (!assignment) throw new HttpRequestError(404, 'coordination assignment not found');
+      const body = await readJson(request);
+      const provider = preferredProviderFrom(body.preferredProvider);
+      if (provider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
+      const { preferredProvider: _previous, ...rest } = assignment;
+      const updated = { ...rest, ...(provider ? { preferredProvider: provider } : {}), updatedAt: new Date().toISOString() };
+      store.upsertCoordinationAssignment(updated);
       json(response, 200, {
         ok: true,
-        dashboard: buildReusableWorkDashboard({
-          principal,
-          profile,
-          coordination: coordinationBriefFor(principal),
-          projects,
+        assignment: updated,
+        // Verdad operativa: una preferencia sin proveedor configurado no hace nada hasta que exista su credencial.
+        configured: provider ? resolveModelProviders(process.env).some((item) => item.id === provider) : null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Registro de sesiones de trabajo: eventos declarados por la persona (sin vigilancia del equipo).
+  if (request.method === 'GET' && url.pathname === '/api/work/sessions') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const now = new Date().toISOString();
+      if (principal.role === 'founder_director') {
+        const filter = url.searchParams.get('principalId')?.trim();
+        const events = store.listWorkSessionEvents(filter || undefined);
+        const ids = [...new Set(events.map((event) => event.principalId))];
+        json(response, 200, {
+          ok: true,
+          selfReported: true,
+          sessions: ids.flatMap((id) => summarizeWorkSessions(events, id, now)),
+        });
+      } else {
+        requireActiveOperatorProfile(principal);
+        json(response, 200, {
+          ok: true,
+          selfReported: true,
+          sessions: summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, now),
+        });
+      }
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/work/sessions/events') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      const kind = typeof body.kind === 'string' ? body.kind as WorkSessionEventKind : undefined;
+      if (!kind || !WORK_SESSION_EVENT_KINDS.includes(kind)) throw new HttpRequestError(400, 'kind is invalid');
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const assignmentId = typeof body.assignmentId === 'string' ? body.assignmentId.trim() : '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      if (assignmentId) {
+        const assignment = store.getCoordinationAssignment(assignmentId);
+        if (!assignment || assignment.assigneePrincipalId !== principal.id) {
+          throw new HttpRequestError(403, 'assignment is not yours');
+        }
+      }
+      let event;
+      try {
+        event = nextWorkSessionEvent({
+          events: store.listWorkSessionEvents(principal.id),
+          principalId: principal.id,
+          kind,
+          // La hora la pone el servidor: el cliente no puede antedatar su registro.
+          at: new Date().toISOString(),
+          ...(typeof body.note === 'string' ? { note: body.note } : {}),
+          ...(projectId ? { projectId } : {}),
+          ...(assignmentId ? { assignmentId } : {}),
+          ...(Array.isArray(body.evidenceRefs) ? { evidenceRefs: coordinationStringList(body.evidenceRefs) } : {}),
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'invalid work session event';
+        throw new HttpRequestError(/^work_session_(already_open|not_open|not_running|not_paused|time_regression)$/.test(message) ? 409 : 400, message);
+      }
+      store.appendWorkSessionEvent(event);
+      const sessions = summarizeWorkSessions(store.listWorkSessionEvents(principal.id), principal.id, event.at);
+      json(response, 201, {
+        ok: true,
+        event,
+        session: sessions.find((session) => session.sessionId === event.sessionId) ?? null,
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Archivos de proyecto. Decisión del CEO (10-nov-2026): los colaboradores NO descargan; abren el archivo
+  // dentro del panel (/view) y cada apertura queda registrada. La descarga es exclusiva del CEO.
+  // Se entra siempre por el recurso del proyecto: nadie alcanza archivos de un proyecto ajeno.
+  const workFileMatch = url.pathname.match(/^\/api\/work\/files\/([^/]+)(\/view)?$/);
+  if (request.method === 'GET' && workFileMatch) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const viewing = Boolean(workFileMatch[2]);
+      if (principal.role === 'operator') {
+        requireActiveOperatorProfile(principal);
+        if (!viewing) throw new HttpRequestError(403, 'download is reserved to the CEO');
+      }
+      const resourceId = decodeURIComponent(workFileMatch[1]!);
+      const found = store.listProjectWorkspaces()
+        .filter((project) => canAccessProject(principal, project, 'read_context'))
+        .flatMap((project) => store.listProjectResources(project.id))
+        .find((resource) => resource.id === resourceId);
+      // Misma respuesta si no existe o si pertenece a un proyecto ajeno: no se revela su existencia.
+      if (!found || found.source !== 'upload') throw new HttpRequestError(404, 'file not found');
+      const attachment = attachmentStore.get(found.sourceRef, found.addedBy);
+      const bytes = attachment ? attachmentStore.readBytes(attachment) : undefined;
+      if (!attachment || !bytes) throw new HttpRequestError(404, 'file not found');
+      if (viewing && !WORK_VIEWABLE_MIME.includes(attachment.type)) {
+        json(response, 415, { ok: false, code: 'preview_unavailable', error: 'Este tipo de archivo no se puede mostrar en el panel.' });
+        return;
+      }
+      if (viewing && principal.role === 'operator') {
+        store.appendFileAccess({
+          id: `fa_${randomUUID()}`, principalId: principal.id, resourceId: found.id, projectId: found.projectId,
+          name: attachment.name, action: 'view', at: new Date().toISOString(),
+        });
+      }
+      response.writeHead(200, {
+        'content-type': attachment.type || 'application/octet-stream',
+        'content-length': String(bytes.byteLength),
+        'content-disposition': `${viewing ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(attachment.name)}`,
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'content-security-policy': "default-src 'none'; sandbox",
+      });
+      response.end(bytes);
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // «Solo modelo propio» por proyecto: lo decide el Founder. null lo quita.
+  const projectPolicyMatch = url.pathname.match(/^\/api\/projects\/([^/]+)\/model-policy$/);
+  if (request.method === 'PUT' && projectPolicyMatch) {
+    try {
+      requireFounderAuthority(request);
+      const project = store.getProjectWorkspace(decodeURIComponent(projectPolicyMatch[1]!));
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      const body = await readJson(request);
+      if (body.modelPolicy !== 'local_only' && body.modelPolicy !== null) throw new HttpRequestError(400, 'modelPolicy must be local_only or null');
+      const { modelPolicy: _previous, ...rest } = project;
+      const updated = validateProjectWorkspace({ ...rest, ...(body.modelPolicy ? { modelPolicy: 'local_only' as const } : {}), updatedAt: new Date().toISOString() });
+      store.upsertProjectWorkspace(updated);
+      json(response, 200, { ok: true, project: updated, localModelConfigured: configuredModelProviderIds.includes('custom') });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Mensajes internos: el colaborador escribe a un destinatario INTERNO; JANUS decide con reglas fijas.
+  // Fuera de la lista interna → rechazado automáticamente (queda rastro, no se molesta al CEO).
+  if (url.pathname === '/api/work/messages' && (request.method === 'GET' || request.method === 'POST')) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (request.method === 'GET') {
+        if (principal.role === 'founder_director') {
+          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages() });
+        } else {
+          requireActiveOperatorProfile(principal);
+          json(response, 200, { ok: true, recipients: internalRecipients, messages: store.listWorkMessages(principal.id), inbox: store.listWorkMessagesTo(principal.id) });
+        }
+        return;
+      }
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      const today = new Date(Date.now() - 24 * 3_600_000).toISOString();
+      if (store.listWorkMessages(principal.id, 200).filter((message) => message.createdAt >= today).length >= 30) {
+        throw new HttpRequestError(429, 'daily message limit reached');
+      }
+      let message;
+      try {
+        message = evaluateWorkMessage({
+          id: `msg_${randomUUID()}`,
+          fromPrincipalId: principal.id,
+          recipient: typeof body.recipient === 'string' ? body.recipient : '',
+          subject: typeof body.subject === 'string' ? body.subject : '',
+          body: typeof body.body === 'string' ? body.body : '',
+          ...(projectId ? { projectId } : {}),
+          allowed: internalRecipients,
+          now: new Date().toISOString(),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid message');
+      }
+      store.upsertWorkMessage(message);
+      json(response, message.status === 'delivered' ? 201 : 422, { ok: message.status === 'delivered', message, ...(message.status === 'rejected' ? { code: message.decision, error: 'Solo se puede escribir a destinatarios internos de la empresa.' } : {}) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const workMessageReadMatch = url.pathname.match(/^\/api\/work\/messages\/([^/]+)\/read$/);
+  if (request.method === 'PUT' && workMessageReadMatch) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      const message = store.getWorkMessage(decodeURIComponent(workMessageReadMatch[1]!));
+      // Lee quien lo recibe: el CEO lo que va hacia él; el colaborador solo lo que el CEO le envió a él (404 si no).
+      if (principal.role === 'founder_director') {
+        if (!message || !isMessageForFounder(message)) throw new HttpRequestError(404, 'message not found');
+      } else {
+        requireActiveOperatorProfile(principal);
+        if (!message || message.toPrincipalId !== principal.id) throw new HttpRequestError(404, 'message not found');
+      }
+      const updated = { ...message, readAt: message.readAt ?? new Date().toISOString() };
+      store.upsertWorkMessage(updated);
+      json(response, 200, { ok: true, message: updated });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Vista de equipo del CEO: un solo resumen con lo de EMPRESA de todo el equipo. Nunca incluye agenda privada.
+  // ── Pilar 3 · Memoria (solo CEO) ─────────────────────────────────────────────────────────────────────────
+  if (url.pathname === '/api/memory/status' && request.method === 'GET') {
+    try { requireFounderAuthority(request); json(response, 200, { ok: true, model: knowledgeMemory.model, embedder: knowledgeEmbedderNote, store: 'SQLite local (knowledge_items)', ...store.countKnowledgeItems(), kinds: MEMORY_KINDS, consultedBeforePlanning: true }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      let saved;
+      try {
+        saved = await knowledgeMemory.remember({
+          kind: (MEMORY_KINDS.includes(body.kind as MemoryKind) ? body.kind : 'rule') as MemoryKind,
+          scope: typeof body.scope === 'string' ? body.scope : 'work', text: typeof body.text === 'string' ? body.text : '',
+          source: typeof body.source === 'string' && body.source ? body.source : 'founder', ...(typeof body.supersedes === 'string' ? { supersedes: body.supersedes } : {}),
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid memory'); }
+      json(response, saved.created ? 201 : 200, { ok: true, ...saved });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory/search' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      const scopes = (url.searchParams.get('scopes') ?? 'work').split(',').map((entry) => entry.trim()).filter(Boolean).slice(0, 8);
+      const hits = await knowledgeMemory.recall(url.searchParams.get('q') ?? '', { scopes, limit: Number(url.searchParams.get('limit')) || 8 });
+      json(response, 200, { ok: true, scopes, hits: hits.map((hit) => ({ score: Math.round(hit.score * 1000) / 1000, ...hit.item })) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/memory/sync' && request.method === 'POST') {
+    try { requireFounderAuthority(request); json(response, 200, { ok: true, ...(await syncKnowledgeMemory()) }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Pilar 1 · Servicios por especificación (solo CEO) ────────────────────────────────────────────────────
+  if (url.pathname === '/api/integrations' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, integrations: store.listServiceCatalogs().map((entry) => {
+        const levels = { auto: 0, approval: 0, restricted: 0 };
+        for (const operation of entry.catalog.operations) levels[hitlGate.classify({ service: entry.service, operation: operation.id, method: operation.method, path: operation.path, summary: operation.summary, ...(operation.graphql ? { graphql: operation.graphql } : {}), ...(operation.readOnlyHint ? { readOnlyHint: true } : {}), ...(operation.destructiveHint ? { destructiveHint: true } : {}) }).level] += 1;
+        return { service: entry.service, title: entry.catalog.title, version: entry.catalog.version, source: entry.catalog.source, baseUrl: entry.catalog.baseUrl, operations: entry.catalog.operations.length, levels, auth: entry.catalog.auth, warnings: entry.catalog.warnings.slice(0, 10), updatedAt: entry.updatedAt };
+      }) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/integrations' && request.method === 'POST') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const service = typeof body.service === 'string' ? body.service.trim() : '';
+      const kind = body.kind === 'graphql' || body.kind === 'mcp' ? body.kind : 'openapi';
+      let catalog: ServiceCatalog;
+      try {
+        if (kind === 'mcp') {
+          const endpoint = typeof body.endpoint === 'string' ? body.endpoint : '';
+          const token = (await credentialBroker.accessToken(`spec:${service}`)) ?? null;
+          catalog = await new McpHttpClient(endpoint, async (payload, headers) => { const result = await fetch(endpoint, { method: 'POST', headers, body: payload, redirect: 'error', signal: AbortSignal.timeout(20_000) }); return { status: result.status, headers: {}, text: await result.text() }; }, token ? { authorization: `Bearer ${token}` } : {}).discover(service);
+        } else {
+          const document = body.document !== undefined ? body.document : typeof body.url === 'string' ? await fetchSpecDocument(body.url) : undefined;
+          if (document === undefined) throw new HttpRequestError(400, 'document or url is required');
+          catalog = kind === 'graphql' ? parseGraphqlIntrospection(service, document, typeof body.endpoint === 'string' ? body.endpoint : '') : parseOpenApi(service, document, typeof body.baseUrl === 'string' ? { baseUrl: body.baseUrl } : {});
+        }
+      } catch (error) {
+        if (error instanceof HttpRequestError) throw error;
+        throw new HttpRequestError(error instanceof SpecError ? 422 : 502, error instanceof Error ? error.message : 'no se pudo leer la especificación');
+      }
+      const now = new Date().toISOString();
+      store.upsertServiceCatalog(catalog, principal.id, now);
+      void knowledgeMemory.remember({ kind: 'infrastructure', scope: 'work', text: `Servicio conectado por especificación: ${catalog.title} (${catalog.service}), ${catalog.source}, ${catalog.operations.length} operaciones, en ${new URL(catalog.baseUrl).host}.`, source: `integration:${catalog.service}` }).catch(() => {});
+      json(response, 201, { ok: true, service: catalog.service, title: catalog.title, source: catalog.source, baseUrl: catalog.baseUrl, operations: catalog.operations.length, warnings: catalog.warnings });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const integrationMatch = url.pathname.match(/^\/api\/integrations\/([a-z][a-z0-9-]{1,39})(?:\/(operations|call))?$/);
+  if (integrationMatch) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const catalog = store.getServiceCatalog(integrationMatch[1]!);
+      if (!catalog) throw new HttpRequestError(404, 'integration not found');
+      const describe = (operation: ServiceCatalog['operations'][number]) => ({ service: catalog.service, operation: operation.id, method: operation.method, path: operation.path, summary: operation.summary, ...(operation.graphql ? { graphql: operation.graphql } : {}), ...(operation.readOnlyHint ? { readOnlyHint: true } : {}), ...(operation.destructiveHint ? { destructiveHint: true } : {}) });
+      if (!integrationMatch[2] && request.method === 'DELETE') { store.deleteServiceCatalog(catalog.service); json(response, 200, { ok: true }); return; }
+      if (integrationMatch[2] === 'operations' && request.method === 'GET') {
+        const found = findOperations(catalog, url.searchParams.get('q') ?? '', Math.min(50, Number(url.searchParams.get('limit')) || 12));
+        json(response, 200, { ok: true, service: catalog.service, operations: found.map((operation) => ({ id: operation.id, method: operation.method, path: operation.path, summary: operation.summary, parameters: operation.parameters, bodyRequired: operation.bodyRequired, risk: classifyOperation(describe(operation), { trustedForMinorWrites: [] }).level, effectiveRisk: hitlGate.classify(describe(operation)).level })) });
+        return;
+      }
+      if (integrationMatch[2] === 'call' && request.method === 'POST') {
+        const body = await readJson(request);
+        const operation = catalog.operations.find((candidate) => candidate.id === body.operation);
+        if (!operation) throw new HttpRequestError(404, 'operation not found in this integration');
+        const args = body.args && typeof body.args === 'object' && !Array.isArray(body.args) ? body.args as Record<string, unknown> : {};
+        const risk = hitlGate.classify(describe(operation));
+        const callId = `call_${randomUUID()}`;
+        const adapter = specAdapterFor(catalog);
+        const runCall = async () => {
+          // Un fallo de red o del servicio es un resultado (ok:false) que se informa tal cual; nunca se inventa una respuesta.
+          const result = await adapter.execute({ tool: catalog.service, action: operation.id, input: args, idempotencyKey: callId }, () => {})
+            .catch((error: unknown) => ({ ok: false, output: undefined, error: `El servicio no respondió: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}` }));
+          rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: result.ok ? 'done' : 'failed', level: risk.level, result: result.output, ...(result.error ? { error: result.error } : {}), at: new Date().toISOString() });
+          return result;
+        };
+        if (risk.level === 'auto') { const result = await runCall(); json(response, 200, { ok: result.ok, callId, level: 'auto', reasons: risk.reasons, result: result.output ?? null, error: result.error ?? null }); return; }
+        // Escritura o acción restringida: el hilo queda en pausa hasta la decisión del CEO; la respuesta HTTP no espera.
+        rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: 'pending_approval', level: risk.level, at: new Date().toISOString() });
+        void hitlGate.authorize(describe(operation), { runId: `integration:${principal.id}`, actionId: callId, target: new URL(catalog.baseUrl).host })
+          .then(async (granted) => { rememberSpecCall({ ...specCalls.get(callId)!, status: 'running', ...(granted.approvalId ? { approvalId: granted.approvalId } : {}) }); await runCall(); })
+          .catch((error) => rememberSpecCall({ id: callId, service: catalog.service, operation: operation.id, status: error instanceof HitlDeniedError ? 'denied' : 'failed', level: risk.level, error: error instanceof Error ? error.message : 'error', at: new Date().toISOString() }));
+        const pending = approvalQueue.pending().find((record) => record.actionId === callId);
+        json(response, 202, { ok: true, callId, level: risk.level, reasons: risk.reasons, status: 'pending_approval', approvalId: pending?.id ?? null });
+        return;
+      }
+      throw new HttpRequestError(405, 'method not allowed');
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const specCallMatch = url.pathname.match(/^\/api\/integration-calls\/(call_[0-9a-f-]{36})$/);
+  if (specCallMatch && request.method === 'GET') {
+    try { requireFounderAuthority(request); const call = specCalls.get(specCallMatch[1]!); if (!call) throw new HttpRequestError(404, 'call not found'); json(response, 200, { ok: true, call }); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Pilar 2 · Sandbox y cambios de código (solo CEO) ─────────────────────────────────────────────────────
+  if (url.pathname === '/api/sandbox/status' && request.method === 'GET') {
+    try {
+      requireFounderAuthority(request);
+      const drivers = sandboxDrivers.map((driver) => ({ name: driver.name, isolation: driver.isolation, available: driver.available() }));
+      json(response, 200, { ok: true, drivers, selected: drivers.find((driver) => driver.isolation === 'container' && driver.available)?.name ?? 'process', containerAvailable: drivers.some((driver) => driver.isolation === 'container' && driver.available), selfChange: { enabled: selfChangeEnabled, reason: selfChangeEnabled ? null : 'Apagado: defina JANUS_SELF_CHANGE=on en el equipo donde corre JANUS.', checks: Object.keys(SELF_CHANGE_CHECKS) } });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/changes' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!selfChangeEnabled) throw new HttpRequestError(409, 'self-change is disabled on this node');
+      const body = await readJson(request);
+      const checks = coordinationStringList(body.checks).map((name) => SELF_CHANGE_CHECKS[name]).filter((argv): argv is readonly string[] => Boolean(argv));
+      if (!checks.length) throw new HttpRequestError(400, `checks must name at least one of: ${Object.keys(SELF_CHANGE_CHECKS).join(', ')}`);
+      const driver = selectSandboxDriver(sandboxDrivers, { requireContainer: body.requireContainer === true });
+      let prepared: PreparedChange;
+      try {
+        prepared = await new ChangePipeline({ driver }).propose({
+          id: typeof body.id === 'string' ? body.id : '', repoDir: selfChangeRepo, summary: typeof body.summary === 'string' ? body.summary : '',
+          changes: Array.isArray(body.changes) ? body.changes as never : [], checks, dependencyDirs: ['node_modules'], timeoutMs: 20 * 60_000,
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      if (prepared.status === 'ready') preparedChanges.set(prepared.id, prepared);
+      const { workdir: _workdir, ...publicView } = prepared;
+      json(response, prepared.status === 'ready' ? 201 : 422, { ok: prepared.status === 'ready', change: publicView });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  // Un modelo REDACTA el cambio a partir de la orden del CEO; después pasa por la misma tubería (clon → sandbox → commit preparado).
+  if (url.pathname === '/api/changes/draft' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!selfChangeEnabled) throw new HttpRequestError(409, 'self-change is disabled on this node');
+      const body = await readJson(request);
+      const checks = coordinationStringList(body.checks).map((name) => SELF_CHANGE_CHECKS[name]).filter((argv): argv is readonly string[] => Boolean(argv));
+      if (!checks.length) throw new HttpRequestError(400, `checks must name at least one of: ${Object.keys(SELF_CHANGE_CHECKS).join(', ')}`);
+      const draftGateway = modelGateway;
+      if (!draftGateway) throw new HttpRequestError(409, 'no hay ningún modelo configurado para redactar el cambio');
+      let drafted;
+      try {
+        // Solo archivos versionados, leídos del último commit: nunca .env ni archivos locales sin versionar.
+        const files = coordinationStringList(body.files).map((path) => {
+          const clean = assertDraftablePath(path);
+          const shown = spawnSync('git', ['show', `HEAD:${clean}`], { cwd: selfChangeRepo, encoding: 'utf8', timeout: 20_000, maxBuffer: 2_000_000 });
+          if (shown.status !== 0) throw new ChangeDraftError(`no existe en el repositorio: ${clean}`);
+          return { path: clean, content: String(shown.stdout) };
+        });
+        drafted = await draftChange({ instruction: typeof body.instruction === 'string' ? body.instruction : '', files, allowNewUnder: coordinationStringList(body.allowNewUnder), modelGateway: draftGateway });
+      } catch (error) {
+        if (error instanceof ChangeDraftError) throw new HttpRequestError(422, error.message);
+        throw new HttpRequestError(502, `el modelo no pudo redactar el cambio: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}`);
+      }
+      const driver = selectSandboxDriver(sandboxDrivers, { requireContainer: body.requireContainer === true });
+      let prepared: PreparedChange;
+      try {
+        prepared = await new ChangePipeline({ driver }).propose({
+          id: typeof body.id === 'string' ? body.id : '', repoDir: selfChangeRepo, summary: drafted.summary,
+          changes: drafted.changes, checks, dependencyDirs: ['node_modules'], timeoutMs: 20 * 60_000,
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      if (prepared.status === 'ready') preparedChanges.set(prepared.id, prepared);
+      const { workdir: _workdir, ...publicView } = prepared;
+      json(response, prepared.status === 'ready' ? 201 : 422, { ok: prepared.status === 'ready', draftedBy: { provider: drafted.provider, model: drafted.model }, notes: drafted.notes, change: publicView });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const changePublishMatch = url.pathname.match(/^\/api\/changes\/([a-z0-9][a-z0-9-]{2,40})\/publish$/);
+  if (changePublishMatch && request.method === 'POST') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const prepared = preparedChanges.get(changePublishMatch[1]!);
+      if (!prepared) throw new HttpRequestError(404, 'prepared change not found');
+      const remoteUrl = process.env.JANUS_SELF_CHANGE_REMOTE?.trim();
+      if (!remoteUrl) throw new HttpRequestError(409, 'JANUS_SELF_CHANGE_REMOTE is not configured');
+      // Empujar código es una operación restringida: espera la aprobación en el dispositivo aunque la pida el propio CEO.
+      const granted = await hitlGate.authorize({ service: 'janus', operation: 'pushChangeBranch', method: 'POST', summary: `Empuja la rama ${prepared.branch} (${prepared.filesChanged.length} archivos)` }, { runId: `change:${principal.id}`, actionId: `change:${prepared.id}`, target: prepared.branch ?? '' });
+      const pushed = new ChangePipeline({ driver: sandboxDrivers[1]! }).publish(prepared, { remoteUrl, approval: { approvalId: granted.approvalId ?? '', approved: true } });
+      json(response, pushed.ok ? 200 : 502, { ok: pushed.ok, branch: prepared.branch, commit: prepared.commit, detail: pushed.ok ? 'Rama empujada. La fusión o el despliegue son otro paso con su propia aprobación.' : pushed.out.slice(0, 300) });
+    } catch (error) { json(response, error instanceof HitlDeniedError ? 403 : authErrorStatus(error), error instanceof HitlDeniedError ? { ok: false, error: error.message } : authErrorBody(error)); }
+    return;
+  }
+
+  // ── Opportunity Radar (solo CEO) ─────────────────────────────────────────────────────────────────────────
+  if (url.pathname === '/api/radar' && request.method === 'GET') {
+    try { requireFounderAuthority(request); json(response, 200, radarPayload()); }
+    catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/radar/opportunities' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      let incoming;
+      try { incoming = createOpportunity({ ...(body as Record<string, unknown>), detectedBy: body.detectedBy === 'agent' ? 'agent' : 'owner' } as never, { id: `opp_${randomUUID()}`, now }); }
+      catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid opportunity'); }
+      const existing = store.listRadarOpportunities().find((item) => item.fingerprint === incoming.fingerprint);
+      if (existing) {
+        const merged = mergeOpportunity(existing, incoming, now);
+        store.upsertRadarOpportunity(merged.opportunity);
+        json(response, 200, { ok: true, duplicate: true, changed: merged.changed, opportunity: merged.opportunity });
+      } else {
+        store.upsertRadarOpportunity(incoming);
+        void sweepOpportunityAlerts();
+        json(response, 201, { ok: true, duplicate: false, opportunity: incoming, late: lateDetection(incoming) });
+      }
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const radarOpportunityMatch = url.pathname.match(/^\/api\/radar\/opportunities\/([^/]+)\/(stage|verify)$/);
+  if (radarOpportunityMatch && request.method === 'PUT') {
+    try {
+      requireFounderAuthority(request);
+      const current = store.getRadarOpportunity(decodeURIComponent(radarOpportunityMatch[1]!));
+      if (!current) throw new HttpRequestError(404, 'opportunity not found');
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      let next;
+      try {
+        next = radarOpportunityMatch[2] === 'verify'
+          ? verifyOpportunity(current, typeof body.sourceUrl === 'string' ? body.sourceUrl : current.sourceUrl ?? '', now)
+          : advanceStage(current, (OPPORTUNITY_STAGES.includes(body.stage as OpportunityStage) ? body.stage : '') as OpportunityStage, now, typeof body.note === 'string' ? body.note : undefined);
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      store.upsertRadarOpportunity(next);
+      json(response, 200, { ok: true, opportunity: next });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  if (url.pathname === '/api/radar/quotas' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      let quota;
+      try { quota = validateQuotaWindow({ ...(body as Record<string, unknown>), id: typeof body.id === 'string' && /^[A-Za-z0-9_.-]{1,80}$/.test(body.id) ? body.id : `quota_${randomUUID()}` } as never, new Date().toISOString()); }
+      catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid quota'); }
+      store.upsertRadarQuotaWindow(quota);
+      json(response, 200, { ok: true, quota });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  const radarQuotaMatch = url.pathname.match(/^\/api\/radar\/quotas\/([^/]+)$/);
+  if (radarQuotaMatch && request.method === 'DELETE') {
+    try {
+      requireFounderAuthority(request);
+      if (!store.deleteRadarQuotaWindow(decodeURIComponent(radarQuotaMatch[1]!))) throw new HttpRequestError(404, 'quota not found');
+      json(response, 200, { ok: true });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  // Leer ahora las fuentes oficiales (solo lectura). Devuelve qué fuentes respondieron y cuáles no.
+  if (url.pathname === '/api/radar/run' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!radarSources.length) throw new HttpRequestError(409, radarSourcesError ?? 'no radar sources configured');
+      const report = radarScheduler ? await radarScheduler.runNow() : await runOpportunityRadar();
+      json(response, 200, { ok: true, report });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // Señal de presencia: el panel abierto la envía cada 30 s. Solo marca «conectado ahora»; no guarda nada.
+  if (request.method === 'POST' && url.pathname === '/api/work/presence') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      json(response, 200, { ok: true, intervalSeconds: 30 });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // ── El CEO se comunica con su equipo desde «¿Cómo va el equipo?» (todo queda dentro de JANUS) ──────────────
+  // Escribir o responder a una persona.
+  if (request.method === 'POST' && url.pathname === '/api/work/team/messages') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const toPrincipalId = typeof body.toPrincipalId === 'string' ? body.toPrincipalId.trim() : '';
+      const member = requireActiveMember(toPrincipalId);
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const replyToId = typeof body.replyToId === 'string' ? body.replyToId.trim() : '';
+      if (replyToId) {
+        const original = store.getWorkMessage(replyToId);
+        if (!original || original.fromPrincipalId !== toPrincipalId) throw new HttpRequestError(404, 'message to reply not found');
+      }
+      const resourceIds = coordinationStringList(body.resourceIds);
+      let attachments: Array<{ resourceId: string; name: string }> = [];
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project || !canAccessProject(member.principal, project, 'read_context')) throw new HttpRequestError(409, 'collaborator has no access to that project');
+        const resources = store.listProjectResources(projectId);
+        attachments = resourceIds.map((id) => resources.find((resource) => resource.id === id)).map((resource) => {
+          if (!resource) throw new HttpRequestError(404, 'attachment not found in that project');
+          return { resourceId: resource.id, name: resource.name };
+        });
+      } else if (resourceIds.length) throw new HttpRequestError(400, 'attachments need a project');
+      let message;
+      try {
+        message = composeFounderMessage({
+          id: `msg_${randomUUID()}`, fromPrincipalId: principal.id, toPrincipalId,
+          subject: typeof body.subject === 'string' ? body.subject : '',
+          body: typeof body.body === 'string' ? body.body : '',
+          ...(projectId ? { projectId } : {}), ...(replyToId ? { replyToId } : {}),
+          attachments, now: new Date().toISOString(),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid message');
+      }
+      store.upsertWorkMessage(message);
+      if (replyToId) { const original = store.getWorkMessage(replyToId); if (original && !original.readAt) store.upsertWorkMessage({ ...original, readAt: message.createdAt }); }
+      pushToMember(toPrincipalId, 'Mensaje del CEO', message.subject, message.id);
+      json(response, 201, { ok: true, message });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Dar una tarea con instrucciones a una persona, dentro de un proyecto (le da acceso a ese proyecto si no lo tenía).
+  if (request.method === 'POST' && url.pathname === '/api/work/team/tasks') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const body = await readJson(request);
+      const assigneePrincipalId = typeof body.assigneePrincipalId === 'string' ? body.assigneePrincipalId.trim() : '';
+      const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      const goal = typeof body.goal === 'string' ? body.goal.trim() : '';
+      if (!assigneePrincipalId || !projectId || !title || !goal) throw new HttpRequestError(400, 'assigneePrincipalId, projectId, title and goal are required');
+      if (title.length > 160 || goal.length > 4000) throw new HttpRequestError(400, 'title or goal is too long');
+      const member = requireActiveMember(assigneePrincipalId);
+      const access = ensureMemberCanWork(principal.id, member.principal, projectId);
+      const now = new Date().toISOString();
+      const priority = body.priority === 'low' || body.priority === 'high' || body.priority === 'critical' ? body.priority : 'normal';
+      const requestedProvider = preferredProviderFrom(body.preferredProvider);
+      if (requestedProvider === null) throw new HttpRequestError(400, 'preferredProvider is invalid');
+      let assignment;
+      try {
+        assignment = validateCoordinationAssignment({
+          id: `assignment_${randomUUID()}`, title, goal, assigneePrincipalId, scopeIds: [access.scopeId],
+          status: 'queued', priority, createdBy: principal.id, createdAt: now, updatedAt: now,
+          nextActions: coordinationStringList(body.nextActions),
+          ...(requestedProvider ? { preferredProvider: requestedProvider } : {}),
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid task');
+      }
+      store.upsertCoordinationAssignment(assignment);
+      pushToMember(assigneePrincipalId, 'Nueva tarea del CEO', title, assignment.id);
+      json(response, 201, { ok: true, assignment, projectId: access.project.id, accessGranted: access.grantedNow });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Subir un archivo o foto del CEO a un proyecto (después se adjunta a un mensaje o queda en los documentos del proyecto).
+  if (request.method === 'POST' && url.pathname === '/api/work/team/attachments') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const uploadProjectId = headerValue(request, 'x-attachment-project-id').trim();
+      const project = uploadProjectId ? store.getProjectWorkspace(uploadProjectId) : null;
+      if (!project || project.status !== 'active') throw new HttpRequestError(404, 'project not found');
+      const profile = ATTACHMENT_PROFILES['business-dashboard'];
+      const source = (headerValue(request, 'x-attachment-source') || 'device-file') as AttachmentSource;
+      if (!profile.sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, profile.maxFileBytes);
+      const result = attachmentStore.put({ bytes, claimedName, claimedType: headerValue(request, 'content-type'), source, profile: 'business-dashboard', principalId: principal.id });
+      if (!result.ok) { json(response, result.status, { ok: false, code: result.code, error: result.message }); return; }
+      const { attachment } = result;
+      const resource = validateProjectResource({
+        id: `resource_${randomUUID()}`, projectId: project.id, name: attachment.name, source: 'upload', sourceRef: attachment.id,
+        createdAt: new Date().toISOString(), addedBy: principal.id, mimeType: attachment.type, checksum: attachment.sha256,
+      });
+      store.upsertProjectResource(resource);
+      json(response, 201, { ok: true, projectResourceId: resource.id, name: attachment.name, type: attachment.type, size: attachment.size });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Lucecitas del CEO («Mi equipo»): ligero, solo nombres, estado y dos contadores de atención. Solo Founder.
+  if (request.method === 'GET' && url.pathname === '/api/work/team/presence') {
+    try {
+      requireFounderAuthority(request);
+      const now = new Date().toISOString();
+      json(response, 200, {
+        ok: true,
+        generatedAt: now,
+        members: teamPresenceFor(now),
+        attention: {
+          blocked: store.listCoordinationAssignments().filter((assignment) => assignment.status === 'blocked').length,
+          unread: store.listWorkMessages(undefined, 200).filter((message) => isMessageForFounder(message) && message.status === 'delivered' && !message.readAt).length,
+        },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/work/team') {
+    try {
+      requireFounderAuthority(request);
+      const now = new Date().toISOString();
+      const handoffs = store.listCoordinationHandoffs();
+      const sessionEvents = store.listWorkSessionEvents();
+      const projects = store.listProjectWorkspaces();
+      json(response, 200, {
+        ok: true,
+        generatedAt: now,
+        members: store.listCoordinationOperators().map((profile) => {
+          const sessions = summarizeWorkSessions(sessionEvents, profile.principalId, now);
+          const usage = operatorUsageFor(profile.principalId);
+          return {
+            principalId: profile.principalId,
+            displayName: profile.displayName ?? profile.principalId,
+            roleTitle: profile.roleTitle ?? null,
+            locale: profile.locale ?? 'es',
+            status: profile.status,
+            projects: memberProjects(profile.principalId, projects),
+            presence: resolveWorkPresence({
+              session: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
+              lastSeenMs: workPresence.lastSeen(profile.principalId),
+              nowMs: Date.parse(now),
+            }).state,
+            openSession: sessions.filter((session) => session.state !== 'ended').at(-1) ?? null,
+            todayActiveSeconds: sessions.filter((session) => session.startedAt.slice(0, 10) === now.slice(0, 10)).reduce((total, session) => total + session.activeSeconds, 0),
+            usage: { used: usage.used, limit: usage.limit },
+          };
         }),
+        assignments: store.listCoordinationAssignments().map((assignment) => ({
+          assignment,
+          latestHandoff: handoffs.filter((handoff) => handoff.assignmentId === assignment.id).at(-1) ?? null,
+        })),
+        deliveries: [...handoffs].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 40),
+        agenda: agendaForFounder(store.listWorkAgendaItems()).filter((item) => item.date >= now.slice(0, 10)).slice(0, 80),
+        fileAccess: store.listFileAccess(60),
+        invites: store.listOperatorInvites(20).map((invite) => publicOperatorInvite(invite, new Date(now))),
+        messages: store.listWorkMessages(undefined, 120),
+        recipients: internalRecipients,
+        projects: projects.map((project) => ({
+          id: project.id, name: project.name, status: project.status, createdBy: project.createdBy,
+          localOnly: project.modelPolicy === 'local_only',
+        })),
+        providers: { configured: configuredModelProviderIds, dailyLimit: operatorDailyRunLimit },
+      });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Registro de aperturas de archivos por el equipo: solo el CEO.
+  if (request.method === 'GET' && url.pathname === '/api/work/file-access') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, entries: store.listFileAccess(Number(url.searchParams.get('limit')) || 200) });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Avisos al teléfono: clave pública para suscribirse y alta/baja del dispositivo de la propia persona.
+  if (request.method === 'GET' && url.pathname === '/api/work/push') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      json(response, 200, { ok: true, enabled: Boolean(pushKeys), publicKey: pushKeys?.publicKey ?? null, devices: store.listPushSubscriptions(principal.id).length });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+  if (url.pathname === '/api/work/push/subscription' && (request.method === 'POST' || request.method === 'DELETE')) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const body = await readJson(request);
+      if (request.method === 'DELETE') {
+        if (typeof body.endpoint === 'string') store.deletePushSubscription(body.endpoint, principal.id);
+        json(response, 200, { ok: true });
+        return;
+      }
+      if (!pushKeys) throw new HttpRequestError(409, 'push is not activated');
+      let subscription;
+      try { subscription = validatePushSubscription(body); } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid subscription');
+      }
+      if (store.listPushSubscriptions(principal.id).length >= 8) throw new HttpRequestError(409, 'too many devices');
+      store.upsertPushSubscription({ ...subscription, principalId: principal.id, createdAt: new Date().toISOString() });
+      json(response, 201, { ok: true, devices: store.listPushSubscriptions(principal.id).length });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Agenda del colaborador. Lo 'private' solo lo ve su dueño; el CEO recibe únicamente lo 'work'.
+  if (request.method === 'GET' && url.pathname === '/api/work/agenda') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      if (principal.role === 'founder_director') {
+        const filter = url.searchParams.get('principalId')?.trim() || undefined;
+        json(response, 200, { ok: true, scope: 'work-only', items: agendaForFounder(store.listWorkAgendaItems(filter), filter) });
+      } else {
+        requireActiveOperatorProfile(principal);
+        json(response, 200, { ok: true, scope: 'own', items: agendaForOwner(store.listWorkAgendaItems(principal.id).map(agendaOpen), principal.id) });
+      }
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  const agendaItemMatch = url.pathname.match(/^\/api\/work\/agenda\/([^/]+)$/);
+  if ((request.method === 'POST' && url.pathname === '/api/work/agenda')
+    || ((request.method === 'PUT' || request.method === 'DELETE') && agendaItemMatch)) {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      const storedItem = agendaItemMatch ? store.getWorkAgendaItem(decodeURIComponent(agendaItemMatch[1]!)) : null;
+      const existing = storedItem && storedItem.principalId === principal.id ? agendaOpen(storedItem) : storedItem;
+      // Un elemento ajeno se trata como inexistente: ni se lee, ni se cambia, ni se confirma que existe.
+      if (agendaItemMatch && (!existing || existing.principalId !== principal.id)) throw new HttpRequestError(404, 'agenda item not found');
+      if (request.method === 'DELETE') {
+        store.deleteWorkAgendaItem(existing!.id, principal.id);
+        json(response, 200, { ok: true, deleted: existing!.id });
+        return;
+      }
+      const body = await readJson(request);
+      const now = new Date().toISOString();
+      const text = (key: string) => (typeof body[key] === 'string' ? (body[key] as string).trim() : undefined);
+      const projectId = body.projectId === null ? '' : text('projectId') ?? existing?.projectId ?? '';
+      if (projectId) {
+        const project = store.getProjectWorkspace(projectId);
+        if (!project) throw new HttpRequestError(404, 'project not found');
+        requireProjectAccess(principal, project, 'read_context');
+      }
+      if (!existing && store.listWorkAgendaItems(principal.id).length >= WORK_AGENDA_MAX_ITEMS) {
+        throw new HttpRequestError(409, 'agenda is full');
+      }
+      const time = body.time === null ? '' : text('time') ?? existing?.time ?? '';
+      const endTime = body.endTime === null ? '' : text('endTime') ?? existing?.endTime ?? '';
+      let item: WorkAgendaItem;
+      try {
+        item = validateWorkAgendaItem({
+          id: existing?.id ?? `ag_${randomUUID()}`,
+          principalId: principal.id,
+          kind: (text('kind') ?? existing?.kind ?? 'reminder') as WorkAgendaItem['kind'],
+          visibility: (text('visibility') ?? existing?.visibility ?? 'private') as WorkAgendaItem['visibility'],
+          date: text('date') ?? existing?.date ?? '',
+          ...(time ? { time } : {}),
+          ...(endTime ? { endTime } : {}),
+          text: text('text') ?? existing?.text ?? '',
+          ...(projectId ? { projectId } : {}),
+          ...((text('timeZone') ?? existing?.timeZone) ? { timeZone: text('timeZone') ?? existing?.timeZone } : {}),
+          done: typeof body.done === 'boolean' ? body.done : existing?.done ?? false,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        });
+      } catch (error) {
+        throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid agenda item');
+      }
+      store.upsertWorkAgendaItem(agendaSeal(item));
+      json(response, existing ? 200 : 201, { ok: true, item });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // Adjuntos de colaboradores: puerta propia (autorizada por el CEO el 10-nov-2026; `off` la apaga).
+  // Exige proyecto con permiso de escritura; el archivo queda vinculado a ESE proyecto.
+  if (request.method === 'POST' && url.pathname === '/api/work/attachments') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      requireActiveOperatorProfile(principal);
+      if (!workOperatorUploadsEnabled) {
+        json(response, 403, { ok: false, code: 'operator_uploads_disabled', error: 'Los adjuntos de colaboradores esperan la autorización del CEO.' });
+        return;
+      }
+      const uploadProjectId = headerValue(request, 'x-attachment-project-id').trim();
+      if (!uploadProjectId) throw new HttpRequestError(400, 'project id is required');
+      const project = store.getProjectWorkspace(uploadProjectId);
+      if (!project) throw new HttpRequestError(404, 'project not found');
+      requireProjectAccess(principal, project, 'write_work');
+      const source = headerValue(request, 'x-attachment-source') as AttachmentSource;
+      const profile = ATTACHMENT_PROFILES['business-dashboard'];
+      if (!profile.sources.includes(source)) throw new HttpRequestError(400, 'Fuente de adjunto no válida.');
+      let claimedName = '';
+      try { claimedName = decodeURIComponent(headerValue(request, 'x-attachment-name')); } catch { claimedName = ''; }
+      const bytes = await readBodyBytes(request, profile.maxFileBytes);
+      const result = attachmentStore.put({
+        bytes, claimedName, claimedType: headerValue(request, 'content-type'),
+        source, profile: 'business-dashboard', principalId: principal.id,
+      });
+      if (!result.ok) {
+        json(response, result.status, { ok: false, code: result.code, error: result.message });
+        return;
+      }
+      const { attachment } = result;
+      const resource = validateProjectResource({
+        id: `resource_${randomUUID()}`,
+        projectId: uploadProjectId,
+        name: attachment.name,
+        source: 'upload',
+        sourceRef: attachment.id,
+        createdAt: new Date().toISOString(),
+        addedBy: principal.id,
+        mimeType: attachment.type,
+        checksum: attachment.sha256,
+      });
+      store.upsertProjectResource(resource);
+      json(response, 201, {
+        ok: true, projectResourceId: resource.id, id: attachment.id,
+        sha256: attachment.sha256, name: attachment.name, type: attachment.type, size: attachment.size,
       });
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
@@ -6056,6 +7733,14 @@ const server = createServer(async (request, response) => {
         });
         coordinationLink = { assignmentId, principalId: principal.id };
       }
+      const commandPrincipal = authorityContext?.principal;
+      if (commandPrincipal?.role === 'operator') {
+        const usage = operatorUsageFor(commandPrincipal.id);
+        if (!usage.allowed) {
+          json(response, 429, { ok: false, code: 'operator_daily_limit', error: 'Límite diario de consultas alcanzado.', usage });
+          return;
+        }
+      }
       const runId = startRun(
         text,
         body.inputMode === 'voice' ? 'voice' : 'text',
@@ -6065,6 +7750,9 @@ const server = createServer(async (request, response) => {
         projectLink,
         typeof body.effort === 'string' ? body.effort : undefined,
       );
+      if (commandPrincipal?.role === 'operator') {
+        store.appendOperatorRun({ runId, principalId: commandPrincipal.id, at: new Date().toISOString() });
+      }
       const commandInterpretation = runInterpretations.get(runId);
       json(response, 202, {
         ok: true,
@@ -6279,6 +7967,8 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 void refreshVaultCache().then(syncCredentialCapabilities).then(() => socialWatchScheduler?.start());
+radarScheduler?.start();
+void syncKnowledgeMemory().catch((error) => console.warn(`Knowledge memory sync skipped: ${error instanceof Error ? error.message.slice(0, 160) : 'error'}`));
 
 server.listen(port, bindHost, () => {
   console.log(`JANUS CORE local en http://${bindHost}:${port} (sin exposición directa a LAN/Internet)`);

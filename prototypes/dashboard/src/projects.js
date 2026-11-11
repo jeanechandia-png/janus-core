@@ -8,7 +8,7 @@ const PROJECTS = [
   { id: 'janus', e: '⚙', n: 'Janus', s: 'Janus', amb: 'p', grp: 'activo', decl: 'En desarrollo', repo: 'janus-core', next: 'Revisar los PR #41 y #42 (borradores) y aprobar el dashboard A', real: 'prs' },
   { id: 'chatbox', e: '🤖', n: 'Infinity ChatBox', s: 'ChatBox', amb: 'e', grp: 'activo', decl: 'Terminado', repo: 'infinity-chatbox-platform', next: 'Piloto 3 Kings: ajustes del chatbot y seguimiento' },
   { id: 'web', e: '🌐', n: 'Web InfinitySeed Group', s: 'Web', amb: 'e', grp: 'activo', decl: null, repo: 'infinityseed-group-website', next: 'Revisar la versión V9 en producción' },
-  { id: 'iba', e: '🧠', n: 'Infinity Business Assistant', amb: 'e', grp: 'pendiente', decl: 'Terminado', repo: 'infinity_business_assistant', next: 'Aprobar 2 actualizaciones pendientes' },
+  { id: 'iba', e: '🧠', n: 'Infinity Business Assistant', s: 'IBA', amb: 'e', grp: 'pendiente', decl: 'Terminado', repo: 'infinity_business_assistant', next: 'Aprobar 2 actualizaciones pendientes' },
   { id: 'tribuna', e: '🏆', n: 'La Tribuna Virtual', amb: 'e', grp: 'pendiente', decl: 'Parcial', repo: 'la_tribuna_virtual', next: 'F1, MotoGP y vóley en desarrollo' },
   { id: 'api', e: '🔌', n: 'API Infinity', amb: 'e', grp: 'pendiente', decl: 'En desarrollo', repo: null, next: 'Por definir' },
   { id: 'potensic', e: '🚁', n: 'Patrocinio Potensic', amb: 'e', grp: 'proximo', decl: null, repo: null, next: 'Propuesta de patrocinio (Atom 2): enviar y hacer seguimiento' },

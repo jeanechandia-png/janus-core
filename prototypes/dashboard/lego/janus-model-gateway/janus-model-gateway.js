@@ -58,6 +58,12 @@ const JanusGateway = (() => {
 
   // No se transmiten system prompts ni historiales fuera de la política JANUS CORE;
   // el núcleo es autoridad, los modelos remotos son solo adaptadores suyos.
+  const coreContext = (req) => {
+    const out = {}, id = (v) => (typeof v === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(v) ? v : '');
+    if (id(req.projectId) && id(req.threadId)) { out.projectId = req.projectId; out.threadId = req.threadId; }
+    if (id(req.assignmentId)) out.assignmentId = req.assignmentId;
+    return out;
+  };
   async function askCore(req) {
     const user = [...(req.messages || [])].reverse().find(m => m.role === 'user' && typeof m.content === 'string' && m.content.trim());
     if (!user) throw new Error('Falta el mensaje del usuario.');
@@ -66,7 +72,8 @@ const JanusGateway = (() => {
     const start = await fetch(coreUrl + '/api/command', {
       method: 'POST', signal,
       headers: { 'content-type': 'application/json', ...credentials() },
-      body: JSON.stringify({ text: user.content.slice(0, 30000), inputMode: req.inputMode === 'voice' ? 'voice' : 'text' }),
+      // v1.2 (aditivo): contexto de proyecto/tarea opcional. El Core valida el acceso; sin estos campos el cuerpo es idéntico al de v1.1.
+      body: JSON.stringify({ text: user.content.slice(0, 30000), inputMode: req.inputMode === 'voice' ? 'voice' : 'text', ...coreContext(req) }),
     });
     const result = await start.json().catch(() => ({}));
     if (!start.ok || !result.runId) {

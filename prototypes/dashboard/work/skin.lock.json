@@ -1,0 +1,16 @@
+{
+  "skin": "iba-command-center",
+  "decision": "CEO, 2026-11-10: la plantilla laboral usa el mismo diseño que la dashboard de IBA.",
+  "source": {
+    "repository": "jeanechandia-png/infinity-chatbox-platform",
+    "visibility": "private",
+    "branch": "feature/iba-live-ai-landing",
+    "commit": "06da714",
+    "path": "app/app/command-center.css",
+    "bytes": 30670,
+    "sha256": "b952cf35441964627175ee68aef57473953e30f7dac57ec0b6f1f4c916a3122f"
+  },
+  "localPath": "prototypes/dashboard/local/iba-command-center.css",
+  "envOverride": "JANUS_WORK_SKIN_CSS",
+  "rule": "El CSS de IBA NO se copia a este repositorio público: se referencia por commit y huella y se lee de una ruta local fuera de Git. Si falta o la huella no coincide, el build se detiene: nunca se sustituye por otro diseño."
+}

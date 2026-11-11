@@ -59,7 +59,7 @@ const ACTS = {
   geoMe: () => { if (!navigator.geolocation) { UI.geoMsg = 'Este navegador no da ubicación'; return; } UI.geoMsg = 'Pidiendo permiso…'; navigator.geolocation.getCurrentPosition((p) => { Object.assign(ST.settings, { lat: +p.coords.latitude.toFixed(3), lon: +p.coords.longitude.toFixed(3), place: 'Mi ubicación', placeSrc: 'GPS', mode: 'vivo' }); UI.geoMsg = ''; saveState(); refreshWeather(); }, (e) => { UI.geoMsg = 'Ubicación no disponible: ' + e.message; rerender(); }, { timeout: 10000, maximumAge: 600000 }); },
   reset: () => { resetState(); Object.assign(UI, { clDay: null, clH: null, dSel: null, mSel: 'm0', iSel: null }); refreshWeather(); }
 };
-Object.assign(ACTS, SALA_ACTS, OF_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS);
+Object.assign(ACTS, SALA_ACTS, OF_ACTS, RADAR_ACTS, COMP_ACTS, HOME_ACTS, BRIEF_ACTS, AV_ACTS, ATT_ACTS);
 if (typeof slotWire === 'function') slotWire();
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
@@ -118,3 +118,7 @@ setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 6
   document.addEventListener('pointerleave', off, { passive: true });
   window.addEventListener('hashchange', off);
 })();
+
+// Luz del medallón: verde girando con conexión, gris sin ella (sin repintar la dashboard).
+const jmSync = () => { for (const el of document.querySelectorAll('.jmw')) { el.classList.toggle('off', navigator.onLine === false); el.title = navigator.onLine === false ? 'Sin conexión' : 'Conectado'; } };
+window.addEventListener('online', jmSync); window.addEventListener('offline', jmSync);

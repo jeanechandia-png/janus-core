@@ -1,0 +1,143 @@
+/* ===== JANUS Work · ajustes mínimos sobre la piel de IBA (prefijo único `jw-`) =====
+ * El diseño es el de IBA (command-center.css, sin modificar). Aquí solo hay lo que esa hoja no trae
+ * para este uso: la barra de vista previa, texto en varias líneas y legibilidad sobre fondo claro.
+ * No se redefine ninguna clase `cc-*` de forma global.
+ */
+html,body{margin:0;background:#f5f7f9}
+.jw-example{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.jw-example b{letter-spacing:.04em}
+.jw-example span{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.jw-example button{border:1px solid #cfe0f1;border-radius:999px;background:#fff;color:#35648d;padding:6px 10px;font-size:9px;font-weight:800;cursor:pointer;min-height:30px}
+.jw-example button.active{background:#101318;border-color:#101318;color:#fff}
+.jw-next{color:#9a6500!important}
+.jw-wrap{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.5}
+.cc-mini-list strong.jw-wrap{font-weight:600}
+.jw-left{justify-content:flex-start;margin-bottom:10px}
+.jw-actions{margin:12px 0 4px;justify-content:flex-start}
+.jw-actions button{min-height:36px;padding:8px 12px;font-size:10px}
+.jw-msg.jw-user{border-top-style:dashed}
+.jw-msg>small:first-child{margin:0 0 4px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.jw-msg.jw-user>p{color:#0f5fb3}
+.jw-pem{display:block;width:100%;margin-top:8px;border:1px solid #d9e7f7;border-radius:8px;padding:8px;font:10px ui-monospace,SFMono-Regular,Menlo,monospace;resize:none;background:#fff;color:#27323c}
+.jw-time{font-size:20px!important}
+.cc-intake-panel .cc-panel-head small{color:#7f9db7}
+.cc-intake-panel .cc-panel-head h3{color:#edf8ff}
+.cc-intake-form .cc-inline-notice{grid-column:1/-1}
+.cc-main section[id],.cc-main form[id]{scroll-margin-top:16px}
+@media(max-width:600px){.jw-example{font-size:9px}.cc-top-actions .cc-primary-action,.cc-top-actions .refresh{flex:1}}
+.jw-cont{font-size:10px;line-height:1.5}
+.jw-links{margin-left:0;justify-content:flex-start}
+.cc-admin-strip .cc-readonly-badge{display:inline-block;margin-top:6px}
+/* Medallones de idioma: el arte 3D ES el botón (sin marco añadido). Se conserva el componente compartido
+   `janus-language-button` (estado iluminado, barrido de luz al tocar, foco) y aquí solo se adapta a un arte con aro propio. */
+.janus-language-switch{gap:4px}
+.janus-language-button.jw-flag{width:48px;height:48px;min-width:48px;padding:0;border:0;border-radius:50%;background:none;box-shadow:none;overflow:visible;--flag-glow:rgba(86,170,255,.85);
+  filter:saturate(.8) brightness(.9) drop-shadow(0 3px 4px rgba(16,19,24,.3));transition:filter .22s ease,transform .18s ease}
+.janus-language-button.jw-flag[data-language="es"]{--flag-glow:rgba(255,176,60,.9)}
+.janus-language-button.jw-flag[data-language="nl"]{--flag-glow:rgba(96,160,255,.9)}
+.janus-language-button.jw-flag img{object-fit:contain;border-radius:0}
+.janus-language-button.jw-flag:hover{filter:saturate(1) brightness(1.04) drop-shadow(0 5px 7px rgba(16,19,24,.32));transform:translateY(-1px)}
+.janus-language-button.jw-flag.is-lit{border:0;box-shadow:none;filter:saturate(1.1) brightness(1.13) drop-shadow(0 0 5px var(--flag-glow)) drop-shadow(0 0 13px var(--flag-glow)) drop-shadow(0 4px 6px rgba(16,19,24,.28))}
+.janus-language-button.jw-flag:active{transform:scale(.92);filter:saturate(1.15) brightness(1.3) drop-shadow(0 0 10px var(--flag-glow))}
+.janus-language-button.jw-flag::after{inset:4%;border-radius:50%;transform:none;opacity:0;background:linear-gradient(112deg,transparent 38%,rgba(255,255,255,.82) 50%,transparent 62%) no-repeat;background-size:260% 100%;background-position:130% 0}
+.janus-language-button.jw-flag:active::after{opacity:1;transform:none;transition:background-position .44s ease-out;background-position:-30% 0}
+.janus-language-button.jw-flag.jw-flash::after{animation:jw-sweep .62s ease-out 1}
+@keyframes jw-sweep{0%{opacity:1;background-position:130% 0}100%{opacity:0;background-position:-30% 0}}
+.janus-language-button.jw-flag:focus-visible{outline:2px solid #007aff;outline-offset:3px}
+.jw-login-row{align-items:center;flex-wrap:wrap;gap:10px}
+.jw-foot{justify-content:space-between}
+@media(prefers-reduced-motion:reduce){.janus-language-button.jw-flag,.janus-language-button.jw-flag::after{transition:none;animation:none}.janus-language-button.jw-flag:hover{transform:none}}
+.jw-agent{color:#35648d!important;font-weight:700}
+.jw-usage{white-space:nowrap}
+.jw-attach{flex-wrap:wrap}
+/* agenda */
+.jw-agenda-form{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px 10px;align-items:end;margin:4px 0 14px}
+.jw-agenda-form label{display:grid;gap:4px;min-width:0;grid-column:span 2}.jw-agenda-form label:nth-of-type(4),.jw-agenda-form label:nth-of-type(5){grid-column:span 3}.jw-agenda-form label.wide{grid-column:1/6}
+.jw-agenda-form span{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8794}
+.jw-agenda-form input,.jw-agenda-form select{width:100%;min-height:40px;border:1px solid #d9e2ec;border-radius:11px;background:#fff;color:#101318;padding:8px 10px;font:inherit;font-size:12px;box-sizing:border-box}
+.jw-agenda-form input:focus,.jw-agenda-form select:focus{outline:2px solid #007aff;outline-offset:1px}
+.jw-agenda-form button{min-height:40px;border:0;border-radius:11px;background:#007aff;color:#fff;font-weight:800;font-size:11px;cursor:pointer}
+.jw-done strong{text-decoration:line-through;opacity:.5}
+@media(max-width:600px){.jw-agenda-form label{grid-column:span 3}.jw-agenda-form label:first-of-type,.jw-agenda-form label.wide,.jw-agenda-form button{grid-column:1/-1}}
+/* visor interno (sin descarga) */
+.jw-viewer{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;background:#0b0e12;color:#edf2f7;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.jw-viewer-top{display:flex;align-items:center;gap:12px;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:1px solid #222a33}
+.jw-viewer-top strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.jw-viewer-top span{flex:1;font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#8fa3b8}
+.jw-viewer-x{width:40px;height:40px;border:1px solid #2c3742;border-radius:50%;background:#141a21;color:#fff;font-size:20px;cursor:pointer}
+.jw-viewer-body{position:relative;flex:1;min-height:0;overflow:auto;display:grid;place-items:center}
+.jw-viewer-body img{max-width:100%;max-height:100%;object-fit:contain;pointer-events:none}
+.jw-viewer-body iframe{width:100%;height:100%;border:0;background:#fff}
+.jw-viewer-body pre{align-self:start;justify-self:stretch;margin:0;padding:20px;white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+.jw-viewer-mark{position:absolute;inset:-20%;display:flex;flex-wrap:wrap;align-content:space-around;justify-content:space-around;gap:70px 50px;transform:rotate(-24deg);pointer-events:none;overflow:hidden}
+.jw-viewer-mark span{font-size:11px;font-weight:800;letter-spacing:.04em;white-space:nowrap;color:rgba(255,255,255,.2);text-shadow:0 0 1px rgba(0,0,0,.5);mix-blend-mode:difference}
+/* velo: al pasar la app a segundo plano no queda contenido a la vista */
+.jw-veiled .cc-main,.jw-veiled .jw-viewer-body{filter:blur(22px)}
+@media print{body{display:none!important}}
+.jw-agenda-form textarea{width:100%;border:1px solid #d9e2ec;border-radius:11px;background:#fff;color:#101318;padding:8px 10px;font:inherit;font-size:12px;box-sizing:border-box;resize:vertical}
+.jw-msg-form label.wide,.jw-project-form label.wide{grid-column:1/-1}.jw-msg-form button,.jw-project-form button{grid-column:1/-1}
+.jt-agent{display:inline-flex;align-items:center;gap:8px;margin-top:8px}.jt-agent span{font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8794}.jt-agent select{min-height:34px;border:1px solid #d9e2ec;border-radius:10px;background:#fff;color:#101318;padding:4px 8px;font:inherit;font-size:11px}
+.jt-toggle{display:inline-flex;align-items:center;gap:8px;font-size:10px;font-weight:700;color:#35648d;white-space:nowrap;cursor:pointer}.jt-toggle input{width:18px;height:18px;accent-color:#007aff}
+.jt-body{margin:8px 0 2px;font-size:12px;line-height:1.55;color:#27323c;white-space:pre-wrap}
+
+/* Accesos (vista de equipo del CEO): mismo lenguaje visual de IBA, sin componentes nuevos. */
+.jt-invite{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:10px;align-items:end;margin-bottom:12px}
+.jt-invite label{display:grid;gap:5px;font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#7a8794}
+.jt-invite input,.jt-invite select{min-height:42px;border:1px solid #d9e2ec;border-radius:12px;background:#fff;color:#101318;padding:8px 12px;font:inherit;font-size:14px;text-transform:none;letter-spacing:0;font-weight:500}
+.jt-invite button,.jt-link button,.jt-access .cc-list button{min-height:42px;border:0;border-radius:12px;background:#11151a;color:#fff;padding:8px 16px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.jt-access .cc-list button{min-height:34px;background:#eef2f6;color:#11151a}
+.jt-link{display:grid;gap:8px}.jt-link textarea{width:100%;border:1px solid #d9e2ec;border-radius:10px;padding:8px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:none;background:#fff;color:#101318}.jt-link span{display:flex;gap:8px}
+@media (max-width:760px){.jt-invite{grid-template-columns:1fr}}
+
+/* Lector de códigos con la piel de IBA (tema opcional de janus-attach; el dorado del CEO no cambia). */
+.jat-theme-iba{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.jat-theme-iba.nolive{background:radial-gradient(90% 60% at 50% 28%,#1b2430,#0b0e12)}
+.jat-theme-iba .jat-fr{width:min(82vw,420px);aspect-ratio:1.45;border-radius:18px}
+.jat-theme-iba .jat-fr i{border-color:#fff}
+.jat-theme-iba .jat-fr b{background:linear-gradient(90deg,transparent,#4da3ff,transparent);box-shadow:0 0 12px #007aff}
+.jat-theme-iba .jat-x:focus-visible,.jat-theme-iba .jat-b:focus-visible{outline:2px solid #4da3ff}
+.jat-theme-iba .jat-b{border-radius:12px;background:rgba(17,21,26,.82);color:#fff;border:1px solid rgba(255,255,255,.28);font-weight:700}
+.jat-theme-iba .jat-b.big,.jat-theme-iba .jat-b.on{background:#007aff;border-color:#007aff;color:#fff}
+.jat-theme-iba .jat-b .jat-i{color:#fff}
+.jat-theme-iba .jat-b{box-shadow:none}
+
+/* Sello oficial de InfinitySeed Group: sobre la barra oscura en escritorio; sobre placa oscura donde el fondo es claro. */
+.cc-sidebar .jw-brand{padding:2px 6px 26px}
+.jw-brand-img{display:block;width:100%;max-width:196px;height:auto}
+.cc-sidebar .jw-brand em{display:block;margin-top:10px;padding-left:4px}
+.cc-login-card .jw-brand{padding:0 0 22px}
+.cc-login-card .jw-brand-img{max-width:260px;box-sizing:border-box;background:#10151a;border-radius:16px;padding:12px 16px}
+.cc-login-card .jw-brand em{display:block;margin-top:10px}
+.jw-brand-bar{display:none}
+@media (max-width:900px){.cc-sidebar .jw-brand .jw-brand-img{display:none}.cc-sidebar .jw-brand{padding:4px 5px 24px}}
+@media (max-width:600px){.jw-brand-bar{display:block;margin:2px 0 14px;padding:12px 16px;background:#10151a;border-radius:16px}.jw-brand-bar img{display:block;width:min(180px,56vw);height:auto}}
+/* Vuelta a la dashboard del CEO desde su vista de equipo */
+.jt-back{display:inline-flex;align-items:center;min-height:36px;color:#9fb6d0;font-size:12px;font-weight:800;text-decoration:none}
+.cc-sidebar-foot .jt-back{margin-top:10px}
+.jt-back-top{padding:0 14px;border:1px solid #d9e2ec;border-radius:12px;background:#fff;color:#101318;min-height:40px}
+.jt-back:focus-visible{outline:2px solid #4da3ff;outline-offset:2px}
+@media (max-width:900px){.cc-sidebar-foot .jt-back{display:none}}
+
+/* ── Comunicación del CEO con su equipo (vista de equipo) y bandeja «Mensajes del CEO» (panel) ── */
+.jt-primary{border:0;border-radius:12px;padding:10px 14px;background:#11151a;color:#fff;font:600 13px/1 inherit;cursor:pointer;box-shadow:0 2px 0 #000}
+.jt-primary:active{transform:translateY(1px);box-shadow:none}
+.jt-compose{border:2px solid #11151a}
+.jt-compose .cc-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.jt-compose .cc-panel-head>button{border:0;background:#eef1f5;border-radius:10px;inline-size:36px;block-size:36px;font-size:15px;cursor:pointer}
+.jt-compose-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;margin-top:6px}
+.jt-compose-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:#3d4653}
+.jt-compose-form .wide{grid-column:1/-1}
+.jt-compose-form input[type=text],.jt-compose-form select,.jt-compose-form textarea{font:500 15px/1.35 inherit;padding:11px 12px;border:1.5px solid #c9d1dc;border-radius:12px;background:#fff;color:#11151a;inline-size:100%;box-sizing:border-box}
+.jt-compose-form input[type=file]{font:500 13px/1.3 inherit}
+.jt-compose-form small{font-weight:500;color:#5b6573}
+.jt-compose-actions{display:flex;gap:10px}
+.jt-compose-actions button{border:0;border-radius:12px;padding:12px 20px;background:#11151a;color:#fff;font:700 14px/1 inherit;cursor:pointer}
+.jt-compose-actions button.ghost{background:#eef1f5;color:#11151a}
+.jt-compose-actions button:disabled{opacity:.55}
+.jt-dir{display:inline-block;font-size:11px;font-weight:700;color:#1d5fae;background:#e6f0ff;border-radius:99px;padding:2px 8px;margin-right:4px}
+.jt-unread,.jw-unread{background:linear-gradient(90deg,rgba(29,95,174,.09),transparent 60%)}
+.jt-files{font-size:12.5px;color:#3d4653}
+.jw-inbox-title{margin:4px 0 8px;font-size:14px;font-weight:700}
+.jw-inbox-new{display:inline-grid;place-items:center;min-inline-size:20px;block-size:20px;border-radius:99px;background:#d93838;color:#fff;font-size:11px;padding:0 5px}
+.jw-inbox{margin-bottom:16px}
+.jw-inbox-body{margin:8px 0;white-space:pre-wrap;font-size:14px;line-height:1.45}
+@media (max-width:600px){.jt-compose-form{grid-template-columns:1fr}.cc-top-actions{flex-wrap:wrap}}
