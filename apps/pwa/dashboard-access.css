@@ -23,6 +23,30 @@
 .janus-access-links a:focus-visible,.janus-access-links button:focus-visible{outline:2px solid #f5dba2;outline-offset:2px}
 .janus-access-links button[hidden]{display:none}
 .janus-access-status{font:11px/1.35 system-ui;color:#dfe7fb}
+/* «Aprobar»: aviso rojo en la cabecera cuando hay acciones en pausa; despliega la lista con Aprobar / Denegar. */
+.janus-approvals{position:relative;flex:0 0 auto}
+.janus-approvals[hidden]{display:none}
+.janus-approvals-chip{list-style:none;display:inline-flex;align-items:center;gap:7px;block-size:40px;padding:0 12px;border-radius:13px;cursor:pointer;color:#fff;font:700 12.5px/1 system-ui,-apple-system,sans-serif;border:1px solid #ff9a9a;background:linear-gradient(#e4504f,#a52423);box-shadow:0 3px 0 #6d1414,0 0 14px rgba(255,90,90,.45),inset 0 1px 0 rgba(255,255,255,.35);animation:jap-pulse 1.6s ease-in-out infinite}
+.janus-approvals-chip::-webkit-details-marker{display:none}
+.janus-approvals-chip:active{transform:translateY(2px);box-shadow:0 1px 0 #6d1414}
+.jap-icon{display:inline-grid;place-items:center;inline-size:18px;block-size:18px;border-radius:50%;background:#fff;color:#a52423;font-weight:900}
+.jap-count{display:inline-grid;place-items:center;min-inline-size:19px;block-size:19px;padding:0 5px;border-radius:99px;background:rgba(0,0,0,.35)}
+@keyframes jap-pulse{0%,100%{box-shadow:0 3px 0 #6d1414,0 0 8px rgba(255,90,90,.35),inset 0 1px 0 rgba(255,255,255,.35)}50%{box-shadow:0 3px 0 #6d1414,0 0 20px rgba(255,90,90,.85),inset 0 1px 0 rgba(255,255,255,.35)}}
+.janus-approvals-panel{position:absolute;right:0;top:calc(100% + 8px);z-index:120;inline-size:min(92vw,380px);max-block-size:70vh;overflow:auto;padding:12px;border-radius:16px;background:#12151cf7;color:#f3ebdd;border:1px solid rgba(255,222,160,.55);box-shadow:0 24px 50px -18px #000}
+.jap-title{font:600 10.5px/1 "IBM Plex Mono",ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase;color:#f2c46a;margin-bottom:8px}
+.jap-row{display:flex;flex-direction:column;gap:5px;padding:10px 0;border-top:1px solid rgba(255,255,255,.12)}
+.jap-row strong{font:600 14px/1.25 "Instrument Sans",system-ui,sans-serif}
+.jap-row small{font:400 12px/1.35 "Instrument Sans",system-ui,sans-serif;color:#cdbf9f}
+.jap-row.is-critical strong::before{content:"⚠ ";color:#ff8a8a}
+.jap-actions{display:flex;gap:8px;margin-top:4px}
+.jap-actions button{flex:1;border:0;border-radius:11px;padding:11px 10px;font:700 13.5px/1 system-ui,sans-serif;cursor:pointer}
+.jap-actions button:disabled{opacity:.5}
+.jap-yes{background:linear-gradient(#3ecf8a,#1c8f57);color:#04210f;box-shadow:0 3px 0 #0e5a35}
+.jap-no{background:#2a2f36;color:#f3ebdd;border:1px solid #586172!important;box-shadow:0 3px 0 #101318}
+.jap-actions button:active{transform:translateY(2px);box-shadow:none}
+.jap-error{margin-top:8px;font:500 12px/1.3 system-ui,sans-serif;color:#ffb0b0}
+@media(max-width:480px){.janus-approvals-chip .jap-text{display:none}.janus-approvals-panel{position:fixed;left:8px;right:8px;top:64px;inline-size:auto}}
+@media(prefers-reduced-motion:reduce){.janus-approvals-chip{animation:none}}
 /* «Mi equipo»: tarjeta con lucecitas. Mismo cristal y borde dorado que las tarjetas aprobadas; se hunde al tocarla. */
 .janus-team-panel,.janus-team-card{color:#f3ebdd;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;border:1px solid rgba(255,222,160,.55);background:linear-gradient(rgba(255,255,255,.1),rgba(255,255,255,.03));box-shadow:0 14px 26px -18px #000,inset 0 1px 0 rgba(255,255,255,.25),inset 0 -1px 0 rgba(0,0,0,.4);transition:transform .09s ease,box-shadow .12s ease,border-color .2s}
 .janus-team-panel:hover,.janus-team-card:hover{border-color:rgba(255,222,160,.85)}

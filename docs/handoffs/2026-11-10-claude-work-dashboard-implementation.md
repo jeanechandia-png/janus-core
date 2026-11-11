@@ -338,6 +338,13 @@ rutas `/api/integrations*`), `sandbox-runner.ts` (`/api/sandbox/status`, `/api/c
 `ApprovalQueue` existente, con aviso al dispositivo del CEO). Tablas `knowledge_items` y `service_catalogs`.
 Pruebas: 22 unitarias nuevas + bloque de extremo a extremo; `npm test` 757/0; smoke 23 bloques.
 
+## Actualización 11-nov-2026 (12:00) — aprobar en pantalla, voz → servicios, redacción de cambios
+
+Aprobado por el CEO («Ejecuta»). Detalle en `docs/ADR-012-anti-obsolescence-architecture.md` (sección de las 12:00):
+`apps/pwa/approval-chip.js` (caché `janus-shell-v18`), `packages/adapters/src/integration-hub-adapter.ts`
+(herramienta `integration`; pendiente que el CEO la permita en el Blueprint), `packages/core/src/change-drafter.ts` y
+`POST /api/changes/draft`. Pruebas: `npm test` 768/0; smoke 23 bloques; navegador 15/15 (aprobar) y 76/76 (Mi equipo).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

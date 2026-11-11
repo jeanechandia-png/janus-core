@@ -411,6 +411,11 @@ try {
   assert.equal(sandbox.selfChange.enabled, false); assert.ok(sandbox.drivers.some((d) => d.isolation === 'process' && d.available));
   await call('POST', '/api/changes', founder, { id: 'cambio-uno', summary: 'x', changes: [], checks: ['typecheck'] }, 409);
   await call('GET', '/api/sandbox/status', dev, undefined, 403);
+  await call('POST', '/api/changes/draft', founder, { id: 'cambio-dos', instruction: 'Cambia el título de la página', files: ['README.md'], checks: ['typecheck'] }, 409);
+  await call('POST', '/api/changes/draft', dev, { id: 'cambio-dos', instruction: 'x', files: ['README.md'], checks: ['typecheck'] }, 403);
+  // Voz/planificador → servicios: la herramienta única existe; escribir por ella exige aprobación; el Blueprint la ofrece para permitir.
+  const sync2 = await call('GET', '/api/learning/blueprints/tool-sync', founder, undefined, 200);
+  assert.ok(JSON.stringify(sync2).includes('integration'), 'la herramienta «integration» aparece para que el CEO la permita o ya está permitida');
   ok('anti-obsolescencia: memoria sin mezclar ámbitos, servicio por especificación, borrado en pausa hasta decidir, sandbox veraz');
 
   // ── /work: una sola página para todos; sin piel verificada no se sirve otro diseño ────────────

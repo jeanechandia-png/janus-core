@@ -3,6 +3,7 @@ import './knowledge-review.js';
 import { currentLanguage, mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { sessionToken } from './founder-session.js';
 import { mountTeamPanel } from './team-panel.js';
+import { mountApprovalChip } from './approval-chip.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
@@ -32,6 +33,9 @@ const team = mountTeamPanel({
   }),
 });
 controls.prepend(team.compact);
+// «Aprobar»: visible solo si hay acciones en pausa esperando la decisión del CEO (cola de aprobaciones existente).
+const approvals = mountApprovalChip();
+controls.prepend(approvals.element);
 const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');

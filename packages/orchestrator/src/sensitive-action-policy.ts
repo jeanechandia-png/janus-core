@@ -23,6 +23,7 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',
   'google-workspace-write.gmail.draft.update': 'Corrige un borrador de Gmail (escritura en tu correo; no se envía).',
   'google-workspace-write.gmail.draft.send': 'ENVÍA un correo desde tu cuenta (irreversible: el destinatario lo recibe).',
+  'integration.operation.write': 'Cambia datos en un servicio conectado por su especificación (crear, modificar o borrar; escritura externa).',
   'knowledge.change.apply': 'Cambia lo que Janus, Melanie y los chats saben del negocio (precios, IVA, productos, equipo, instrucciones).',
   'knowledge.snapshot.publish': 'Publica el conocimiento del negocio a los asistentes de cara al público (escritura externa).',
   // Reservadas para canales por venir. Ningún adaptador las implementa todavía, pero nacen con aprobación obligatoria:

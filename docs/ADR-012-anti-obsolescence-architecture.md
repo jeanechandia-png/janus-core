@@ -53,9 +53,30 @@ Sin dependencias nuevas en `package.json`.
 `tests/spec-connector.test.ts`, `tests/sandbox-runner.test.ts`, `tests/knowledge-memory.test.ts`, `tests/operation-risk.test.ts` (22) y un bloque de extremo a extremo en `tests/work-runtime-smoke.mjs`.
 No verificado: un servicio real por su especificación (el entorno de trabajo no tiene salida libre a internet), Docker, Qdrant, un modelo de embeddings real.
 
+## Actualización 11-nov-2026 (12:00) — los tres pasos siguientes, hechos
+
+1. **Aprobar / Denegar en la pantalla del CEO** (`apps/pwa/approval-chip.js`): aviso rojo «Aprobar n» en la cabecera de
+   las dashboards A/B, visible solo cuando hay acciones en pausa; despliega la lista (qué, dónde, por qué, riesgo,
+   caducidad) con los dos botones. Usa la cola existente; el panel «Aprobaciones» de la app sigue igual.
+   Probado en navegador (escritorio, tablet, móvil): 15/15.
+2. **De la orden (voz o texto) a cualquier servicio conectado** (`packages/adapters/src/integration-hub-adapter.ts`):
+   una sola herramienta `integration` con `operation.find`, `operation.read` y `operation.write`. El planificador
+   recibe, con cada orden, los servicios conectados y las operaciones que más se le parecen (`connectedServices`).
+   `operation.read` se niega a ejecutar lo que no sea lectura; `integration.operation.write` está en la política de
+   acciones sensibles: siempre espera la aprobación del CEO, diga lo que diga el modelo.
+   **Requisito de gobierno existente:** el CEO debe permitir la herramienta nueva una vez («acciones nuevas por
+   permitir», dos toques). Sin eso el planificador no puede usarla.
+3. **Un modelo redacta el cambio de código** (`packages/core/src/change-drafter.ts`, `POST /api/changes/draft`):
+   lee del último commit solo los archivos indicados, pide al modelo el contenido completo y valida el borrador:
+   solo esos archivos (o nuevos bajo carpetas permitidas), nunca secretos, dependencias, CI ni instaladores. Luego
+   pasa por la misma tubería (clon → sandbox → commit preparado → aprobación para subir).
+
+NO VERIFICADO: la orden por voz con un modelo real (probado con un modelo simulado), la redacción con un modelo real y
+el aviso al teléfono. Sigue apagado por defecto: `JANUS_SELF_CHANGE`.
+
 ## Siguiente paso
 
-1. Cablear al planificador de voz la elección de servicio y operación (con la memoria como contexto).
-2. Botones Aprobar / Denegar en la dashboard del CEO para la cola de aprobaciones.
-3. Que un modelo redacte el cambio que entra a `ChangePipeline`.
-4. Activar en el equipo real: embeddings, Docker (cuando haya servidor) y `JANUS_SELF_CHANGE`.
+1. Encender JANUS en un equipo, permitir la herramienta `integration` y probar una orden real contra un servicio real.
+2. Autenticación de servicios distinta de Bearer (clave en cabecera propia, OAuth) cuando un servicio la necesite.
+3. Especificaciones en YAML.
+4. Activar embeddings, Docker (cuando haya servidor) y `JANUS_SELF_CHANGE`.

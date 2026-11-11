@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -105,7 +105,9 @@ import {
 } from '../../packages/core/src/work-dashboard-template.js';
 import { WorkPresenceTracker, resolveWorkPresence } from '../../packages/core/src/work-presence.js';
 import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
+import { IntegrationHubAdapter, integrationBrief } from '../../packages/adapters/src/integration-hub-adapter.js';
 import { HashingEmbedder, HttpEmbedder, KnowledgeMemory, MEMORY_KINDS, type MemoryKind } from '../../packages/core/src/knowledge-memory.js';
+import { ChangeDraftError, assertDraftablePath, draftChange } from '../../packages/core/src/change-drafter.js';
 import { ChangePipeline, DockerSandboxDriver, ProcessSandboxDriver, selectSandboxDriver, type PreparedChange } from '../../packages/core/src/sandbox-runner.js';
 import {
   McpHttpClient, SpecError, SpecToolAdapter, fetchTransport, findOperations, parseGraphqlIntrospection, parseOpenApi,
@@ -1486,6 +1488,16 @@ async function fetchSpecDocument(rawUrl: string): Promise<unknown> {
   try { return JSON.parse(text); } catch { throw new HttpRequestError(422, 'la especificación no es JSON (si es YAML, use su variante JSON)'); }
 }
 
+// Voz y planificador → cualquier servicio conectado, por una sola herramienta (`integration`). Las escrituras esperan
+// la aprobación del CEO por la política de acciones sensibles existente; las lecturas pasan solas.
+toolGateway.register(new IntegrationHubAdapter({
+  listCatalogs: () => store.listServiceCatalogs().map((entry) => entry.catalog),
+  classify: (descriptor) => hitlGate.classify(descriptor),
+  executeOperation: (catalog, _operation, request, onProgress) => specAdapterFor(catalog).execute(request, onProgress),
+}));
+capabilities.register({ tool: 'integration', actions: ['operation.find', 'operation.read'], state: 'available' });
+capabilities.register({ tool: 'integration', actions: ['operation.write'], state: 'available' });
+
 // Pilar 2 — sandbox. Contenedor si hay Docker en este equipo; si no, proceso (aislamiento débil, declarado en cada resultado).
 const sandboxDrivers = [new DockerSandboxDriver({ image: process.env.JANUS_SANDBOX_IMAGE?.trim() || 'node:22-slim' }), new ProcessSandboxDriver()];
 const selfChangeEnabled = process.env.JANUS_SELF_CHANGE === 'on';
@@ -2531,6 +2543,7 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
     // Pilar 3: consulta obligatoria de la memoria antes de planificar. Solo ámbito laboral (lo personal y familiar no entra).
     const memoryBrief = await knowledgeMemory.briefFor(command, ['work']).catch(() => null);
+    const connectedServices = integrationBrief(store.listServiceCatalogs().map((entry) => entry.catalog), command, (descriptor) => hitlGate.classify(descriptor));
     const modelResult = await planWithModel(command, {
       modelGateway: runModelGateway,
       toolCatalog: executionPolicy.toolCatalog,
@@ -2538,6 +2551,7 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
         ...(timeZone ? { timeZone } : {}),
         executionPolicy: 'Janus Core validates every proposed step before execution',
         ...(memoryBrief?.text ? { memory: memoryBrief.text } : {}),
+        ...(connectedServices.length ? { connectedServices: { note: 'Services connected by their specification. Use tool "integration": operation.read for level "auto", operation.write for anything else (it waits for the Founder approval). Input: { service, operation, args }. Parameters marked * are required; put a request body in args.body.', services: connectedServices } } : {}),
         ...(runEffort ? { effort: effortPlanningGuidance(runEffort) } : {}),
         ...(runInterpretations.get(runId)?.corrections.length ? {
           transcriptInterpretation: {
@@ -6749,6 +6763,44 @@ const server = createServer(async (request, response) => {
       if (prepared.status === 'ready') preparedChanges.set(prepared.id, prepared);
       const { workdir: _workdir, ...publicView } = prepared;
       json(response, prepared.status === 'ready' ? 201 : 422, { ok: prepared.status === 'ready', change: publicView });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+  // Un modelo REDACTA el cambio a partir de la orden del CEO; después pasa por la misma tubería (clon → sandbox → commit preparado).
+  if (url.pathname === '/api/changes/draft' && request.method === 'POST') {
+    try {
+      requireFounderAuthority(request);
+      if (!selfChangeEnabled) throw new HttpRequestError(409, 'self-change is disabled on this node');
+      const body = await readJson(request);
+      const checks = coordinationStringList(body.checks).map((name) => SELF_CHANGE_CHECKS[name]).filter((argv): argv is readonly string[] => Boolean(argv));
+      if (!checks.length) throw new HttpRequestError(400, `checks must name at least one of: ${Object.keys(SELF_CHANGE_CHECKS).join(', ')}`);
+      const draftGateway = modelGateway;
+      if (!draftGateway) throw new HttpRequestError(409, 'no hay ningún modelo configurado para redactar el cambio');
+      let drafted;
+      try {
+        // Solo archivos versionados, leídos del último commit: nunca .env ni archivos locales sin versionar.
+        const files = coordinationStringList(body.files).map((path) => {
+          const clean = assertDraftablePath(path);
+          const shown = spawnSync('git', ['show', `HEAD:${clean}`], { cwd: selfChangeRepo, encoding: 'utf8', timeout: 20_000, maxBuffer: 2_000_000 });
+          if (shown.status !== 0) throw new ChangeDraftError(`no existe en el repositorio: ${clean}`);
+          return { path: clean, content: String(shown.stdout) };
+        });
+        drafted = await draftChange({ instruction: typeof body.instruction === 'string' ? body.instruction : '', files, allowNewUnder: coordinationStringList(body.allowNewUnder), modelGateway: draftGateway });
+      } catch (error) {
+        if (error instanceof ChangeDraftError) throw new HttpRequestError(422, error.message);
+        throw new HttpRequestError(502, `el modelo no pudo redactar el cambio: ${error instanceof Error ? error.message.slice(0, 200) : 'error'}`);
+      }
+      const driver = selectSandboxDriver(sandboxDrivers, { requireContainer: body.requireContainer === true });
+      let prepared: PreparedChange;
+      try {
+        prepared = await new ChangePipeline({ driver }).propose({
+          id: typeof body.id === 'string' ? body.id : '', repoDir: selfChangeRepo, summary: drafted.summary,
+          changes: drafted.changes, checks, dependencyDirs: ['node_modules'], timeoutMs: 20 * 60_000,
+        });
+      } catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid change'); }
+      if (prepared.status === 'ready') preparedChanges.set(prepared.id, prepared);
+      const { workdir: _workdir, ...publicView } = prepared;
+      json(response, prepared.status === 'ready' ? 201 : 422, { ok: prepared.status === 'ready', draftedBy: { provider: drafted.provider, model: drafted.model }, notes: drafted.notes, change: publicView });
     } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
     return;
   }
