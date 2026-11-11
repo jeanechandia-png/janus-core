@@ -110,6 +110,7 @@ export function ingestProductIncidents(input:{
     const previous=current.get(incident.productId+':'+incident.id);
     if(previous&&incident.revision<previous.revision)throw new Error('incident_revision_rollback');
     if(previous&&incident.fingerprint!==previous.fingerprint)throw new Error('incident_fingerprint_changed');
+    if(previous&&previous.requiredEvidence.some(kind=>!incident.requiredEvidence.includes(kind)))throw new Error('incident_requirements_weakened');
     if(previous&&incident.revision===previous.revision) {
       if(hash(incident)!==hash(previous))throw new Error('incident_revision_conflict');
       continue;

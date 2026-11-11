@@ -43,6 +43,7 @@ test('invalid, disappearing or rewritten incident reports preserve prior memory 
   (v:any)=>{v.incidents[0].cause='rewritten without revision';},
   (v:any)=>{v.incidents[1].status='resolved';v.incidents[1].causeStatus='confirmed';},
   (v:any)=>{v.incidents[0].privateEmail='person@example.com';},
+  (v:any)=>{v.revision=2;v.incidents[0].revision=2;v.incidents[0].requiredEvidence=['regression'];},
  ]) {const v=fixture().feed;mutate(v);assert.throws(()=>ingestProductIncidents({...input,feed:v}));assert.equal(db.listProductIncidentRecords().length,before);}
  assert.throws(()=>db.productIncidentTransaction(()=>{db.appendChronologyRecord({id:'should-rollback',sessionId:'product-incidents',at,kind:'lesson',subject:'rollback-test',content:'test',status:'current'});throw new Error('disk failure');}));
  assert.equal(db.listChronologyRecords().some(r=>r.id==='should-rollback'),false);
