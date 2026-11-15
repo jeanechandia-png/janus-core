@@ -382,6 +382,32 @@ con modelo simulado compatible OpenAI, sin fugas a registros/disco), navegador 3
 NO VERIFICADO: calidad con un modelo real, dictado neerlandés por altavoz telefónico, voces instaladas en la tablet.
 El expediente del caso real vive solo fuera del repositorio (archivo privado para `JANUS_PRIVATE_IMPORT_DIR`).
 
+## Actualización 15-nov-2026 (18:30) — cuentas de la empresa (balance y resultados) y declaración ante la Belastingdienst
+
+Orden del Founder (15-nov, 17:12–17:14): JANUS debe dar balance y estado de resultados, preparar la declaración anual
+holandesa con conocimiento basado en varias fuentes fiables, todo como módulos LEGO, y con medidas anti-obsolescencia.
+
+- **`packages/modules/company-books` 1.0.0** (sin imports): `createJournalEntry` (Debe = Haber, céntimos enteros),
+  `quickLines` (13 operaciones sencillas, IVA incluido separado sin perder céntimos), `reverseEntry`, `trialBalance`,
+  `incomeStatement`, `balanceSheet` (comprueba Activo = Pasivo + Patrimonio), `journalCsv` (neutraliza fórmulas),
+  `parseAmountToMinor` (rechaza importes ambiguos como «12,345»). Plan de cuentas base de 27 cuentas, ampliable.
+- **`packages/modules/nl-tax-prep` 1.0.0** (sin imports): `validateRulePack`, `citation` (verificada = ≥ 2 editores y
+  una fuente oficial), `packHealth` (caducidad), `buildWorksheet` (zelfstandigenaftrek y startersaftrek solo con horas
+  acreditadas; mkb-winstvrijstelling; tramos de box 1; bonificaciones; Zvw; o vennootschapsbelasting para bv),
+  `vatByQuarter`. Paquete `packs/nl-2026.json` con 8 fuentes; consultadas el 15-nov-2026.
+- **Runtime (solo Founder):** `GET /api/books`, `POST /api/books/entries` (sencillo o manual),
+  `POST /api/books/entries/:id/reverse`, `POST /api/books/accounts`, `PUT /api/books/company`,
+  `GET /api/books/journal.csv`, `GET /api/tax/nl`, `POST /api/tax/packs`. Tablas `books_journal` (sellada, sin
+  actualización), `books_accounts`, `books_settings`, `tax_rule_packs`.
+- **Dashboard:** `src/cuentas.js`, pestaña «Cuentas» con tres vistas (Resultados y balance · Anotar · Belastingdienst).
+- **Decisiones:** sin forma jurídica confirmada no hay cálculo de impuesto; sin paquete del año no se extrapola; la
+  anulación lleva la fecha del asiento original para no descuadrar trimestres; no hay cierre de periodos todavía.
+- **No hecho:** lectura de bancos/Stripe/facturas (todo se anota a mano o por API); enlace con el libro por producto
+  existente (`product_ledger_entries`, que sigue intacto); anotar por voz; cuentas anuales oficiales; presentación
+  telemática; paquete de reglas 2025; pareja fiscal, box 3, vivienda.
+- **Error y lección de la sesión:** la primera versión fechaba la anulación «hoy», lo que movía el IVA de un trimestre a
+  otro → la prueba de extremo a extremo lo detectó → ahora usa la fecha del asiento → verificado en `books-runtime.mjs`.
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

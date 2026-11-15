@@ -80,3 +80,38 @@ el aviso al teléfono. Sigue apagado por defecto: `JANUS_SELF_CHANGE`.
 2. Autenticación de servicios distinta de Bearer (clave en cabecera propia, OAuth) cuando un servicio la necesite.
 3. Especificaciones en YAML.
 4. Activar embeddings, Docker (cuando haya servidor) y `JANUS_SELF_CHANGE`.
+
+## Actualización 15-nov-2026 — quinto pilar: los datos que caducan viven fuera del código
+
+Orden del Founder: «asegúrate de que las medidas para que JANUS en 5 años no esté obsoleto sean tomadas», a la vez que
+pide contabilidad (balance y estado de resultados) y la declaración anual ante la Belastingdienst.
+
+**Riesgo concreto.** Un tipo impositivo, un tramo o un plazo escrito en el código queda mal el 1 de enero siguiente sin
+que nada falle: es la forma más silenciosa de quedar obsoleto.
+
+**Decisión.**
+1. **Reglas que cambian con el tiempo = datos con fecha y fuentes**, no código. Primer caso: `packages/modules/nl-tax-prep`
+   lee «paquetes de reglas» por año (`packs/nl-<año>.json`; también `POST /api/tax/packs`, guardados en `tax_rule_packs`).
+2. **Verificación por fuentes**: una cifra es «verificada» con ≥ 2 editores distintos y al menos uno oficial; con una
+   sola fuente se avisa en cada informe. Las discrepancias se anotan en el propio paquete (el 15-nov, SRA publicaba
+   cifras provisionales de sept-2025 distintas de las de la Belastingdienst: prevalece la fuente primaria).
+3. **Sin datos del año, no hay cálculo.** Nunca se extrapola con las reglas de otro año.
+4. **Caducidad visible**: un paquete revisado hace más de 120 días aparece como «por revisar» en la pantalla.
+5. **Guardia en pruebas**: `tests/lego-nl-tax-prep.test.ts` falla si una cifra fiscal aparece escrita en el motor;
+   `tests/lego-contracts.test.ts` exige que las piezas autónomas no importen nada externo y que todo paquete lleve
+   fecha de revisión y fuentes https.
+6. **Piezas con puertos estructurales**: `company-books` y `nl-tax-prep` no se importan entre sí; el anfitrión pasa
+   cifras de una a otra. Cualquiera puede sustituirse (otro plan de cuentas, otro país) sin tocar la otra.
+
+**Lo que esto NO resuelve (honestidad):** si cambia la FORMA de la ley (una deducción nueva o suprimida), hay que
+versionar el esquema del paquete y el motor a la vez; nadie revisa solo las fuentes cada año (el Opportunity Radar podría
+vigilar las páginas oficiales, pero su monitor sigue apagado); y un paquete nuevo lo valida el código en su forma, no en
+su verdad: quien lo carga responde de las cifras.
+
+**Voz (decisión del Founder, 12-nov-2026):** JANUS habla con el Founder prioritariamente en español; el neerlandés es
+secundario y queda como hueco preparado hasta tener un módulo de voz neerlandesa; las voces de las criaturas (neerlandés
+perfecto para la hija, timbre propio de criatura) son un tema aparte y pendiente. Ninguna pieza fija un proveedor de voz.
+
+**Sin internet (recordatorio del Founder, 15-nov):** contabilidad, balance, estado de resultados y hoja fiscal funcionan
+sin conexión: cálculo local, reglas en archivo local, diario en SQLite. Lo único que necesita red es REVISAR las fuentes
+para actualizar un paquete de reglas; mientras tanto se usa el último paquete guardado, con su fecha de revisión a la vista.

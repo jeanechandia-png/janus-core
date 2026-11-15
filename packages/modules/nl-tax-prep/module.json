@@ -1,0 +1,36 @@
+{
+  "id": "nl-tax-prep",
+  "version": "1.0.0",
+  "kind": "capability-module",
+  "summary": "Preparación de la declaración anual ante la Belastingdienst (Países Bajos): hoja de trabajo paso a paso (renta de empresario o sociedades), IVA por trimestre, lista de lo que pide la declaración y plazos. Todas las cifras fiscales viven en paquetes de reglas por año, con sus fuentes.",
+  "entry": "src/index.ts",
+  "dataFiles": ["packs/nl-2026.json"],
+  "dependencies": [],
+  "externalIo": "none",
+  "network": "none",
+  "secrets": [],
+  "dataClassification": "confidential-financial (figures are host inputs; the module stores nothing)",
+  "invariants": [
+    "No tax figure is written in code: rates, thresholds, deductions and deadlines come from a validated rule pack (tests enforce it).",
+    "A figure is `verified` only with ≥ 2 different publishers and at least one official/primary source; otherwise `single_source` and it is listed in warnings.",
+    "No pack for the requested year → no calculation (never extrapolates another year).",
+    "A pack older than staleAfterDays is flagged in every worksheet.",
+    "An unregistered company or unknown legal form gets no tax estimate.",
+    "Entrepreneur deductions are applied only with hours on record (urencriterium); starter status must be confirmed by the user.",
+    "Rule packs from outside are data: validated (https sources, growing brackets, known source ids), never executed.",
+    "Every worksheet carries the disclaimer: preparation, not filing, not tax advice."
+  ],
+  "api": "validateRulePack · selectPack · packHealth · citation · bracketTax · buildWorksheet(figures, pack, today) · vatByQuarter(entries, year, accounts, pack)",
+  "mounts": [
+    { "product": "JANUS · administración de la empresa (solo Founder)", "file": "apps/runtime/server.ts (GET /api/tax/nl, POST /api/tax/packs) + pestaña «Cuentas»", "version": "1.0.0" }
+  ],
+  "plannedMounts": ["Infinity Business Assistant (IBA) para clientes en Países Bajos", "Paquetes de otros países como piezas hermanas (misma forma de paquete, otro motor)"],
+  "reuseNotes": "Feed it profit and turnover from any ledger (company-books or another). To keep it current: add packs/nl-<year>.json or POST a pack to the host; never edit the engine for a yearly change. If the LAW changes shape (a new deduction, a removed one), bump the pack schema and the engine together.",
+  "knownLimits": [
+    "No fiscal partner, home ownership, box 2/3, AOW age, loss carry-over, KIA/investment deductions, FOR or cross-border income.",
+    "Heffingskortingen are estimates; two steps are marked as inference in the worksheet.",
+    "VAT summary does not split by rate or fill the official rubrieken.",
+    "Only the 2026 pack ships; Zvw and KOR limit rely on one source so far.",
+    "It does not file anything: filing is done by the owner or an adviser in Mijn Belastingdienst."
+  ]
+}

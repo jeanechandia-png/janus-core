@@ -939,6 +939,46 @@ export class SqliteStore {
     return rows.map((row) => ({ id: String(row.id), ownerPrincipalId: String(row.owner_principal_id), sealed: String(row.case_sealed) }));
   }
 
+  /* ── Contabilidad de la empresa: diario de solo añadir; el contenido llega ya cifrado desde el runtime. ── */
+  appendBooksEntrySealed(id: string, entryDate: string, createdAt: string, sealed: string): void {
+    // Sin ON CONFLICT: un id repetido falla. El diario no se reescribe; se corrige con contrasientos.
+    this.db.prepare('INSERT INTO books_journal (id, entry_date, created_at, entry_sealed) VALUES (?, ?, ?, ?)').run(id, entryDate, createdAt, sealed);
+  }
+
+  listBooksEntriesSealed(): Array<{ id: string; sealed: string }> {
+    const rows = this.db.prepare('SELECT id, entry_sealed FROM books_journal ORDER BY entry_date, created_at, id').all() as Record<string, unknown>[];
+    return rows.map((row) => ({ id: String(row.id), sealed: String(row.entry_sealed) }));
+  }
+
+  upsertBooksAccount(code: string, accountJson: string): void {
+    this.db.prepare('INSERT INTO books_accounts (code, account_json) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET account_json = excluded.account_json').run(code, accountJson);
+  }
+
+  listBooksAccounts(): string[] {
+    return (this.db.prepare('SELECT account_json FROM books_accounts ORDER BY code').all() as Record<string, unknown>[]).map((row) => String(row.account_json));
+  }
+
+  getBooksSetting(key: string): string | null {
+    const row = this.db.prepare('SELECT value FROM books_settings WHERE key = ?').get(key) as Record<string, unknown> | undefined;
+    return row ? String(row.value) : null;
+  }
+
+  setBooksSetting(key: string, value: string): void {
+    this.db.prepare('INSERT INTO books_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+  }
+
+  /* ── Paquetes de reglas fiscales (datos por año, con fuentes). ── */
+  upsertTaxRulePack(jurisdiction: string, year: number, checkedAt: string, packJson: string, registeredBy: string): void {
+    this.db.prepare(`
+      INSERT INTO tax_rule_packs (jurisdiction, year, checked_at, registered_by, pack_json) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(jurisdiction, year) DO UPDATE SET checked_at = excluded.checked_at, registered_by = excluded.registered_by, pack_json = excluded.pack_json
+    `).run(jurisdiction, year, checkedAt, registeredBy, packJson);
+  }
+
+  listTaxRulePacks(jurisdiction: string): string[] {
+    return (this.db.prepare('SELECT pack_json FROM tax_rule_packs WHERE jurisdiction = ? ORDER BY year').all(jurisdiction) as Record<string, unknown>[]).map((row) => String(row.pack_json));
+  }
+
   /* ── Opportunity Radar ── */
   upsertRadarOpportunity(opportunity: Opportunity): void {
     // La huella es única: una segunda inserción de la misma oferta con otro id se rechaza (no hay duplicados).
@@ -2421,6 +2461,32 @@ export class SqliteStore {
         owner_principal_id TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         case_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_journal (
+        id TEXT PRIMARY KEY,
+        entry_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        entry_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_accounts (
+        code TEXT PRIMARY KEY,
+        account_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS tax_rule_packs (
+        jurisdiction TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        checked_at TEXT NOT NULL,
+        registered_by TEXT NOT NULL,
+        pack_json TEXT NOT NULL,
+        PRIMARY KEY (jurisdiction, year)
       );
 
       CREATE TABLE IF NOT EXISTS radar_opportunities (

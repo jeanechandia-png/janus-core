@@ -109,6 +109,11 @@ import {
   ingestMessages, proposeNextAction, setCaseStatus, setMonitoring, type CaseStatus, type MailMessage, type PriorityCase,
 } from '../../packages/core/src/priority-case.js';
 import { interpretUtterance, isSupportedLang, openingNotice, type InterpreterTurnContext } from '../../packages/modules/contextual-interpreter/src/index.js';
+import {
+  DEFAULT_CHART, QUICK_LABELS, balanceSheet, createAccount, createJournalEntry, currenciesIn, incomeStatement, journalCsv, parseAmountToMinor,
+  quickLines, reverseEntry, trialBalance, type Account, type JournalEntry, type QuickKind,
+} from '../../packages/modules/company-books/src/index.js';
+import { buildWorksheet, packHealth, selectPack, validateRulePack, vatByQuarter, type LegalForm, type RulePack } from '../../packages/modules/nl-tax-prep/src/index.js';
 import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
 import { IntegrationHubAdapter, integrationBrief } from '../../packages/adapters/src/integration-hub-adapter.js';
 import { HashingEmbedder, HttpEmbedder, KnowledgeMemory, MEMORY_KINDS, type MemoryKind } from '../../packages/core/src/knowledge-memory.js';
@@ -1509,6 +1514,42 @@ const selfChangeEnabled = process.env.JANUS_SELF_CHANGE === 'on';
 const selfChangeRepo = process.env.JANUS_SELF_CHANGE_REPO?.trim() || process.cwd();
 const SELF_CHANGE_CHECKS: Readonly<Record<string, readonly string[]>> = Object.freeze({ typecheck: ['npm', 'run', 'typecheck'], test: ['npm', 'test'], 'dashboard-test': ['npm', 'run', 'dashboard:test'] });
 const preparedChanges = new Map<string, PreparedChange>();
+
+/* ── Contabilidad de la empresa (pieza «company-books») y preparación fiscal NL (pieza «nl-tax-prep») ─────────
+ * Solo Founder. Los asientos se guardan sellados; el diario es de solo añadir. Las reglas fiscales son DATOS por año. */
+const sealBooks = (entry: JournalEntry): string => sealPrivateText(JSON.stringify(entry), privateTextKey);
+const loadBooksEntries = (): JournalEntry[] => store.listBooksEntriesSealed().flatMap((row) => {
+  try { const text = openPrivateText(row.sealed, privateTextKey); return text ? [JSON.parse(text) as JournalEntry] : []; } catch { return []; }
+});
+const booksChart = (): Account[] => {
+  const custom = store.listBooksAccounts().flatMap((raw) => { try { return [createAccount(JSON.parse(raw) as Account)]; } catch { return []; } });
+  const codes = new Set(custom.map((account) => account.code));
+  return [...DEFAULT_CHART.filter((account) => !codes.has(account.code)), ...custom].sort((a, b) => a.code.localeCompare(b.code));
+};
+const LEGAL_FORMS: readonly LegalForm[] = ['eenmanszaak', 'vof', 'bv', 'unregistered'];
+const booksCompany = (): { legalForm: LegalForm; name: string; confirmed: boolean } => {
+  try { const saved = JSON.parse(store.getBooksSetting('company') ?? 'null') as { legalForm?: LegalForm; name?: string } | null; if (saved && LEGAL_FORMS.includes(saved.legalForm as LegalForm)) return { legalForm: saved.legalForm as LegalForm, name: String(saved.name ?? '').slice(0, 80), confirmed: true }; } catch { /* sin dato */ }
+  // Sin confirmar por el Founder: no se presupone ninguna forma jurídica.
+  return { legalForm: 'unregistered', name: '', confirmed: false };
+};
+const taxPacksDir = fileURLToPath(new URL('../../packages/modules/nl-tax-prep/packs/', import.meta.url));
+const loadTaxPacks = (): RulePack[] => {
+  const packs = new Map<number, RulePack>();
+  const consider = (raw: string): void => { try { const pack = validateRulePack(JSON.parse(raw)); const current = packs.get(pack.year); if (!current || pack.checkedAt >= current.checkedAt) packs.set(pack.year, pack); } catch { /* paquete inválido: se ignora */ } };
+  try { for (const name of readdirSync(taxPacksDir).filter((file) => /^nl-\d{4}\.json$/.test(file))) consider(readFileSync(`${taxPacksDir}${name}`, 'utf8')); } catch { /* sin carpeta */ }
+  for (const raw of store.listTaxRulePacks('NL')) consider(raw);
+  return [...packs.values()].sort((a, b) => a.year - b.year);
+};
+const amsterdamToday = (): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date());
+const isoDay = (value: string | null, fallback: string): string => (value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : fallback);
+function booksReports(from: string, to: string, currency: string) {
+  const entries = loadBooksEntries(); const chart = booksChart();
+  return {
+    incomeStatement: incomeStatement(entries, chart, { from, to, currency }),
+    balanceSheet: balanceSheet(entries, chart, { asOf: to, currency }),
+    trialBalance: trialBalance(entries, chart, currency, { to }),
+  };
+}
 
 /* ── Casos prioritarios del Founder (privados) ─────────────────────────────────────────────────────────────
  * Los datos de un caso NUNCA están en el repositorio: entran por la API del Founder o por un archivo privado de
@@ -6977,6 +7018,122 @@ const server = createServer(async (request, response) => {
       }
       if (caseMatch[2] !== 'check') saveCase(next);
       json(response, 200, { ok: true, case: caseView(next), ...extra });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // ── Contabilidad de la empresa y preparación fiscal (solo Founder) ──────────────────────────────────────
+  if (url.pathname.startsWith('/api/books') || url.pathname.startsWith('/api/tax/')) {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const today = amsterdamToday(); const year = Number(today.slice(0, 4));
+      const bad = (error: unknown): never => { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid request'); };
+      if (request.method === 'GET' && url.pathname === '/api/books') {
+        const entries = loadBooksEntries(); const chart = booksChart();
+        const currency = (url.searchParams.get('currency') ?? currenciesIn(entries)[0] ?? 'EUR').toUpperCase();
+        const from = isoDay(url.searchParams.get('from'), `${year}-01-01`); const to = isoDay(url.searchParams.get('to'), today);
+        let reports; try { reports = booksReports(from, to, currency); } catch (error) { bad(error); }
+        const reversed = new Set(entries.map((entry) => entry.reverses).filter(Boolean));
+        json(response, 200, {
+          ok: true, generatedAt: new Date().toISOString(), today, period: { from, to }, currency, currencies: currenciesIn(entries), company: booksCompany(),
+          accounts: chart, quickKinds: QUICK_LABELS, ...reports,
+          entries: entries.slice(-200).reverse().map((entry) => ({ ...entry, reversed: reversed.has(entry.id) })), totalEntries: entries.length,
+          sealedAtRest: !!privateTextKey,
+        });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/books/journal.csv') {
+        const csv = journalCsv(loadBooksEntries(), booksChart());
+        response.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="diario-${today}.csv"`, 'cache-control': 'no-store' });
+        response.end(`\uFEFF${csv}`);
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/books/entries') {
+        const body = await readJson(request);
+        const chart = booksChart(); const now = new Date().toISOString();
+        let entry: JournalEntry;
+        try {
+          const quick = typeof body.kind === 'string';
+          const lines = quick
+            ? quickLines({ kind: body.kind as QuickKind, amountMinor: parseAmountToMinor(body.amount), vatBasisPoints: body.vatPercent === undefined || body.vatPercent === '' ? 0 : Math.round(Number(body.vatPercent) * 100), category: typeof body.category === 'string' && body.category ? body.category : undefined, moneyAccount: typeof body.moneyAccount === 'string' && body.moneyAccount ? body.moneyAccount : undefined, toAccount: typeof body.toAccount === 'string' ? body.toAccount : undefined })
+            : (Array.isArray(body.lines) ? body.lines : []);
+          entry = createJournalEntry({
+            id: `je_${randomUUID()}`, date: isoDay(typeof body.date === 'string' ? body.date : null, today), description: String(body.description ?? ''), currency: typeof body.currency === 'string' ? body.currency : 'EUR',
+            lines, verified: body.verified === true, source: quick ? `quick:${String(body.kind)}` : 'manual', reference: typeof body.reference === 'string' ? body.reference : undefined,
+            productId: typeof body.productId === 'string' ? body.productId : undefined, createdAt: now, createdBy: principal.id,
+          }, chart);
+          if (entry.date > today) throw new Error('la fecha del asiento no puede ser futura');
+        } catch (error) { bad(error); return; }
+        store.appendBooksEntrySealed(entry.id, entry.date, entry.createdAt, sealBooks(entry));
+        json(response, 201, { ok: true, entry });
+        return;
+      }
+      const reverseMatch = url.pathname.match(/^\/api\/books\/entries\/([^/]+)\/reverse$/);
+      if (request.method === 'POST' && reverseMatch) {
+        const body = await readJson(request);
+        const entries = loadBooksEntries(); const target = entries.find((entry) => entry.id === decodeURIComponent(reverseMatch[1]!));
+        if (!target) throw new HttpRequestError(404, 'entry not found');
+        if (entries.some((entry) => entry.reverses === target.id)) throw new HttpRequestError(409, 'ese asiento ya está anulado');
+        let reversal: JournalEntry;
+        // Por defecto, la anulación lleva la fecha del asiento original: así el trimestre y el año quedan como si no hubiera existido.
+        try { const when = isoDay(typeof body.date === 'string' ? body.date : null, target.date); if (when > today || when < target.date) throw new Error('la fecha de anulación debe estar entre la del asiento y hoy'); reversal = reverseEntry(target, { id: `je_${randomUUID()}`, date: when, createdAt: new Date().toISOString(), reason: typeof body.reason === 'string' ? body.reason : undefined, createdBy: principal.id }, booksChart()); } catch (error) { bad(error); return; }
+        store.appendBooksEntrySealed(reversal.id, reversal.date, reversal.createdAt, sealBooks(reversal));
+        json(response, 201, { ok: true, entry: reversal });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/books/accounts') {
+        const body = await readJson(request);
+        let account: Account; try { account = createAccount({ code: body.code as string, name: body.name as string, group: body.group as Account['group'] }); } catch (error) { bad(error); return; }
+        if (DEFAULT_CHART.some((item) => item.code === account.code)) throw new HttpRequestError(409, 'ese código pertenece al plan de cuentas base');
+        store.upsertBooksAccount(account.code, JSON.stringify(account));
+        json(response, 201, { ok: true, account });
+        return;
+      }
+      if (request.method === 'PUT' && url.pathname === '/api/books/company') {
+        const body = await readJson(request);
+        if (!LEGAL_FORMS.includes(body.legalForm as LegalForm)) throw new HttpRequestError(400, 'legalForm must be eenmanszaak, vof, bv or unregistered');
+        store.setBooksSetting('company', JSON.stringify({ legalForm: body.legalForm, name: String(body.name ?? '').slice(0, 80), setBy: principal.id, setAt: new Date().toISOString() }));
+        json(response, 200, { ok: true, company: booksCompany() });
+        return;
+      }
+      if (request.method === 'GET' && url.pathname === '/api/tax/nl') {
+        const taxYear = Number(url.searchParams.get('year') ?? year);
+        const packs = loadTaxPacks(); const pack = selectPack(packs, taxYear);
+        const company = booksCompany(); const entries = loadBooksEntries(); const chart = booksChart();
+        const available = packs.map((item) => packHealth(item, today));
+        if (!pack) { json(response, 200, { ok: true, year: taxYear, worksheet: null, reason: `No hay reglas fiscales verificadas para ${taxYear}. JANUS no calcula con cifras de otro año.`, available, company }); return; }
+        const to = taxYear === year ? today : `${taxYear}-12-31`;
+        const statement = incomeStatement(entries, chart, { from: `${taxYear}-01-01`, to, currency: 'EUR' });
+        const hours = url.searchParams.get('hours'); const other = url.searchParams.get('otherIncome'); const share = url.searchParams.get('sharePercent');
+        let worksheet;
+        try {
+          worksheet = buildWorksheet({
+            year: taxYear, legalForm: company.legalForm, profitMinor: statement.resultBeforeTaxMinor, turnoverMinor: statement.revenue.totalMinor,
+            ...(hours !== null && hours !== '' && Number.isFinite(Number(hours)) ? { hoursWorked: Math.max(0, Math.round(Number(hours))) } : {}),
+            starter: url.searchParams.get('starter') === '1',
+            ...(other ? { otherBox1IncomeMinor: parseAmountToMinor(other) } : {}),
+            ...(share ? { shareBp: Math.round(Number(share) * 100) } : {}),
+            unverifiedEntries: statement.evidence.unverifiedEntries,
+          }, pack, today);
+        } catch (error) { bad(error); return; }
+        const first = balanceSheet(entries, chart, { asOf: `${taxYear - 1}-12-31`, currency: 'EUR' });
+        const last = balanceSheet(entries, chart, { asOf: to, currency: 'EUR' });
+        json(response, 200, {
+          ok: true, year: taxYear, partialYear: taxYear === year, through: to, company, worksheet, available,
+          vat: vatByQuarter(entries, taxYear, { vatCharged: '2100', vatPaid: '1200', revenue: chart.filter((account) => account.type === 'income').map((account) => account.code) }, pack),
+          incomeStatement: statement, openingBalance: first, closingBalance: last,
+        });
+        return;
+      }
+      if (request.method === 'POST' && url.pathname === '/api/tax/packs') {
+        const body = await readJson(request);
+        let pack: RulePack; try { pack = validateRulePack(body); } catch (error) { bad(error); return; }
+        if (pack.checkedAt > today) throw new HttpRequestError(400, 'checkedAt no puede ser una fecha futura');
+        store.upsertTaxRulePack('NL', pack.year, pack.checkedAt, JSON.stringify(pack), principal.id);
+        json(response, 201, { ok: true, health: packHealth(pack, today) });
+        return;
+      }
+      throw new HttpRequestError(404, 'not found');
     } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
     return;
   }
