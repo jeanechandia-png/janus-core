@@ -1,3 +1,4 @@
+// @ts-nocheck — pieza en JavaScript clásico; los productos con TypeScript estricto la importan tal cual.
 'use strict';
 /* ===== janus-offline · seguir trabajando sin conexión en el navegador (LEGO 1.0.0) =====
  * Pareja de navegador de packages/modules/offline-kit (misma política, sin dependencias). Sirve a cualquier producto

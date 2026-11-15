@@ -28,5 +28,9 @@ test('exportar piezas a otro producto: copia sellada, verificable y que detecta 
     exportPieces(dir, ['company-books', 'nl-tax-prep'], { commit: 'def456' });
     assert.deepEqual(verifyExport(dir), []);
     assert.throws(() => exportPieces(dir, ['../x']), /no válido/);
+    const withUi = exportPieces(dir, ['ui:janus-offline'], { commit: 'abc' });
+    assert.equal(withUi.pieces['ui-janus-offline'].version, '1.0.0');
+    assert.ok(withUi.pieces['ui-janus-offline'].files['janus-offline.js']);
+    assert.deepEqual(verifyExport(dir), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

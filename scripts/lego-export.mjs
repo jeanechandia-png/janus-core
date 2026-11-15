@@ -70,13 +70,17 @@ export function exportPieces(target, ids, options = {}) {
   const lock = existsSync(lockPath) ? JSON.parse(readFileSync(lockPath, 'utf8')) : { schema: 'lego-lock-v1', source: 'jeanechandia-png/janus-core', pieces: {} };
   let commit = options.commit;
   if (!commit) { try { commit = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { commit = 'unknown'; } }
-  for (const id of ids) {
-    if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(id)) throw new Error(`nombre de pieza no válido: ${id}`);
-    const source = join(root, 'packages', 'modules', id);
-    const manifestPath = join(source, 'module.json');
+  for (let id of ids) {
+    // «ui:nombre» = pieza de navegador (prototypes/dashboard/lego/nombre); sin prefijo = pieza de packages/modules.
+    const ui = id.startsWith('ui:'); const name = ui ? id.slice(3) : id;
+    if (!/^[a-z0-9][a-z0-9-]{1,60}$/.test(name)) throw new Error(`nombre de pieza no válido: ${id}`);
+    const source = ui ? join(root, 'prototypes', 'dashboard', 'lego', name) : join(root, 'packages', 'modules', name);
+    const manifestPath = join(source, ui ? 'manifest.json' : 'module.json');
     if (!existsSync(manifestPath)) throw new Error(`no existe la pieza ${id}`);
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
     if ((manifest.dependencies ?? []).length) throw new Error(`${id} tiene dependencias: no es exportable tal cual`);
+    id = ui ? `ui-${name}` : name;
+    manifest.version = manifest.version ?? manifest.moduleVersion;
     const destination = join(target, id);
     rmSync(destination, { recursive: true, force: true });
     cpSync(source, destination, { recursive: true });
