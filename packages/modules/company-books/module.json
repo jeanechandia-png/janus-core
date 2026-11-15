@@ -1,6 +1,6 @@
 {
   "id": "company-books",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "capability-module",
   "summary": "Contabilidad por partida doble para una empresa pequeña: plan de cuentas, asientos equilibrados, balance de comprobación, BALANCE y ESTADO DE RESULTADOS, con asientos sencillos («cobré», «pagué», «facturé») para quien no sabe contabilidad.",
   "entry": "src/index.ts",

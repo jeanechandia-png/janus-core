@@ -95,3 +95,37 @@ test('CSV para el contable: neutraliza fórmulas y conserva el cuadre', () => {
   assert.match(csv.split('\r\n')[0]!, /^Fecha;Asiento;Descripción/);
   assert.match(csv, /;1,00;;EUR;sí;/);
 });
+
+test('puente desde facturas y pagos: mismos datos → mismos asientos, sin inventar nada', async () => {
+  const { entriesFromFinanceRecords } = await import('../packages/modules/company-books/src/index.js');
+  const docs = [
+    { id: 'd1', kind: 'sale_invoice', status: 'paid', currency: 'EUR', issueDate: '2026-02-01', subtotalMinor: 100_000, taxMinor: 21_000, totalMinor: 121_000, number: 'F-001', counterparty: 'Cliente A' },
+    { id: 'd2', kind: 'purchase_invoice', status: 'issued', currency: 'EUR', issueDate: '2026-02-10', subtotalMinor: 20_000, taxMinor: 4_200, totalMinor: 24_200, number: 'P-77' },
+    { id: 'd3', kind: 'expense', status: 'paid', currency: 'EUR', issueDate: '2026-03-01', totalMinor: 5_000 },
+    { id: 'd4', kind: 'sale_invoice', status: 'draft', currency: 'EUR', issueDate: '2026-03-02', totalMinor: 99_900 },
+    { id: 'd5', kind: 'sale_invoice', status: 'issued', currency: 'EUR', issueDate: '2026-03-03', subtotalMinor: 100, taxMinor: 50, totalMinor: 999 },
+    { id: 'd6', kind: 'other', status: 'issued', currency: 'EUR', issueDate: '2026-03-04', totalMinor: 10 },
+    { id: 'd7', kind: 'credit_note', status: 'issued', currency: 'EUR', issueDate: '2026-03-05', subtotalMinor: 10_000, taxMinor: 2_100, totalMinor: 12_100, number: 'R-001' },
+  ] as const;
+  const pays = [
+    { id: 'p1', documentId: 'd1', direction: 'inbound', status: 'reconciled', amountMinor: 121_000, currency: 'EUR', date: '2026-02-15' },
+    { id: 'p2', documentId: 'd2', direction: 'outbound', status: 'recorded', amountMinor: 10_000, currency: 'EUR', date: '2026-02-20' },
+    { id: 'p3', direction: 'inbound', status: 'recorded', amountMinor: 3_000, currency: 'EUR', date: '2026-03-10' },
+    { id: 'p4', documentId: 'd4', direction: 'inbound', status: 'recorded', amountMinor: 99_900, currency: 'EUR', date: '2026-03-11' },
+    { id: 'p5', documentId: 'd1', direction: 'outbound', status: 'recorded', amountMinor: 1, currency: 'EUR', date: '2026-03-12' },
+    { id: 'p6', documentId: 'd2', direction: 'outbound', status: 'reversed', amountMinor: 14_200, currency: 'EUR', date: '2026-03-13' },
+  ] as const;
+  const out = entriesFromFinanceRecords(docs, pays, DEFAULT_CHART, { createdAt: '2026-04-01T00:00:00Z' });
+  assert.deepEqual(out.entries.map((e: JournalEntry) => e.id), ['fd_d1', 'fd_d2', 'fd_d3', 'fd_d7', 'fp_p1', 'fp_p2', 'fp_p3']);
+  assert.deepEqual(out.skipped.map((s: { id: string }) => s.id).sort(), ['d4', 'd5', 'd6', 'p4', 'p5', 'p6']);
+  assert.equal(out.warnings.length, 3);
+  const r = incomeStatement(out.entries, DEFAULT_CHART, { from: '2026-01-01', to: '2026-12-31' });
+  assert.equal(r.revenue.totalMinor, 100_000 - 10_000 + 3_000);
+  assert.equal(r.directCosts.totalMinor, 20_000); assert.equal(r.operatingExpenses.totalMinor, 5_000);
+  assert.equal(r.evidence.unverifiedEntries, 1);
+  const b = balanceSheet(out.entries, DEFAULT_CHART, { asOf: '2026-12-31' });
+  assert.equal(b.balanced, true);
+  assert.equal(b.assets[0]!.totalMinor, 121_000 - 10_000 + 3_000);         // banco
+  assert.equal(b.liabilities[0]!.totalMinor, 24_200 - 10_000 + 5_000);     // proveedores: resto de P-77 + gasto «pagado» sin pago
+  assert.deepEqual(entriesFromFinanceRecords(docs, pays, DEFAULT_CHART, { createdAt: '2026-04-01T00:00:00Z' }), out, 'determinista');
+});

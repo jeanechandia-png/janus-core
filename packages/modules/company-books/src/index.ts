@@ -419,3 +419,120 @@ export function journalCsv(entries: readonly JournalEntry[], chart: readonly Acc
   }
   return `${rows.join('\r\n')}\r\n`;
 }
+
+/* ── Puente desde registros de facturas y pagos (para productos que ya los guardan, p. ej. IBA) ─────── */
+
+/** Factura o gasto tal como lo guarda el producto anfitrión (forma mínima, estructural). */
+export interface FinanceDocumentLike {
+  id: string;
+  kind: 'sale_invoice' | 'purchase_invoice' | 'expense' | 'credit_note' | 'other';
+  status: 'draft' | 'issued' | 'partially_paid' | 'paid' | 'overdue' | 'cancelled';
+  currency: string;
+  /** AAAA-MM-DD. */
+  issueDate: string;
+  subtotalMinor?: number | null;
+  taxMinor?: number | null;
+  totalMinor: number;
+  number?: string | null;
+  counterparty?: string | null;
+}
+/** Cobro o pago tal como lo guarda el producto anfitrión. */
+export interface FinancePaymentLike {
+  id: string;
+  documentId?: string | null;
+  direction: 'inbound' | 'outbound';
+  status: 'recorded' | 'reconciled' | 'reversed';
+  amountMinor: number;
+  currency: string;
+  /** AAAA-MM-DD en la zona horaria del negocio (la convierte el anfitrión). */
+  date: string;
+}
+export interface BridgeOptions {
+  createdAt: string;
+  /** Cuentas de destino; por defecto las del plan base. */
+  accounts?: Partial<{ revenue: string; purchase: string; expense: string; money: string; receivable: string; payable: string; vatCharged: string; vatPaid: string }>;
+}
+export interface BridgeResult {
+  entries: JournalEntry[];
+  /** Registros que NO entran en la contabilidad y por qué (borradores, anulados, importes incoherentes…). */
+  skipped: Array<{ id: string; reason: string; code: BridgeSkipCode }>;
+  /** Avisos sobre datos que entran pero no están completos (texto en español). */
+  warnings: string[];
+  /** Los mismos avisos como códigos, para productos en varios idiomas. */
+  issues: Array<{ code: 'unlinked_payments' | 'no_tax_split' | 'paid_without_payment'; count: number }>;
+}
+export type BridgeSkipCode = 'draft' | 'cancelled' | 'unknown_kind' | 'invalid_amount' | 'tax_mismatch' | 'invalid_record' | 'reversed' | 'document_not_posted' | 'currency_mismatch' | 'direction_mismatch';
+
+/**
+ * Convierte facturas y pagos ya guardados en asientos de partida doble, sin inventar nada:
+ * lo que no se puede contabilizar con certeza se devuelve en `skipped`, y lo dudoso en `warnings`.
+ * Los identificadores son estables (`fd_…`, `fp_…`): la misma entrada produce siempre los mismos asientos.
+ */
+export function entriesFromFinanceRecords(documents: readonly FinanceDocumentLike[], payments: readonly FinancePaymentLike[], chart: readonly Account[], options: BridgeOptions): BridgeResult {
+  const A = { revenue: '4000', purchase: '6000', expense: '6900', money: '1000', receivable: '1100', payable: '2000', vatCharged: '2100', vatPaid: '1200', ...(options.accounts ?? {}) };
+  const entries: JournalEntry[] = []; const skipped: BridgeResult['skipped'] = []; const warnings: string[] = []; const issues: BridgeResult['issues'] = [];
+  const posted = new Map<string, FinanceDocumentLike>();
+  const safeId = (prefix: string, id: string): string => `${prefix}_${String(id).replace(/[^A-Za-z0-9._:-]/g, '').slice(0, 70)}`;
+  const dr = (account: string, amount: number): JournalLine => ({ account, debitMinor: amount, creditMinor: 0 });
+  const cr = (account: string, amount: number): JournalLine => ({ account, debitMinor: 0, creditMinor: amount });
+  const nonZero = (lines: JournalLine[]): JournalLine[] => lines.filter((line) => line.debitMinor > 0 || line.creditMinor > 0);
+  let noTaxSplit = 0;
+
+  for (const doc of documents) {
+    if (doc.status === 'draft' || doc.status === 'cancelled') { skipped.push({ id: doc.id, reason: doc.status === 'draft' ? 'borrador' : 'anulado', code: doc.status === 'draft' ? 'draft' : 'cancelled' }); continue; }
+    if (doc.kind === 'other') { skipped.push({ id: doc.id, reason: 'tipo «otro»: no se sabe si es ingreso o gasto', code: 'unknown_kind' }); continue; }
+    const total = doc.totalMinor;
+    if (!Number.isSafeInteger(total) || total <= 0) { skipped.push({ id: doc.id, reason: 'importe total vacío o no válido', code: 'invalid_amount' }); continue; }
+    let tax = Number.isSafeInteger(doc.taxMinor) ? (doc.taxMinor as number) : Number.isSafeInteger(doc.subtotalMinor) ? total - (doc.subtotalMinor as number) : 0;
+    if (!Number.isSafeInteger(doc.taxMinor) && !Number.isSafeInteger(doc.subtotalMinor)) noTaxSplit += 1;
+    if (tax < 0 || tax > total || (Number.isSafeInteger(doc.subtotalMinor) && Number.isSafeInteger(doc.taxMinor) && (doc.subtotalMinor as number) + (doc.taxMinor as number) !== total)) {
+      skipped.push({ id: doc.id, reason: 'base + IVA no coincide con el total', code: 'tax_mismatch' }); continue;
+    }
+    if (tax < 0) tax = 0;
+    const net = total - tax;
+    const label = [doc.number, doc.counterparty].filter(Boolean).join(' · ');
+    const lines = doc.kind === 'sale_invoice' ? [dr(A.receivable, total), cr(A.revenue, net), cr(A.vatCharged, tax)]
+      : doc.kind === 'credit_note' ? [dr(A.revenue, net), dr(A.vatCharged, tax), cr(A.receivable, total)]
+        : [dr(doc.kind === 'purchase_invoice' ? A.purchase : A.expense, net), dr(A.vatPaid, tax), cr(A.payable, total)];
+    const title = { sale_invoice: 'Factura emitida', credit_note: 'Factura rectificativa', purchase_invoice: 'Factura de compra', expense: 'Gasto' }[doc.kind];
+    try {
+      entries.push(createJournalEntry({ id: safeId('fd', doc.id), date: doc.issueDate, description: `${title}${label ? ` ${label}` : ''}`, currency: doc.currency, lines: nonZero(lines), verified: true, source: `bridge:${doc.kind}`, ...(doc.number ? { reference: doc.number } : {}), createdAt: options.createdAt }, chart));
+      posted.set(doc.id, doc);
+    } catch (error) { skipped.push({ id: doc.id, reason: error instanceof Error ? error.message : 'registro no válido', code: 'invalid_record' }); }
+  }
+
+  let unlinked = 0;
+  for (const pay of payments) {
+    if (pay.status === 'reversed') { skipped.push({ id: pay.id, reason: 'pago revertido', code: 'reversed' }); continue; }
+    if (!Number.isSafeInteger(pay.amountMinor) || pay.amountMinor <= 0) { skipped.push({ id: pay.id, reason: 'importe no válido', code: 'invalid_amount' }); continue; }
+    const doc = pay.documentId ? posted.get(pay.documentId) : undefined;
+    if (pay.documentId && !doc) { skipped.push({ id: pay.id, reason: 'su factura no está contabilizada (borrador, anulada o fuera del periodo cargado)', code: 'document_not_posted' }); continue; }
+    if (doc && doc.currency !== pay.currency) { skipped.push({ id: pay.id, reason: 'moneda distinta de la de su factura', code: 'currency_mismatch' }); continue; }
+    const amount = pay.amountMinor;
+    let lines: JournalLine[]; let description: string;
+    if (doc) {
+      const sale = doc.kind === 'sale_invoice'; const credit = doc.kind === 'credit_note';
+      if ((sale && pay.direction !== 'inbound') || (!sale && !credit && pay.direction !== 'outbound') || (credit && pay.direction !== 'outbound')) { skipped.push({ id: pay.id, reason: 'el sentido del pago no corresponde con el tipo de factura', code: 'direction_mismatch' }); continue; }
+      lines = sale ? [dr(A.money, amount), cr(A.receivable, amount)] : credit ? [dr(A.receivable, amount), cr(A.money, amount)] : [dr(A.payable, amount), cr(A.money, amount)];
+      description = `${sale ? 'Cobro de' : credit ? 'Devolución de' : 'Pago de'} ${doc.number || 'factura'}`;
+    } else {
+      // Sin factura: se registra el movimiento de dinero, sin separar IVA y marcado «sin justificante».
+      unlinked += 1;
+      lines = pay.direction === 'inbound' ? [dr(A.money, amount), cr(A.revenue, amount)] : [dr(A.expense, amount), cr(A.money, amount)];
+      description = pay.direction === 'inbound' ? 'Cobro sin factura asociada' : 'Pago sin factura asociada';
+    }
+    try { entries.push(createJournalEntry({ id: safeId('fp', pay.id), date: pay.date, description, currency: pay.currency, lines, verified: !!doc, source: `bridge:payment_${pay.direction}`, createdAt: options.createdAt }, chart)); }
+    catch (error) { skipped.push({ id: pay.id, reason: error instanceof Error ? error.message : 'registro no válido', code: 'invalid_record' }); }
+  }
+
+  if (unlinked) issues.push({ code: 'unlinked_payments', count: unlinked });
+  if (noTaxSplit) issues.push({ code: 'no_tax_split', count: noTaxSplit });
+  if (unlinked) warnings.push(`${unlinked} cobro(s) o pago(s) sin factura asociada: cuentan como ingreso o gasto sin IVA separado y «sin justificante».`);
+  if (noTaxSplit) warnings.push(`${noTaxSplit} factura(s) sin desglose de IVA: se han tomado sin IVA.`);
+  for (const [id, doc] of posted) {
+    if (doc.status !== 'paid') continue;
+    const paid = payments.filter((pay) => pay.documentId === id && pay.status !== 'reversed').reduce((sum, pay) => sum + pay.amountMinor, 0);
+    if (paid < doc.totalMinor) { issues.push({ code: 'paid_without_payment', count: 1 }); warnings.push('Hay facturas marcadas como pagadas sin su cobro o pago registrado: siguen figurando como pendientes en el balance.'); break; }
+  }
+  return { entries, skipped, warnings, issues };
+}

@@ -1,6 +1,6 @@
 {
   "id": "nl-tax-prep",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kind": "capability-module",
   "summary": "Preparación de la declaración anual ante la Belastingdienst (Países Bajos): hoja de trabajo paso a paso (renta de empresario o sociedades), IVA por trimestre, lista de lo que pide la declaración y plazos. Todas las cifras fiscales viven en paquetes de reglas por año, con sus fuentes.",
   "entry": "src/index.ts",

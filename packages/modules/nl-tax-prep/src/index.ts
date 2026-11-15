@@ -209,6 +209,8 @@ export interface TaxWorksheet {
   lines: WorksheetLine[];
   estimatedTaxMinor: number | null;
   warnings: string[];
+  /** Los mismos avisos como códigos (mismo orden), para productos en varios idiomas. */
+  warningCodes: Array<{ code: string; params?: Record<string, string | number> }>;
   checklist: Array<{ item: string; dutch?: string; ready: boolean | null }>;
   deadlines: Array<{ id: string; label: string; date: string; approximate: boolean; daysLeft: number; note?: string; sources: RuleSource[] }>;
   announced: Array<{ year: number; text: string; sources: RuleSource[] }>;
@@ -234,7 +236,8 @@ export function buildWorksheet(figures: TaxFigures, pack: RulePack, today: strin
   if (!Number.isSafeInteger(figures.profitMinor) || !Number.isSafeInteger(figures.turnoverMinor)) throw new Error('figures must be integers in cents');
   if (!isDate(today)) throw new Error('today must be YYYY-MM-DD');
   const P = pack.params; const health = packHealth(pack, today);
-  const lines: WorksheetLine[] = []; const warnings: string[] = [];
+  const lines: WorksheetLine[] = []; const warnings: string[] = []; const warningCodes: TaxWorksheet['warningCodes'] = [];
+  const warn = (code: string, text: string, params?: Record<string, string | number>): void => { warnings.push(text); warningCodes.push(params ? { code, params } : { code }); };
   const add = (line: WorksheetLine): void => { lines.push(line); };
   const shareBp = figures.legalForm === 'vof' ? (isInt(figures.shareBp, 1, 10_000) ? figures.shareBp : 10_000) : 10_000;
   let estimatedTaxMinor: number | null = null;
@@ -243,31 +246,31 @@ export function buildWorksheet(figures: TaxFigures, pack: RulePack, today: strin
   add({ key: 'turnover', label: 'Ventas del año (sin IVA)', dutch: 'omzet', amountMinor: figures.turnoverMinor, basis: 'books' });
   add({ key: 'profit', label: 'Beneficio según la contabilidad', dutch: 'winst uit onderneming', amountMinor: figures.profitMinor, basis: 'books' });
 
-  if (health.stale) warnings.push(`Las reglas fiscales de ${pack.year} se revisaron hace ${health.ageDays} días: hay que volver a comprobarlas en las fuentes oficiales.`);
-  if (pack.status !== 'in_force') warnings.push(`Las reglas de ${pack.year} son ${pack.status === 'provisional' ? 'provisionales' : 'solo anunciadas'}: pueden cambiar.`);
-  if (health.weak.length) warnings.push(`Cifras con una sola fuente (por confirmar): ${health.weak.join(', ')}.`);
-  if (figures.unverifiedEntries) warnings.push(`${figures.unverifiedEntries} asiento(s) del año no tienen justificante: el beneficio no está respaldado por completo.`);
+  if (health.stale) warn('pack_stale', `Las reglas fiscales de ${pack.year} se revisaron hace ${health.ageDays} días: hay que volver a comprobarlas en las fuentes oficiales.`, { year: pack.year, days: health.ageDays });
+  if (pack.status !== 'in_force') warn('pack_not_in_force', `Las reglas de ${pack.year} son ${pack.status === 'provisional' ? 'provisionales' : 'solo anunciadas'}: pueden cambiar.`, { year: pack.year, status: pack.status });
+  if (health.weak.length) warn('single_source', `Cifras con una sola fuente (por confirmar): ${health.weak.join(', ')}.`, { params: health.weak.join(', ') });
+  if (figures.unverifiedEntries) warn('unverified_entries', `${figures.unverifiedEntries} asiento(s) del año no tienen justificante: el beneficio no está respaldado por completo.`, { count: figures.unverifiedEntries ?? 0 });
 
   if (figures.legalForm === 'unregistered') {
-    warnings.push('La empresa figura como NO registrada. Sin inscripción en la KVK y sin saber su forma jurídica no se puede decidir qué impuesto aplica: confírmelo antes de usar ningún cálculo.');
+    warn('unregistered', 'La empresa figura como NO registrada. Sin inscripción en la KVK y sin saber su forma jurídica no se puede decidir qué impuesto aplica: confírmelo antes de usar ningún cálculo.');
   } else if (figures.legalForm === 'bv') {
     regime = 'vennootschapsbelasting';
     const taxable = Math.max(0, figures.profitMinor);
     estimatedTaxMinor = bracketTax(taxable, P.vpbBrackets.value);
     add({ key: 'vpb', label: 'Impuesto de sociedades estimado', dutch: 'vennootschapsbelasting', amountMinor: estimatedTaxMinor, basis: 'estimate', citation: citation(pack, 'vpbBrackets'), note: 'Cálculo simple sobre el beneficio contable. No incluye el sueldo del director (dga), ajustes fiscales ni pérdidas de otros años.' });
-    warnings.push('Una bv declara impuesto de sociedades y su director tiene además obligaciones de nómina: este cálculo es solo orientativo.');
+    warn('bv_simple', 'Una bv declara impuesto de sociedades y su director tiene además obligaciones de nómina: este cálculo es solo orientativo.');
   } else {
     regime = 'inkomstenbelasting';
     const profit = Math.round(figures.profitMinor * shareBp / 10_000);
     if (shareBp !== 10_000) add({ key: 'share', label: `Su parte del beneficio (${shareBp / 100} %)`, dutch: 'winstaandeel', amountMinor: profit, basis: 'computed' });
     const hoursKnown = typeof figures.hoursWorked === 'number' && figures.hoursWorked >= 0;
     const meetsHours = hoursKnown && (figures.hoursWorked as number) >= P.urencriteriumHours.value;
-    if (!hoursKnown) warnings.push(`No hay registro de horas. Las deducciones de empresario exigen al menos ${P.urencriteriumHours.value} horas al año (urencriterium): no se aplican hasta tener el dato.`);
-    else if (!meetsHours) warnings.push(`Con ${figures.hoursWorked} horas no se alcanza el mínimo de ${P.urencriteriumHours.value} (urencriterium): sin deducciones de empresario.`);
+    if (!hoursKnown) warn('hours_missing', `No hay registro de horas. Las deducciones de empresario exigen al menos ${P.urencriteriumHours.value} horas al año (urencriterium): no se aplican hasta tener el dato.`, { hours: P.urencriteriumHours.value });
+    else if (!meetsHours) warn('hours_below', `Con ${figures.hoursWorked} horas no se alcanza el mínimo de ${P.urencriteriumHours.value} (urencriterium): sin deducciones de empresario.`, { worked: figures.hoursWorked ?? 0, hours: P.urencriteriumHours.value });
     const starter = meetsHours && figures.starter === true;
     let za = meetsHours ? P.zelfstandigenaftrekEur.value * EUR : 0;
     // Sin startersaftrek, la zelfstandigenaftrek no puede superar el beneficio.
-    if (za && !starter && za > Math.max(0, profit)) { za = Math.max(0, profit); warnings.push('La zelfstandigenaftrek se limita al beneficio; el resto puede compensarse en años siguientes.'); }
+    if (za && !starter && za > Math.max(0, profit)) { za = Math.max(0, profit); warn('za_capped', 'La zelfstandigenaftrek se limita al beneficio; el resto puede compensarse en años siguientes.'); }
     const sa = starter ? P.startersaftrekEur.value * EUR : 0;
     add({ key: 'za', label: 'Deducción de autónomo', dutch: 'zelfstandigenaftrek', amountMinor: neg(za), basis: 'rule', citation: citation(pack, 'zelfstandigenaftrekEur'), ...(meetsHours ? {} : { note: 'No aplicada: falta acreditar las horas.' }) });
     add({ key: 'sa', label: 'Deducción de inicio de actividad', dutch: 'startersaftrek', amountMinor: neg(sa), basis: 'rule', citation: citation(pack, 'startersaftrekEur'), ...(starter ? {} : { note: 'No aplicada: solo si usted confirma que cumple las condiciones de starter.' }) });
@@ -304,12 +307,12 @@ export function buildWorksheet(figures: TaxFigures, pack: RulePack, today: strin
   }
 
   if (figures.turnoverMinor > 0 && figures.turnoverMinor < P.korTurnoverLimitEur.value * EUR && figures.legalForm !== 'unregistered') {
-    warnings.push(`Las ventas del año están por debajo de ${P.korTurnoverLimitEur.value.toLocaleString('es-ES')} €: podría valorarse la kleineondernemersregeling (KOR) del IVA con un asesor.`);
+    warn('kor_hint', `Las ventas del año están por debajo de ${P.korTurnoverLimitEur.value.toLocaleString('es-ES')} €: podría valorarse la kleineondernemersregeling (KOR) del IVA con un asesor.`, { limit: P.korTurnoverLimitEur.value });
   }
   const resolve = (ids: string[]): RuleSource[] => ids.map((id) => pack.sources[id]!).filter(Boolean);
   const daysTo = (date: string): number => Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000);
   return {
-    kind: 'nl_tax_worksheet', policyVersion: TAX_PREP_POLICY_VERSION, year: figures.year, legalForm: figures.legalForm, regime, lines, estimatedTaxMinor, warnings,
+    kind: 'nl_tax_worksheet', policyVersion: TAX_PREP_POLICY_VERSION, year: figures.year, legalForm: figures.legalForm, regime, lines, estimatedTaxMinor, warnings, warningCodes,
     checklist: [
       { item: 'Estado de resultados del año', dutch: 'winst-en-verliesrekening', ready: true },
       { item: 'Balance al inicio y al final del año', dutch: 'balans', ready: true },
