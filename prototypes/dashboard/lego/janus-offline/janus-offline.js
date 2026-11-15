@@ -13,7 +13,7 @@
  *    Lo marcado como delicado, o lo que lleva demasiado tiempo esperando, NO se envía solo: pide confirmación.
  *  - Un error del servidor (4xx/5xx) no es «estar sin conexión»: pasa tal cual a la pantalla.
  *  - El token de sesión nunca se guarda: al reenviar se usan las cabeceras vigentes en ese momento.
- *  - `clear()` borra todo lo guardado (al cerrar sesión).
+ *  - `clear()` borra todo lo guardado (al cerrar sesión); `clear({ keepOutbox: true })` conserva lo aún no enviado.
  *
  * Uso:
  *   JanusOffline.install({
@@ -161,7 +161,8 @@
     else return false;
     await refresh({}); if (decision === 'send') void drain(); return true;
   }
-  async function clear() { if (!S.cfg) return; await wipe('cache'); await wipe('outbox'); await refresh({ lastSavedAt: null }); }
-  const api = { install, drain, pending, decide, clear, state: () => Object.assign({}, S.state), storage: () => (S.db ? 'indexeddb' : 'memory'), version: '1.0.0' };
+  /** Borra lo guardado de esta cuenta. `keepOutbox: true` conserva los cambios aún no enviados (no se pierde trabajo al cerrar sesión). */
+  async function clear(options) { if (!S.cfg) return; await wipe('cache'); if (!(options && options.keepOutbox)) await wipe('outbox'); await refresh({ lastSavedAt: null }); }
+  const api = { install, drain, pending, decide, clear, state: () => Object.assign({}, S.state), storage: () => (S.db ? 'indexeddb' : 'memory'), version: '1.1.0' };
   window.JanusOffline = api;
 })();
