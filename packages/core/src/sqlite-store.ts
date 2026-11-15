@@ -939,6 +939,29 @@ export class SqliteStore {
     return rows.map((row) => ({ id: String(row.id), ownerPrincipalId: String(row.owner_principal_id), sealed: String(row.case_sealed) }));
   }
 
+  /* ── Bandeja de salida sin conexión (pieza «offline-kit»): el contenido llega sellado desde el runtime. ── */
+  upsertOfflineOutboxSealed(id: string, state: string, createdAt: string, sealed: string): void {
+    this.db.prepare(`
+      INSERT INTO offline_outbox (id, state, created_at, item_sealed) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET state = excluded.state, item_sealed = excluded.item_sealed
+    `).run(id, state, createdAt, sealed);
+  }
+
+  listOfflineOutboxSealed(states: readonly string[]): string[] {
+    if (!states.length) return [];
+    const rows = this.db.prepare(`SELECT item_sealed FROM offline_outbox WHERE state IN (${states.map(() => '?').join(',')}) ORDER BY created_at, id LIMIT 1000`).all(...states) as Record<string, unknown>[];
+    return rows.map((row) => String(row.item_sealed));
+  }
+
+  countOfflineOutbox(): Record<string, number> {
+    const rows = this.db.prepare('SELECT state, COUNT(*) AS n FROM offline_outbox GROUP BY state').all() as Record<string, unknown>[];
+    return Object.fromEntries(rows.map((row) => [String(row.state), Number(row.n)]));
+  }
+
+  hasBooksEntry(id: string): boolean {
+    return !!this.db.prepare('SELECT 1 FROM books_journal WHERE id = ?').get(id);
+  }
+
   /* ── Contabilidad de la empresa: diario de solo añadir; el contenido llega ya cifrado desde el runtime. ── */
   appendBooksEntrySealed(id: string, entryDate: string, createdAt: string, sealed: string): void {
     // Sin ON CONFLICT: un id repetido falla. El diario no se reescribe; se corrige con contrasientos.
@@ -2461,6 +2484,13 @@ export class SqliteStore {
         owner_principal_id TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         case_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS offline_outbox (
+        id TEXT PRIMARY KEY,
+        state TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        item_sealed TEXT NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS books_journal (

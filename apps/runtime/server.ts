@@ -113,6 +113,10 @@ import {
   DEFAULT_CHART, QUICK_LABELS, balanceSheet, createAccount, createJournalEntry, currenciesIn, incomeStatement, journalCsv, parseAmountToMinor,
   quickLines, reverseEntry, trialBalance, type Account, type JournalEntry, type QuickKind,
 } from '../../packages/modules/company-books/src/index.js';
+import {
+  decide as decideOutbox, dueItems, enqueue as enqueueOutbox, evaluateCapabilities, initialConnectivity, offlineSummary, recordProbe, revalidate as revalidateOutbox,
+  settle as settleOutbox, type CapabilitySpec, type Connectivity, type OutboxItem, type SendOutcome,
+} from '../../packages/modules/offline-kit/src/index.js';
 import { buildWorksheet, packHealth, selectPack, validateRulePack, vatByQuarter, type LegalForm, type RulePack } from '../../packages/modules/nl-tax-prep/src/index.js';
 import { HitlDeniedError, HitlGate, classifyOperation } from '../../packages/core/src/operation-risk.js';
 import { IntegrationHubAdapter, integrationBrief } from '../../packages/adapters/src/integration-hub-adapter.js';
@@ -1428,6 +1432,8 @@ function preferredProviderFrom(value: unknown): CoordinationPreferredProvider | 
  */
 function pushToFounders(title: string, body: string, tag: string): void {
   if (!pushKeys) return;
+  // Sin internet el aviso no se pierde: queda en la bandeja de salida y sale al volver la conexión.
+  if (connectivity.state === 'offline') { queueOffline('push.founder', title.slice(0, 80), { title, body, tag }, false); return; }
   for (const founder of store.listAuthorityCredentials().filter((credential) => credential.principal.role === 'founder_director' && credential.principal.active && !credential.revokedAt)) {
     pushToMember(founder.principal.id, title, body, tag);
   }
@@ -1514,6 +1520,95 @@ const selfChangeEnabled = process.env.JANUS_SELF_CHANGE === 'on';
 const selfChangeRepo = process.env.JANUS_SELF_CHANGE_REPO?.trim() || process.cwd();
 const SELF_CHANGE_CHECKS: Readonly<Record<string, readonly string[]>> = Object.freeze({ typecheck: ['npm', 'run', 'typecheck'], test: ['npm', 'test'], 'dashboard-test': ['npm', 'run', 'dashboard:test'] });
 const preparedChanges = new Map<string, PreparedChange>();
+
+/* ── Trabajo sin internet (pieza «offline-kit») ───────────────────────────────────────────────────────────────
+ * JANUS Core es local: sus datos y cálculos no dependen de internet. Aquí se decide con verdad qué funciona sin
+ * conexión, se evita esperar a proveedores inalcanzables y se guardan los envíos externos hasta que vuelva la red. */
+let connectivity: Connectivity = initialConnectivity(new Date().toISOString());
+const PROVIDER_PROBE_URLS: Readonly<Record<string, string>> = { anthropic: 'https://api.anthropic.com', openai: 'https://api.openai.com', gemini: 'https://generativelanguage.googleapis.com', perplexity: 'https://api.perplexity.ai' };
+const isLocalUrl = (value: string | undefined): boolean => {
+  if (!value) return false;
+  try { const host = new URL(value).hostname.replace(/^\[|\]$/g, ''); return host === 'localhost' || host === '::1' || /^127\./.test(host) || /^10\./.test(host) || /^192\.168\./.test(host) || /^172\.(1[6-9]|2\d|3[01])\./.test(host) || host.endsWith('.local'); } catch { return false; }
+};
+const offlineProbeUrls = (): string[] => {
+  const custom = (process.env.JANUS_OFFLINE_PROBE_URLS ?? '').split(',').map((entry) => entry.trim()).filter((entry) => /^https?:\/\//.test(entry));
+  if (custom.length) return custom.slice(0, 5);
+  // Por defecto solo se comprueban servicios que JANUS ya usa: no se contacta a nadie nuevo para «ver si hay internet».
+  const urls = configuredModelProviderIds.flatMap((id) => (PROVIDER_PROBE_URLS[id] ? [PROVIDER_PROBE_URLS[id]!] : []));
+  if (googleConfigured) urls.push('https://www.googleapis.com');
+  return urls.slice(0, 5);
+};
+const offlineResources = (): Record<string, boolean> => ({
+  local_model: configuredModelProviderIds.includes('custom') && isLocalUrl(process.env.JANUS_MODEL_BASE_URL),
+  local_stt: isLocalUrl(sttBaseUrl),
+  local_tts: isLocalUrl(ttsBaseUrl),
+});
+/** Lo que JANUS hace y qué necesita cada cosa. Única fuente para la pantalla «Sin internet». */
+const JANUS_CAPABILITIES: readonly CapabilitySpec[] = [
+  { id: 'data', label: 'Memoria, tareas, agenda, proyectos y casos', needs: 'device' },
+  { id: 'books', label: 'Cuentas: balance, estado de resultados y hoja fiscal', needs: 'device' },
+  { id: 'dashboard', label: 'Dashboard en el aparato donde vive JANUS', needs: 'device' },
+  { id: 'remote', label: 'Abrir JANUS desde otro aparato (iPhone, equipo)', needs: 'local_network', queuesChanges: true },
+  { id: 'chat', label: 'Conversar con JANUS con inteligencia artificial', needs: 'internet', localResource: 'local_model', offlineFallback: 'Sin internet y sin modelo propio en el aparato: solo órdenes sencillas reconocidas por reglas, sin IA.' },
+  { id: 'interpreter', label: 'Intérprete español ↔ neerlandés', needs: 'internet', localResource: 'local_model' },
+  { id: 'listen', label: 'Entender tu voz', needs: 'internet', localResource: 'local_stt' },
+  { id: 'speak', label: 'Voz de JANUS', needs: 'internet', localResource: 'local_tts', offlineFallback: 'Sin internet y sin voz propia instalada: habla con la voz del navegador.' },
+  { id: 'push', label: 'Avisos al teléfono', needs: 'internet', queuesChanges: true, offlineFallback: 'Sin internet: el aviso queda guardado y sale al volver la conexión.' },
+  { id: 'google', label: 'Correo, calendario y Drive de Google', needs: 'internet' },
+  { id: 'integrations', label: 'Servicios conectados y radar de oportunidades', needs: 'internet' },
+];
+const sealOutbox = (item: OutboxItem): string => sealPrivateText(JSON.stringify(item), privateTextKey);
+const loadOutbox = (states: readonly string[]): OutboxItem[] => store.listOfflineOutboxSealed(states).flatMap((sealed) => { try { const text = openPrivateText(sealed, privateTextKey); return text ? [JSON.parse(text) as OutboxItem] : []; } catch { return []; } });
+const saveOutbox = (item: OutboxItem): void => store.upsertOfflineOutboxSealed(item.id, item.state, item.createdAt, sealOutbox(item));
+function queueOffline(kind: string, summary: string, payload: unknown, sensitive: boolean): OutboxItem | null {
+  try { const item = enqueueOutbox(loadOutbox(['queued', 'needs_review']), { id: `ob_${randomUUID()}`, kind, summary, payload, sensitive, now: new Date().toISOString() }); saveOutbox(item); return item; } catch { return null; }
+}
+/** Remitentes conocidos. Un tipo sin remitente nunca se descarta: pasa a «revisar». */
+const OUTBOX_SENDERS: Record<string, (payload: unknown) => Promise<SendOutcome>> = {
+  'push.founder': async (payload) => {
+    const data = (payload ?? {}) as { title?: string; body?: string; tag?: string };
+    if (!pushKeys) return { ok: false, retryable: false, error: 'avisos no configurados' };
+    const delivered = await pushToFoundersConfirmed(String(data.title ?? 'JANUS'), String(data.body ?? ''), String(data.tag ?? 'offline'));
+    return delivered ? { ok: true } : { ok: false, retryable: true, error: 'sin entrega' };
+  },
+};
+let outboxDraining = false;
+async function drainOutbox(): Promise<void> {
+  if (outboxDraining || connectivity.state !== 'online') return;
+  outboxDraining = true;
+  try {
+    const now = new Date().toISOString();
+    for (const item of dueItems(loadOutbox(['queued']), now, 20)) {
+      const sender = OUTBOX_SENDERS[item.kind];
+      const outcome: SendOutcome = sender ? await sender(item.payload).catch((error: unknown) => ({ ok: false as const, retryable: true, error: error instanceof Error ? error.message : 'error' })) : { ok: false, retryable: false, error: 'no hay remitente para este tipo: decide tú' };
+      saveOutbox(settleOutbox(item, outcome, new Date().toISOString()));
+    }
+  } finally { outboxDraining = false; }
+}
+async function probeConnectivity(): Promise<void> {
+  const urls = offlineProbeUrls();
+  if (!urls.length) return; // Nada externo configurado: no hay nada que comprobar ni que pueda fallar por falta de internet.
+  const results = await Promise.all(urls.map((target) => fetch(target, { method: 'HEAD', signal: AbortSignal.timeout(4_000) }).then(() => true, () => false)));
+  const before = connectivity.state;
+  connectivity = recordProbe(connectivity, results.some(Boolean), new Date().toISOString());
+  if (connectivity.state === 'online' && before !== 'online') {
+    // Revalidación al reconectar: lo delicado o lo viejo no sale solo.
+    for (const item of revalidateOutbox(loadOutbox(['queued']), new Date().toISOString())) if (item.state !== 'queued') saveOutbox(item);
+  }
+  if (connectivity.state === 'online') void drainOutbox();
+}
+const offlineProbeMs = numericEnv('JANUS_OFFLINE_PROBE_MS') ?? 30_000;
+if (offlineProbeMs > 0) { void probeConnectivity(); setInterval(() => { void probeConnectivity(); }, Math.max(2_000, offlineProbeMs)).unref(); }
+function offlineStatus() {
+  const resources = offlineResources(); const internet = connectivity.state !== 'offline';
+  const review = loadOutbox(['needs_review', 'failed']);
+  return {
+    connectivity: { ...connectivity, probing: offlineProbeUrls().length > 0 }, resources,
+    now: evaluateCapabilities(JANUS_CAPABILITIES, { internet, localNetwork: true, resources }),
+    withoutInternet: offlineSummary(JANUS_CAPABILITIES, resources, true),
+    outbox: { counts: store.countOfflineOutbox(), review: review.map((item) => ({ id: item.id, kind: item.kind, summary: item.summary, state: item.state, createdAt: item.createdAt, lastError: item.lastError ?? null, sensitive: item.sensitive })) },
+  };
+}
 
 /* ── Contabilidad de la empresa (pieza «company-books») y preparación fiscal NL (pieza «nl-tax-prep») ─────────
  * Solo Founder. Los asientos se guardan sellados; el diario es de solo añadir. Las reglas fiscales son DATOS por año. */
@@ -2682,6 +2777,13 @@ async function prepareSteps(command: string, runId: string): Promise<JanusStep[]
         : configuredModelProviderIds.length === 1 && configuredModelProviderIds[0] === 'custom' ? modelGateway : null;
       routedGateway = local ?? { complete: async () => { throw new Error('Proyecto «solo modelo propio»: no hay modelo local configurado.'); } };
     }
+    // Sin internet: no se espera a proveedores inalcanzables. Se usa el modelo propio del aparato si existe; si no, JANUS sigue sin IA.
+    if (connectivity.state === 'offline' && runProject?.modelPolicy !== 'local_only') {
+      const local = offlineResources().local_model
+        ? (modelGateway instanceof FallbackModelRouter ? modelGateway.only(['custom']) : modelGateway)
+        : null;
+      routedGateway = local ?? { complete: async () => { throw new Error('Sin internet y sin modelo propio en el aparato: respuesta sin IA.'); } };
+    }
     const runModelGateway = new BudgetedModelGateway(routedGateway, runEffort?.budget.maxModelCalls ?? 3);
     runModelBudgets.set(runId, runModelGateway);
     const maxPlanSteps = runEffort?.budget.maxPlanSteps ?? 20;
@@ -3802,7 +3904,9 @@ const server = createServer(async (request, response) => {
       if (!existsSync(dashboardFile)) throw new Error('No se generó la vista ' + skin);
       response.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'no-store',
+        // «no-cache» (revalidar siempre) en vez de «no-store»: así el service worker puede guardar la página y abrirla sin red.
+        // La página es la versión pública-segura: no lleva datos personales; los datos llegan por /api con sesión.
+        'cache-control': 'no-cache',
         'x-content-type-options': 'nosniff',
         'referrer-policy': 'no-referrer',
       });
@@ -7022,6 +7126,37 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // ── Trabajo sin internet: estado, capacidades y bandeja de salida (solo Founder) ────────────────────────
+  if (url.pathname.startsWith('/api/offline')) {
+    try {
+      requireFounderAuthority(request);
+      if (request.method === 'GET' && url.pathname === '/api/offline/status') { json(response, 200, { ok: true, generatedAt: new Date().toISOString(), ...offlineStatus() }); return; }
+      if (request.method === 'POST' && url.pathname === '/api/offline/probe') { await probeConnectivity(); json(response, 200, { ok: true, ...offlineStatus() }); return; }
+      if (request.method === 'POST' && url.pathname === '/api/offline/outbox') {
+        const body = await readJson(request);
+        let item: OutboxItem;
+        try { item = enqueueOutbox(loadOutbox(['queued', 'needs_review']), { id: `ob_${randomUUID()}`, kind: String(body.kind ?? ''), summary: String(body.summary ?? ''), payload: body.payload ?? null, sensitive: body.sensitive === true, idempotencyKey: typeof body.idempotencyKey === 'string' ? body.idempotencyKey : undefined, now: new Date().toISOString() }); }
+        catch (error) { throw new HttpRequestError(400, error instanceof Error ? error.message : 'invalid item'); }
+        saveOutbox(item);
+        json(response, 201, { ok: true, id: item.id, state: item.state });
+        return;
+      }
+      const decisionMatch = url.pathname.match(/^\/api\/offline\/outbox\/([^/]+)\/decision$/);
+      if (request.method === 'POST' && decisionMatch) {
+        const body = await readJson(request);
+        const item = loadOutbox(['needs_review', 'failed']).find((entry) => entry.id === decodeURIComponent(decisionMatch[1]!));
+        if (!item) throw new HttpRequestError(404, 'outbox item not found');
+        if (body.decision !== 'send' && body.decision !== 'discard') throw new HttpRequestError(400, 'decision must be send or discard');
+        saveOutbox(decideOutbox(item, body.decision, new Date().toISOString()));
+        if (body.decision === 'send') void drainOutbox();
+        json(response, 200, { ok: true, ...offlineStatus() });
+        return;
+      }
+      throw new HttpRequestError(404, 'not found');
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
   // ── Contabilidad de la empresa y preparación fiscal (solo Founder) ──────────────────────────────────────
   if (url.pathname.startsWith('/api/books') || url.pathname.startsWith('/api/tax/')) {
     try {
@@ -7051,6 +7186,8 @@ const server = createServer(async (request, response) => {
       if (request.method === 'POST' && url.pathname === '/api/books/entries') {
         const body = await readJson(request);
         const chart = booksChart(); const now = new Date().toISOString();
+        // Reenvíos tras una desconexión: la misma clave nunca crea dos asientos.
+        const rawKey = request.headers['idempotency-key']; const idemKey = typeof rawKey === 'string' && /^[A-Za-z0-9._:-]{8,120}$/.test(rawKey) ? rawKey : '';
         let entry: JournalEntry;
         try {
           const quick = typeof body.kind === 'string';
@@ -7058,12 +7195,13 @@ const server = createServer(async (request, response) => {
             ? quickLines({ kind: body.kind as QuickKind, amountMinor: parseAmountToMinor(body.amount), vatBasisPoints: body.vatPercent === undefined || body.vatPercent === '' ? 0 : Math.round(Number(body.vatPercent) * 100), category: typeof body.category === 'string' && body.category ? body.category : undefined, moneyAccount: typeof body.moneyAccount === 'string' && body.moneyAccount ? body.moneyAccount : undefined, toAccount: typeof body.toAccount === 'string' ? body.toAccount : undefined })
             : (Array.isArray(body.lines) ? body.lines : []);
           entry = createJournalEntry({
-            id: `je_${randomUUID()}`, date: isoDay(typeof body.date === 'string' ? body.date : null, today), description: String(body.description ?? ''), currency: typeof body.currency === 'string' ? body.currency : 'EUR',
+            id: idemKey ? `je_idem_${createHash('sha256').update(idemKey).digest('hex').slice(0, 40)}` : `je_${randomUUID()}`, date: isoDay(typeof body.date === 'string' ? body.date : null, today), description: String(body.description ?? ''), currency: typeof body.currency === 'string' ? body.currency : 'EUR',
             lines, verified: body.verified === true, source: quick ? `quick:${String(body.kind)}` : 'manual', reference: typeof body.reference === 'string' ? body.reference : undefined,
             productId: typeof body.productId === 'string' ? body.productId : undefined, createdAt: now, createdBy: principal.id,
           }, chart);
           if (entry.date > today) throw new Error('la fecha del asiento no puede ser futura');
         } catch (error) { bad(error); return; }
+        if (idemKey && store.hasBooksEntry(entry.id)) { json(response, 200, { ok: true, duplicate: true, entryId: entry.id }); return; }
         store.appendBooksEntrySealed(entry.id, entry.date, entry.createdAt, sealBooks(entry));
         json(response, 201, { ok: true, entry });
         return;

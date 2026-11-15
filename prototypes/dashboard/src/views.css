@@ -410,3 +410,16 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 @media (max-width:47.5em),(max-height:31.25em){.vb-cuentas{grid-template-columns:minmax(0,1fr);grid-template-rows:none}.vb-cuentas .col3.wide2{grid-column:auto}}
 .vb-cuentas .col3>.cd.cucomp{flex:none;overflow:visible}
 .cucomp .seg{flex-wrap:wrap}
+
+/* ---------- SIN INTERNET ---------- */
+.vb-offline{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:auto minmax(0,1fr)}
+.vb-offline>.cutop{grid-column:1 / -1;display:flex;flex-direction:column;gap:6px}
+.vb-offline .col3>.cd{overflow:auto;justify-content:flex-start}
+.vb-offline .pb{display:block;overflow:visible}
+.vb-offline .rdi{align-items:flex-start}
+.ofl-works{color:var(--good)}.ofl-degraded{color:var(--gold3)}.ofl-unavailable{color:var(--bad)}
+@media (max-width:47.5em),(max-height:31.25em){.vb-offline{grid-template-columns:minmax(0,1fr);grid-template-rows:none}}
+.vb.vb-offline .col3 .cd .pb,.vb.vb-cuentas .col3 .cd .pb{display:block;overflow:visible;flex:none}
+.vb.vb-offline .col3 .cd,.vb.vb-cuentas .col3 .cd{justify-content:flex-start}
+.vb-offline .rdi>span:not(.bb):not(.pill2){white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
+.vb-offline .mt{white-space:normal}

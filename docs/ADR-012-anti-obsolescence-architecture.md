@@ -115,3 +115,11 @@ perfecto para la hija, timbre propio de criatura) son un tema aparte y pendiente
 **Sin internet (recordatorio del Founder, 15-nov):** contabilidad, balance, estado de resultados y hoja fiscal funcionan
 sin conexión: cálculo local, reglas en archivo local, diario en SQLite. Lo único que necesita red es REVISAR las fuentes
 para actualizar un paquete de reglas; mientras tanto se usa el último paquete guardado, con su fecha de revisión a la vista.
+
+## Actualización 15-nov-2026 (23:15) — sexto pilar: sin internet, y diciendo la verdad sobre ello
+
+Decisión: «funciona sin internet» deja de ser una frase y pasa a ser una tabla calculada (`offline-kit` →
+`evaluateCapabilities`). Cada función declara qué necesita (nada, el aparato, la red local, internet) y qué recurso
+propio la sustituye. La pantalla y cualquier texto comercial salen de esa tabla: lo que no figure como «funciona»,
+no se promete. Los cambios hechos sin conexión viajan con clave de idempotencia y se revalidan al reconectar
+(lo delicado o lo viejo vuelve a pedir confirmación). La misma pieza sirve a JANUS, IBA y ChatBox.

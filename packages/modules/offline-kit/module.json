@@ -1,0 +1,33 @@
+{
+  "id": "offline-kit",
+  "version": "1.0.0",
+  "kind": "capability-module",
+  "summary": "Trabajo sin internet para cualquier producto: detección de conexión con histéresis, tabla de qué funciona sin red (fuente única de verdad para pantallas y textos comerciales), bandeja de salida con idempotencia y revalidación al reconectar, y veredicto de frescura para datos guardados.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none (the host probes the network, stores the outbox and sends the items)",
+  "network": "none",
+  "secrets": [],
+  "dataClassification": "host-defined (the module stores nothing)",
+  "invariants": [
+    "Imports nothing; never reads the clock, the network or the disk: time and probe results are inputs.",
+    "Connectivity changes state only after N consecutive results (no flapping on a single failure).",
+    "A capability is reported as working offline only if it needs nothing/device, or its declared local resource is present.",
+    "Outbox items carry an idempotency key; order of sending is the order of creation.",
+    "Reconnect revalidation: sensitive items and items older than reviewAfterMs are never sent automatically; they move to needs_review until a person decides.",
+    "Non-retryable rejections stop at `failed`; retryable ones back off exponentially and end in needs_review after maxAttempts.",
+    "All functions return new objects; nothing is mutated."
+  ],
+  "api": "initialConnectivity · recordProbe · evaluateCapabilities · offlineSummary · enqueue · revalidate · dueItems · settle · decide · outboxCounts · freshness",
+  "mounts": [
+    { "product": "JANUS Core (tablet/servidor local)", "file": "apps/runtime/server.ts (/api/offline/*) + tabla offline_outbox", "version": "1.0.0" },
+    { "product": "JANUS · dashboards y PWA (navegador)", "file": "prototypes/dashboard/lego/janus-offline (misma política, implementación de navegador)", "version": "1.0.0" }
+  ],
+  "plannedMounts": ["Infinity Business Assistant (IBA): panel del dueño y del equipo", "Infinity ChatBox: después del piloto"],
+  "reuseNotes": "Declare your product's capabilities as data (CapabilitySpec[]) and render evaluateCapabilities(); use the same list for marketing copy so nothing is promised that the list does not back. Persist OutboxItem objects anywhere; call revalidate() once when the connection returns, then dueItems()/settle() in a loop.",
+  "knownLimits": [
+    "It does not resolve data conflicts between devices: the destination must be idempotent and reject stale changes.",
+    "It cannot make cloud-only services (AI in the cloud, telephony, messaging) work without a connection; it only tells the truth about them.",
+    "Probing strategy (what to ping, how often) is the host's decision."
+  ]
+}

@@ -408,6 +408,37 @@ holandesa con conocimiento basado en varias fuentes fiables, todo como módulos 
 - **Error y lección de la sesión:** la primera versión fechaba la anulación «hoy», lo que movía el IVA de un trimestre a
   otro → la prueba de extremo a extremo lo detectó → ahora usa la fecha del asiento → verificado en `books-runtime.mjs`.
 
+## Actualización 15-nov-2026 (23:15) — JANUS sin internet + piezas listas para IBA/ChatBox
+
+Órdenes del Founder (15-nov, 17:30–22:33): JANUS e IBA deben funcionar sin internet (ChatBox después del piloto);
+contabilidad y fiscalidad reutilizables en IBA y ChatBox; definir con exactitud qué funciona sin conexión.
+
+**Qué funciona en JANUS sin internet (lo calcula `offlineStatus()`; fuente única, pestaña «Sin red»):**
+- SIGUE: memoria, tareas, agenda, proyectos, casos; cuentas (balance, resultados, hoja fiscal); dashboard en el aparato
+  donde vive JANUS; abrir JANUS desde otro aparato por la red local.
+- CON RECURSO PROPIO INSTALADO: conversar con IA e intérprete (modelo propio en dirección local), entender la voz
+  (reconocimiento propio), voz de JANUS (voz propia). Sin ellos: sin IA / voz del navegador.
+- A MEDIAS: avisos al teléfono (se guardan y salen al volver).
+- NO: correo, calendario y Drive de Google; servicios conectados; radar.
+- Desde el iPhone SIN llegar a JANUS: el dashboard se abre, enseña lo último guardado con su fecha y apunta
+  movimientos de cuentas para enviarlos al volver.
+
+**Piezas:** `offline-kit` 1.0.0 (servidor, pura) · `janus-offline` 1.0.0 (navegador) · `company-books` 1.1.0
+(`entriesFromFinanceRecords`, avisos con código) · `nl-tax-prep` 1.1.0 (`warningCodes`) · `scripts/lego-export.mjs`
+(`--to <carpeta> <pieza…>` copia sellada con `lego.lock.json` + `verify-lego.mjs`; `--check`).
+
+**Decisiones:** conectividad solo se comprueba contra servicios que JANUS ya usa (no se contacta a terceros nuevos);
+«modelo propio» cuenta como recurso local solo si su dirección es local; un tipo de envío sin remitente nunca se
+descarta, pasa a «decide tú»; la página del dashboard (pública-segura, sin datos) se sirve `no-cache` para poder
+abrirse sin red; los datos guardados en el navegador no llevan cifrado propio (se declaran solo lecturas del Founder).
+
+**Datos del Founder (15-nov):** forma jurídica prevista: autónomo (eenmanszaak), inscripción en KVK hacia diciembre de
+2026; dedicación declarada: 8 h/día de lunes a sábado, y 10–12 h/día los primeros seis meses (muy por encima de 1.225 h).
+Hasta la inscripción la forma jurídica sigue «sin confirmar» en JANUS: no se calcula impuesto.
+
+**No hecho:** modelo de IA propio en la tablet; voz propia; cifrado de la copia del navegador; conflicto entre
+aparatos; reintento automático de órdenes que necesitaban internet (se dicen como no disponibles, no se encolan).
+
 ## LEGO reutilizado (no se ha creado diseño nuevo)
 
 Piel `command-center.css` de IBA · `janus-language-button` + arte de idiomas · `apps/pwa/founder-session.js` ·

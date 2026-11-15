@@ -23,6 +23,7 @@ async function cuentasLoad(force) {
     const r = cuentasRange(), y = Number(r.from.slice(0, 4)), F = CUENTAS.form;
     const res = await fetch('/api/books?from=' + r.from + '&to=' + r.to, { headers: cuentasHeaders(), cache: 'no-store' });
     if (!res.ok) throw new Error(res.status === 403 ? 'solo el Founder puede ver las cuentas' : 'HTTP ' + res.status);
+    CUENTAS.savedAt = res.headers.get('x-janus-offline') === 'cache' ? res.headers.get('x-janus-saved-at') : null;
     CUENTAS.data = await res.json();
     const q = '/api/tax/nl?year=' + y + (F.hours !== '' ? '&hours=' + encodeURIComponent(F.hours) : '') + (F.starter ? '&starter=1' : '');
     const tr = await fetch(q, { headers: cuentasHeaders(), cache: 'no-store' });
@@ -36,6 +37,7 @@ async function cuentasSend(method, path, body) {
     const res = await fetch(path, { method, headers: cuentasHeaders(), body: JSON.stringify(body || {}), cache: 'no-store' });
     const out = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
+    CUENTAS.queued = !!out.queued;
     CUENTAS.err = ''; await cuentasLoad(true); return true;
   } catch (e) { CUENTAS.err = e.message; CUENTAS.msg = ''; return false; }
 }
@@ -54,6 +56,7 @@ function vCuentas(M, X, sub) {
   const D = CUENTAS.data, F = CUENTAS.form, today = cuentasToday(), thisYear = Number(today.slice(0, 4));
   const head = '<div class="cutop"><div class="cuh">' + seg('cuTab', CUENTAS.tab, [['informes', '📊 Resultados y balance'], ['anotar', '✍ Anotar'], ['impuestos', '🇳🇱 Belastingdienst']]) +
     seg('cuPeriod', CUENTAS.period, [['mes', 'Este mes'], ['trim', 'Trimestre'], ['anio', 'Año']]) + seg('cuYear', CUENTAS.year || thisYear, [[thisYear - 1, String(thisYear - 1)], [thisYear, String(thisYear)]]) + '</div>' +
+    (CUENTAS.savedAt ? '<div class="note mono rdw">⚠ Sin conexión con JANUS: cifras guardadas en este aparato el ' + esc(new Date(CUENTAS.savedAt).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })) + '. Lo anotado después no aparece hasta volver.</div>' : '') +
     (CUENTAS.err ? '<div class="note mono rdw">⚠ ' + esc(CUENTAS.err) + '</div>' : '') + (CUENTAS.msg ? '<div class="note mono okc">' + esc(CUENTAS.msg) + '</div>' : '') + '</div>';
   if (!D) {
     return frame('cuentas', sub, M, head + '<div class="col3">' + panel('', '💼', 'Cuentas de la empresa', '', '<div class="rdt">' + (cuentasCore() ? 'Leyendo las cuentas…' : 'JANUS no está encendido. Las cuentas de la empresa se guardan dentro de JANUS, cifradas, y solo las ve el Founder.') + '</div><div class="note mono">Aquí no se muestran cifras de ejemplo: el balance y el estado de resultados o son reales o no se enseñan.</div>') + '</div>');
@@ -123,7 +126,7 @@ const CUENTAS_ACTS = {
     const F = CUENTAS.form;
     if (!String(F.amount).trim() || !String(F.description).trim()) { CUENTAS.err = 'Faltan el importe y la descripción.'; CUENTAS.msg = ''; return; }
     const okSent = await cuentasSend('POST', '/api/books/entries', { kind: F.kind, amount: String(F.amount).trim(), vatPercent: CU_VAT_KINDS[F.kind] ? Number(F.vat) : 0, category: CU_CAT[F.kind] ? F.category : '', date: F.date || cuentasToday(), description: F.description, verified: !!F.verified });
-    if (okSent) { CUENTAS.msg = 'Guardado: ' + F.description; F.amount = ''; F.description = ''; F.verified = false; }
+    if (okSent) { CUENTAS.msg = (CUENTAS.queued ? 'Sin conexión: anotado en este aparato; se enviará a JANUS al volver. ' : 'Guardado: ') + F.description; F.amount = ''; F.description = ''; F.verified = false; }
     rerender();
   },
   cuReverse: async (id) => { if (await cuentasSend('POST', '/api/books/entries/' + encodeURIComponent(id) + '/reverse', {})) CUENTAS.msg = 'Asiento anulado (queda el rastro).'; rerender(); },

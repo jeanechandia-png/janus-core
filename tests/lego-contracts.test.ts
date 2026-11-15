@@ -9,7 +9,7 @@ const ROOT = 'packages/modules';
 const files = (dir: string): string[] => readdirSync(dir).flatMap((name) => { const full = join(dir, name); return statSync(full).isDirectory() ? files(full) : /\.ts$/.test(name) ? [full] : []; });
 
 test('las piezas autónomas no importan nada fuera de su carpeta y documentan límites e invariantes', () => {
-  for (const name of ['company-books', 'nl-tax-prep', 'contextual-interpreter']) {
+  for (const name of ['company-books', 'nl-tax-prep', 'contextual-interpreter', 'offline-kit']) {
     const manifest = JSON.parse(readFileSync(join(ROOT, name, 'module.json'), 'utf8'));
     assert.deepEqual(manifest.dependencies, [], `${name}: sin dependencias`);
     assert.ok(manifest.invariants.length >= 4 && manifest.knownLimits.length >= 1 && manifest.reuseNotes, `${name}: invariantes, límites y notas de reutilización`);
