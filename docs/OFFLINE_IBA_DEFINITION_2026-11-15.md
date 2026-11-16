@@ -58,3 +58,17 @@ No debe publicarse antes: hoy sería falso.
 5. Service worker para `/app`, con prueba de red cortada y en teléfonos reales.
 6. Balance y resultados en el panel (puente desde `finance_documents` / `finance_payments`, sin tablas nuevas).
 7. Solo entonces, el texto en la landing.
+
+## 6. Actualización 16-nov-2026 — decisión del propietario e implementación
+
+- **Separar dos casos** (aclarado con el propietario): si cae el internet DEL LOCAL, Melanie sigue atendiendo
+  (teléfono, WhatsApp, chat web, citas) porque vive en la nube; el panel sigue con lo último guardado y sincroniza.
+  Lo que no puede funcionar es hablar con Melanie desde un aparato SIN ninguna conexión (con datos móviles sí).
+- **Descartado:** Melanie dentro del local sin nube (equipo propio por cliente).
+- **Implementado (CODED, STATIC-TESTED, UI-SINTÉTICO)** en IBA @ `a412652`: aviso sin conexión, copias locales,
+  bandeja con idempotencia en finanzas, balance y resultados por API, service worker construido y APAGADO.
+- **Pendiente:** teléfonos reales → encender «abrir sin red»; mostrar balance en el panel; tareas en la bandeja;
+  texto de landing y conocimiento de Melanie (otro agente).
+- **Texto propuesto para la landing (corrige el del punto 4):** «Su negocio sigue atendido aunque se le caiga
+  internet: Melanie contesta el teléfono y los mensajes, y su equipo sigue trabajando. Al volver la conexión, todo
+  se sincroniza.» Solo publicable cuando el punto anterior esté verificado.
