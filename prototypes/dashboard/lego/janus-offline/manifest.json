@@ -1,11 +1,11 @@
 {
   "piece": "janus-offline",
   "name": "Seguir trabajando sin conexión en el navegador (copias locales + bandeja de salida)",
-  "moduleVersion": "1.1.0",
+  "moduleVersion": "1.2.0",
   "origin": "15 nov 2026, orden de Jean: JANUS e IBA deben funcionar sin internet (ChatBox después del piloto). Construido como pieza reutilizable.",
   "pairsWith": "packages/modules/offline-kit (misma política en el servidor: conectividad, capacidades, bandeja, frescura)",
   "dependencies": [],
-  "api": "JanusOffline.{install({namespace, read[], write[{match, method, kind, summary, sensitive}], headers(), onChange}), drain(), pending(), decide(id,'send'|'discard'), clear({keepOutbox?}), state(), storage()}",
+  "api": "JanusOffline.{prepare({read}), install({namespace, read[], write[{match, method, kind, summary, sensitive}], headers(), onChange}), drain(), pending(), decide(id,'send'|'discard'), clear({keepOutbox?}), state(), storage()}",
   "behaviour": "Envuelve fetch SOLO para las rutas declaradas. Lecturas: red primero; si falla, última copia guardada con cabeceras x-janus-offline/x-janus-saved-at; copia de más de 7 días no se enseña. Cambios: si la red falla, quedan en la bandeja (respuesta 202 {queued:true}) y salen en orden al volver, con Idempotency-Key. Lo delicado o con más de 24 h pide confirmación. Un 4xx/5xx del servidor no es «sin conexión» y pasa tal cual.",
   "security": "El token de sesión no se guarda: el reenvío usa las cabeceras vigentes. Lo guardado va separado por `namespace` (usuario/empresa) y se borra con clear() al cerrar sesión. Solo mismo origen. Los datos guardados quedan en el almacén del navegador del aparato (IndexedDB), sin cifrado propio: no declarar como lectura lo que no deba quedar en un aparato compartido.",
   "mounts": [{ "product": "JANUS · dashboards A/B (pestaña «Sin red», Cuentas, Casos, Radar)", "file": "prototypes/dashboard/src/offline.js", "version": "1.0.0" }],

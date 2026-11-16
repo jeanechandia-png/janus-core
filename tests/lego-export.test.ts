@@ -29,7 +29,7 @@ test('exportar piezas a otro producto: copia sellada, verificable y que detecta 
     assert.deepEqual(verifyExport(dir), []);
     assert.throws(() => exportPieces(dir, ['../x']), /no válido/);
     const withUi = exportPieces(dir, ['ui:janus-offline'], { commit: 'abc' });
-    assert.equal(withUi.pieces['ui-janus-offline'].version, '1.1.0');
+    assert.equal(withUi.pieces['ui-janus-offline'].version, '1.2.0');
     assert.ok(withUi.pieces['ui-janus-offline'].files['janus-offline.js']);
     assert.deepEqual(verifyExport(dir), []);
   } finally { rmSync(dir, { recursive: true, force: true }); }

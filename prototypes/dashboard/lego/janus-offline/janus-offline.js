@@ -15,6 +15,9 @@
  *  - El token de sesión nunca se guarda: al reenviar se usan las cabeceras vigentes en ese momento.
  *  - `clear()` borra todo lo guardado (al cerrar sesión); `clear({ keepOutbox: true })` conserva lo aún no enviado.
  *
+ * Antes de conocer al usuario: JanusOffline.prepare({ read }) guarda en MEMORIA las primeras lecturas, atadas a la
+ * sesión que las pidió; install() las pasa al almacén solo si la sesión coincide.
+ *
  * Uso:
  *   JanusOffline.install({
  *     namespace: 'janus:founder',                         // separa usuarios/empresas en el mismo aparato
@@ -25,9 +28,11 @@
  *   });
  */
 (function () {
+  // Seguro en el servidor (render de Next.js, pruebas en Node): sin navegador no hace nada.
+  if (typeof window === 'undefined' || typeof window.fetch !== 'function') return;
   const DB_NAME = 'janus-offline-v1';
   const DEFAULTS = { maxAgeMs: 7 * 24 * 3600 * 1000, reviewAfterMs: 24 * 3600 * 1000, maxItems: 200, maxBodyChars: 200000, maxCacheChars: 2000000 };
-  const S = { cfg: null, db: null, mem: { cache: new Map(), outbox: new Map() }, online: true, draining: false, nativeFetch: null, state: { online: true, pending: 0, review: 0, lastSavedAt: null }, timer: null };
+  const S = { pre: null, cfg: null, db: null, mem: { cache: new Map(), outbox: new Map() }, online: true, draining: false, nativeFetch: null, state: { online: true, pending: 0, review: 0, lastSavedAt: null }, timer: null };
 
   /* ── Almacén: IndexedDB; si el navegador no lo permite (modo privado), memoria (se pierde al cerrar). ── */
   function openDb() {
@@ -67,6 +72,32 @@
     const changed = JSON.stringify(next) !== JSON.stringify(S.state); S.state = next; S.online = next.online;
     if (changed && S.cfg && typeof S.cfg.onChange === 'function') { try { S.cfg.onChange(Object.assign({}, next)); } catch (e) { } }
     if (changed) { try { window.dispatchEvent(new CustomEvent('janus-offline', { detail: Object.assign({}, next) })); } catch (e) { } }
+  }
+
+  /** Cabecera Authorization de una petición (Headers, objeto o lista), para atar cada copia a la sesión que la pidió. */
+  function authOf(init) {
+    const h = init && init.headers; if (!h) return '';
+    try { if (typeof Headers !== 'undefined' && h instanceof Headers) return h.get('authorization') || ''; } catch (e) { }
+    if (Array.isArray(h)) { const hit = h.find((pair) => String(pair[0]).toLowerCase() === 'authorization'); return hit ? String(hit[1]) : ''; }
+    for (const k of Object.keys(h)) if (k.toLowerCase() === 'authorization') return String(h[k]);
+    return '';
+  }
+
+  /* Antes de saber quién es el usuario: las lecturas declaradas se guardan solo EN MEMORIA, atadas a la sesión que las
+   * pidió. Al llamar a install() se pasan al almacén si la sesión coincide; si no, se descartan. Así no se pierden las
+   * primeras cargas de la página y nunca se mezclan datos de dos sesiones. */
+  async function bufferRead(input, init, path) {
+    const res = await S.nativeFetch(input, init);
+    if (res.ok && S.pre) {
+      try { const text = await res.clone().text(); if (text.length <= DEFAULTS.maxCacheChars) { S.pre.buffer.set(path, { path, body: text, type: res.headers.get('content-type') || 'application/json', savedAt: new Date().toISOString(), auth: authOf(init) }); if (S.pre.buffer.size > 40) S.pre.buffer.delete(S.pre.buffer.keys().next().value); } } catch (e) { }
+    }
+    return res;
+  }
+  function prepare(config) {
+    if (S.cfg) return api;
+    S.pre = { read: (config && config.read) || [], buffer: (S.pre && S.pre.buffer) || new Map() };
+    if (!S.nativeFetch) { S.nativeFetch = window.fetch.bind(window); window.fetch = fetchWrapper; }
+    return api;
   }
 
   async function handleRead(input, init, path) {
@@ -132,6 +163,7 @@
 
   async function fetchWrapper(input, init) {
     const cfg = S.cfg; const url = typeof input === 'string' ? input : input && input.url;
+    if (!cfg && S.pre && url && sameOrigin(url) && String((init && init.method) || 'GET').toUpperCase() === 'GET') { const path = pathOf(url); if (S.pre.read.some((rule) => matches(rule, path))) return bufferRead(input, init, path); }
     if (!cfg || !url || !sameOrigin(url)) return S.nativeFetch(input, init);
     const method = String((init && init.method) || (typeof input !== 'string' && input.method) || 'GET').toUpperCase();
     const path = pathOf(url);
@@ -145,6 +177,13 @@
     S.cfg = Object.assign({}, DEFAULTS, { read: [], write: [] }, config);
     if (!S.nativeFetch) { S.nativeFetch = window.fetch.bind(window); window.fetch = fetchWrapper; }
     if (!S.db) S.db = await openDb();
+    if (S.pre) {
+      const current = authOf({ headers: S.cfg.headers ? S.cfg.headers() : {} });
+      let newest = null;
+      for (const entry of S.pre.buffer.values()) if (entry.auth && entry.auth === current) { await put('cache', entry.path, { path: entry.path, body: entry.body, type: entry.type, savedAt: entry.savedAt }); if (!newest || entry.savedAt > newest) newest = entry.savedAt; }
+      S.pre = null;
+      if (newest) S.state.lastSavedAt = newest;
+    }
     window.addEventListener('online', () => { void drain(); });
     window.addEventListener('offline', () => { void refresh({ online: false }); });
     if (S.timer) clearInterval(S.timer);
@@ -163,6 +202,6 @@
   }
   /** Borra lo guardado de esta cuenta. `keepOutbox: true` conserva los cambios aún no enviados (no se pierde trabajo al cerrar sesión). */
   async function clear(options) { if (!S.cfg) return; await wipe('cache'); if (!(options && options.keepOutbox)) await wipe('outbox'); await refresh({ lastSavedAt: null }); }
-  const api = { install, drain, pending, decide, clear, state: () => Object.assign({}, S.state), storage: () => (S.db ? 'indexeddb' : 'memory'), version: '1.1.0' };
+  const api = { prepare, install, drain, pending, decide, clear, state: () => Object.assign({}, S.state), storage: () => (S.db ? 'indexeddb' : 'memory'), version: '1.2.0' };
   window.JanusOffline = api;
 })();
