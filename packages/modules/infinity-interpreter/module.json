@@ -1,0 +1,20 @@
+{
+  "id": "infinity-interpreter",
+  "version": "0.1.0",
+  "kind": "logic-module",
+  "summary": "Reusable contextual translation engine for Connect, Janus, Melanie, IBA and automations; provider-neutral and privacy-gated.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided translation adapter, STT and TTS via existing voice gateway",
+  "network": false,
+  "secrets": "none; providers and credentials are host-owned",
+  "dataClassification": "potentially sensitive conversational text (ephemeral only)",
+  "invariants": [
+    "Imports nothing outside its own folder.",
+    "Never persists or records audio or conversation text.",
+    "External translation requires explicit per-turn consent.",
+    "Source speech is untrusted data, not privileged instructions.",
+    "All products reuse this module without copying it."
+  ],
+  "reuseNotes": "Infinity Connect is flagship consumer. Other products integrate through a thin adapter and provider-specific translation port; speech I/O reuses existing STT/TTS gateways."
+}

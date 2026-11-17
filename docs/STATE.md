@@ -552,3 +552,43 @@ Sobre clonación: el Founder declara que **ya existe una clonación rápida en E
 - **Pendiente real:** instalación en tablet/host HTTPS; compilación e instalación del host iOS y Face ID físico; micrófono/voz real; instalación y pruebas en dispositivos. Chromium local no ejecutado por descarga de binario truncada. No confundir estas pruebas con aceptación física ni con producción.
 - No hay ejecutor universal de cualquier cambio por voz: se conectaron las acciones de conocimiento soportadas. Voz/configuración arbitrarias y cambios de código siguen requiriendo herramientas concretas. PR #60 sigue como rama hermana no integrada; contrastar su estado de clon con la evidencia privada.
 - Relevo y pasos exactos: `docs/handoffs/2026-11-04-authenticated-voice-apps.md`. El siguiente agente refresca HEAD, lee este último handoff y continúa aquí; no restaura `main` ni copia servidores completos desde otra base.
+
+## Handoff 2026-11-07 — JANUS CORE: bloqueo de previews sustitutos y continuidad de una única interfaz
+
+**Repositorio autorizado:** `jeanechandia-png/janus-core`, rama central `main`. No se creó ningún repositorio, rama, sitio, panel, tema o copia. Cambios únicamente en núcleo, pruebas y políticas existentes.
+
+### HECHO EN CÓDIGO
+- `packages/core/src/delivery-pipeline.ts`: `checkPreview` rechaza HTML que incluya el fallback `#janus-static-preview` o `.janus-static` como interfaz presentable para aprobación. Previene repetir el HTML engañoso visto en Quick Look del iPhone.
+- `tests/delivery-pipeline.test.ts`: regresión contra vista estática que incorpora botones y script; exige error `pipeline.preview-invalid` y comprueba que un preview navegable legítimo sigue pasando.
+- `config/founder-reference-library.json`: se actualizaron dos políticas **existentes** sin añadir/eliminar registros (17 totales): continuidad/no duplicación y preview navegable real del producto. No se modificaron secretos.
+- `docs/operating-norms.md`: se incorpora la regla expresa de producto único y se separa prueba de CI de aceptación real en Safari.
+
+### APROBADO / NO VERIFICADO / PROHIBIDO
+- Aprobado por instrucción del Founder: mantener un único producto, no crear variantes ni añadir componentes sin autorización, conservar Nexo/Kendra, paneles y micrófono.
+- **NO VERIFICADO**: commit de UI que representa íntegramente la última interfaz aprobada; no se publican builds, vistas visuales, versiones PWA ni GLB finales. `main` contiene el núcleo real pero los componentes visuales de desarrollo siguen en PR sin fusionar. No concluir que una PR es la pantalla oficial.
+- **PROHIBIDO**: reenviar HTML offline con `janus-static-preview` como preview funcional; utilizar demos/landings, temas o prototipos como reemplazos del producto; fusionar ramas divergentes sin autorización y revisión; autoaprobar el arte.
+
+### PRÓXIMO AGENTE — ORDEN OBLIGATORIO
+1. Leer este handoff, `START_HERE.md`, `docs/PROJECT_MAP.md` y `docs/operating-norms.md`; recuperar historial de aprobaciones y diferencias entre `main` y PR visuales sin atribuir aprobación por nombre de rama.
+2. Comprobar el HEAD exacto y el resultado **actual** de Janus Core CI, con especial atención a la prueba `JANUS file viewer fallback is never a valid approved dashboard preview`. No dar por aprobada la vista a partir de tests del núcleo.
+3. Identificar y verificar la versión visual aprobada del Founder antes de tocar `apps/pwa` o integrar GLB. Una vez confirmada, ejecutar QA Safari/iPhone y entregar preview navegable real ANTES de pedir autorización de publicación.
+
+**Seguridad**: GitHub público; no guardar datos personales o de menor, credenciales, biometría o muestras de voz. No se modificó producción.
+
+
+### Auditoría cronológica de identidad visual — 2026-11-07 (continuación)
+
+**HECHO VERIFICADO:**
+1. Fuente única del código: `jeanechandia-png/janus-core` (main observado: `174e5f06b684948f3baae530113a8670ad89398d`; Core CI #42366117458 = success). No inferir que el UI visual está en `main`.
+2. Decisiones Founder de 2026-11-05 en PR #65: el icono dorado de acceso tipo app NO es un botón de idioma; los dos medallones ES/NL pequeños pertenecen a ambas cabeceras. No rediseñar ni añadir navegación. Las criaturas aprobadas sustituyen a las de Claude rechazadas; el primer robot permanece como tercera opción histórica.
+3. PR #66 (HEAD `8621b3d03bb1e02a8e5809058cd13ef09c4f975d`) integra medallones originales en cabeceras PWA/escenas existentes, sin overlay fijo. CI #42135902904 = success; NO prueba aceptación en iPhone físico.
+4. PR #80 declara expresamente «NO ES LA DASHBOARD APROBADA. NO FUSIONAR COMO INTERFAZ». Sus piezas técnicas pueden revisarse, pero su UI/prototipo nunca debe reemplazar la oficial.
+5. PR #81 (HEAD `127eabc5782a3a46fff6e2f1d0c3bea7544205f4`) deriva de #66: integra slots PWA originales Nexo 02 y criaturas sobre la app existente con referencias JPEG exactas, importación SHA-256 y escenas WebGL/glTF si se instalan modelos. Core CI #42307795406 = success. PR sigue abierta, NO fusionada, NO desplegada, NO equivalente a aprobación visual.
+6. Referencias de autor originales ya inventariadas en `docs/APPROVED_CHARACTERS_PWA_2026-11-06.md` de PR #81; no duplicarlas, redibujarlas ni subirlas a este repositorio público. Estado GLB cinematográfico: no se ha verificado el inventario final.
+7. Documento Drive «34_JANUS_AUREUS_DESIGN_SYSTEM» (septiembre de 2026) es una especificación PRE-CONTRACT, no prueba de la última interfaz aprobada en noviembre.
+8. El preview HTML entregado en una sesión anterior mostraba en iPhone `#janus-static-preview`; el Founder lo rechazó. NO reutilizar ni ofrecer capturas de ese fallback o screenshots de PR #80 como aprobación. El filtro de `DeliveryPipeline.checkPreview` en main lo rechaza.
+9. PR #66 vs main está **divergida** (59 commits delante/8 detrás); PR #81 es hija directa de #66 (4 commits delante/0 detrás). Cualquier reconciliación necesita comparación por archivo, sin sobrescribir revisiones más nuevas de main.
+
+**VERIFICACIÓN / BLOQUEADO:** Existen decisiones explícitas sobre iconos, medallones y personajes, pero **NO** hay evidencia suficiente para designar un commit de dashboard entero como «la última interfaz visual aprobada». No declarar PR #81, A/B ni una PWA no auditada como versión aprobada. Ningún preview navegable real de esa versión se ha validado en Safari físico. Hasta resolver la identidad visual, **prohibidos** merge/despliegue/rediseño y activación de GLB finales por inferencia.
+
+**PRÓXIMO:** contrastar la interfaz existente con la última aceptación visual del Founder (historial + activos originales y sus hashes), en una sola ruta oficial; ejecutar QA de interacción con dispositivo real, y solo entonces presentar el preview del MISMO producto para decisión. No crear otro repositorio, rama, proyecto, mockup o tema.
