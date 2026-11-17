@@ -1,3 +1,11 @@
+## 17-nov-2026 — CONTINUACIÓN EN REVISIÓN: voz, GitHub y prevención a cinco años
+
+- **Producto único:** `jeanechandia-png/janus-core`; base `main@9112ad54cc623b1f09993d2e0c21228abd42ecea`; trabajo en `chatgpt/janus-voice-evolution-hardening-20261117`, dentro del MISMO repositorio. No cambia PWA, dashboard ni la landing aprobada.
+- **CÓDIGO ESCRITO:** GitHubAdapter prepara ramas de revisión desde SHA remoto exacto, comprueba duplicados y caducidad, integrado en política de aprobación y registro de capacidades del runtime. Pruebas unitarias añadidas.
+- **CÓDIGO ESCRITO:** Evolution Guard predeterminado a **60 meses**, ampliado con comprobaciones de flujo voz-activos-cambios, delegación de agentes y salida de proveedores; sin evidencia, estado UNKNOWN. Pruebas unitarias añadidas.
+- **NO CERTIFICADO:** CI, aprobación de PR, merge, despliegue; voz end-to-end y conexión de activos 3D; dispositivos reales; voz clonada localmente; infraestructura autónoma. Mantener esos puntos abiertos hasta evidencia.
+- **CONTINUIDAD:** consultar `docs/handoffs/2026-11-17-janus-main-unified.md`; revisar CI/diff y enlazar módulos ya existentes sin reconstruir productos ni crear repositorios.
+
 ## 17-nov-2026 — Fusión de evolución acumulativa JANUS y Claude
 
 - Integración sin nueva aplicación de rama de voz/CORE (#81) y ampliaciones Claude JANUS Work (#82). Ambas historias se conservan como progenitores; interfaz original y módulos no sustituidos.
