@@ -32,11 +32,11 @@ El primer comando valida el registro y muestra pendientes. El segundo falla mien
 
 | Área | Estado observado | Evidencia pendiente |
 |---|---|---|
-| Tablet | Kit y servidor probados en entorno de QA | Android/Termux, arranque, permisos y piloto físico |
+| Tablet | Kit, servidor y Chromium real: vinculación, cifrado/reinicio y apertura offline PASS | Android/Termux, arranque, permisos y piloto físico |
 | Janus/Melanie | Identidades de cuenta y código preparados | Credencial del host y aceptación acústica real |
 | Robots/criaturas | Integradores y referencias presentes | GLB finales y aprobación visual |
 | Kendra | Módulos y permisos de servidor | Reconciliar mejoras históricas, dispositivo y voz infantil |
-| Trabajo | Proyectos, tareas y accesos en el núcleo | CSS privado, conexiones reales y equipo |
+| Trabajo | Proyectos, tareas y accesos; CSS privado aprobado verificado localmente, builds core/team y 26/26 pruebas PASS | Provisionar el activo privado en el host, conexiones reales y equipo |
 | Correo/iCloud/calendario | Adaptadores y controles parciales | OAuth/cuentas reales y ramas pendientes |
 | Hogar | Planificación y políticas parciales | Inventario, SmartThings/Tuya/Google Home y dispositivos |
 | Salud | Especificaciones históricas recuperadas | Trazabilidad, sensores/permisos y funciones reales |
