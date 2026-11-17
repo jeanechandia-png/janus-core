@@ -14,7 +14,7 @@ import type { FounderReferenceLibraryDocument } from './founder-reference-librar
  * confirmación; no hay envío automático, ni respuestas automáticas, ni borrado, archivado o reenvío.
  */
 export type MailScope = 'personal' | 'business' | 'family' | 'unknown';
-export type MailProvider = 'google' | 'unknown';
+export type MailProvider = 'google' | 'icloud' | 'unknown';
 
 export interface FounderMailAccount {
   accountId: string;
@@ -77,6 +77,7 @@ export interface FounderMailAccountRegistry {
 const ADDRESS = /^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$/;
 const ACCOUNT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const GMAIL_DOMAINS = new Set(['gmail.com', 'googlemail.com']);
+const ICLOUD_DOMAINS = new Set(['icloud.com', 'me.com', 'mac.com']);
 const READ_ACTIONS = ['gmail.messages.search', 'calendar.events.list', 'drive.files.search'];
 const WRITE_ACTIONS = ['gmail.draft.create', 'gmail.draft.update', 'gmail.draft.send'];
 const CONSENT_TAG = /^founder-consent:(\d{4}-\d{2}-\d{2})$/;
@@ -97,7 +98,7 @@ export function buildFounderMailAccountRegistry(document: FounderReferenceLibrar
     const minor = tags.includes('minor');
     const guardianManaged = tags.includes('guardian-managed');
     const consentAt = tags.map((tag) => CONSENT_TAG.exec(tag)?.[1]).find((value): value is string => Boolean(value));
-    const provider: MailProvider = GMAIL_DOMAINS.has(domain) ? 'google' : 'unknown';
+    const provider: MailProvider = GMAIL_DOMAINS.has(domain) ? 'google' : ICLOUD_DOMAINS.has(domain) ? 'icloud' : 'unknown';
     accounts.push({
       accountId: seed.id,
       referenceId: seed.id,
@@ -110,7 +111,7 @@ export function buildFounderMailAccountRegistry(document: FounderReferenceLibrar
       guardianManaged,
       ...(consentAt ? { founderConsentAt: consentAt } : {}),
       provider,
-      credentialService: `google-workspace:${seed.id}`,
+      credentialService: `${provider === 'icloud' ? 'icloud-mail' : 'google-workspace'}:${seed.id}`,
       permittedReadActions: [...READ_ACTIONS],
       permittedWriteActions: minor && !guardianManaged ? [] : [...WRITE_ACTIONS],
     });
@@ -161,6 +162,9 @@ export function planMailAccess(accounts: readonly FounderMailAccount[], env: Mai
   return accounts.map((account) => {
     const base = { accountId: account.accountId, address: account.address, scope: account.scope, minor: account.minor };
     const googleConfirmed = account.provider === 'google' || env.confirmedGoogleDomains?.has(account.domain) === true;
+    if (account.provider === 'icloud') {
+      return { ...base, readiness: 'adapter_missing', nextStep: 'Cuenta iCloud reconocida. Falta implementar y verificar el adaptador seguro IMAP/SMTP para iCloud y autorizar esta cuenta en el equipo privado; no introducir contraseñas en GitHub.' } satisfies MailAccessPlanItem;
+    }
     if (!googleConfirmed) {
       return { ...base, readiness: 'needs_provider_confirmation', nextStep: `Confirma si ${account.address} es Google Workspace (se conecta con la API de Gmail) u otro proveedor (correo por IMAP, aún no implementado). Janus no lo da por hecho.` } satisfies MailAccessPlanItem;
     }
