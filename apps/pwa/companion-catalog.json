@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "decisionDate": "2026-11-05",
+  "modelPolicy": "approved-assets-only",
+  "characters": [
+    {
+      "id": "approved-creature-01",
+      "position": 1,
+      "kind": "creature",
+      "origin": "chatgpt-approved-design",
+      "label": "Criatura 1",
+      "role": "main-companion",
+      "palette": "#F4BA8C",
+      "assets": {
+        "previewImage": null,
+        "model3d": null
+      }
+    },
+    {
+      "id": "approved-creature-02",
+      "position": 2,
+      "kind": "creature",
+      "origin": "chatgpt-approved-design",
+      "label": "Criatura 2",
+      "role": "main-companion",
+      "palette": "#A59BFF",
+      "assets": {
+        "previewImage": null,
+        "model3d": null
+      }
+    },
+    {
+      "id": "janus-original-robot",
+      "position": 3,
+      "kind": "robot",
+      "origin": "janus-original-robot",
+      "label": "Robot original",
+      "role": "evolution-archive",
+      "palette": "#B6E1FF",
+      "assets": {
+        "previewImage": null,
+        "model3d": null
+      }
+    }
+  ],
+  "accessories": [
+    {
+      "id": "star-hat",
+      "title": "Gorro de estrellas",
+      "category": "gorros",
+      "cost": 0
+    },
+    {
+      "id": "soft-jacket",
+      "title": "Chaqueta brillante",
+      "category": "chaquetas",
+      "cost": 10
+    },
+    {
+      "id": "moon-dress",
+      "title": "Vestido lunar",
+      "category": "vestidos",
+      "cost": 15
+    },
+    {
+      "id": "sky-shoes",
+      "title": "Zapatos celestes",
+      "category": "zapatos",
+      "cost": 10
+    },
+    {
+      "id": "new-hair",
+      "title": "Peinado creativo",
+      "category": "peinados",
+      "cost": 20
+    },
+    {
+      "id": "little-moto",
+      "title": "Moto de aventura",
+      "category": "vehículos",
+      "cost": 35
+    },
+    {
+      "id": "dream-car",
+      "title": "Auto de ensueño",
+      "category": "vehículos",
+      "cost": 50
+    },
+    {
+      "id": "magic-home",
+      "title": "Casa mágica",
+      "category": "hogares",
+      "cost": 65
+    },
+    {
+      "id": "rainbow-coat",
+      "title": "Abrigo arcoíris",
+      "category": "chaquetas",
+      "cost": 25
+    },
+    {
+      "id": "flower-hat",
+      "title": "Sombrero de flores",
+      "category": "gorros",
+      "cost": 15
+    },
+    {
+      "id": "comet-boots",
+      "title": "Botas cometa",
+      "category": "zapatos",
+      "cost": 30
+    },
+    {
+      "id": "forest-house",
+      "title": "Casa del bosque",
+      "category": "hogares",
+      "cost": 80
+    }
+  ]
+}

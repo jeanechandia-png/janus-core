@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Compañeros · JANUS</title>
+  <link rel="manifest" href="/companion.webmanifest" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/janus-icon-180.png" />
+  <meta name="apple-mobile-web-app-title" content="JANUS Kendra" />
+  <link rel="stylesheet" href="/companion.css" />
+  <link rel="stylesheet" href="/language-buttons.css" />
+</head>
+<body>
+  <main class="companion-app">
+    <header class="companion-header">
+      <a class="back-link" href="/" aria-label="Volver a Janus">← Janus</a>
+      <div class="heading">
+        <span class="eyebrow">JANUS · MUNDO COMPAÑERO</span>
+        <h1>Tu compañero</h1>
+        <p>Elige cómo quieres que te acompañe. Puedes cambiar cuando quieras.</p>
+      </div>
+      <div id="companionLanguageSwitch" class="janus-language-switch" role="group" aria-label="Seleccionar idioma"></div>
+      <div class="stars" aria-live="polite">✦ <strong id="starBalance">0</strong> estrellas</div>
+    </header>
+
+    <section class="selection" aria-labelledby="chooseTitle">
+      <div class="section-head"><h2 id="chooseTitle">Elige un personaje</h2><span>3 opciones aprobadas</span></div>
+      <div id="characterOptions" class="character-options" aria-label="Seleccionar personaje"></div>
+    </section>
+
+    <section class="companion-main" aria-label="Personalización y escenario">
+      <div class="stage-column">
+        <div id="characterStage" class="stage" role="region" aria-label="Escenario de la criatura" tabindex="0">
+          <div class="stage-sky" aria-hidden="true"></div>
+          <div id="stageArt" class="stage-art"></div>
+          <div id="stageStatus" class="stage-status" role="status"></div>
+          <div class="stage-ground" aria-hidden="true"></div>
+        </div>
+        <div class="stage-actions">
+          <button type="button" id="waveButton" class="secondary">Saludar</button>
+          <button type="button" id="danceButton" class="secondary">Bailar</button>
+          <button type="button" id="laughButton" class="secondary">Reír</button>
+        </div>
+        <p class="stage-note" id="stageNote">El escenario muestra solamente modelos e imágenes aprobados cuando estén vinculados.</p>
+      </div>
+
+      <div class="personalization-column">
+        <section class="panel">
+          <span class="eyebrow">HAZLO TUYO</span>
+          <h2>Personalizar</h2>
+          <label for="ownerName">¿Cómo quieres que te llame?</label>
+          <input id="ownerName" type="text" maxlength="30" autocomplete="off" />
+          <label for="petName">Nombre de tu compañero</label>
+          <input id="petName" type="text" maxlength="20" autocomplete="off" />
+          <button type="button" id="saveNames" class="primary">Guardar nombres</button>
+          <p id="nameNotice" class="note" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="panel" aria-labelledby="wardrobeTitle">
+          <div class="section-head"><h2 id="wardrobeTitle">Armario y aventuras</h2><span>Con estrellas</span></div>
+          <div id="accessoryCategories" class="category-pills" aria-label="Filtrar accesorios"></div>
+          <div id="accessories" class="accessory-grid"></div>
+          <p class="note">Los accesorios se desbloquean con estrellas de aprendizaje; no hay pagos ni compras.</p>
+          <p id="accessoryNotice" class="note" role="status" aria-live="polite"></p>
+        </section>
+      </div>
+    </section>
+
+    <section class="learning panel" aria-labelledby="learningTitle">
+      <div><span class="eyebrow">APRENDE JUGANDO</span><h2 id="learningTitle">Un pequeño reto</h2>
+        <p>Practica a tu ritmo. Cada respuesta correcta puede darte estrellas.</p>
+      </div>
+      <form id="challengeForm" autocomplete="off">
+        <strong id="challengeQuestion" aria-live="polite"></strong>
+        <label class="sr-only" for="challengeAnswer">Respuesta</label>
+        <input id="challengeAnswer" type="number" min="0" max="999" inputmode="numeric" required />
+        <button type="submit" class="primary">Comprobar</button>
+        <button type="button" id="nextChallenge" class="secondary">Otro reto</button>
+      </form>
+      <p id="challengeResult" role="status" aria-live="polite"></p>
+    </section>
+    <footer>Funciona sin conexión después de instalarse. Tu elección y estrellas quedan guardadas en este dispositivo.</footer>
+  </main>
+  <script type="module" src="/companion.js"></script>
+</body>
+</html>

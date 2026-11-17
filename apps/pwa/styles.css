@@ -352,3 +352,7 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 .tool-sync-list { margin: 8px 0; padding-left: 18px; font-size: 13px; overflow-wrap: anywhere; }
 .tool-sync-note { font-size: 13px; opacity: .8; margin: 6px 0 10px; }
 .tool-sync button { min-height: 44px; width: 100%; }
+
+/* Companion dashboard entry: visible without changing the Janus founder layout. */
+.companion-entry { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 10px 13px; border-radius: 12px; min-height: 44px; border: 1px solid rgba(196,184,255,.38); color: #efe7ff; font-size: .84rem; }
+.companion-entry:focus-visible { outline: 2px solid #c2b2ff; outline-offset: 3px; }

@@ -1,4 +1,5 @@
 import { mountAppInstall } from './app-install.js';
+import { mountLanguageButtons } from './language-buttons.js';
 import { mountGlowEmblem } from './glow-emblem.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
@@ -958,6 +959,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 refreshFounderControls();
 
 mountGlowEmblem(document.querySelector('#janusEmblem'));
+mountLanguageButtons(document.querySelector('#founderLanguageSwitch'), 'founder');
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
 
 if ('serviceWorker' in navigator) {
