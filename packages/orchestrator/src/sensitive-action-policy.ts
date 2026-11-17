@@ -23,6 +23,9 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'google-workspace-write.calendar.event.create': 'Crea un evento en Google Calendar (escritura en tu agenda).',
   'google-workspace-write.gmail.draft.update': 'Corrige un borrador de Gmail (escritura en tu correo; no se envía).',
   'google-workspace-write.gmail.draft.send': 'ENVÍA un correo desde tu cuenta (irreversible: el destinatario lo recibe).',
+  // Voz y rostro (ADR-012): registrar una voz clonada exige tu aprobación explícita cada vez.
+  'likeness.founder.voice.enroll': 'Registra TU voz para clonarla: autorizas que Janus use tu grabación en su asistente privado. Los audios llevarán el aviso «generado con IA» y una voz clonada nunca te identifica.',
+  'likeness.kendra.voice.enroll': 'Registra la voz de tu hija Kendra (menor): declaras ser su padre/tutor legal y que ella está de acuerdo. Solo voz, solo para el asistente privado de Janus, 6 meses, revocable.',
   // Reservadas para canales por venir. Ningún adaptador las implementa todavía, pero nacen con aprobación obligatoria:
   // el día que exista uno, ni un planificador ni un flujo podrán ejecutarlas sin la confirmación del Founder.
   'whatsapp.message.send': 'ENVÍA un mensaje de WhatsApp en tu nombre (irreversible: el destinatario lo recibe).',

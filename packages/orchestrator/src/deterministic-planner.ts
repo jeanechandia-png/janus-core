@@ -26,6 +26,10 @@ export function deterministicPlan(
 
   if (mentionsCalendar(command)) return calendarPlan(command, context.timeZone);
 
+  // Voice-clone / face-enrolment requests are matched BEFORE the school route: «la voz de Kendra» must never be read as a study request.
+  const likeness = parseLikenessRequest(command);
+  if (likeness) return likenessPlan(command, likeness);
+
   const school = parseSchoolRequest(command);
   if (school) return schoolPlan(command, school);
 
@@ -305,6 +309,68 @@ function parseSchoolRequest(command: string): SchoolRequest | null {
   const term = /(?:que significa|que quiere decir|definicion de|define|glosario(?: de)?)\s+(.+)$/.exec(text);
   if (term?.[1]) return { action: 'glossary.lookup', input: { query: term[1].replace(/^(la |el |un |una |lo )/, '').trim() }, label: 'Buscar en el glosario' };
   return null;
+}
+
+type LikenessRequest = { action: string; input: Record<string, unknown>; label: string; sensitive: boolean };
+
+/**
+ * Routes voice-clone and face-enrolment requests to the `likeness` tool (ADR-012).
+ * Enrolments are sensitive (forced approval); Kendra's cloning is STANDBY until the Founder asks, and her enrolment
+ * only carries the guardian/assent declarations when the Founder actually said them.
+ */
+function parseLikenessRequest(command: string): LikenessRequest | null {
+  const text = foldText(command);
+  const aboutKendra = /\bkendra\b|\bmi hija\b|\bla nina\b/.test(text);
+  const subject = aboutKendra ? 'kendra' : 'founder';
+  const voiceContext = /\bvoz\b|clon/.test(text);
+  const cloneWord = /\bclon(ar|a|e|emos|ado|ada|acion)\b|\bclon\b|\breplica(r)? (mi|la) voz\b/.test(text);
+
+  if (/\b(revoca|revocar|borra|borrar|elimina|eliminar|quita|quitar|olvida|olvidar|anula|anular)\b/.test(text) && voiceContext && (cloneWord || /\bclonada\b|\bgrabacion\b/.test(text))) {
+    return { action: 'voice.revoke', input: { subject }, label: 'Revocar voz clonada', sensitive: false };
+  }
+
+  const enrollPhrase = /\b(usa|utiliza|toma|registra|procesa|continua con|sigue con)\b.*\b(grabacion|audio|nota de voz|toma)\b/.test(text)
+    || /\bya (grabe|grabamos|subi|deje|envie|guarde)\b.*\b(voz|grabacion|audio|nota)\b/.test(text);
+  if (enrollPhrase && (voiceContext || /\bmi grabacion\b|\bgrabacion de kendra\b/.test(text))) {
+    // Only a QUOTED name is taken as the file; otherwise the sentence travels as a hint and the tool matches it
+    // against what is really in the inbox (iPhone names contain spaces, so guessing from free text would cut them).
+    const file = /["“«']([^"”»']{1,120}\.(?:m4a|wav|mp3|caf|aac|ogg|flac|mp4))["”»']/i.exec(command)?.[1]?.trim();
+    const input: Record<string, unknown> = { ...(file ? { file } : { hint: command.slice(0, 300) }) };
+    if (subject === 'kendra') {
+      const negated = /\bno (esta|estaba|quiere|acepta|acepto|lo quiere)\b/.test(text);
+      input.guardianConfirms = /\b(autorizo|su padre|su tutor|soy su)\b/.test(text);
+      input.childAssent = !negated && /(de acuerdo|\bquiere\b|acept|con su permiso|esta contenta|le gusta)/.test(text);
+    }
+    return { action: `${subject}.voice.enroll`, input, label: subject === 'kendra' ? 'Registrar la voz de Kendra' : 'Registrar tu voz', sensitive: true };
+  }
+
+  if (/\b(estado|como va|en que punto)\b.*\b(clon|voz clonada|mi voz|reconocimiento)\b/.test(text)) {
+    return { action: 'status', input: {}, label: 'Estado de voz y rostro', sensitive: false };
+  }
+  if (cloneWord && voiceContext) {
+    return { action: `${subject}.voice.guide`, input: {}, label: subject === 'kendra' ? 'Guía: voz de Kendra (en espera)' : 'Guía: clonar tu voz', sensitive: false };
+  }
+  if (/reconocimiento facial|reconozca(s)? (mi )?(cara|rostro)|reconocerme (por|con) (la |mi )?(cara|rostro)|registrar mi (cara|rostro)|enrolar mi (cara|rostro)/.test(text)) {
+    return { action: 'founder.face.guide', input: {}, label: 'Guía: tu reconocimiento facial', sensitive: false };
+  }
+  return null;
+}
+
+function likenessPlan(command: string, request: LikenessRequest): JanusPlan {
+  return createPlan(command, [
+    {
+      id: 'likeness-step',
+      kind: 'tool',
+      label: request.label,
+      tool: 'likeness',
+      action: request.action,
+      input: request.input,
+      risk: request.sensitive ? 'high' : 'none',
+      reversible: !request.sensitive,
+      requiresApproval: request.sensitive,
+      resultMode: 'full',
+    },
+  ], 'deterministic');
 }
 
 function schoolPlan(command: string, request: SchoolRequest): JanusPlan {
