@@ -1,0 +1,8 @@
+{
+  "_nota": "Copia este archivo a config/home-devices.local.json (fuera de Git) y pon los aparatos reales. 'kind' admitido: light, plug, fan, heater, thermostat. Kendra solo puede ordenar luz, ventilador y calefacción (un enchufe solo cuenta si se llama «ventilador»). No declares cerraduras, cámaras ni alarmas.",
+  "devices": [
+    { "id": "tuya-id-de-la-luz-de-la-cama", "name": "Luz de la cama", "room": "cama", "kind": "light" },
+    { "id": "tuya-id-del-ventilador", "name": "Ventilador", "room": "cama", "kind": "fan" },
+    { "id": "tuya-id-de-la-calefaccion", "name": "Calefacción", "room": "sala", "kind": "heater" }
+  ]
+}

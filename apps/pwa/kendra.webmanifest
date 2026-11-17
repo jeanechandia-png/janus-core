@@ -1,0 +1,32 @@
+{
+  "name": "Kendra",
+  "short_name": "Kendra",
+  "start_url": "/kendra",
+  "scope": "/kendra",
+  "id": "/kendra",
+  "display": "standalone",
+  "background_color": "#f6f1ff",
+  "theme_color": "#7b5cff",
+  "description": "Kendra: charla, agenda, tareas, planes y la casa.",
+  "lang": "es",
+  "dir": "ltr",
+  "orientation": "any",
+  "categories": [
+    "kids",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "/icons/janus-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/janus-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

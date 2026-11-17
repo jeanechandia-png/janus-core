@@ -1,0 +1,31 @@
+{
+  "piece": "janus-creature-slot",
+  "name": "Hueco para modelos 3D externos (GLB): criaturas y robot de Janus, con informe de contrato",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (2-4 nov 2026). Reutiliza three.js r160 y vendor/gltf-kit.js (GLTFLoader + Meshopt + clonado con esqueleto).",
+  "dependencies": [
+    "three.js r160 (MIT) en vendor/three-r160.min.js",
+    "vendor/gltf-kit.js (GLTFLoader, MeshoptDecoder, SkeletonUtils)"
+  ],
+  "api": "JanusCreatureSlot.{ids, CONTRACT, inspect(buf), load(id,buf,{name}), remove(id), has(id), report(id), info(id), rigFor(id), restore(), onChange(fn), guessId(nombre), supported()} · ids: lumi, bombo, musgo, nimbo, robot",
+  "contract": "lego/janus-creature-slot/CONTRATO.md (v1.0): 13 huesos, 10 sockets, 8 morphs obligatorios, 6 clips, ≤80.000 triángulos (duro 300.000), ≤80 huesos, ≤16 texturas de 2048 px, ≤15 MB; solo sin comprimir o Meshopt (no Draco/KTX2); viento en COLOR_1.r.",
+  "behaviour": "Valida el GLB y emite un informe ok/avisos/error (solo error bloquea). Si hay modelo en el hueco, la escena y el robot lo usan en lugar del procedural. Persiste solo en este dispositivo (IndexedDB) y se recupera con restore() al arrancar.",
+  "mounts": [
+    {
+      "product": "Janus · dashboard A (prototipo)",
+      "file": "prototypes/dashboard/src/companero.js (slotWire, importación) · src/avatar.js (hueco del robot)",
+      "version": "1.0.0"
+    }
+  ],
+  "plannedMounts": [
+    "Janus PWA (apps/pwa) — requiere autorización de Jean",
+    "landing.infinity-chatbox (mascota de cada cliente)"
+  ],
+  "commercial": "Reutilizable: el mismo contrato sirve a cualquier mascota o asistente de cliente.",
+  "knownLimits": [
+    "Los dos GLB de tests/fixtures son sintéticos (prueban el contrato); aún no hay ninguna criatura hiperrealista real importada.",
+    "No recolorea ni cambia materiales de un GLB; los accesorios van a sockets (fase 2).",
+    "Rendimiento en iPhone/iPad reales sin medir (solo SwiftShader).",
+    "El cableado onChange/restore se hace desde app.js (slotWire): este módulo se carga después de src/companero.js."
+  ]
+}

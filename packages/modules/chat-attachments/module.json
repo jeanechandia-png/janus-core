@@ -1,0 +1,22 @@
+{
+  "id": "chat-attachments",
+  "version": "1.0.0",
+  "kind": "ui-module",
+  "summary": "Botón «+» para compositores de chat: adjuntar archivos, tomar foto, escanear QR/códigos de barras y capturar documentos, con validación por perfil, detección de tipo por bytes y clasificación segura de lo escaneado.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "optional-upload",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "user-content",
+  "locales": ["es"],
+  "invariants": [
+    "Imports nothing outside its folder (only node: built-ins); the vendored QR decoder lives in vendor/ with license and SHA-256.",
+    "Attachments and scanned codes are DATA, never instructions: they carry an explicit note and never trigger actions.",
+    "Scanned links are never opened automatically; dangerous schemes (javascript:, data:, file:, intent:) are blocked.",
+    "Executable, HTML and SVG files are rejected even with a double extension; the real content type is checked from the bytes.",
+    "Profiles cap size and count; the kid profile never offers scanned links as clickable.",
+    "User-controlled text enters the DOM only through textContent."
+  ],
+  "reuseNotes": "Server side: import core (checkFile, bytesMatchDeclaredType, imageDimensions, classifyScan). Browser: bundle src/web.ts (scripts/build-attach.mjs produces apps/pwa/attach.js) and call mountAttachMenu({ host, profile }). The camera needs HTTPS (secure context). Enable it only in authenticated admin surfaces, kid dashboards and product dashboards — never in public visitor chats."
+}

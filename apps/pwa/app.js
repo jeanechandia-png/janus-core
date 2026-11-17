@@ -2,6 +2,52 @@ import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
+import { mountAttachMenu } from './attach.js';
+import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
+import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+
+// Founder-only private cases. No case identifiers, mail addresses or sensitive text in the public bundle.
+// Never render this area for anonymous or expired sessions. The Core is the only authority.
+const privateCasesSection = document.querySelector('#founderPrivateCases');
+const privateCasesStatus = document.querySelector('#privateCasesStatus');
+const privateCasesList = document.querySelector('#privateCasesList');
+async function refreshFounderPrivateCases() {
+  if (!privateCasesSection || !privateCasesStatus || !privateCasesList) return;
+  privateCasesSection.hidden = true;
+  privateCasesList.replaceChildren();
+  if (!sessionToken()) return;
+  privateCasesSection.hidden = false;
+  privateCasesStatus.textContent = 'Consultando casos privados en Janus Core…';
+  try {
+    const response = await fetch('/api/founder/private-cases', {
+      headers: authHeaders(), cache: 'no-store', credentials: 'same-origin'
+    });
+    if (!sessionToken() || response.status === 401 || response.status === 403) {
+      privateCasesSection.hidden = true;
+      return;
+    }
+    if (!response.ok) throw new Error('private-cases-not-ready');
+    const payload = await response.json();
+    if (!Array.isArray(payload.cases)) throw new Error('invalid-private-cases-response');
+    privateCasesStatus.textContent = payload.cases.length ? 'Casos privados verificados por Core' : 'No hay casos privados registrados en Core.';
+    for (const item of payload.cases) {
+      if (!sessionToken()) { privateCasesSection.hidden = true; privateCasesList.replaceChildren(); return; }
+      const entry = document.createElement('article');
+      entry.className = 'event-card';
+      const heading = document.createElement('strong');
+      heading.textContent = String(item.title || 'Caso privado');
+      const detail = document.createElement('p');
+      detail.textContent = String(item.status || 'Sin estado verificado');
+      entry.append(heading, detail);
+      privateCasesList.append(entry);
+    }
+  } catch {
+    privateCasesStatus.textContent = 'Integración de casos privados pendiente: Core aún no confirma el servicio.';
+  }
+}
+void refreshFounderPrivateCases();
+setInterval(() => { if (document.visibilityState === 'visible') void refreshFounderPrivateCases(); }, 60_000);
 
 const activity = document.querySelector('#activity');
 const template = document.querySelector('#eventTemplate');
@@ -9,6 +55,12 @@ const connection = document.querySelector('#connection');
 const capabilityList = document.querySelector('#capabilityList');
 const voiceButton = document.querySelector('#voiceButton');
 const presenceState = document.querySelector('#presenceState');
+// No sustituye la entrada de voz ni el dashboard existente.
+const approvedPresence = document.createElement('div');
+approvedPresence.className = 'janus-founder-presence';
+approvedPresence.append(createApprovedStage('nexo-masculino'));
+document.querySelector('section.presence')?.prepend(approvedPresence);
+void initApprovedPresence();
 const transcript = document.querySelector('#transcript');
 const command = document.querySelector('#command');
 const sendButton = document.querySelector('#sendButton');
@@ -16,11 +68,22 @@ const pauseButton = document.querySelector('#pauseButton');
 const stopButton = document.querySelector('#stopButton');
 const clearButton = document.querySelector('#clearButton');
 
+// Botón «+»: archivos, foto, escáner QR/códigos y documentos. Solo para Janus (sesión de Founder); lo adjunto son datos, no órdenes.
+const attach = mountAttachMenu({
+  host: document.querySelector('#attachHost'),
+  profile: 'founder-admin',
+  uploadUrl: '/api/attachments',
+  headers: () => authHeaders(),
+});
+
 const storedVoiceSessionId = localStorage.getItem('janus.voiceSessionId');
 const voiceSessionId = storedVoiceSessionId || `iphone_${crypto.randomUUID()}`;
 if (!storedVoiceSessionId) localStorage.setItem('janus.voiceSessionId', voiceSessionId);
 
 const PCM_MIME_TYPE = 'audio/pcm;rate=16000;channels=1;format=s16le';
+addEventListener('janus:knowledge-applied', (event) => {
+  setPresence('Cambio guardado', `Conocimiento actualizado a la revisión ${event.detail.revision}.`);
+});
 const VAD_START_RMS = 0.025;
 const VAD_END_RMS = 0.012;
 const VAD_START_FRAMES = 2;
@@ -134,6 +197,8 @@ function setRunControls(active) {
 
 function renderEvent(event) {
   if (currentRunId && event.runId !== currentRunId) return;
+  const proposalId = proposalFromEvent(event);
+  if (proposalId) void reviewKnowledgeProposal(proposalId).catch((error) => setPresence('Revisión pendiente', error.message));
   if (activity.classList.contains('empty')) {
     activity.classList.remove('empty');
     activity.innerHTML = '';
@@ -328,7 +393,10 @@ function showEffort(effort) {
 }
 
 async function submit(text) {
-  const clean = text.trim();
+  const attachments = attach.getAttachments();
+  const scans = attach.getScans();
+  const hasExtras = attachments.length > 0 || scans.length > 0;
+  const clean = text.trim() || (hasExtras ? 'Revisa lo que te adjunto.' : '');
   if (!clean) return;
 
   activity.classList.remove('empty');
@@ -340,7 +408,12 @@ async function submit(text) {
     const response = await fetch('/api/command', {
       method: 'POST',
       headers: { 'content-type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ text: clean, inputMode: 'text', effort: effortSelect.value }),
+      body: JSON.stringify({
+        text: clean,
+        inputMode: 'text',
+        effort: effortSelect.value,
+        ...(hasExtras ? { attachments: attachments.map((item) => item.id), scans: scans.map((item) => ({ raw: item.raw, ...(item.format ? { format: item.format } : {}) })) } : {}),
+      }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error ?? 'No se pudo iniciar');
@@ -348,6 +421,7 @@ async function submit(text) {
     showEffort(data.effort);
     showInterpretation(data.interpretation);
     command.value = '';
+    attach.clear();
   } catch (error) {
     setPresence('Error', error?.message ?? String(error));
   } finally {
@@ -362,7 +436,7 @@ async function submitVoice(text) {
   try {
     const response = await fetch('/api/voice/utterance', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({
         sessionId: voiceSessionId,
         text: clean,
@@ -385,7 +459,7 @@ async function submitVoice(text) {
 
 async function controlRun(action) {
   if (!currentRunId || !currentRunActive) return;
-  const response = await fetch(`/api/runs/${encodeURIComponent(currentRunId)}/${action}`, { method: 'POST' });
+  const response = await fetch(`/api/runs/${encodeURIComponent(currentRunId)}/${action}`, { method: 'POST', headers: authHeaders() });
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
     setPresence('Control', data.error ?? 'No se pudo controlar la ejecución.');
@@ -396,7 +470,7 @@ async function syncMicrophone(state) {
   try {
     await fetch('/api/voice/microphone', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ sessionId: voiceSessionId, state }),
     });
   } catch {
@@ -410,6 +484,12 @@ function voiceSocketUrl() {
 }
 
 async function connectPcmSocket() {
+  const ticketResponse = await fetch('/api/voice/ticket', {
+    method: 'POST', headers: { 'content-type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ sessionId: voiceSessionId }),
+  });
+  const access = await ticketResponse.json();
+  if (!ticketResponse.ok) throw new Error(access.error || 'Identifícate antes de activar la voz.');
   const socket = new WebSocket(voiceSocketUrl());
   socket.binaryType = 'arraybuffer';
   voiceSocket = socket;
@@ -429,6 +509,7 @@ async function connectPcmSocket() {
     type: 'hello',
     version: 1,
     sessionId: voiceSessionId,
+    ticket: access.ticket,
     audio: { mimeType: PCM_MIME_TYPE },
   }));
   await waitForVoiceReady(socket);
@@ -744,6 +825,11 @@ function configureSpeechRecognition() {
 }
 
 voiceButton.addEventListener('click', () => {
+  if (!sessionToken() && !listening) {
+    setPresence('Identificación necesaria', 'Entra como Founder antes de activar el micrófono.');
+    document.querySelector('#founderSignInButton')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
   if (voiceMode === 'pcm-stream') {
     if (listening) {
       void stopPcmVoice();
@@ -941,6 +1027,8 @@ founderSignInButton.addEventListener('click', async () => {
   try {
     await signIn(deviceKey);
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
+    const returnTo = new URLSearchParams(location.search).get('returnTo');
+    if (returnTo === '/dashboard/a' || returnTo === '/dashboard/b') location.assign(returnTo);
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
@@ -950,6 +1038,8 @@ founderSignInButton.addEventListener('click', async () => {
   }
 });
 founderSignOutButton.addEventListener('click', async () => {
+  if (voiceMode === 'pcm-stream') await stopPcmVoice({ preserveMessage: true });
+  else { listening = false; recognition?.stop(); voiceButton.classList.remove('listening'); }
   await signOut();
   setApprovalsStatus('Sesión cerrada.');
   refreshFounderControls();
@@ -957,9 +1047,90 @@ founderSignOutButton.addEventListener('click', async () => {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pollApprovals(); });
 refreshFounderControls();
 
+function refreshFounderLocale() {
+  const labels = {
+    'h1': 'heading',
+    '#approvalsTitle': 'approvals',
+    '#capabilityTitle': 'capabilities',
+    '#sendButton': 'run',
+    '#pauseButton': 'pause',
+    '#stopButton': 'stop',
+  };
+  for (const [selector, key] of Object.entries(labels)) {
+    const element = document.querySelector(selector);
+    if (element) element.textContent = uiLabel('founder', key);
+  }
+}
+mountLanguageButtons(document.querySelector('#founderLanguageSwitch'), 'founder', { onChange: refreshFounderLocale });
+refreshFounderLocale();
+
 mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ── Tarjeta de Kendra (módulo kid-dashboard): resumen + panel de padres con la sesión de Founder ─────────────────────
+const kendraSummary = document.querySelector('#kendraSummary');
+const kendraBadge = document.querySelector('#kendraBadge');
+const kendraPanel = document.querySelector('#kendraPanel');
+const kendraOpenPanel = document.querySelector('#kendraOpenPanel');
+let kendraPanelHandle = null;
+
+async function kendraRequest(method, path, body) {
+  try {
+    const response = await fetch(path, {
+      method,
+      cache: 'no-store',
+      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...authHeaders() },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    let data = {};
+    try { data = await response.json(); } catch { data = {}; }
+    return { status: response.status, body: data };
+  } catch {
+    return { status: 0, body: { error: 'Sin conexión con Janus.' } };
+  }
+}
+
+async function refreshKendraSummary() {
+  if (!kendraSummary || !sessionToken()) return;
+  const result = await kendraRequest('GET', '/api/parent/kid/overview?kidId=kendra');
+  if (result.status !== 200) {
+    kendraSummary.textContent = result.status === 401 || result.status === 403 ? 'Entra como Founder para ver su actividad, sus avisos y sus ajustes.' : (result.body.error || 'No pude cargar el resumen de Kendra.');
+    return;
+  }
+  const overview = result.body;
+  const unseen = overview.flags.filter((flag) => !flag.seen).length;
+  const requests = overview.mediaRequests.length + overview.pendingFeed.length;
+  kendraSummary.textContent = overview.devices.filter((device) => !device.revokedAt).length === 0
+    ? 'Todavía no hay ningún dispositivo emparejado. Abre su panel para crear un código.'
+    : `Hoy: ${Math.round(overview.today.totalMinutes)} min de actividad · ${unseen} aviso(s) sin ver · ${requests} petición(es) por revisar.`;
+  if (kendraBadge) { kendraBadge.hidden = unseen + requests === 0; kendraBadge.textContent = String(unseen + requests); }
+}
+
+kendraOpenPanel?.addEventListener('click', async () => {
+  if (kendraPanelHandle) { kendraPanelHandle.destroy(); kendraPanelHandle = null; kendraPanel.hidden = true; kendraOpenPanel.textContent = 'Abrir su panel'; refreshKendraSummary(); return; }
+  if (!sessionToken()) { kendraSummary.textContent = 'Primero entra como Founder (arriba, en «Tu visto bueno»).'; return; }
+  const { mountKidParentPanel } = await import('./kendra-parent.js');
+  kendraPanel.hidden = false;
+  kendraOpenPanel.textContent = 'Cerrar su panel';
+  kendraPanelHandle = mountKidParentPanel(kendraPanel, { mode: 'founder', kidId: 'kendra', request: kendraRequest, onClose: () => kendraOpenPanel.click() });
+});
+
+refreshKendraSummary();
+const originalManagerButton = document.createElement('button');
+originalManagerButton.type = 'button'; originalManagerButton.className = 'secondary';
+originalManagerButton.textContent = 'Instalar JANUS 3D original';
+originalManagerButton.addEventListener('click', () => {
+  if (!sessionToken()) { setPresence('Identificación necesaria', 'Entra como Founder antes de instalar originales.'); return; }
+  const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
+  close.addEventListener('click', () => dialog.close());
+  dialog.append(createApprovedAssetControls({ family: 'janus' }), close);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog); dialog.showModal();
+});
+document.querySelector('section.presence')?.append(originalManagerButton);
+setInterval(() => { if (document.visibilityState === 'visible' && !kendraPanelHandle) refreshKendraSummary(); }, 60_000);

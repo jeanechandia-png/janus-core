@@ -1,0 +1,43 @@
+{
+  "schema": "tax-rule-pack-v1",
+  "jurisdiction": "NL",
+  "year": 2026,
+  "status": "in_force",
+  "checkedAt": "2026-11-15",
+  "currency": "EUR",
+  "sources": {
+    "bd-tarieven": { "publisher": "Belastingdienst", "kind": "primary", "title": "Voorlopige aanslag 2026: gebruikte tarieven en heffingskortingen", "url": "https://www.belastingdienst.nl/wps/wcm/connect/nl/voorlopige-aanslag/content/voorlopige-aanslag-tarieven-en-heffingskortingen" },
+    "bd-za": { "publisher": "Belastingdienst", "kind": "primary", "title": "Zelfstandigenaftrek 2026", "url": "https://www.belastingdienst.nl/wps/wcm/connect/bldcontentnl/belastingdienst/zakelijk/winst/inkomstenbelasting/veranderingen-inkomstenbelasting-2026/ondernemersaftrek-2026/zelfstandigenaftrek-2026" },
+    "bd-aangifte": { "publisher": "Belastingdienst", "kind": "primary", "title": "Wanneer moet mijn aangifte inkomstenbelasting binnen zijn?", "url": "https://www.belastingdienst.nl/wps/wcm/connect/nl/belastingaangifte/content/wanneer-moet-ik-aangifte-doen" },
+    "kvk-tarieven": { "publisher": "KVK", "kind": "official", "title": "Belastingtarieven 2026: alle tarieven voor ondernemers", "url": "https://www.kvk.nl/geldzaken/belastingtarieven-2026/" },
+    "kvk-uren": { "publisher": "KVK", "kind": "official", "title": "Urencriterium van 1.225 uur", "url": "https://www.kvk.nl/starten/de-magische-1225-uur-alles-over-het-urencriterium/" },
+    "kvk-btw": { "publisher": "KVK", "kind": "official", "title": "Hoe werkt btw-aangifte voor ondernemers?", "url": "https://www.kvk.nl/geldzaken/aangifte-omzetbelasting-voor-ondernemers/" },
+    "op-mkb": { "publisher": "Ondernemersplein (Rijksoverheid)", "kind": "official", "title": "Mkb-winstvrijstelling", "url": "https://ondernemersplein.overheid.nl/mkb-winstvrijstelling/" },
+    "sra-2026": { "publisher": "SRA", "kind": "professional", "title": "Nieuwe belastingtarieven, -kortingen en faciliteiten 2026 (23-09-2025, cifras provisionales)", "url": "https://www.sra.nl/nieuws/004501/2025/09/nieuwe-belastingtarieven--kortingen-en-faciliteiten-2026" }
+  },
+  "params": {
+    "box1Brackets": { "value": [ { "upToEur": 38883, "rateBp": 3575 }, { "upToEur": 78426, "rateBp": 3756 }, { "upToEur": null, "rateBp": 4950 } ], "sources": ["bd-tarieven", "kvk-tarieven"], "note": "Sin edad AOW. SRA publicó en sept-2025 cifras provisionales distintas (35,70 % y 79.137 €): prevalece la Belastingdienst." },
+    "maxDeductionRateBp": { "value": 3756, "sources": ["bd-za", "kvk-tarieven"] },
+    "zelfstandigenaftrekEur": { "value": 1200, "sources": ["bd-za", "kvk-tarieven", "sra-2026"] },
+    "startersaftrekEur": { "value": 2123, "sources": ["bd-za", "kvk-uren"] },
+    "urencriteriumHours": { "value": 1225, "sources": ["kvk-uren", "op-mkb"] },
+    "mkbWinstvrijstellingBp": { "value": 1270, "sources": ["op-mkb", "kvk-tarieven", "sra-2026"] },
+    "algemeneHeffingskorting": { "value": { "maxEur": 3115, "phaseOutFromEur": 29736, "phaseOutPer100k": 6398, "zeroFromEur": 78426 }, "sources": ["bd-tarieven", "kvk-tarieven"] },
+    "arbeidskorting": { "value": [ { "fromEur": 0, "baseEur": 0, "ratePer100k": 8324 }, { "fromEur": 11965, "baseEur": 996, "ratePer100k": 31009 }, { "fromEur": 25845, "baseEur": 5300, "ratePer100k": 1950 }, { "fromEur": 45592, "baseEur": 5685, "ratePer100k": -6510 }, { "fromEur": 132920, "baseEur": 0, "ratePer100k": 0 } ], "sources": ["bd-tarieven", "kvk-tarieven"], "note": "SRA publicó en sept-2025 un máximo provisional de 5.712 €: prevalece la Belastingdienst (5.685 €)." },
+    "zvw": { "value": { "rateBp": 485, "maxIncomeEur": 79409 }, "sources": ["kvk-tarieven"], "note": "Una sola fuente consultada: POR CONFIRMAR en la Belastingdienst." },
+    "vpbBrackets": { "value": [ { "upToEur": 200000, "rateBp": 1900 }, { "upToEur": null, "rateBp": 2580 } ], "sources": ["kvk-tarieven", "sra-2026"] },
+    "vatStandardBp": { "value": 2100, "sources": ["kvk-tarieven"] },
+    "vatReducedBp": { "value": 900, "sources": ["kvk-tarieven"] },
+    "korTurnoverLimitEur": { "value": 20000, "sources": ["kvk-tarieven"], "note": "Una sola fuente consultada: POR CONFIRMAR en la Belastingdienst." }
+  },
+  "deadlines": [
+    { "id": "btw-q1", "label": "Declaración de IVA (btw) del 1.er trimestre", "date": "2026-04-30", "sources": ["kvk-btw"] },
+    { "id": "btw-q2", "label": "Declaración de IVA (btw) del 2.º trimestre", "date": "2026-07-31", "sources": ["kvk-btw"] },
+    { "id": "btw-q3", "label": "Declaración de IVA (btw) del 3.er trimestre", "date": "2026-10-31", "sources": ["kvk-btw"] },
+    { "id": "btw-q4", "label": "Declaración de IVA (btw) del 4.º trimestre", "date": "2027-01-31", "sources": ["kvk-btw"] },
+    { "id": "ib", "label": "Declaración de la renta (aangifte inkomstenbelasting) del año", "date": "2027-05-01", "approximate": true, "note": "La fecha exacta es la de la carta de la Belastingdienst (aangiftebrief); «a menudo es el 1 de mayo».", "sources": ["bd-aangifte"] }
+  ],
+  "announced": [
+    { "year": 2027, "text": "La zelfstandigenaftrek baja a 900 € y la startersaftrek desaparece.", "sources": ["kvk-uren", "kvk-tarieven"] }
+  ]
+}

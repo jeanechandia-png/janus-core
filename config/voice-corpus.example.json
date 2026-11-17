@@ -1,0 +1,21 @@
+{
+  "_comment": "Plantilla. Copia a voices/private/corpus.json (ignorado por Git). Solo METADATOS: el audio vive en voices/private/ y nunca se sube. Solo grabaciones originales del titular; el audio generado por un proveedor se rechaza.",
+  "subject": "jean",
+  "subjectIsMinor": false,
+  "consent": {
+    "grantedAt": "AAAA-MM-DDThh:mm:ssZ",
+    "grantedBy": "subject",
+    "scope": "Voz canónica de Janus, uso interno y productos de Infinity aprobados por el Founder"
+  },
+  "samples": [
+    {
+      "id": "jean-original-01",
+      "provenance": "original-recording",
+      "durationSeconds": 0,
+      "sha256": "SHA-256 hexadecimal del archivo (shasum -a 256 archivo.wav)",
+      "storedLocally": true,
+      "hasTranscript": true,
+      "cleanAudioConfirmed": false
+    }
+  ]
+}

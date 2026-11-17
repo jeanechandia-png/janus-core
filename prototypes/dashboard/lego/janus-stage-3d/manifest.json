@@ -1,0 +1,14 @@
+{
+  "piece": "janus-stage-3d",
+  "name": "Escenario 3D manipulable: isla, mundo comprable, objetos de lección, cámara táctil y criatura dentro de la escena",
+  "moduleVersion": "1.0.0",
+  "origin": "Nuevo (2 nov 2026). Dibuja el estado del módulo scene-stage de janus-core como función pura del estado; la criatura (lego/janus-creatures-3d) camina, señala y reacciona dentro de la misma escena. Sin tocar apps/pwa.",
+  "dependencies": ["three.js r160 (MIT) en vendor/three-r160.min.js (global THREE)", "lego/janus-creatures-3d (opcional: sin ella no hay criatura)"],
+  "api": "JanusStage3D.hydrate(root) monta [data-stage3d][data-id] · JanusStage3D.get(id) → st { setCreature(id, look), setLook(look), setWorld({home,vehicle,decor}), setMode('escena'|'mundo'), setView(v|null), resetView(), apply(sceneState, events), select(id|null), react(pose, secs), celebrate(), sparkle(x,z,color), on({move,tapProp,tapCreature,tapHome,tapVehicle,tapDecor,tapEmpty}), screenOf(id), propIds(), worldInfo(), stats() } · JanusStage3D.supported()",
+  "behaviour": "El render es función del estado de escena (apply). Arrastrar un objeto lo mueve; tocar lo selecciona; arrastrar el vacío gira la cámara; pellizcar o la rueda hacen zoom. Un canje de fichas (10→1) vuela entre columnas. Un lienzo por data-id que se conserva al re-renderizar; no dibuja si está oculto; sin WebGL: supported() === false y el anfitrión muestra su alternativa.",
+  "mounts": [{ "product": "Janus · dashboard A y B (prototipo) — vista Compañero", "file": "prototypes/dashboard/src/companero.js", "version": "1.0.0" }],
+  "plannedMounts": ["apps infantiles de InfinitySeed (matemáticas, lectura, hábitos)", "landing.infinity-chatbox (escena explicativa del asistente)", "Janus PWA (apps/pwa) — requiere autorización de Jean"],
+  "commercial": "Reutilizable y vendible: el tipo de objetos y las lecciones los aporta el módulo scene-stage; el mundo (casas, vehículos, decoración) y la tienda, el módulo star-shop.",
+  "knownLimits": ["Rendimiento en iPad/iPhone reales sin medir (solo renderizado por software en Chromium sin cabeza).", "Geometría procedural estilizada, no modelos glTF esculpidos.", "En vertical (móvil) la criatura y los objetos se ven pequeños: el encuadre prioriza que se vea todo.", "El canje solo anima 10→1 / 1→10 entre columnas contiguas."],
+  "distribution": "Registrar en la Reusable LEGO Library. Lógica en packages/modules/scene-stage (comandos validados por lista blanca, lecciones) y packages/adapters/src/companion-kit.ts."
+}

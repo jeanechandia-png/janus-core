@@ -1,15 +1,40 @@
-const CACHE = 'janus-shell-v9';
+const CACHE = 'janus-shell-v19';
 const SHELL = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
+  '/attach.js',
   '/app-install.js',
   '/glow-emblem.js',
   '/founder-session.js',
+  '/knowledge-review.js',
+  '/dashboard-access.js',
+  '/team-panel.js',
+  '/approval-chip.js',
+  '/dashboard-access.css',
+  '/language-buttons.js',
+  '/language-buttons.css',
+  '/approved-presence.js',
+  '/approved-presence.css',
+  '/approved-3d/vendor/three-r160.min.js',
+  '/approved-3d/vendor/gltf-kit.js',
+  '/approved-3d/janus-creature-slot.js',
+  '/language-art/nederland.webp.b64',
+  '/language-art/espana.webp.b64',
   '/pcm-capture-worklet.js',
   '/pcm-tts-player.js',
   '/manifest.webmanifest',
+  '/kendra',
+  '/kendra.html',
+  '/kendra.css',
+  '/kendra.js',
+  '/kendra-parent.js',
+  '/kendra-creatures.js',
+  '/kendra.webmanifest',
+  '/icons/kendra-180.png',
+  '/icons/kendra-192.png',
+  '/icons/kendra-512.png',
   '/icons/janus-icon-180.png',
   '/icons/janus-icon-192.png',
   '/icons/janus-icon-512.png',
@@ -32,6 +57,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (
     request.method !== 'GET'
+    || url.origin !== self.location.origin
     || url.pathname.startsWith('/api/')
     || url.pathname === '/health'
   ) return;
@@ -39,10 +65,20 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(request, copy));
+        if (response.ok && !/no-store/i.test(response.headers.get('cache-control') || '')) {
+          const copy = response.clone();
+          caches.open(CACHE).then((cache) => cache.put(request, copy));
+        }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached ?? caches.match('/'))),
+      .catch(() => caches.match(request).then(async (cached) => {
+        if (cached) return cached;
+        if (request.mode !== 'navigate') return Response.error();
+        // Una navegación con parámetros (p. ej. /dashboard/a?x=1) abre la copia guardada de esa misma página.
+        const same = await caches.match(url.pathname);
+        if (same) return same;
+        const shell = await caches.match(url.pathname === '/kendra' || url.pathname.startsWith('/kendra/') ? '/kendra' : '/');
+        return shell || new Response('JANUS está sin conexión. Vuelve a abrir la app cuando el servidor esté disponible.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+      })),
   );
 });

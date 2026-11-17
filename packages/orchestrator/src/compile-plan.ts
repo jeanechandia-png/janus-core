@@ -1,4 +1,5 @@
 import type { JanusEventType } from '../../core/src/events.js';
+import { DEFAULT_AUTHORITY_POLICY } from '../../core/src/authority.js';
 import type { JanusStep } from '../../core/src/task-runner.js';
 import type { ToolGateway, ToolProgress, ToolResult } from '../../gateways/src/contracts.js';
 import type { JanusPlan, PlannedToolStep } from './plan.js';
@@ -22,7 +23,8 @@ function compileToolStep(step: PlannedToolStep, options: CompilePlanOptions): Ja
         id: step.id,
         label: step.label,
         tool: step.tool,
-        operation: step.action,
+        operation: step.action.startsWith(step.tool + '.') || DEFAULT_AUTHORITY_POLICY.confirmationActions.includes(step.action)
+          ? step.action : `${step.tool}.${step.action}`,
         target: describeTarget(step.input),
         risk: step.risk,
         reversible: step.reversible,
@@ -85,7 +87,7 @@ function summarizeResult(step: PlannedToolStep, result: ToolResult): string {
   const output = result.output ?? {};
 
   // Knowledge tools (read-only, local) return a ready-to-read Spanish reply: show it in full.
-  if ((step.tool === 'seneca' || step.tool === 'marcus-aurelius' || step.tool === 'janus-school') && typeof output.reply === 'string' && output.reply.trim()) {
+  if ((step.tool === 'seneca' || step.tool === 'marcus-aurelius' || step.tool === 'janus-school' || step.tool === 'knowledge') && typeof output.reply === 'string' && output.reply.trim()) {
     return clip(output.reply.trim(), 3000);
   }
 

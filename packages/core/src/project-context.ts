@@ -20,6 +20,13 @@ export interface ProjectWorkspace {
   createdBy: string;
   coordinationScopeId?: string;
   description?: string;
+  /** Founder-approved, durable project instructions (not system authority). */
+  instructions?: string;
+  /**
+   * 'local_only': el contenido de este proyecto no se envía a proveedores externos (Claude, ChatGPT, Gemini…);
+   * JANUS solo usa el modelo propio/local. Lo fija el Founder.
+   */
+  modelPolicy?: 'local_only';
   metadata?: Record<string, unknown>;
 }
 
@@ -54,6 +61,8 @@ export interface ProjectContextCheckpoint {
   threadId: string;
   createdAt: string;
   summary: string;
+  /** Version of the project instructions preserved when this thread began. */
+  projectInstructions?: string;
   activeInstructions: Array<{
     subject: string;
     content: string;
@@ -84,6 +93,8 @@ export function validateProjectWorkspace(project: ProjectWorkspace): ProjectWork
   if (!safeId(project.id)) throw new Error('project id is invalid');
   if (!project.name.trim()) throw new Error('project name is required');
   if (!project.createdBy.trim()) throw new Error('project createdBy is required');
+  if (project.instructions && project.instructions.length > 12000) throw new Error('project instructions are too long');
+  if (project.modelPolicy !== undefined && project.modelPolicy !== 'local_only') throw new Error('project modelPolicy is invalid');
   validateIso(project.createdAt, 'project createdAt');
   validateIso(project.updatedAt, 'project updatedAt');
   return {
@@ -93,6 +104,7 @@ export function validateProjectWorkspace(project: ProjectWorkspace): ProjectWork
     createdBy: project.createdBy.trim(),
     coordinationScopeId: project.coordinationScopeId?.trim() || undefined,
     description: project.description?.trim() || undefined,
+    instructions: project.instructions?.trim() || undefined,
     metadata: project.metadata ? structuredClone(project.metadata) : undefined,
   };
 }
@@ -210,6 +222,7 @@ export function buildProjectCheckpoint(input: {
     threadId: input.thread.id,
     createdAt,
     summary,
+    ...(input.project.instructions ? { projectInstructions: input.project.instructions } : {}),
     activeInstructions,
     decisions,
     unresolvedErrors,

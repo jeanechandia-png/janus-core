@@ -43,6 +43,21 @@ function founderAuthority() {
   };
 }
 
+test('compiled root operations retain their independent biometric guard when tool actions are qualified', async () => {
+  const gateway = new DefaultToolGateway();
+  let executed = false;
+  gateway.register({ name: 'maintenance', capabilities: ['delete_all'], execute: async () => { executed = true; return { ok: true }; } });
+  const plan = createPlan('Root operation fixture', [{ id: 'root-delete', kind: 'tool', label: 'Root fixture',
+    tool: 'maintenance', action: 'delete_all', input: {}, risk: 'low', reversible: true, requiresApproval: false,
+    idempotencyKey: 'root-fixture' }]);
+  const hub = new EventHub();
+  const runner = new TaskRunner(plan.goal, { sink: hub.sink, authorityContext: founderAuthority() });
+  const snapshot = await runner.execute(compilePlan(plan, { toolGateway: gateway }));
+  assert.equal(snapshot.status, 'blocked');
+  assert.equal(executed, false);
+  assert.ok(hub.replay(snapshot.runId).some((event) => event.type === 'authority.evaluated' && event.payload.reason === 'founder_biometric_required'));
+});
+
 test('compiled tool plan is blocked before gateway mutation without authority', async () => {
   const hub = new EventHub();
   const gateway = new DefaultToolGateway();

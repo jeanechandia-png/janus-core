@@ -1,0 +1,15 @@
+{
+  "name": "JANUS Work",
+  "short_name": "JANUS Work",
+  "description": "Centro de trabajo de colaboradores de InfinitySeed Group. Solo texto.",
+  "start_url": "/work",
+  "scope": "/work",
+  "display": "standalone",
+  "background_color": "#f5f7f9",
+  "theme_color": "#11151a",
+  "lang": "es",
+  "icons": [
+    { "src": "/icons/janus-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/janus-icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

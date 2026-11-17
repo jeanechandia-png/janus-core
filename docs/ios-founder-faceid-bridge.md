@@ -86,6 +86,29 @@ Primary references:
 
 ## Acceptance gate
 
+### Web app integration (4 November 2026)
+
+`platform/ios/JanusFounderWebView.swift` connects the existing signer/client to the
+same-origin web dashboard. It exposes only `JanusFounderNative.enroll` and
+`actionProof` for the explicitly supported knowledge actions, only in the main
+frame of the configured JANUS origin. Tokens are transient, never written by the
+bridge. The web review sends the resulting one-time proof with the exact proposal
+ID and base revision to `/api/knowledge/proposals/:id`.
+
+The PWA exposes **Vincular Face ID** in Founder controls only when this native
+bridge is present. Without the bridge it explains the missing setup and does not
+apply a protected change. Adding the website to the home screen alone does not
+instantiate this Swift component.
+
+To include it in an existing iOS host: add the three `JanusFounder*.swift` files,
+target iOS 15 or later, declare `NSFaceIDUsageDescription` and
+`NSMicrophoneUsageDescription`, and present
+`JanusFounderWebView(baseURL: trustedJanusRootURL)`. Use the root HTTPS URL of the
+existing JANUS runtime. Enroll using the controlled bootstrap procedure above,
+then turn bootstrap off. Signing/building/installing that host requires the Apple
+toolchain and access to the real iPhone. **This addition has not been compiled
+with Xcode or accepted on a physical iPhone in this environment.**
+
 Do not mark physical Face ID end-to-end as HECHO until all of these pass on the actual Founder iPhone:
 
 - Secure Enclave key creation succeeds;

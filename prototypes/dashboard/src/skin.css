@@ -1,0 +1,5 @@
+/* ===== Selector de piel A/B (común a las dos pieles; B lo recibe traducido) ===== */
+.hd .seg{margin:0 4px;align-self:center}
+.a2sk{flex:none;height:30px;border-radius:15px;display:inline-flex;align-items:center;gap:2px;padding:0 3px;font-size:11px;font-weight:600;cursor:pointer;color:var(--gold3);border:1px solid var(--line);background:rgba(255,255,255,.06);margin-right:6px}
+.a2sk i{font-style:normal;min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;color:var(--mute)}
+.a2sk i.on{opacity:1;background:var(--gold);color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25)}

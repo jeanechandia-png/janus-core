@@ -1,6 +1,87 @@
+## 17-nov-2026 — Fusión de evolución acumulativa JANUS y Claude
+
+- Integración sin nueva aplicación de rama de voz/CORE (#81) y ampliaciones Claude JANUS Work (#82). Ambas historias se conservan como progenitores; interfaz original y módulos no sustituidos.
+- Integración de código no implica despliegue; CI, validación móvil, audio local y GLB auténticos aún requieren prueba.
+
+## 11-nov-2026 — Validación de memoria transversal completada en código
+
+- Fuente nueva Janus 0fc4f59f7754c721bb2f7ac6a3dab3f662de8bd7; código final probado 990ce63788e18bb4ac255b43cf6331e4dafe6729 en la misma rama/PR81. CI 43014290142 y 43014713684 SUCCESS; 671 pruebas, 670 PASS, cero FAIL y 1 omitida preexistente; typecheck y runtime smoke PASS.
+- Smoke real: seed de tres incidencias de ChatBox en SQLite, endpoint /api/operations/incidents deniega sesión ausente y permite Founder autenticado. Fuente remota sin credencial en smoke aparece needs_auth; seis productos restantes not_connected; ningún estado se inventa como saludable. No equivale a despliegue Janus ni a credencial/configuración del equipo real.
+- Persistencia/reinicio, idempotencia, nuevas revisiones sin falsa reincidencia, escalado por nueva ocurrencia, transacción/rollback, protección contra pérdida/reescritura/retroceso/debilitamiento de evidencia y frescura/fallo de fuente verificados. Planificador recibe registro como DATA y resumen acotado; reglas preventivas persisten en ErrorLedger. No autoridad, permisos o promoción inferidos de un informe.
+- ChatBox código productor 2a8cf17ef3615e9eee21c0ac66bd8b65234b4de3, CI 43012946783 verde, mismo Netlify READY. Su /api/readiness ahora declara not_ready/incidentAcceptance=false mientras las dos incidencias altas/críticas sigan pendientes; database=true comprobado. Registro canónico config/product-incidents.json; el bootstrap Janus es caché versionada de ese registro, no otra aplicación.
+- Cierre de alcance actual: aprendizaje y controles implementados en ambos productos existentes. Operación 24/7 y conexión de las demás fuentes requieren runtime real en ejecución/conectado; no se certifican con CI. WhatsApp sigue abierto y permisos Meta siguen pendientes de autorización; no se eludió la revisión. No se tocaron interfaces aprobadas ni se crearon copias/repos/ramas/PR/hosting.
+- Integridad remota 12 archivos, cero eliminaciones. La carpeta local mantiene el avance visual previo y los deltas de prueba sin reset. Próximo agente: recuperar HEAD remoto actual y leer docs/product-incident-memory.md; completar la conexión de fuentes y la validación real del producto sin cerrar por evidencia sintética.
+
+## 11-nov-2026 — Memoria de incidencias de productos y prevención
+
+- Orden nueva del Founder: Janus debe conocer incidencias y aprendizaje de todos los productos, sin copias ni reconstrucción. Fuente remota inicial 72e1776bf9db64727a0ca42cb8db7a0d5e365c43, misma rama chatgpt/janus-approved-characters-integration-20261106 y PR81 existentes. La interfaz Founder/Kendra/laboral no se modifica.
+- Se reutilizan ErrorLedger, cronología y SQLite: importación transaccional por producto/ID/revisión; nueva ocurrencia incrementa huella, relectura/actualización no. No se borran problemas conocidos ni se aceptan retrocesos/revisiones reescritas. Una fuente nunca concede autoridad ni verifica por sí sola el runtime.
+- ChatBox publica registro sanitizado en commit 2a8cf17ef3615e9eee21c0ac66bd8b65234b4de3; instantánea de arranque en config/product-incident-bootstrap.json. Tres casos: retorno del correo (mitigado), WhatsApp sin entrada al backend (abierto, causa final sin confirmar), sesión Chromium de QA (resuelto con evidencia). Sin mensajes, teléfonos, correos ni claves.
+- Runtime carga memoria al inicio, refresca antes de planificar y cada 5 minutos mediante GitHubAdapter/broker existentes, GETs acotados, sin permisos/gastos nuevos. Endpoint Founder /api/operations/incidents y contexto del planificador con máximo 20 incidentes prioritarios. Frescura máxima 15 minutos; conserva caché y declara needs_auth/stale/fallo, nunca inventa conocimiento en tiempo real.
+- Catálogo de siete productos; ChatBox tiene fuente configurada. Los otros constan not_connected hasta conectar sus fuentes reales. Norma permanente founder-policy:product-incident-learning y docs/operating-norms.md actualizados. No afirmar que todos están conectados ni que hay un servicio 24/7 desplegado.
+- Cuatro pruebas nuevas dirigidas PASS y typecheck local PASS antes del cierre; el smoke añade arranque real, rechazo sin sesión y lectura Founder. CI del commit remoto pendiente hasta ejecución. Detalle en docs/product-incident-memory.md. No merge ni despliegue Janus a producción.
+- La carpeta local de Janus contiene un avance visual distinto ya comprometido y ahora los deltas locales de prueba de este módulo; no se restablece ni se empuja su árbol sobre remoto. Los commits remotos usan el árbol completo de la rama autorizada y lease. Continuar desde HEAD remoto y preservar UI aprobada.
+
+## AHORA 10-nov-2026 — JANUS Work implementada en rama de Claude (pendiente de aprobación visual)
+
+- **Rama:** `claude/work-dashboard-template` sobre `chatgpt/janus-approved-characters-integration-20261106` @ `72e1776`. **No fusionada ni desplegada.**
+- **Hecho:** plantilla laboral única (`prototypes/dashboard/work/`, ruta `/work`, PWA propia), diseño de la dashboard de IBA referenciado por huella (CSS privado fuera de este repo público), medallones de idioma ES/NL/EN, chat escrito por proyecto, tareas, documentos, instrucciones, sesiones de trabajo, avances y entregas. Solo texto.
+- **No tocado:** el código y el diseño de las dashboards personales A/B del CEO, /kendra, robots y criaturas. **Única adición autorizada por el CEO (10-nov, 19:52):** la tarjeta «Mi equipo» con lucecitas en las dashboards A/B (ver séptima y octava entrega), puesta en la capa de acceso de la PWA, no en `prototypes/dashboard/src` ni en `dist`.
+- **Pruebas:** typecheck limpio; `npm test` 678/0 fallos; runtime-smoke ok; work-runtime-smoke 10 bloques con navegador; E2E 111/111. Falta dispositivo físico.
+- **Segunda entrega (tarde):** archivos para colaboradores activos (subir/descargar solo en proyectos propios), lector QR reutilizado, agente por tarea fijado por el CEO con respaldo, límite diario de consultas por colaborador. PR #82 en borrador. `npm test` 685/0; smoke 11 bloques; E2E 117/117.
+- **Tercera entrega (14:15):** colaboradores SIN descarga (solo «Ver» dentro del panel, con marca de agua y registro de aperturas para el CEO); agenda personal con privacidad (lo personal solo su dueño; disponibilidad y empresa también el CEO). `npm test` 690/0; smoke 12 bloques; E2E 132/132.
+- **Cuarta entrega (14:45):** mensajes internos (nada sale de la empresa), agenda privada cifrada, «solo modelo propio» por proyecto, proyecto propio del colaborador, «recuérdame…» en el chat, avisos al teléfono (Web Push, apagado hasta poner la clave) y vista de equipo del CEO en `/work/team` (página aparte). `npm test` 700/0; smoke 16 bloques; E2E 144/144 + 16/16. Queda fuera por orden del CEO: clonación de voces y criaturas/robot 3D.
+- **Quinta entrega (19:10):** accesos de colaboradores por enlace de un solo uso creado por el CEO con Face ID (`/work/team` → Accesos). `npm test` 705/0 fallos; smoke 18 bloques; E2E 144/144 + 24/24. BLOQUEADO para accesos reales: JANUS no está encendido en ningún equipo; el puente de Face ID necesita un Mac; HTTPS de la tablet POR CONFIRMAR.
+- **Sexta entrega (20:20):** Face ID del navegador (passkey) para dar accesos, acotado a esa acción (enmienda ADR-007); lector de códigos de barras clásicos y lector en ES/NL/EN con la piel de IBA (`janus-attach` 1.1.0, opcional).
+- **Séptima entrega (20:15):** sello oficial InfinitySeed Group en JANUS Work y en la vista de equipo; la vista de equipo pasa a titularse «¿Cómo va el equipo?», con «← Mi dashboard»; en las dashboards A/B del CEO, pastilla «Equipo» (insignia = tareas bloqueadas + mensajes sin leer) que abre esa vista. `npm test` 713/0 fallos (1 omitida previa); dashboard:test 26/26; smoke 19 bloques; E2E 153/153 + 24/24 + prueba de extremo a extremo del botón (24 comprobaciones, escritorio y móvil).
+- **Octava entrega (21:00):** la pastilla pasa a ser la tarjeta «Mi equipo»: una luz por persona (verde trabajando, azul conectado, ámbar en pausa, gris desconectado, verde hueco = sesión abierta sin señal) con presencia real (`work-presence.ts`, `GET /api/work/team/presence`, señal del panel cada 30 s, solo en memoria). Cabecera en tablet/escritorio; tarjeta en la columna del teléfono; se hunde y abre «¿Cómo va el equipo?». También en B (Platino), cuya cabecera no recibía los controles. `npm test` 718/0; smoke 20 bloques; E2E 153/153 + 24/24 + 76/76 de la tarjeta.
+- **Novena entrega (21:45), por orden directa del CEO sobre SU dashboard A:** corregidos los textos montados de «Prioridades» (una línea por correo), IBA añadido a «Proyectos», letra pequeña más grande y gruesa con más contraste, medallón de JANUS girando con luz de conexión, botones con relieve 3D y divisores más marcados (`src/legible.css`, `build.cjs`). Piel B sin cambios.
+- **Décima entrega (11-nov, 01:10):** comunicación en los dos sentidos: el CEO escribe, responde, da tareas con instrucciones y envía archivos desde «¿Cómo va el equipo?» (`/api/work/team/messages|tasks|attachments`); el colaborador lo recibe en «Mensajes del CEO» de su panel. `npm test` 721/0; smoke 21 bloques.
+- **Undécima entrega (11-nov, 02:30): Opportunity Radar** (incidencia `docs/incidents/JANUS-OPPORTUNITY-20261110.md`): registro, prioridad, avisos, cupos y fases; pestaña «Radar»; monitor de fuentes oficiales implementado pero APAGADO (`JANUS_RADAR_INTERVAL_MIN`), sin verificar contra webs reales. `npm test` 735/0; smoke 22 bloques.
+- **Duodécima entrega (11-nov, 10:45): arquitectura anti-obsolescencia** (`docs/ADR-012-anti-obsolescence-architecture.md`): servicios por especificación (OpenAPI/GraphQL/MCP), cambios de código en sandbox con commit preparado, memoria persistente consultada antes de planificar y puerta humana por riesgo de la operación. Base probada (`npm test` 757/0; smoke 23 bloques); cambios de código y embeddings APAGADOS por defecto; elección de operación por voz y botones de aprobación en pantalla aún no cableados.
+- **Decimotercera entrega (11-nov, 12:00):** botón «Aprobar» con Aprobar/Denegar en la cabecera del CEO; herramienta única `integration` para que el planificador (voz) use cualquier servicio conectado, con escrituras siempre bajo aprobación; redacción de cambios de código por un modelo con límites validados (`change-drafter.ts`). `npm test` 768/0; smoke 23 bloques. Sin verificar con modelo ni servicio reales.
+- **Decimocuarta entrega (11-nov, 15:00): casos prioritarios del Founder** (`packages/core/src/priority-case.ts`, `/api/cases*`, `src/casos.js`): franja «CASOS PRIORITARIOS» en la tarjeta Prioridades (A) y en el teléfono, pestaña «Casos» privada, historial auditable, alertas (respuesta, cita, plazo, documentación), próxima acción con aprobación, enlace a Gmail, traducción a petición. Datos cifrados en SQLite, nunca en el repositorio (importación privada desde `JANUS_PRIVATE_IMPORT_DIR`). Sin Gmail conectado: «Conexión pendiente». `npm test` 775/0.
+- **Decimoquinta entrega (11-nov, 16:00): pieza LEGO «intérprete contextual»** (base de Infinity Connect): servidor `packages/modules/contextual-interpreter` (reglas de intérprete profesional, glosario policía/justicia/alquiler, verificación de números y fechas en código, sin estado, sin dependencias) + pantalla `prototypes/dashboard/lego/janus-interpreter` (dos botones grandes, voz del navegador, acta descargable, nada guardado). Primer montaje: botón «Modo intérprete» en un caso privado con expediente (`interpreterBrief`, sellado, nunca enviado a la pantalla); rutas `/api/cases/:id/interpret`, `/api/interpreter/turn`, `/api/interpreter/notice` solo Founder. Piloto / pre-lanzamiento. `npm test` 781/0; runtime de casos con modelo simulado; navegador 32/32. NO VERIFICADO con modelo real ni en la tablet.
+- **Decimosexta entrega (15-nov, 18:30): cuentas de la empresa y preparación fiscal NL**, como dos piezas LEGO sin dependencias. `packages/modules/company-books`: partida doble, asientos sencillos con IVA incluido, diario de solo añadir (anular = contrasiento), **balance** y **estado de resultados**, CSV para el contable. `packages/modules/nl-tax-prep`: hoja de trabajo de la declaración ante la Belastingdienst (renta de empresario o sociedades), IVA por trimestre, plazos y lista de preparación; todas las cifras fiscales en `packs/nl-2026.json` con fuentes (Belastingdienst, KVK, Ondernemersplein). Runtime: `/api/books*`, `/api/tax/nl`, `/api/tax/packs` (solo Founder; asientos sellados en `books_journal`). Dashboard A/B: pestaña «Cuentas» (sin Núcleo no muestra cifras de ejemplo). `npm test` 797/0; `tests/books-runtime.mjs` 9 bloques. Funciona SIN internet: las dos piezas no hacen ninguna llamada de red (lo vigila `tests/lego-contracts.test.ts`), las reglas fiscales son un archivo local y el diario vive en SQLite; navegador 28/28. **POR CONFIRMAR por el Founder: forma jurídica e inscripción KVK** (sin ella no se calcula impuesto). NO VERIFICADO: datos reales (el diario está vacío), cifra Zvw y límite KOR (una sola fuente). ADR-012 ampliado (quinto pilar). Voz: español prioritario; neerlandés y voces de criaturas, pendientes y aparte.
+- **Decimoséptima entrega (15-nov, 23:15): JANUS funciona sin internet, con verdad sobre qué funciona.** Pieza `packages/modules/offline-kit` (conectividad con histéresis, tabla de capacidades, bandeja de salida con idempotencia y revalidación al reconectar, frescura de datos) + pieza de navegador `prototypes/dashboard/lego/janus-offline` (copias locales en IndexedDB y bandeja de salida envolviendo `fetch`). Núcleo: `/api/offline/status|probe|outbox`, tabla `offline_outbox` sellada, sin internet usa solo el modelo propio del aparato (o responde sin IA) sin esperar a proveedores, los avisos push se guardan y salen al volver, `Idempotency-Key` en `/api/books/entries`. Dashboard: pestaña «Sin red»; la página del dashboard pasa a `no-cache` para que el service worker (`janus-shell-v19`) la abra sin red. También: `company-books` 1.1.0 (puente facturas→asientos), `nl-tax-prep` 1.1.0 (códigos de aviso), `scripts/lego-export.mjs` (exportar piezas a IBA/ChatBox con candado). Pruebas: `npm test` 805/0, `tests/offline-runtime.mjs` 7 bloques, navegador con la red cortada 18/18 (pieza) y 13/13 (dashboard). NO VERIFICADO: iPhone/Safari físico; modelo de IA propio real en la tablet (hoy no hay ninguno instalado: sin internet JANUS responde SIN IA).
+- **Decimoctava entrega (16-nov, 08:45): IBA sigue trabajando sin internet en el local** (orden del Founder 15-nov; tercera vía «Melanie dentro del local» DESCARTADA; landing y Melanie las actualiza otro agente). Hecho en el repositorio de IBA, rama oficial `fix/iba-baseline-recovery-20260920` @ `a412652`, con las piezas LEGO exportadas selladas desde aquí (`scripts/lego-export.mjs`, `lego.lock.json`). Aquí: `janus-offline` 1.2.0 (`prepare()` conserva las primeras lecturas atadas a su sesión; seguro en servidor), exportador de piezas de navegador (`ui:nombre`). Detalle en IBA: `docs/IBA_OFFLINE_MODE.md`.
+- **Handoff:** `docs/handoffs/2026-11-10-claude-work-dashboard-implementation.md`.
+
+## DIRECTIVA OPERATIVA 10-nov-2026 — CLAUDE: solo dashboard LABORAL reutilizable
+
+**Orden del Founder:** El dashboard aprobado del CEO y la experiencia Kendra continúan con Claude y NO se reemplazan. Claude debe localizar SU artefacto aprobado e integrarlo como baseline verificada antes de cualquier cambio. SOLO adaptar una plantilla laboral reutilizable para Julio/Robin/Mariel, inspirada en módulos JANUS o dashboard IBA (fuente: `infinity-chatbox-platform`). Texto únicamente; no voz en personal laboral; aplicaciones PWA con acceso autenticado; proyectos e instrucciones por usuario; permisos de Core y tareas concurrentes; NO crear copias/repos/hosting ni cambiar webs productivas.
+
+**En GitHub existe** el contrato de backend del módulo de trabajo y proyectos del commit `01228836` (CI `42728704831` verde), pero **no el diseño visual final**. Ruta de instrucciones canónica para Claude: `docs/handoffs/2026-11-10-claude-workforce-dashboard-directive.md`. Registrar SHA/CI de cada delta y evitar sobreescribir trabajo concurrente. **Jean/ChatGPT** priorizan por separado el piloto ChatBox para miércoles 11-nov-2026.
+
+## Actualización 10-nov-2026 — plantilla laboral + instrucciones de proyectos
+
+Véase `docs/handoffs/2026-11-10-project-workspace-template.md` para cambios, límites y continuación. Rama `chatgpt/janus-approved-characters-integration-20261106`; conservar la interfaz A/B aprobada y no duplicar el producto.
+
 # JANUS — Estado vigente
 
-Fecha: 2026-10-23
+Fecha: 2026-11-06
+
+## AHORA — Accesos PWA + medallones ES/NL originales (rama aislada)
+
+- **Rama:** `chatgpt/janus-approved-language-access-20261106`, sobre PR #59 @ `8120c00d`; **NO fusionada ni desplegada**.
+- **Implementado en GitHub:** botones compactos originales ES/NL de PR #65 para la navegación A/B de JANUS CORE, panel Founder y app independiente /kendra; icono dorado para ambos accesos con manifest separado, caché offline y pruebas nuevas de regresión. No se han sustituido pantallas ni los componentes 3D.
+- **Verificación:** Core CI #42131385129 superada para `a0b685be` (typecheck, pruebas incluido selector, sintaxis PWA y runtime smoke). Las pruebas E2E visuales, rendimiento GPU y móviles físicos **siguen pendientes**, así como la verificación de CI después de cambios documentales. Las etiquetas principales se localizan, **NO** todo el contenido dinámico, STT o TTS.
+- **Dependencias:** reconciliar después PR #63 (criaturas/escenas 3D posteriores), #60/#61/#64 (voz y costes) sin destruir la continuidad. PR #65, creada sobre main anterior, se conserva como fuente de arte y decisiones, no debe fusionarse directamente para reemplazar /kendra.
+- **Próximo paso:** CI de la nueva PR, revisión visual real de /dashboard/a, /dashboard/b y /kendra, Safari/iPhone, permisos y funcionamiento offline; después decisión de merge/despliegue.
+- **Handoff:** `docs/handoffs/2026-11-06-dashboard-language-app-access.md`.
+
+
+Fecha: 2026-11-04
+
+## Integración en revisión — dashboards A/B + JANUS CORE + evolución (04-11-2026)
+
+**Rama vigente de validación:** `chatgpt/janus-integrated-review-20261104` (PR #59), basada en la rama más reciente de Claude `claude/elevenlabs-voice-provider` y PR #58 de Evolution Guard. El código A/B procede de la rama visual de PR #56. **No fusionada ni publicada en producción.**
+
+**HECHO EN CÓDIGO:** runtime sirve `/dashboard/a` (Obsidiana) y `/dashboard/b` (Platino) en el mismo origen PWA, `npm run start:dashboards` usa `.env.local` del servicio, `JanusGateway` envía `/api/command` y sigue `/api/events` desde Core sin filtrar mensajes privados a proveedores alternativos si Core rechaza sesión. Catálogo LEGO: JANUS masculino (con el rol de voz clonada del Founder, no es Jean), Melanie femenina, Lumi/Bombo/Musgo/Nimbo, slots GLB independientes, expresiones 3D. Premortem/postmortem: 12 checks y memoria SQLite autenticada, sin upgrades silenciosos.
+
+**EVIDENCIA:** CI del Core y módulo de evolución superadas; contrato Core/dashboard/servidor y E2E de robots superados en rama visual. Suite total y E2E de integración PR #59 se validan por GitHub Actions. El arte conceptual **no** constituye GLB hiperrealista ni voz real validada; falta rig facial, prueba GPU iPhone/Samsung, dispositivos y credenciales privadas. No se alteraron landings públicas.
+
+**Reanudar:** `docs/handoffs/2026-11-04-integracion-dashboards-evolution.md`; ejecutar `npm run typecheck && npm test && npm run dashboard:test && npm run dashboard:build && node tests/runtime-smoke.mjs`.
 
 ## AHORA
 
@@ -11,6 +92,14 @@ Integrar la nueva capa de Super-Agent en la ruta productiva completa: continuida
 La mejora autónoma es controlada: Janus puede detectar, aprender y proponer, pero no modificar silenciosamente producción. La nueva capa de automatización convierte workflows deterministas y agentic workflows en una misma arquitectura Janus.
 
 ## HECHO
+
+- **Voz propia, conocimiento por voz, «+» y dashboard de Kendra (2026-11-04, rama `claude/elevenlabs-voice-provider`, 4 commits apilados sobre `main` @ 9b38f41)**:
+  - voz de Janus = clon de Jean en ElevenLabs como proveedor **temporal** (respaldo local, solo `voiceId` mapeados, tope de gasto) + evaluación de independencia con grabaciones **originales** (`npm run voice:independence`); `docs/voice-elevenlabs-provider.md`;
+  - `business-knowledge`: precios/IVA/productos/equipo/instrucciones por voz con lectura de confirmación, Face ID, revisiones encadenadas y sincronía por consumidor (aplicado ≠ publicado ≠ cargado);
+  - `chat-attachments`: botón «+» (archivos, foto, escáner QR/barras/documentos) con perfiles `founder-admin`, `business-dashboard` y `kid`; lo adjunto son datos, no órdenes; PWA de Janus ya lo trae;
+  - `kid-dashboard`: app y panel de padres de la hija del Founder, con **criaturas dibujadas (Lumi, Bombo, Musgo, Nimbo; no robot: el robot es del dashboard del Founder)** (PIN, filtro, límites y tiempo por actividad, YouTube solo aprobado, casa por política del tutor, agenda, tareas, intereses y planes aprobados, ropa según el tiempo); `docs/kid-dashboard.md`; casa/tele **en reposo**;
+  - **decisión**: Janus vive temporalmente en la **tablet Samsung** hasta tener equipo propio; 642 pruebas OK, humo del runtime, humo de «+» y de Kendra en Chromium; **no probado en iPhone/tablet reales**;
+  - pendientes (slots de fotos de la web, modo administrador de Melanie, «+» en IBA, Tuya/tele) y estado: `docs/handoffs/2026-11-04-voz-conocimiento-adjuntos-kendra.md` (rama ya subida; falta decidir el PR).
 
 - **Envío de correo con aprobación exacta (2026-10-23, rama `claude/social-accounts-watch`)**: `gmail.draft.preview` (solo lectura: Para/Cc/Cco, asunto, texto y huella) + plantilla `correo-enviar-aprobado` (inicio manual; `enviar` de riesgo alto, irreversible, con aprobación) + `mail-send-approval.ts` (tarjeta de aprobación con avisos). Si el borrador cambia tras aprobar, **no se envía**. 13 pruebas nuevas y 8 mutaciones detectadas. **Sin enviar nada real** y **sin botón en la PWA** (necesita autorización de Jean para tocar `apps/pwa`; OAuth de Google pendiente). Detalle: `docs/mail-send-approval.md`.
 - **Nodo `ai.agent` ↔ Agent Swarm (2026-10-23, rama `claude/social-accounts-watch`)**: `packages/orchestrator/src/flow-agent-adapter.ts` — enrutado por capacidades del swarm, local-first (`requireLocal`/`preferLocal`), verificación independiente que **falla cerrado** con riesgo medio/alto o acción irreversible (veredicto estricto `{ ok: true }`, verificador distinto del productor), traspaso auditable con huellas (nunca contenido), tiempo y tamaño acotados; con riesgo alto, primero aprobación humana. 20 pruebas nuevas y 5 mutaciones detectadas. **Sin agentes reales conectados** (modelo con API = gasto, en reposo, norma 7). Detalle: `docs/flow-agents.md`.
@@ -409,6 +498,60 @@ No considerar una landing actualizada solo porque el bundle llegó al repositori
 ## Regla de continuidad
 
 Este documento representa el VIGENTE de esta rama. Git y la cronología local preservan el HISTÓRICO. Antes de ejecutar trabajo nuevo, Janus sincroniza código/pruebas + cronología + Error Ledger + Blueprints + outcomes + estado vigente. Si existe contradicción, PRESENTE gobierna ejecución y PASADO se conserva para aprendizaje y previsión.
+
+
+## Handoff 2026-11-04 — Continuidad verificada, apps y cambios por voz
+
+Fecha de comprobación: 4-nov-2026, 20:09 Europe/Amsterdam.
+Estado: TRASPASO DOCUMENTAL SOBRE LA LÍNEA INTEGRADA; sin cambio funcional ni despliegue por esta intervención.
+
+### Punto de reanudación y cronología verificados
+
+- Repositorio único: `jeanechandia-png/janus-core`. `main@9b38f41fd284e5923102d0faa783c81c4eac532e` conserva la base del 23-oct; no representa por sí sola los avances posteriores.
+- PR #57: `claude/elevenlabs-voice-provider@5e91d376f96da26aa753f1941e4db8f01efe400f`: voz, conocimiento, adjuntos y dashboard infantil.
+- PR #58: `chatgpt/janus-evolution-premortem-postmortem-20261104@6ce02736c4a390041b5c4365e37bda35624bae24`, sobre #57: evolución y premortem/postmortem.
+- PR #59: `chatgpt/janus-integrated-review-20261104@0c42f1b90612818e45947ec04b4f1b6299b4a2a3`, sobre #58: integración de dashboards A/B y subárbol del trabajo de #56. **Esta es la línea integrada comprobada para este traspaso**, no una promoción a producción ni una orden para sustituir otras ramas sin comparar.
+- Leer primero `START_HERE.md`, este último handoff y `docs/handoffs/2026-11-04-integracion-dashboards-evolution.md`; después `docs/handoffs/2026-11-04-voz-conocimiento-adjuntos-kendra.md`, `docs/business-knowledge.md`, `docs/voice-elevenlabs-provider.md` y `docs/ios-founder-faceid-bridge.md`.
+- Antes de editar, refrescar HEAD remoto de #57/#58/#59 y comparar cambios concurrentes. Mantener esta secuencia y los cambios posteriores; no restaurar una base antigua ni reemplazar archivos completos desde otra rama.
+
+### Última instrucción del Founder en esta sesión
+
+El producto está en la fase final de dejar funcionales las dashboards con sus características y accesos correspondientes **tipo app**: dashboard del Founder y dashboard de Kendra, con permisos separados. Esto expresa la meta y el estado comunicado por el propietario; no sustituye una prueba de instalación y funcionamiento en sus dispositivos.
+
+El Founder debe poder identificarse y dar instrucciones por voz a JANUS para que ejecute los cambios solicitados desde el producto, **sin que el Founder edite código**. Registrar el alcance concreto de cada tipo de cambio y su herramienta ejecutora; no reducir esta meta a conversación o a texto dictado. Los cambios de voz/configuración solicitados deben evaluarse dentro de este mismo recorrido. Para cambios que exigen aprobación, JANUS presenta qué entendió y obtiene la confirmación correspondiente.
+
+Sobre clonación: el Founder declara que **ya existe una clonación rápida en ElevenLabs**; lo pendiente es perfeccionarla. Mantener separados: calidad del clon, uso E2E desde JANUS y autonomía del motor. Reutilizar el adaptador y `voice-independence` existentes; el clon propio parte de grabaciones originales autorizadas. No reiniciar el desarrollo ni confundir clonación con conexión.
+
+### Evidencia y brechas de cierre
+
+- Código revisado en #59: rutas `/dashboard/a`, `/dashboard/b` y `/kendra`; manifiestos PWA general e infantil presentes. **Instalación y accesos físicos por perfil: NO VERIFICADOS en esta intervención.**
+- `business-knowledge` ya ofrece propuesta, lectura de confirmación, aplicación privilegiada, historial y publicación opcional. El destino de publicación, alta de herramientas y disponibilidad del puente de Face ID siguen sujetos a activación/verificación según sus guías. No presentar «aplicado localmente» como «publicado y cargado por los consumidores».
+- `apps/runtime/server.ts` declara en `/health`: `voicePrivilegedActions: blocked-until-authenticated-voice-transport`. La creación de runs de `VoiceSessionRegistry` pasa autoridad indefinida a `startRun`. **Brecha específica a revisar y cerrar:** vincular la petición de voz a la sesión autorizada y a la prueba requerida para la acción, o verificar una ruta equivalente ya existente. No desactivar el control de autoridad para que una orden pase.
+- `docs/ios-founder-faceid-bridge.md` distingue código implementado de aceptación en dispositivo físico pendiente. Una voz parecida al Founder o la identificación doméstica no equivalen a sesión administrativa.
+- La herramienta actual de conocimiento admite tipos concretos de cambio. **No está acreditado que pueda modificar cualquier función, interfaz o voz por una petición genérica.** Inventariar los cambios soportados y ampliar las herramientas existentes cuando falte una capacidad, conservando trazabilidad.
+- Consulta de checks del SHA base: `test` completado con `success`; `dashboard` figuraba `in_progress`. Son estados puntuales de esa consulta, no certificación final ni prueba física.
+- `npm run continuity` se ejecutó en el árbol local preexistente: confirmó `main@9b38f41`, cambios sin guardar y handoff local del 2-nov; no tenía `gh` disponible para dibujar PR. Se contrastó después con los datos remotos y los handoffs de #59. No se cambió la rama ni se sobrescribió el trabajo local pendiente.
+- El control de servicio del 2-nov permanece documentado como delta local no publicado en ese traspaso. **Su integración en #59 no está acreditada aquí**; comparar e incorporar solo lo que falte, sin reponer el servidor/dashboard antiguos.
+
+### Siguiente acción y prueba de aceptación
+
+1. Continuar sobre el HEAD vigente de la línea integrada, después de comprobar cambios concurrentes y el estado de CI.
+2. Cerrar el recorrido: acceso tipo app → sesión Founder e identificación requerida → voz → interpretación visible → confirmación cuando corresponda → herramienta autorizada → persistencia → respuesta y efecto observable en el mismo producto.
+3. Probar un cambio representativo realmente soportado y otro de configuración/voz solicitado; declarar los tipos todavía no soportados. Verificar persistencia tras reinicio y rechazo sin sesión, con sesión caducada, replay y perfil infantil.
+4. Verificar por separado la instalación/acceso de Founder y Kendra en sus dispositivos, las funciones del dashboard y el aislamiento de permisos. Conservar A/B, avatares, criaturas, adjuntos, conocimiento, evolución e historial ya existentes.
+5. Registrar archivos y delta exactos, SHA final, pruebas ejecutadas/no ejecutadas, evidencia, bloqueos y siguiente paso **en este mismo `docs/STATE.md`**, enlazando el handoff específico. El siguiente agente repite la lectura cronológica y la comprobación de HEAD.
+6. No declarar lista la app, el cambio por voz ni el clon perfeccionado solo por pruebas simuladas, un botón o un commit. Mantener las restricciones vigentes de producción y gasto; esta actualización no publica ni activa servicios.
+
+**Cambio de esta intervención:** solo se añade este handoff al archivo vigente de #59, preservando su contenido previo. No se repitió la suite funcional porque no se modificó código; las pruebas históricas de otros agentes siguen atribuidas a sus respectivos handoffs.
+
+## Handoff 2026-11-04 — Código: voz autenticada, propuestas aprobables y apps
+
+- Continuación de PR #59 desde `2f6ddb4` en `chatgpt/janus-integrated-review-20261104`, mismo repositorio. Este handoff es posterior al traspaso documental anterior: **ahora sí hay cambios de código**.
+- Implementado: sesión Founder en dictado/controles, tickets PCM de un uso y revocación, autoridad completa de acciones compiladas, revisión y aplicación de la propuesta exacta con prueba biométrica, persistencia/historial existente, acceso instalable del Founder al dashboard, Kendra en su propia ruta, identificación/retorno A/B y puente Swift web/nativo.
+- Verificado: TypeScript; 653 pruebas (652 pasan, 1 omisión privada); 10/10 contratos de dashboards; build A/B y variantes Core; runtime smoke; sintaxis y diff. La prueba nueva recorre HTTP → propuesta → bloqueo sin prueba → firma de fixture → aplicación → SQLite → reinicio, con rechazo de token infantil y replay.
+- **Pendiente real:** instalación en tablet/host HTTPS; compilación e instalación del host iOS y Face ID físico; micrófono/voz real; instalación y pruebas en dispositivos. Chromium local no ejecutado por descarga de binario truncada. No confundir estas pruebas con aceptación física ni con producción.
+- No hay ejecutor universal de cualquier cambio por voz: se conectaron las acciones de conocimiento soportadas. Voz/configuración arbitrarias y cambios de código siguen requiriendo herramientas concretas. PR #60 sigue como rama hermana no integrada; contrastar su estado de clon con la evidencia privada.
+- Relevo y pasos exactos: `docs/handoffs/2026-11-04-authenticated-voice-apps.md`. El siguiente agente refresca HEAD, lee este último handoff y continúa aquí; no restaura `main` ni copia servidores completos desde otra base.
 
 ## Handoff 2026-11-07 — JANUS CORE: bloqueo de previews sustitutos y continuidad de una única interfaz
 

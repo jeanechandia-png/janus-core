@@ -352,3 +352,9 @@ button.app-install-btn > span[aria-hidden] { font-size: 1.1em; line-height: 1; }
 .tool-sync-list { margin: 8px 0; padding-left: 18px; font-size: 13px; overflow-wrap: anywhere; }
 .tool-sync-note { font-size: 13px; opacity: .8; margin: 6px 0 10px; }
 .tool-sync button { min-height: 44px; width: 100%; }
+
+/* Tarjeta de Kendra (módulo kid-dashboard) */
+.kendra-card { margin-top: 16px; }
+.kendra-card [hidden] { display: none !important; }
+.kendra-link { display: inline-flex; align-items: center; justify-content: center; padding: 0 16px; min-height: 44px; border-radius: 12px; text-decoration: none; }
+.kendra-panel { margin-top: 12px; }

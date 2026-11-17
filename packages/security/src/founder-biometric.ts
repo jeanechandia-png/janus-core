@@ -17,7 +17,7 @@ export interface BiometricKeyRegistration {
   keyId: string;
   principalId: string;
   publicKeyPem: string;
-  method: AuthorityBiometricMethod;
+  method: 'platform-face';
   biometry: BiometricKind;
   binding: BiometricKeyBinding;
   createdAt: string;

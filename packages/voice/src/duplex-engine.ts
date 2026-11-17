@@ -54,6 +54,8 @@ export interface DuplexVoiceEngineOptions {
   onEvent: (event: DuplexVoiceEvent) => void | Promise<void>;
   /** Optional convenience speaker recognition. Failures never interrupt transcription. */
   speakerResolver?: SpeakerResolver;
+  /** Trusted runtime callback, rechecked after STT and before any task/control. */
+  beforeTranscript?: () => void;
 }
 
 export class DuplexVoiceEngine {
@@ -62,6 +64,7 @@ export class DuplexVoiceEngine {
   private readonly voiceId: string;
   private readonly onEvent: DuplexVoiceEngineOptions['onEvent'];
   private readonly speakerResolver?: SpeakerResolver;
+  private readonly beforeTranscript?: () => void;
   private readonly input = new AsyncQueue<SpeechInputChunk>();
   private transcriptionTask?: Promise<void>;
   private synthesisGeneration = 0;
@@ -75,6 +78,7 @@ export class DuplexVoiceEngine {
     this.voiceId = options.voiceId;
     this.onEvent = options.onEvent;
     this.speakerResolver = options.speakerResolver;
+    this.beforeTranscript = options.beforeTranscript;
   }
 
   start(): void {
@@ -209,6 +213,8 @@ export class DuplexVoiceEngine {
   }
 
   private async handleTranscript(event: TranscriptEvent): Promise<void> {
+    if (this.stopped) return;
+    this.beforeTranscript?.();
     await this.onEvent({
       type: event.final ? 'transcript.final' : 'transcript.partial',
       text: event.text,
@@ -217,6 +223,8 @@ export class DuplexVoiceEngine {
 
     if (!event.final) return;
     const speaker = await this.resolveSpeaker();
+    if (this.stopped) return;
+    this.beforeTranscript?.();
     const result = await this.session.transcript({
       text: event.text,
       final: true,

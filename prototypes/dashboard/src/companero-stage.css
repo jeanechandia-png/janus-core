@@ -1,0 +1,57 @@
+/* ===== Compañero 3D · capa de controles sobre el escenario =====
+ * El escenario es SIEMPRE una escena nocturna oscura, sea cual sea la piel. Por eso esta hoja NO va en A_FILES de build.cjs:
+ * la piel B traduce los colores de A (negro → cristal claro) y dejaría texto azul oscuro sobre el 3D (contraste 1,1–1,8:1, lo cazó tests/skin.cjs).
+ * Aquí los colores son literales (nada de var(--mute)/var(--ivory), que la piel B redefine). */
+/* Capa de controles sobre el escenario: deja pasar los gestos al 3D salvo en sus propios botones */
+.cpov{position:absolute;inset:0;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:auto minmax(0,1fr) auto auto;gap:6px 8px;padding:10px;pointer-events:none;z-index:2}
+.cpov>*{pointer-events:auto}
+.cpsay{grid-column:1;grid-row:1;justify-self:start;max-width:min(560px,100%);display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:16px 16px 16px 4px;background:linear-gradient(180deg,rgba(255,250,240,.96),rgba(255,236,205,.92));color:#2a1a08;font-size:13px;line-height:1.3;box-shadow:0 8px 18px -8px #000}
+.cpsay b{flex:none;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a5a14}
+.cpsay>span:nth-child(2){flex:1;min-width:0}
+.cpsay .mini{flex:none;background:rgba(0,0,0,.08);color:#2a1a08;cursor:pointer}
+.cpstars{grid-column:2;grid-row:1;justify-self:end;position:relative;padding:6px 10px;border-radius:14px;font-size:12px;white-space:nowrap;color:#FFE2A0;background:rgba(10,8,6,.72);box-shadow:inset 0 0 0 1px rgba(232,195,122,.5)}
+.cpstars b{font-size:16px;color:#FFF1CC}
+.cpstars em{position:absolute;right:0;top:calc(100% + 4px);font-style:normal;font-size:11px;white-space:normal;width:max-content;max-width:210px;padding:5px 9px;border-radius:12px;background:#FFE2A0;color:#2a1a08;box-shadow:0 8px 16px -8px #000;animation:cpPop .3s ease-out}
+@keyframes cpPop{from{transform:translateY(-4px) scale(.94);opacity:0}}
+.cpviews{grid-column:2;grid-row:2;align-self:start;justify-self:end;display:flex;flex-direction:column;gap:6px}
+.cpvb{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;font-size:18px;cursor:pointer;background:rgba(10,8,6,.72);box-shadow:inset 0 0 0 1px rgba(232,195,122,.45);transition:transform .15s,box-shadow .15s}
+.cpvb:hover,.cpvb:active{transform:translateY(-1px);box-shadow:inset 0 0 0 1px #FFE2A0,0 0 12px rgba(255,214,140,.5)}
+.cpvb.on{box-shadow:inset 0 0 0 1.5px #FFE2A0,0 0 12px rgba(255,214,140,.5);background:rgba(60,42,12,.85)}
+
+.cphud{grid-column:1/-1;grid-row:3;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none}
+.cphud>*{pointer-events:auto;max-width:100%}
+.cpgoal{padding:7px 12px;border-radius:14px;font-size:12.5px;color:#FFF1CC;background:rgba(10,8,6,.82);box-shadow:inset 0 0 0 1px rgba(232,195,122,.6),0 8px 16px -10px #000}
+.cpgoal b{color:#FFE2A0}.cpgoal.ok{box-shadow:inset 0 0 0 1.5px #5FD39A,0 0 18px rgba(95,211,154,.45)}
+.cptool,.cplb{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;padding:5px;border-radius:16px;background:rgba(10,8,6,.78);box-shadow:inset 0 0 0 1px rgba(232,195,122,.4)}
+.cpb{display:inline-grid;place-items:center;min-width:42px;height:38px;padding:0 10px;border-radius:12px;font-size:16px;cursor:pointer;color:#FFF1CC;background:linear-gradient(180deg,rgba(255,236,190,.26),rgba(168,117,42,.18));box-shadow:inset 0 0 0 1px rgba(232,195,122,.55),0 4px 8px -4px #000;transition:transform .15s,box-shadow .15s;user-select:none}
+.cpb:hover,.cpb:active{transform:translateY(-2px);box-shadow:inset 0 0 0 1px #FFE2A0,0 0 14px rgba(255,214,140,.55)}
+.cpb.wd{font-size:12px;white-space:nowrap}
+.cpb.go{background:linear-gradient(180deg,#FFE39A,#C98E2E);color:#2a1a08;font-weight:600}
+.cpb.off{opacity:.38;pointer-events:none}
+.cpn{min-width:70px;text-align:center;font-size:13px;color:#FFF1CC}.cpn small{display:block;font-size:9.5px;color:#BDB4A2}
+
+.cpbar{grid-column:1/-1;grid-row:4;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;pointer-events:none}
+.cpbar>*{pointer-events:auto}
+.cpname{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:16px;background:rgba(10,8,6,.72);box-shadow:inset 0 0 0 1px rgba(232,195,122,.4);min-width:0}
+.cpname b{font-size:22px;line-height:1}.cpname small{color:#BDB4A2;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cpname input{width:130px;min-width:0}.cpname .mini{cursor:pointer}
+.cpsel{display:grid;grid-template-columns:repeat(4,52px);gap:6px}
+.cpo{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;border-radius:12px;padding:3px;background:rgba(10,8,6,.72);box-shadow:inset 0 0 0 1px rgba(232,195,122,.25)}
+.cpo img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px}
+.cpo em{font-style:normal;font-size:9px;color:#BDB4A2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.cpo.on{box-shadow:inset 0 0 0 1.5px #FFE2A0,0 0 12px rgba(255,214,140,.45)}.cpo.on em{color:#F6D894}
+
+@media (max-width:47.5em),(max-height:31.25em){
+  .cpsay{font-size:11.5px;line-height:1.25;padding:6px 8px;max-width:100%}
+  .cpstars .hoy{display:none}
+  .cpsel{grid-template-columns:repeat(4,44px)}
+  .cpname b{font-size:18px}.cpname small{display:none}.cpname input{width:104px}
+  .cpb{height:36px;min-width:40px}
+  .cpb.wd{font-size:11px}
+}
+/* Las clases de color globales (.gld, .mini…) las traduce la piel B: sobre el escenario oscuro se fijan */
+.stage .cpov .cpname b.gld{color:#FFE2A0!important}
+.stage .cpov .cpsay b{color:#8a5a14}
+.stage .cpov .cpsay .mini{color:#2a1a08}
+.stage .cpov .cpname .mini{color:#FFE2A0;background:rgba(255,226,160,.14)}
+.stage .cpov .cpstars,.stage .cpov .cpstars b{color:#FFE2A0}.stage .cpov .cpstars b{color:#FFF1CC}

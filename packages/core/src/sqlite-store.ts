@@ -2,6 +2,9 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { ChronologyRecord, ErrorLesson } from './continuity.js';
+import type { Opportunity, QuotaWindow, RadarSourceState } from './opportunity-radar.js';
+import { blobToVector, vectorToBlob, type MemoryItem, type VectorStore } from './knowledge-memory.js';
+import type { ServiceCatalog } from '../../gateways/src/spec-connector.js';
 import type { ConversationMessage, ConversationSession } from './conversation-archive.js';
 import type { DecisionBlueprint, BlueprintRevisionProposal } from './decision-blueprint.js';
 import type { DecisionReceipt } from './decision-receipt.js';
@@ -25,6 +28,10 @@ import type {
   CoordinationScope,
 } from './operator-coordination.js';
 import type { ReusableLibraryItem } from './reusable-library.js';
+import type { WorkSessionEvent } from './work-session.js';
+import type { WorkAgendaItem } from './work-agenda.js';
+import type { WorkMessage } from './work-message.js';
+import type { OperatorInvite } from './operator-invite.js';
 import type {
   ProjectContextCheckpoint,
   ProjectResourceRef,
@@ -210,6 +217,36 @@ export class SqliteStore {
       ...(row.source_ref == null ? {} : { sourceRef: String(row.source_ref) }),
       metadata: JSON.parse(String(row.metadata_json)) as Record<string, unknown>,
     }));
+  }
+
+  /** Latest revision per incident/source; full append-only chronology remains intact. */
+  listProductIncidentRecords(): ChronologyRecord[] {
+    const rows = this.db.prepare(
+      "SELECT id,session_id,at,seq,kind,subject,content,status,supersedes_id,metadata_json FROM (" +
+      "SELECT *,ROW_NUMBER() OVER (PARTITION BY subject ORDER BY " +
+      "COALESCE(json_extract(metadata_json,'$.incident.revision'),json_extract(metadata_json,'$.feedRevision'),0) DESC,at DESC,id DESC) AS current_rank " +
+      "FROM chronology_records WHERE session_id='product-incidents') WHERE current_rank=1 ORDER BY at ASC,id ASC"
+    ).all() as Record<string,unknown>[];
+    return rows.map(row=>({
+      id:String(row.id),sessionId:String(row.session_id),at:String(row.at),
+      ...(row.seq==null?{}:{sequence:Number(row.seq)}),
+      kind:String(row.kind) as ChronologyRecord['kind'],subject:String(row.subject),
+      content:String(row.content),status:String(row.status) as ChronologyRecord['status'],
+      ...(row.supersedes_id==null?{}:{supersedesId:String(row.supersedes_id)}),
+      metadata:JSON.parse(String(row.metadata_json)) as Record<string,unknown>,
+    }));
+  }
+
+  productIncidentTransaction(work:()=>void): void {
+    this.db.exec('SAVEPOINT product_incidents_ingest');
+    try {
+      work();
+      this.db.exec('RELEASE SAVEPOINT product_incidents_ingest');
+    } catch(error) {
+      this.db.exec('ROLLBACK TO SAVEPOINT product_incidents_ingest');
+      this.db.exec('RELEASE SAVEPOINT product_incidents_ingest');
+      throw error;
+    }
   }
 
   appendChronologyRecord(record: ChronologyRecord): void {
@@ -771,6 +808,391 @@ export class SqliteStore {
     return rows.map((row) => (
       JSON.parse(String(row.assignment_json)) as CoordinationAssignment
     ));
+  }
+
+  /** Suscripciones de avisos (Web Push) por dispositivo. Las claves son públicas del dispositivo, no secretos de JANUS. */
+  upsertPushSubscription(input: { endpoint: string; principalId: string; p256dh: string; auth: string; createdAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO work_push_subscriptions (endpoint, principal_id, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET principal_id = excluded.principal_id, p256dh = excluded.p256dh, auth = excluded.auth
+    `).run(input.endpoint, input.principalId, input.p256dh, input.auth, input.createdAt);
+  }
+
+  deletePushSubscription(endpoint: string, principalId?: string): void {
+    if (principalId) this.db.prepare('DELETE FROM work_push_subscriptions WHERE endpoint = ? AND principal_id = ?').run(endpoint, principalId);
+    else this.db.prepare('DELETE FROM work_push_subscriptions WHERE endpoint = ?').run(endpoint);
+  }
+
+  listPushSubscriptions(principalId: string): Array<{ endpoint: string; p256dh: string; auth: string }> {
+    const rows = this.db.prepare('SELECT endpoint, p256dh, auth FROM work_push_subscriptions WHERE principal_id = ?').all(principalId) as Record<string, unknown>[];
+    return rows.map((row) => ({ endpoint: String(row.endpoint), p256dh: String(row.p256dh), auth: String(row.auth) }));
+  }
+
+  /** Marca un recordatorio como avisado. Devuelve false si ya lo estaba (evita avisos repetidos). */
+  markReminderPushed(itemId: string, at: string): boolean {
+    const result = this.db.prepare('INSERT OR IGNORE INTO work_push_sent (item_id, at) VALUES (?, ?)').run(itemId, at);
+    return Number(result.changes) > 0;
+  }
+
+  /** Llaves de acceso (passkeys) del Founder: solo la parte PÚBLICA y su contador. */
+  upsertFounderPasskey(record: { credentialId: string; active: boolean; createdAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO founder_passkeys (credential_id, active, created_at, record_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(credential_id) DO UPDATE SET active = excluded.active, record_json = excluded.record_json
+    `).run(record.credentialId, record.active ? 1 : 0, record.createdAt, JSON.stringify(record));
+  }
+
+  getFounderPasskey<T>(credentialId: string): T | null {
+    const row = this.db.prepare('SELECT record_json FROM founder_passkeys WHERE credential_id = ?').get(credentialId) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.record_json)) as T : null;
+  }
+
+  listFounderPasskeys<T>(activeOnly = false): T[] {
+    const rows = this.db.prepare(`SELECT record_json FROM founder_passkeys ${activeOnly ? 'WHERE active = 1' : ''} ORDER BY created_at, credential_id`).all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.record_json)) as T);
+  }
+
+  /** Invitaciones de acceso de colaboradores. El código no se guarda: solo su huella. */
+  insertOperatorInvite(invite: OperatorInvite): void {
+    this.db.prepare(`
+      INSERT INTO operator_invites (id, code_hash, principal_id, status, expires_at, created_at, invite_json) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(invite.id, invite.codeHash, invite.principalId, invite.status, invite.expiresAt, invite.createdAt, JSON.stringify(invite));
+  }
+
+  getOperatorInviteByHash(codeHash: string): OperatorInvite | null {
+    const row = this.db.prepare('SELECT invite_json FROM operator_invites WHERE code_hash = ?').get(codeHash) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.invite_json)) as OperatorInvite : null;
+  }
+
+  getOperatorInvite(id: string): OperatorInvite | null {
+    const row = this.db.prepare('SELECT invite_json FROM operator_invites WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.invite_json)) as OperatorInvite : null;
+  }
+
+  listOperatorInvites(limit = 100): OperatorInvite[] {
+    const rows = this.db.prepare('SELECT invite_json FROM operator_invites ORDER BY created_at DESC, id DESC LIMIT ?')
+      .all(Math.max(1, Math.min(500, Math.floor(limit)))) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.invite_json)) as OperatorInvite);
+  }
+
+  /** Cambio de estado atómico: solo pasa de `pending` (y sin caducar) al estado nuevo. Devuelve si lo consiguió. */
+  transitionOperatorInvite(invite: OperatorInvite, from: OperatorInvite['status'], nowIso: string): boolean {
+    const result = this.db.prepare(`
+      UPDATE operator_invites SET status = ?, invite_json = ?
+      WHERE id = ? AND status = ? AND (? <> 'pending' OR expires_at > ?)
+    `).run(invite.status, JSON.stringify(invite), invite.id, from, from, nowIso);
+    return Number(result.changes) === 1;
+  }
+
+  /** Invitaciones pendientes anteriores de la misma persona quedan anuladas al emitir una nueva. */
+  revokePendingOperatorInvites(principalId: string, nowIso: string): number {
+    let count = 0;
+    for (const invite of this.listOperatorInvites(500)) {
+      if (invite.principalId !== principalId || invite.status !== 'pending') continue;
+      if (this.transitionOperatorInvite({ ...invite, status: 'revoked', revokedAt: nowIso }, 'pending', '')) count += 1;
+    }
+    return count;
+  }
+
+  /** Mensajes internos del equipo (bandeja del CEO). Los rechazados también se guardan como rastro. */
+  /* ── Memoria por significado (contrato VectorStore de knowledge-memory.ts) ── */
+  knowledgeVectorStore(): VectorStore {
+    const db = this.db;
+    const parse = (row: Record<string, unknown>) => JSON.parse(String(row.item_json)) as MemoryItem;
+    return {
+      upsert(item, vector) {
+        db.prepare(`
+          INSERT INTO knowledge_items (id, hash, kind, scope, active, updated_at, item_json, model, vector) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET active = excluded.active, updated_at = excluded.updated_at, item_json = excluded.item_json, model = excluded.model, vector = excluded.vector
+        `).run(item.id, item.hash, item.kind, item.scope, item.supersededBy ? 0 : 1, item.updatedAt, JSON.stringify(item), vector.model, vectorToBlob(vector.vector));
+      },
+      getByHash(hash) {
+        const row = db.prepare('SELECT item_json FROM knowledge_items WHERE hash = ? ORDER BY active DESC, updated_at DESC LIMIT 1').get(hash) as Record<string, unknown> | undefined;
+        return row ? parse(row) : null;
+      },
+      get(id) {
+        const row = db.prepare('SELECT item_json FROM knowledge_items WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+        return row ? parse(row) : null;
+      },
+      all() {
+        return (db.prepare('SELECT item_json FROM knowledge_items ORDER BY updated_at DESC LIMIT 20000').all() as Record<string, unknown>[]).map(parse);
+      },
+      candidates(filter) {
+        if (!filter.scopes.length) return [];
+        const marks = filter.scopes.map(() => '?').join(',');
+        const rows = db.prepare(`SELECT item_json, vector FROM knowledge_items WHERE active = 1 AND model = ? AND scope IN (${marks}) LIMIT 20000`).all(filter.model, ...filter.scopes) as Record<string, unknown>[];
+        return rows.map((row) => ({ item: parse(row), vector: blobToVector(row.vector as Uint8Array) })).filter((entry) => !filter.kinds || filter.kinds.includes(entry.item.kind));
+      },
+    };
+  }
+
+  countKnowledgeItems(): { total: number; active: number } {
+    const row = this.db.prepare('SELECT COUNT(*) AS total, COALESCE(SUM(active), 0) AS active FROM knowledge_items').get() as Record<string, unknown>;
+    return { total: Number(row.total), active: Number(row.active) };
+  }
+
+  /* ── Catálogos de servicios leídos de su especificación (spec-connector.ts) ── */
+  upsertServiceCatalog(catalog: ServiceCatalog, registeredBy: string, at: string): void {
+    this.db.prepare(`
+      INSERT INTO service_catalogs (service, updated_at, registered_by, catalog_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(service) DO UPDATE SET updated_at = excluded.updated_at, registered_by = excluded.registered_by, catalog_json = excluded.catalog_json
+    `).run(catalog.service, at, registeredBy, JSON.stringify(catalog));
+  }
+
+  getServiceCatalog(service: string): ServiceCatalog | null {
+    const row = this.db.prepare('SELECT catalog_json FROM service_catalogs WHERE service = ?').get(service) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.catalog_json)) as ServiceCatalog : null;
+  }
+
+  listServiceCatalogs(): Array<{ service: string; updatedAt: string; registeredBy: string; catalog: ServiceCatalog }> {
+    const rows = this.db.prepare('SELECT service, updated_at, registered_by, catalog_json FROM service_catalogs ORDER BY service LIMIT 200').all() as Record<string, unknown>[];
+    return rows.map((row) => ({ service: String(row.service), updatedAt: String(row.updated_at), registeredBy: String(row.registered_by), catalog: JSON.parse(String(row.catalog_json)) as ServiceCatalog }));
+  }
+
+  deleteServiceCatalog(service: string): boolean {
+    return Number(this.db.prepare('DELETE FROM service_catalogs WHERE service = ?').run(service).changes) > 0;
+  }
+
+  /* ── Casos prioritarios del Founder: el contenido llega ya cifrado (el runtime lo sella); aquí solo se guarda. ── */
+  upsertPriorityCaseSealed(id: string, ownerPrincipalId: string, updatedAt: string, sealed: string): void {
+    this.db.prepare(`
+      INSERT INTO priority_cases (id, owner_principal_id, updated_at, case_sealed) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, case_sealed = excluded.case_sealed
+      WHERE priority_cases.owner_principal_id = excluded.owner_principal_id
+    `).run(id, ownerPrincipalId, updatedAt, sealed);
+  }
+
+  listPriorityCasesSealed(ownerPrincipalId?: string): Array<{ id: string; ownerPrincipalId: string; sealed: string }> {
+    const rows = (ownerPrincipalId
+      ? this.db.prepare('SELECT id, owner_principal_id, case_sealed FROM priority_cases WHERE owner_principal_id = ? ORDER BY updated_at DESC LIMIT 100').all(ownerPrincipalId)
+      : this.db.prepare('SELECT id, owner_principal_id, case_sealed FROM priority_cases ORDER BY updated_at DESC LIMIT 100').all()) as Record<string, unknown>[];
+    return rows.map((row) => ({ id: String(row.id), ownerPrincipalId: String(row.owner_principal_id), sealed: String(row.case_sealed) }));
+  }
+
+  /* ── Bandeja de salida sin conexión (pieza «offline-kit»): el contenido llega sellado desde el runtime. ── */
+  upsertOfflineOutboxSealed(id: string, state: string, createdAt: string, sealed: string): void {
+    this.db.prepare(`
+      INSERT INTO offline_outbox (id, state, created_at, item_sealed) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET state = excluded.state, item_sealed = excluded.item_sealed
+    `).run(id, state, createdAt, sealed);
+  }
+
+  listOfflineOutboxSealed(states: readonly string[]): string[] {
+    if (!states.length) return [];
+    const rows = this.db.prepare(`SELECT item_sealed FROM offline_outbox WHERE state IN (${states.map(() => '?').join(',')}) ORDER BY created_at, id LIMIT 1000`).all(...states) as Record<string, unknown>[];
+    return rows.map((row) => String(row.item_sealed));
+  }
+
+  countOfflineOutbox(): Record<string, number> {
+    const rows = this.db.prepare('SELECT state, COUNT(*) AS n FROM offline_outbox GROUP BY state').all() as Record<string, unknown>[];
+    return Object.fromEntries(rows.map((row) => [String(row.state), Number(row.n)]));
+  }
+
+  hasBooksEntry(id: string): boolean {
+    return !!this.db.prepare('SELECT 1 FROM books_journal WHERE id = ?').get(id);
+  }
+
+  /* ── Contabilidad de la empresa: diario de solo añadir; el contenido llega ya cifrado desde el runtime. ── */
+  appendBooksEntrySealed(id: string, entryDate: string, createdAt: string, sealed: string): void {
+    // Sin ON CONFLICT: un id repetido falla. El diario no se reescribe; se corrige con contrasientos.
+    this.db.prepare('INSERT INTO books_journal (id, entry_date, created_at, entry_sealed) VALUES (?, ?, ?, ?)').run(id, entryDate, createdAt, sealed);
+  }
+
+  listBooksEntriesSealed(): Array<{ id: string; sealed: string }> {
+    const rows = this.db.prepare('SELECT id, entry_sealed FROM books_journal ORDER BY entry_date, created_at, id').all() as Record<string, unknown>[];
+    return rows.map((row) => ({ id: String(row.id), sealed: String(row.entry_sealed) }));
+  }
+
+  upsertBooksAccount(code: string, accountJson: string): void {
+    this.db.prepare('INSERT INTO books_accounts (code, account_json) VALUES (?, ?) ON CONFLICT(code) DO UPDATE SET account_json = excluded.account_json').run(code, accountJson);
+  }
+
+  listBooksAccounts(): string[] {
+    return (this.db.prepare('SELECT account_json FROM books_accounts ORDER BY code').all() as Record<string, unknown>[]).map((row) => String(row.account_json));
+  }
+
+  getBooksSetting(key: string): string | null {
+    const row = this.db.prepare('SELECT value FROM books_settings WHERE key = ?').get(key) as Record<string, unknown> | undefined;
+    return row ? String(row.value) : null;
+  }
+
+  setBooksSetting(key: string, value: string): void {
+    this.db.prepare('INSERT INTO books_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value').run(key, value);
+  }
+
+  /* ── Paquetes de reglas fiscales (datos por año, con fuentes). ── */
+  upsertTaxRulePack(jurisdiction: string, year: number, checkedAt: string, packJson: string, registeredBy: string): void {
+    this.db.prepare(`
+      INSERT INTO tax_rule_packs (jurisdiction, year, checked_at, registered_by, pack_json) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(jurisdiction, year) DO UPDATE SET checked_at = excluded.checked_at, registered_by = excluded.registered_by, pack_json = excluded.pack_json
+    `).run(jurisdiction, year, checkedAt, registeredBy, packJson);
+  }
+
+  listTaxRulePacks(jurisdiction: string): string[] {
+    return (this.db.prepare('SELECT pack_json FROM tax_rule_packs WHERE jurisdiction = ? ORDER BY year').all(jurisdiction) as Record<string, unknown>[]).map((row) => String(row.pack_json));
+  }
+
+  /* ── Opportunity Radar ── */
+  upsertRadarOpportunity(opportunity: Opportunity): void {
+    // La huella es única: una segunda inserción de la misma oferta con otro id se rechaza (no hay duplicados).
+    this.db.prepare(`
+      INSERT INTO radar_opportunities (id, fingerprint, updated_at, opportunity_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, opportunity_json = excluded.opportunity_json
+      WHERE radar_opportunities.fingerprint = excluded.fingerprint
+    `).run(opportunity.id, opportunity.fingerprint, opportunity.updatedAt, JSON.stringify(opportunity));
+  }
+
+  getRadarOpportunity(id: string): Opportunity | null {
+    const row = this.db.prepare('SELECT opportunity_json FROM radar_opportunities WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.opportunity_json)) as Opportunity : null;
+  }
+
+  listRadarOpportunities(): Opportunity[] {
+    const rows = this.db.prepare('SELECT opportunity_json FROM radar_opportunities ORDER BY updated_at DESC, id LIMIT 500').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.opportunity_json)) as Opportunity);
+  }
+
+  upsertRadarQuotaWindow(quota: QuotaWindow): void {
+    this.db.prepare(`
+      INSERT INTO radar_quota_windows (id, updated_at, quota_json) VALUES (?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET updated_at = excluded.updated_at, quota_json = excluded.quota_json
+    `).run(quota.id, quota.updatedAt, JSON.stringify(quota));
+  }
+
+  listRadarQuotaWindows(): QuotaWindow[] {
+    const rows = this.db.prepare('SELECT quota_json FROM radar_quota_windows ORDER BY id LIMIT 100').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.quota_json)) as QuotaWindow);
+  }
+
+  deleteRadarQuotaWindow(id: string): boolean {
+    return Number(this.db.prepare('DELETE FROM radar_quota_windows WHERE id = ?').run(id).changes) > 0;
+  }
+
+  upsertRadarSourceState(state: RadarSourceState): void {
+    this.db.prepare(`
+      INSERT INTO radar_source_state (source_id, checked_at, state_json) VALUES (?, ?, ?)
+      ON CONFLICT(source_id) DO UPDATE SET checked_at = excluded.checked_at, state_json = excluded.state_json
+    `).run(state.sourceId, state.checkedAt, JSON.stringify(state));
+  }
+
+  listRadarSourceStates(): RadarSourceState[] {
+    const rows = this.db.prepare('SELECT state_json FROM radar_source_state ORDER BY source_id').all() as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.state_json)) as RadarSourceState);
+  }
+
+  upsertWorkMessage(message: WorkMessage): void {
+    this.db.prepare(`
+      INSERT INTO work_messages (id, from_principal_id, created_at, message_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET message_json = excluded.message_json
+      WHERE work_messages.from_principal_id = excluded.from_principal_id
+    `).run(message.id, message.fromPrincipalId, message.createdAt, JSON.stringify(message));
+  }
+
+  getWorkMessage(id: string): WorkMessage | null {
+    const row = this.db.prepare('SELECT message_json FROM work_messages WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.message_json)) as WorkMessage : null;
+  }
+
+  listWorkMessages(fromPrincipalId?: string, limit = 200): WorkMessage[] {
+    const capped = Math.max(1, Math.min(1000, Math.floor(limit)));
+    const rows = (fromPrincipalId
+      ? this.db.prepare('SELECT message_json FROM work_messages WHERE from_principal_id = ? ORDER BY created_at DESC, id DESC LIMIT ?').all(fromPrincipalId, capped)
+      : this.db.prepare('SELECT message_json FROM work_messages ORDER BY created_at DESC, id DESC LIMIT ?').all(capped)) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.message_json)) as WorkMessage);
+  }
+
+  /** Mensajes que el CEO ha enviado a una persona (bandeja de entrada del colaborador). */
+  listWorkMessagesTo(toPrincipalId: string, limit = 50): WorkMessage[] {
+    const capped = Math.max(1, Math.min(500, Math.floor(limit)));
+    const rows = this.db.prepare("SELECT message_json FROM work_messages WHERE json_extract(message_json, '$.toPrincipalId') = ? ORDER BY created_at DESC, id DESC LIMIT ?").all(toPrincipalId, capped) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.message_json)) as WorkMessage);
+  }
+
+  /** Agenda del colaborador. La privacidad (private/work) se aplica en el runtime al leer. */
+  upsertWorkAgendaItem(item: WorkAgendaItem): void {
+    this.db.prepare(`
+      INSERT INTO work_agenda_items (id, principal_id, date, item_json) VALUES (?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET date = excluded.date, item_json = excluded.item_json
+      WHERE work_agenda_items.principal_id = excluded.principal_id
+    `).run(item.id, item.principalId, item.date, JSON.stringify(item));
+  }
+
+  getWorkAgendaItem(id: string): WorkAgendaItem | null {
+    const row = this.db.prepare('SELECT item_json FROM work_agenda_items WHERE id = ?').get(id) as Record<string, unknown> | undefined;
+    return row ? JSON.parse(String(row.item_json)) as WorkAgendaItem : null;
+  }
+
+  deleteWorkAgendaItem(id: string, principalId: string): boolean {
+    const result = this.db.prepare('DELETE FROM work_agenda_items WHERE id = ? AND principal_id = ?').run(id, principalId);
+    return Number(result.changes) > 0;
+  }
+
+  /** Sin `principalId` devuelve todo: el llamador DEBE filtrar con agendaForFounder antes de responder. */
+  listWorkAgendaItems(principalId?: string): WorkAgendaItem[] {
+    const rows = (principalId
+      ? this.db.prepare('SELECT item_json FROM work_agenda_items WHERE principal_id = ? ORDER BY date ASC, id ASC').all(principalId)
+      : this.db.prepare('SELECT item_json FROM work_agenda_items ORDER BY date ASC, id ASC').all()) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.item_json)) as WorkAgendaItem);
+  }
+
+  /** Registro de aperturas de archivos por colaboradores (append-only): quién abrió qué y cuándo. */
+  appendFileAccess(entry: { id: string; principalId: string; resourceId: string; projectId: string; name: string; action: 'view'; at: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO work_file_access (id, principal_id, resource_id, project_id, name, action, at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(entry.id, entry.principalId, entry.resourceId, entry.projectId, entry.name, entry.action, entry.at);
+  }
+
+  listFileAccess(limit = 200): Array<{ id: string; principalId: string; resourceId: string; projectId: string; name: string; action: string; at: string }> {
+    const rows = this.db.prepare(`
+      SELECT id, principal_id, resource_id, project_id, name, action, at FROM work_file_access ORDER BY at DESC, id DESC LIMIT ?
+    `).all(Math.max(1, Math.min(1000, Math.floor(limit)))) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id), principalId: String(row.principal_id), resourceId: String(row.resource_id),
+      projectId: String(row.project_id), name: String(row.name), action: String(row.action), at: String(row.at),
+    }));
+  }
+
+  /** Control de consumo: una fila por consulta a JANUS iniciada por un colaborador (append-only). */
+  appendOperatorRun(input: { runId: string; principalId: string; at: string }): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO operator_run_usage (run_id, principal_id, at) VALUES (?, ?, ?)
+    `).run(input.runId, input.principalId, input.at);
+  }
+
+  listOperatorRunTimes(principalId: string, sinceIso: string): string[] {
+    const rows = this.db.prepare(`
+      SELECT at FROM operator_run_usage WHERE principal_id = ? AND at >= ? ORDER BY at ASC
+    `).all(principalId, sinceIso) as Record<string, unknown>[];
+    return rows.map((row) => String(row.at));
+  }
+
+  /** Plantilla laboral: registro append-only de eventos de sesión declarados por la persona. */
+  appendWorkSessionEvent(event: WorkSessionEvent): void {
+    this.db.prepare(`
+      INSERT OR IGNORE INTO work_session_events
+        (id, session_id, principal_id, kind, at, event_json)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(event.id, event.sessionId, event.principalId, event.kind, event.at, JSON.stringify(event));
+  }
+
+  /** Sin `principalId` devuelve todo: solo debe usarse tras comprobar autoridad de Founder. */
+  listWorkSessionEvents(principalId?: string, limit = 2000): WorkSessionEvent[] {
+    const capped = Math.max(1, Math.min(10000, Math.floor(limit)));
+    const rows = (principalId
+      ? this.db.prepare(`
+          SELECT event_json FROM (
+            SELECT event_json, at, id FROM work_session_events
+            WHERE principal_id = ? ORDER BY at DESC, id DESC LIMIT ?
+          ) ORDER BY at ASC, id ASC
+        `).all(principalId, capped)
+      : this.db.prepare(`
+          SELECT event_json FROM (
+            SELECT event_json, at, id FROM work_session_events
+            ORDER BY at DESC, id DESC LIMIT ?
+          ) ORDER BY at ASC, id ASC
+        `).all(capped)) as Record<string, unknown>[];
+    return rows.map((row) => JSON.parse(String(row.event_json)) as WorkSessionEvent);
   }
 
   appendCoordinationHandoff(handoff: CoordinationHandoff): void {
@@ -1615,6 +2037,187 @@ export class SqliteStore {
     this.db.prepare('DELETE FROM trigger_queue WHERE id = ?').run(id);
   }
 
+  /** Añade una revisión aprobada. La clave primaria impide dos revisiones con el mismo número (compare-and-set). */
+  appendBusinessKnowledgeRevision(record: { revision: number; at: string; approvalRef: string; stateChecksum: string; payload: unknown }): void {
+    this.db.prepare(`
+      INSERT INTO business_knowledge_revisions (revision, at, approval_ref, state_checksum, revision_json)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(record.revision, record.at, record.approvalRef, record.stateChecksum, JSON.stringify(record.payload));
+  }
+
+  listBusinessKnowledgeRevisions(): unknown[] {
+    const rows = this.db.prepare('SELECT revision_json FROM business_knowledge_revisions ORDER BY revision ASC').all();
+    return (rows as Record<string, unknown>[]).map((row) => JSON.parse(String(row.revision_json)) as unknown);
+  }
+
+  putBusinessKnowledgeProposal(record: { id: string; key: string; createdAt: string; expiresAt: string; payload: unknown }): void {
+    this.db.exec('BEGIN');
+    try {
+      this.db.prepare("UPDATE business_knowledge_proposals SET status = 'superseded' WHERE proposal_key = ? AND status = 'pending'").run(record.key);
+      this.db.prepare(`
+        INSERT INTO business_knowledge_proposals (id, proposal_key, status, created_at, expires_at, proposal_json)
+        VALUES (?, ?, 'pending', ?, ?, ?)
+      `).run(record.id, record.key, record.createdAt, record.expiresAt, JSON.stringify(record.payload));
+      this.db.exec('COMMIT');
+    } catch (error) {
+      this.db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  findPendingBusinessKnowledgeProposal(key: string, nowIso: string): { id: string; payload: unknown } | undefined {
+    const row = this.db.prepare(`
+      SELECT id, proposal_json FROM business_knowledge_proposals
+      WHERE proposal_key = ? AND status = 'pending' AND expires_at >= ?
+      ORDER BY created_at DESC LIMIT 1
+    `).get(key, nowIso) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), payload: JSON.parse(String(row.proposal_json)) as unknown } : undefined;
+  }
+
+  setBusinessKnowledgeProposalStatus(id: string, status: 'applied' | 'superseded' | 'rejected'): void {
+    this.db.prepare('UPDATE business_knowledge_proposals SET status = ? WHERE id = ?').run(status, id);
+  }
+
+  getBusinessKnowledgeProposal(id: string): { id: string; key: string; status: string; expiresAt: string; payload: unknown } | undefined {
+    const row = this.db.prepare('SELECT id, proposal_key, status, expires_at, proposal_json FROM business_knowledge_proposals WHERE id = ?')
+      .get(id) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), key: String(row.proposal_key), status: String(row.status),
+      expiresAt: String(row.expires_at), payload: JSON.parse(String(row.proposal_json)) as unknown } : undefined;
+  }
+
+  upsertBusinessKnowledgeConsumerReport(report: { consumer: string; revision: number; checksum: string; reportedAt: string }): void {
+    this.db.prepare(`
+      INSERT INTO business_knowledge_consumer_reports (consumer, revision, checksum, reported_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(consumer) DO UPDATE SET revision = excluded.revision, checksum = excluded.checksum, reported_at = excluded.reported_at
+    `).run(report.consumer, report.revision, report.checksum, report.reportedAt);
+  }
+
+  listBusinessKnowledgeConsumerReports(): Array<{ consumer: string; revision: number; checksum: string; reportedAt: string }> {
+    const rows = this.db.prepare('SELECT consumer, revision, checksum, reported_at FROM business_knowledge_consumer_reports ORDER BY consumer ASC').all();
+    return (rows as Record<string, unknown>[]).map((row) => ({
+      consumer: String(row.consumer),
+      revision: Number(row.revision),
+      checksum: String(row.checksum),
+      reportedAt: String(row.reported_at),
+    }));
+  }
+
+  // ── Dashboard de la niña (kid-dashboard). Los tokens y códigos se guardan SOLO como hash SHA-256. ────────────────
+
+  kidGetState(kidId: string): { revision: number; stateJson: string } | undefined {
+    const row = this.db.prepare('SELECT revision, state_json FROM kid_state WHERE kid_id = ?').get(kidId) as Record<string, unknown> | undefined;
+    return row ? { revision: Number(row.revision), stateJson: String(row.state_json) } : undefined;
+  }
+
+  /** Compare-and-set: `expectedRevision` = -1 para crear. Devuelve false si otro cambio se adelantó. */
+  kidPutState(kidId: string, expectedRevision: number, revision: number, stateJson: string, at: string): boolean {
+    if (expectedRevision < 0) {
+      try {
+        this.db.prepare('INSERT INTO kid_state (kid_id, revision, state_json, updated_at) VALUES (?, ?, ?, ?)').run(kidId, revision, stateJson, at);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    const result = this.db.prepare('UPDATE kid_state SET revision = ?, state_json = ?, updated_at = ? WHERE kid_id = ? AND revision = ?').run(revision, stateJson, at, kidId, expectedRevision);
+    return Number(result.changes) === 1;
+  }
+
+  kidInsertPairingCode(record: { codeHash: string; kidId: string; createdAt: string; expiresAt: string }): void {
+    this.db.prepare('DELETE FROM kid_pairing_codes WHERE kid_id = ? AND used_at IS NULL').run(record.kidId);
+    this.db.prepare('INSERT INTO kid_pairing_codes (code_hash, kid_id, created_at, expires_at) VALUES (?, ?, ?, ?)').run(record.codeHash, record.kidId, record.createdAt, record.expiresAt);
+  }
+
+  /** Canjea un código de un solo uso; devuelve el kidId o undefined si no existe, ya se usó o caducó. */
+  kidConsumePairingCode(codeHash: string, nowIso: string): string | undefined {
+    const row = this.db.prepare('SELECT kid_id, expires_at, used_at FROM kid_pairing_codes WHERE code_hash = ?').get(codeHash) as Record<string, unknown> | undefined;
+    if (!row || row.used_at || String(row.expires_at) <= nowIso) return undefined;
+    const result = this.db.prepare('UPDATE kid_pairing_codes SET used_at = ? WHERE code_hash = ? AND used_at IS NULL').run(nowIso, codeHash);
+    return Number(result.changes) === 1 ? String(row.kid_id) : undefined;
+  }
+
+  kidInsertDevice(record: { id: string; kidId: string; tokenHash: string; label: string; createdAt: string }): void {
+    this.db.prepare('INSERT INTO kid_devices (id, kid_id, token_hash, label, created_at) VALUES (?, ?, ?, ?, ?)').run(record.id, record.kidId, record.tokenHash, record.label, record.createdAt);
+  }
+
+  kidFindDeviceByTokenHash(tokenHash: string): { id: string; kidId: string; label: string } | undefined {
+    const row = this.db.prepare('SELECT id, kid_id, label FROM kid_devices WHERE token_hash = ? AND revoked_at IS NULL').get(tokenHash) as Record<string, unknown> | undefined;
+    return row ? { id: String(row.id), kidId: String(row.kid_id), label: String(row.label) } : undefined;
+  }
+
+  kidTouchDevice(id: string, at: string): void {
+    this.db.prepare('UPDATE kid_devices SET last_seen_at = ? WHERE id = ?').run(at, id);
+  }
+
+  kidListDevices(kidId: string): Array<{ id: string; label: string; createdAt: string; lastSeenAt?: string; revokedAt?: string }> {
+    const rows = this.db.prepare('SELECT id, label, created_at, last_seen_at, revoked_at FROM kid_devices WHERE kid_id = ? ORDER BY created_at ASC').all(kidId) as Record<string, unknown>[];
+    return rows.map((row) => ({
+      id: String(row.id),
+      label: String(row.label),
+      createdAt: String(row.created_at),
+      ...(row.last_seen_at ? { lastSeenAt: String(row.last_seen_at) } : {}),
+      ...(row.revoked_at ? { revokedAt: String(row.revoked_at) } : {}),
+    }));
+  }
+
+  kidRevokeDevice(kidId: string, id: string, at: string): boolean {
+    const result = this.db.prepare('UPDATE kid_devices SET revoked_at = ? WHERE id = ? AND kid_id = ? AND revoked_at IS NULL').run(at, id, kidId);
+    return Number(result.changes) === 1;
+  }
+
+  kidGetPin(kidId: string): unknown | undefined {
+    const row = this.db.prepare('SELECT pin_json FROM kid_pin WHERE kid_id = ?').get(kidId) as Record<string, unknown> | undefined;
+    return row ? (JSON.parse(String(row.pin_json)) as unknown) : undefined;
+  }
+
+  kidPutPin(kidId: string, pin: unknown, at: string): void {
+    this.db.prepare(`
+      INSERT INTO kid_pin (kid_id, pin_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(kid_id) DO UPDATE SET pin_json = excluded.pin_json, updated_at = excluded.updated_at
+    `).run(kidId, JSON.stringify(pin), at);
+  }
+
+  kidAppendActivity(record: { kidId: string; at: string; category: string; seconds: number; detail?: string }): void {
+    this.db.prepare('INSERT INTO kid_activity (kid_id, at, category, seconds, detail) VALUES (?, ?, ?, ?, ?)').run(record.kidId, record.at, record.category, Math.max(0, Math.min(3600, Math.round(record.seconds))), record.detail ?? null);
+  }
+
+  kidListActivity(kidId: string, fromIso: string, toIso: string): Array<{ at: string; category: string; seconds: number; detail?: string }> {
+    const rows = this.db.prepare('SELECT at, category, seconds, detail FROM kid_activity WHERE kid_id = ? AND at >= ? AND at < ? ORDER BY at ASC').all(kidId, fromIso, toIso) as Record<string, unknown>[];
+    return rows.map((row) => ({ at: String(row.at), category: String(row.category), seconds: Number(row.seconds), ...(row.detail ? { detail: String(row.detail) } : {}) }));
+  }
+
+  kidAddFlag(record: { kidId: string; at: string; severity: string; categories: string[]; summary: string }): void {
+    this.db.prepare('INSERT INTO kid_flags (kid_id, at, severity, categories, summary) VALUES (?, ?, ?, ?, ?)').run(record.kidId, record.at, record.severity, record.categories.join(','), record.summary);
+  }
+
+  kidListFlags(kidId: string, limit = 30): Array<{ id: number; at: string; severity: string; categories: string[]; summary: string; seen: boolean }> {
+    const rows = this.db.prepare('SELECT id, at, severity, categories, summary, seen_at FROM kid_flags WHERE kid_id = ? ORDER BY id DESC LIMIT ?').all(kidId, limit) as Record<string, unknown>[];
+    return rows.map((row) => ({ id: Number(row.id), at: String(row.at), severity: String(row.severity), categories: String(row.categories).split(',').filter(Boolean), summary: String(row.summary), seen: row.seen_at !== null }));
+  }
+
+  kidMarkFlagsSeen(kidId: string, at: string): void {
+    this.db.prepare('UPDATE kid_flags SET seen_at = ? WHERE kid_id = ? AND seen_at IS NULL').run(at, kidId);
+  }
+
+  kidAppendTranscript(record: { kidId: string; at: string; role: 'kid' | 'companion'; text: string }): void {
+    this.db.prepare('INSERT INTO kid_transcripts (kid_id, at, role, text) VALUES (?, ?, ?, ?)').run(record.kidId, record.at, record.role, record.text.slice(0, 2000));
+  }
+
+  kidListTranscripts(kidId: string, limit = 60): Array<{ at: string; role: string; text: string }> {
+    const rows = this.db.prepare('SELECT at, role, text FROM kid_transcripts WHERE kid_id = ? ORDER BY id DESC LIMIT ?').all(kidId, limit) as Record<string, unknown>[];
+    return rows.reverse().map((row) => ({ at: String(row.at), role: String(row.role), text: String(row.text) }));
+  }
+
+  kidMarkReminderDelivered(kidId: string, key: string, at: string): void {
+    this.db.prepare('INSERT OR IGNORE INTO kid_reminders_delivered (kid_id, reminder_key, at) VALUES (?, ?, ?)').run(kidId, key, at);
+  }
+
+  kidDeliveredReminderKeys(kidId: string): Set<string> {
+    const rows = this.db.prepare('SELECT reminder_key FROM kid_reminders_delivered WHERE kid_id = ?').all(kidId) as Record<string, unknown>[];
+    return new Set(rows.map((row) => String(row.reminder_key)));
+  }
+
   listSocialChannelSnapshots(productId?: string): SocialChannelSnapshot[] {
     const rows = productId
       ? this.db.prepare(`
@@ -1854,6 +2457,168 @@ export class SqliteStore {
         profile_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS work_push_subscriptions (
+        endpoint TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS work_push_sent (
+        item_id TEXT PRIMARY KEY,
+        at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS founder_passkeys (
+        credential_id TEXT PRIMARY KEY,
+        active INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        record_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS operator_invites (
+        id TEXT PRIMARY KEY,
+        code_hash TEXT NOT NULL UNIQUE,
+        principal_id TEXT NOT NULL,
+        status TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        invite_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS knowledge_items (
+        id TEXT PRIMARY KEY,
+        hash TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        active INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL,
+        item_json TEXT NOT NULL,
+        model TEXT NOT NULL,
+        vector BLOB NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_knowledge_items_scope ON knowledge_items(scope, active, model);
+      CREATE INDEX IF NOT EXISTS idx_knowledge_items_hash ON knowledge_items(hash);
+
+      CREATE TABLE IF NOT EXISTS service_catalogs (
+        service TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        registered_by TEXT NOT NULL,
+        catalog_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS priority_cases (
+        id TEXT PRIMARY KEY,
+        owner_principal_id TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        case_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS offline_outbox (
+        id TEXT PRIMARY KEY,
+        state TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        item_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_journal (
+        id TEXT PRIMARY KEY,
+        entry_date TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        entry_sealed TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_accounts (
+        code TEXT PRIMARY KEY,
+        account_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS books_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS tax_rule_packs (
+        jurisdiction TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        checked_at TEXT NOT NULL,
+        registered_by TEXT NOT NULL,
+        pack_json TEXT NOT NULL,
+        PRIMARY KEY (jurisdiction, year)
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_opportunities (
+        id TEXT PRIMARY KEY,
+        fingerprint TEXT NOT NULL UNIQUE,
+        updated_at TEXT NOT NULL,
+        opportunity_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_quota_windows (
+        id TEXT PRIMARY KEY,
+        updated_at TEXT NOT NULL,
+        quota_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS radar_source_state (
+        source_id TEXT PRIMARY KEY,
+        checked_at TEXT NOT NULL,
+        state_json TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS work_messages (
+        id TEXT PRIMARY KEY,
+        from_principal_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        message_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_messages_from ON work_messages(from_principal_id, created_at);
+
+      CREATE TABLE IF NOT EXISTS work_agenda_items (
+        id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        item_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_agenda_principal ON work_agenda_items(principal_id, date);
+
+      CREATE TABLE IF NOT EXISTS work_file_access (
+        id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        action TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_file_access_at ON work_file_access(at);
+
+      CREATE TABLE IF NOT EXISTS operator_run_usage (
+        run_id TEXT PRIMARY KEY,
+        principal_id TEXT NOT NULL,
+        at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_operator_run_usage_principal
+      ON operator_run_usage(principal_id, at);
+
+      CREATE TABLE IF NOT EXISTS work_session_events (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        principal_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        at TEXT NOT NULL,
+        event_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_work_session_events_principal
+      ON work_session_events(principal_id, at, id);
+
       CREATE TABLE IF NOT EXISTS coordination_scopes (
         id TEXT PRIMARY KEY,
         classification TEXT NOT NULL,
@@ -1979,6 +2744,110 @@ export class SqliteStore {
 
       CREATE INDEX IF NOT EXISTS idx_social_channel_product_time
       ON social_channel_snapshots(product_id, platform, verified_at, id);
+
+      -- Conocimiento del negocio (módulo business-knowledge): historial APPEND-ONLY de revisiones aprobadas.
+      CREATE TABLE IF NOT EXISTS business_knowledge_revisions (
+        revision INTEGER PRIMARY KEY,
+        at TEXT NOT NULL,
+        approval_ref TEXT NOT NULL,
+        state_checksum TEXT NOT NULL,
+        revision_json TEXT NOT NULL
+      );
+
+      CREATE TRIGGER IF NOT EXISTS business_knowledge_revisions_no_update
+      BEFORE UPDATE ON business_knowledge_revisions
+      BEGIN SELECT RAISE(ABORT, 'business_knowledge_revisions is append-only'); END;
+
+      CREATE TRIGGER IF NOT EXISTS business_knowledge_revisions_no_delete
+      BEFORE DELETE ON business_knowledge_revisions
+      BEGIN SELECT RAISE(ABORT, 'business_knowledge_revisions is append-only'); END;
+
+      CREATE TABLE IF NOT EXISTS business_knowledge_proposals (
+        id TEXT PRIMARY KEY,
+        proposal_key TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        proposal_json TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_business_knowledge_proposals_key
+      ON business_knowledge_proposals(proposal_key, status, created_at);
+
+      CREATE TABLE IF NOT EXISTS business_knowledge_consumer_reports (
+        consumer TEXT PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        checksum TEXT NOT NULL,
+        reported_at TEXT NOT NULL
+      );
+
+      -- Dashboard de la niña (módulo kid-dashboard): estado, dispositivos emparejados, PIN parental, actividad y avisos.
+      CREATE TABLE IF NOT EXISTS kid_state (
+        kid_id TEXT PRIMARY KEY,
+        revision INTEGER NOT NULL,
+        state_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_devices (
+        id TEXT PRIMARY KEY,
+        kid_id TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        label TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        last_seen_at TEXT,
+        revoked_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_pairing_codes (
+        code_hash TEXT PRIMARY KEY,
+        kid_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        used_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_pin (
+        kid_id TEXT PRIMARY KEY,
+        pin_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_activity (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        category TEXT NOT NULL,
+        seconds INTEGER NOT NULL,
+        detail TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_kid_activity_kid_at ON kid_activity(kid_id, at);
+
+      CREATE TABLE IF NOT EXISTS kid_flags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        categories TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        seen_at TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kid_id TEXT NOT NULL,
+        at TEXT NOT NULL,
+        role TEXT NOT NULL,
+        text TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS kid_reminders_delivered (
+        kid_id TEXT NOT NULL,
+        reminder_key TEXT NOT NULL,
+        at TEXT NOT NULL,
+        PRIMARY KEY (kid_id, reminder_key)
+      );
 
       CREATE TABLE IF NOT EXISTS flow_runs (
         run_id TEXT PRIMARY KEY,

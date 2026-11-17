@@ -13,6 +13,8 @@
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/janus-icon-192.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/icons/janus-icon-180.png" />
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/language-buttons.css" />
+  <link rel="stylesheet" href="/approved-presence.css" />
 </head>
 <body>
   <div class="shell">
@@ -29,6 +31,7 @@
         </div>
       </div>
       <div class="topbar-actions">
+        <div id="founderLanguageSwitch" class="janus-language-switch" role="group" aria-label="Idioma / Taal"></div>
         <button type="button" class="secondary app-install-btn" data-app-install hidden><span aria-hidden="true">⤓</span> Instalar app</button>
         <div id="connection" class="connection offline"><span></span> desconectado</div>
       </div>
@@ -85,6 +88,35 @@
       </div>
     </section>
 
+    <!-- Caso privado: contenido recuperado exclusivamente del Core autenticado; no incrustar datos personales en HTML público. -->
+    <section class="approvals" id="founderPrivateCases" aria-labelledby="privateCasesTitle" hidden>
+      <div class="capability-head">
+        <div>
+          <div class="eyebrow">SOLO FOUNDER · PRIVADO</div>
+          <h2 id="privateCasesTitle">Casos prioritarios</h2>
+        </div>
+        <span class="approvals-badge">PRIORIDAD ALTA</span>
+      </div>
+      <p id="privateCasesStatus" role="status" aria-live="polite">Pendiente de consulta autenticada al Core.</p>
+      <div id="privateCasesList" class="capability-list"></div>
+    </section>
+
+    <section class="kendra-card" aria-labelledby="kendraTitle">
+      <div class="capability-head">
+        <div>
+          <div class="eyebrow">KENDRA</div>
+          <h2 id="kendraTitle">Kendra</h2>
+        </div>
+        <span id="kendraBadge" class="approvals-badge" hidden>0</span>
+      </div>
+      <p id="kendraSummary" class="approvals-status" role="status" aria-live="polite">Entra como Founder para ver su actividad, sus avisos y sus ajustes.</p>
+      <div class="approvals-actions">
+        <button type="button" id="kendraOpenPanel" class="secondary">Abrir su panel</button>
+        <a id="kendraOpenApp" class="secondary kendra-link" href="/kendra" target="_blank" rel="noopener">Abrir su app</a>
+      </div>
+      <div id="kendraPanel" class="kendra-panel" hidden></div>
+    </section>
+
     <section class="capabilities" aria-labelledby="capabilityTitle">
       <div class="capability-head">
         <div>
@@ -99,6 +131,7 @@
     </section>
 
     <section class="command-card">
+      <div id="attachHost" class="attach-host"></div>
       <textarea id="command" rows="2" placeholder="Dile a Janus qué quieres conseguir…"></textarea>
       <div class="effort-row">
         <label for="effortSelect" class="eyebrow">ESFUERZO</label>
@@ -143,6 +176,9 @@
     </article>
   </template>
 
+  <script src="/approved-3d/vendor/three-r160.min.js"></script>
+  <script src="/approved-3d/vendor/gltf-kit.js"></script>
+  <script src="/approved-3d/janus-creature-slot.js"></script>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

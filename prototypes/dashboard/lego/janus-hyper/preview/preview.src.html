@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Janus · Compañero 3D — Preview</title>
+<style>
+:root{--bg:#070605;--bg2:#100c08;--card:#17120c;--card2:#1f1810;--line:rgba(232,195,122,.2);--gold:#e8c37a;--gold2:#ffc94d;--tx:#f3e9d6;--mut:#a39880;--ok:#7fd08a;--bad:#ff7a6b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 392px;height:100dvh;min-height:560px}
+.stage{position:relative;background:radial-gradient(120% 90% at 50% 20%,#1b130a,#070605 70%);overflow:hidden;min-height:0}
+#c{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#c:active{cursor:grabbing}
+.top{position:absolute;left:0;right:0;top:0;display:flex;justify-content:space-between;gap:12px;padding:14px 16px;pointer-events:none}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand b{font-size:11px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase}
+.brand h1{margin:0;font-size:22px;font-weight:650;letter-spacing:.01em}
+.brand span{color:var(--mut);font-size:12px;max-width:46ch}
+.stat{align-self:flex-start;text-align:right;color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;line-height:1.5}
+.stat b{color:var(--gold)}
+.bot{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 14px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(0deg,rgba(7,6,5,.88),rgba(7,6,5,0))}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{border:1px solid var(--line);background:rgba(23,18,12,.72);backdrop-filter:blur(8px);padding:7px 12px;border-radius:999px;font-size:13px;white-space:nowrap}
+.chip:hover{border-color:var(--gold)}
+.chip.on{background:linear-gradient(180deg,#f4d58d,#d9a94a);color:#1a1206;border-color:transparent;font-weight:650}
+.worn{display:flex;flex-wrap:wrap;gap:6px}
+.worn .chip{padding:4px 6px 4px 10px;font-size:12px;display:flex;gap:6px;align-items:center}
+.worn .chip i{font-style:normal;opacity:.7;border-radius:50%;width:18px;height:18px;display:grid;place-items:center;background:rgba(255,255,255,.08)}
+.banner{display:none;align-self:flex-start;padding:7px 12px;border-radius:10px;font-size:12.5px;background:rgba(255,201,77,.12);border:1px solid rgba(255,201,77,.4);color:#ffe3a0}
+.range{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:12px}
+input[type=range]{accent-color:var(--gold2);width:130px}
+.busy{position:absolute;inset:0;display:none;place-items:center;background:rgba(7,6,5,.55);backdrop-filter:blur(3px);z-index:5}
+.busy.on{display:grid}
+.busy div{display:flex;flex-direction:column;align-items:center;gap:12px;color:var(--gold);font-size:13px;letter-spacing:.06em}
+.spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(232,195,122,.2);border-top-color:var(--gold2);animation:sp 0.9s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.panel{background:var(--bg2);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+.tabs button{padding:14px 8px;background:none;border:0;border-bottom:2px solid transparent;color:var(--mut);font-weight:600;letter-spacing:.03em}
+.tabs button.on{color:var(--gold2);border-bottom-color:var(--gold2)}
+.pane{flex:1;min-height:0;overflow:auto;padding:14px 16px 18px;display:none}
+.pane.on{display:block}
+h3{margin:16px 0 8px;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);font-weight:650}
+h3:first-child{margin-top:0}
+.cr{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.crc{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:11px 12px;text-align:left;display:flex;flex-direction:column;gap:3px;min-height:86px}
+.crc b{font-size:15px}
+.crc small{color:var(--mut);font-size:11.5px;line-height:1.3}
+.crc.on{border-color:var(--gold2);background:linear-gradient(180deg,#261b0c,#17120c);box-shadow:0 0 0 1px rgba(255,201,77,.35),0 8px 24px rgba(255,201,77,.08)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.sw{display:flex;flex-wrap:wrap;gap:8px}
+.sw button{width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.14);padding:0}
+.sw button.on{border-color:#fff;box-shadow:0 0 0 2px var(--gold2)}
+.note{color:var(--mut);font-size:12px;margin:10px 0 0}
+.wallet{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px}
+.wallet b{color:var(--gold2);font-size:16px;font-variant-numeric:tabular-nums;min-width:62px}
+.wallet input{flex:1;width:auto}
+.slots{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin:0 -2px 10px;scrollbar-width:thin}
+.slots button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:12px;padding:7px 10px;font-size:12px;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px}
+.slots button span{font-size:18px;line-height:1}
+.slots button.on{border-color:var(--gold2);background:#261b0c;color:var(--gold2)}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.it{position:relative;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:0;text-align:left;overflow:hidden;display:flex;flex-direction:column}
+.it .im{aspect-ratio:1;background:radial-gradient(90% 80% at 50% 35%,#2a1f12,#120d08);display:grid;place-items:center;position:relative}
+.it img{width:100%;height:100%;object-fit:contain;display:block}
+.it .ph{width:46%;aspect-ratio:1;border-radius:50%;border:3px solid rgba(232,195,122,.16);border-top-color:var(--gold);animation:sp 1s linear infinite}
+.it .m{padding:6px 8px 8px;display:flex;flex-direction:column;gap:2px}
+.it .m b{font-size:12px;font-weight:600;line-height:1.2;min-height:2.4em}
+.it .pr{font-size:11.5px;display:flex;justify-content:space-between;align-items:center;gap:4px}
+.it .tier{font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.it .st{font-variant-numeric:tabular-nums;font-weight:700;color:var(--gold2)}
+.it.lock img{filter:saturate(.55) brightness(.78)}
+.it.lock .st{color:var(--mut)}
+.it .lk{position:absolute;right:6px;top:6px;background:rgba(7,6,5,.78);border:1px solid var(--line);border-radius:999px;font-size:10.5px;padding:2px 7px;color:var(--gold)}
+.it.on{border-color:var(--gold2);box-shadow:0 0 0 1px var(--gold2),0 8px 22px rgba(255,201,77,.12)}
+.it .tag{position:absolute;left:6px;top:6px;background:var(--gold2);color:#1a1206;font-size:10px;font-weight:800;border-radius:999px;padding:2px 7px}
+.it .tag.try{background:#ff9d5c}
+.sel{margin-top:14px;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.sel h4{margin:0 0 8px;font-size:13px}
+.sel .sw button{width:26px;height:26px}
+.clear{margin-top:14px;width:100%;padding:10px;border-radius:12px;border:1px dashed var(--line);background:none;color:var(--mut)}
+.foot{padding:8px 16px 12px;color:#7d735f;font-size:11px;border-top:1px solid var(--line);line-height:1.4}
+@media (max-width:900px),(orientation:portrait){
+  .app{display:block;height:auto;min-height:0}
+  .stage{height:68vh;min-height:420px}
+  .panel{border-left:0;border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  .top{padding:10px 12px}.brand h1{font-size:18px}.brand span{display:none}
+}
+@media (max-width:520px){.grid{grid-template-columns:repeat(2,1fr)}.range input{width:96px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="top">
+      <div class="brand"><b>Janus · Compañero</b><h1 id="cname">Lumi</h1><span id="cline"></span></div>
+      <div class="stat" id="stat"></div>
+    </div>
+    <div class="busy" id="busy"><div><div class="spin"></div><span id="busyMsg">Modelando…</span></div></div>
+    <div class="bot">
+      <div class="banner" id="banner"></div>
+      <div class="worn" id="worn"></div>
+      <div class="row" id="poses"></div>
+      <div class="row">
+        <button class="chip" id="walk">🚶 Pasear</button>
+        <label class="range">🌬 Viento <input type="range" id="wind" min="0" max="1" step="0.01" value="0.35"></label>
+        <button class="chip" id="spin">⟳ Girar solo</button>
+        <button class="chip" id="shot">📷 Foto</button>
+      </div>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="tabs"><button class="on" data-tab="cr">🐾 Criatura</button><button data-tab="vs">👗 Vestidor</button></div>
+
+    <div class="pane on" id="p-cr">
+      <h3>Elige a tu compañero</h3>
+      <div class="cr" id="crs"></div>
+      <p class="note">Kendra les pondrá nombre; estos son nombres de trabajo.</p>
+      <h3>Pelaje / piel</h3>
+      <div class="seg" id="style"></div>
+      <h3>Color principal</h3><div class="sw" id="swFur"></div>
+      <h3>Color de detalle</h3><div class="sw" id="swAcc"></div>
+      <h3>Color de ojos</h3><div class="sw" id="swEye"></div>
+      <h3>Luz</h3><div class="seg" id="lights"></div>
+      <h3>Calidad</h3><div class="seg" id="quals"></div>
+      <p class="note" id="qnote"></p>
+    </div>
+
+    <div class="pane" id="p-vs">
+      <div class="wallet"><span>⭐</span><b id="wv">60</b><input type="range" id="wallet" min="0" max="400" step="5" value="60"><small style="color:var(--mut)">demo</small></div>
+      <div class="slots" id="slots"></div>
+      <div class="grid" id="grid"></div>
+      <div class="sel" id="sel" style="display:none"></div>
+      <button class="clear" id="clear">Quitar todo</button>
+    </div>
+    <div class="foot">Preview de diseño: las estrellas de arriba son una demo para ver cómo se ven los bloqueados. Precios y rarezas son una propuesta; la economía real la fija la tienda de estrellas.</div>
+  </aside>
+</div>
+
+<script>/*BUNDLE*/</script>
+<script>
+(() => {
+'use strict';
+const J = JanusHyper, $ = (s, r = document) => r.querySelector(s), el = (t, a = {}, k = []) => { const e = document.createElement(t); for (const x in a) { if (x === 'class') e.className = a[x]; else if (x === 'text') e.textContent = a[x]; else if (x.startsWith('on')) e.addEventListener(x.slice(2), a[x]); else e.setAttribute(x, a[x]); } k.forEach((c) => c && e.append(c)); return e; };
+const CRS = [
+  { id: 'lumi', name: 'Lumi', line: 'Criatura alada de pelaje cálido, orejas grandes y ojos enormes.' },
+  { id: 'bombo', name: 'Bombo', line: 'Ajolote de piel húmeda con branquias de pluma iridiscentes.' },
+  { id: 'musgo', name: 'Musgo', line: 'Duende de roca con musgo vivo, una flor y una luciérnaga amiga.' },
+  { id: 'nimbo', name: 'Nimbo', line: 'Corderito-nube de algodón con arcoíris y chispas doradas.' }
+];
+const POSES = [['idle', 'Reposo'], ['saluda', 'Saluda'], ['celebra', 'Celebra'], ['piensa', 'Piensa']];
+const PAL = {
+  fur: ['#F7E6CB', '#FFF4DA', '#FF8E70', '#6FA63A', '#F2A5C0', '#9EC9FF', '#B9A3FF', '#2B2A33', '#E8B26A', '#F5F5F5'],
+  acc: ['#BBA5E6', '#59E4D4', '#A89F8C', '#FFD470', '#FF6EA8', '#7DFFB0', '#6EC6FF', '#FF9D5C', '#E0113A', '#FFFFFF'],
+  eye: ['#F2A63B', '#4FA3F7', '#3DDC84', '#C58BFF', '#FF5D73', '#39E5FF', '#8B5A2B', '#1B1015']
+};
+const IPAL = ['#ff5d73', '#ff9d5c', '#ffd23f', '#3ddc84', '#39e5ff', '#6aa7ff', '#c58bff', '#ff6ea8', '#f3f1ec', '#1d1f26'];
+const st = { cr: 'lumi', q: 'normal', light: 'cine', style: 'fur', wallet: 60, slot: 'torso', sel: null, colors: {}, look: {}, auto: false, token: 0 };
+let H, thumbCache = new Map(), queue = [], pumping = false;
+
+const busyEl = $('#busy'), busyMsg = $('#busyMsg');
+const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 16)));
+async function busy(msg, fn) { busyMsg.textContent = msg; busyEl.classList.add('on'); await frame(); try { return fn(); } finally { busyEl.classList.remove('on'); } }
+
+/* ---------- escena ---------- */
+const canvas = $('#c');
+H = J.create(canvas, { creature: st.cr, quality: st.q, light: st.light, style: st.style });
+H.cam.dist = 7.4; H.cam.ty = 1.25; H.setWind(0.35, 1.2);
+new ResizeObserver(() => H.resize()).observe(canvas); addEventListener('resize', () => H.resize());
+H.start();
+let fpsA = 0, nf = 0, tacc = 0, lastW = performance.now();
+H.onFrame = (t, dt) => { const nw = performance.now(), wall = Math.min(2, (nw - lastW) / 1000); lastW = nw; fpsA += wall; nf++; tacc += wall; if (tacc > 0.6) { const ms = (fpsA / nf) * 1000; $('#stat').innerHTML = '<b>' + st.q.toUpperCase() + '</b> · ' + Math.round(1000 / ms) + ' fps<br>' + J.DEFS[st.cr]().name + ' · ' + (H.R ? H.R.shells.length : 0) + ' capas de pelo' + (st.auto ? '<br>modo AUTO' : ''); autoTune(ms); fpsA = 0; nf = 0; tacc = 0; } };
+
+/* ---------- criatura ---------- */
+function paintCreature() { const c = CRS.find((x) => x.id === st.cr); $('#cname').textContent = c.name; $('#cline').textContent = c.line; document.querySelectorAll('.crc').forEach((b) => b.classList.toggle('on', b.dataset.id === st.cr)); }
+const crs = $('#crs'); CRS.forEach((c) => crs.append(el('button', { class: 'crc', 'data-id': c.id, onclick: () => setCreature(c.id) }, [el('b', { text: c.name }), el('small', { text: c.line })])));
+async function setCreature(id) {
+  if (id === st.cr && H.R) return; st.cr = id; st.token++; thumbCache = new Map(); queue = [];
+  await busy('Modelando a ' + CRS.find((x) => x.id === id).name + '…', () => { H.setCreature(id, st.look[id]); H.setWind(+$('#wind').value, 1.2); H.setPose(curPose); });
+  H.R.root.position.x = 0; paintCreature(); paintSw(); if ($('#p-vs').classList.contains('on')) paintGrid(); paintWorn();
+}
+let curPose = 'idle';
+const poses = $('#poses'); POSES.forEach(([id, n]) => poses.append(el('button', { class: 'chip' + (id === 'idle' ? ' on' : ''), 'data-id': id, onclick: () => { curPose = id; H.setPose(id); poses.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); } , text: n })));
+const styleEl = $('#style');[['fur', 'Pelaje cinematográfico'], ['vinyl', 'Vinilo']].forEach(([id, n]) => styleEl.append(el('button', { class: 'chip' + (id === 'fur' ? ' on' : ''), 'data-id': id, text: n, onclick: () => { st.style = id; H.setStyle(id); styleEl.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); } })));
+const lightsEl = $('#lights'); Object.entries(J.LIGHTS).forEach(([id, l]) => lightsEl.append(el('button', { class: 'chip' + (id === 'cine' ? ' on' : ''), 'data-id': id, text: l.label, onclick: () => { st.light = id; H.setLight(id); lightsEl.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); } })));
+function swatches(host, cols, key) { host.textContent = ''; cols.forEach((c) => host.append(el('button', { style: 'background:' + c, 'data-c': c, 'aria-label': c, onclick: () => { st.look[st.cr] = Object.assign({}, st.look[st.cr] || {}, { [key]: c }); H.setLook({ [key]: c }); paintSw(); } }))); }
+function paintSw() { const d = J.DEFS[st.cr]().defaults, lk = Object.assign({}, d, st.look[st.cr] || {}); swatches($('#swFur'), PAL.fur, 'fur'); swatches($('#swAcc'), PAL.acc, 'accent'); swatches($('#swEye'), PAL.eye, 'eyes'); [['#swFur', 'fur'], ['#swAcc', 'accent'], ['#swEye', 'eyes']].forEach(([s, k]) => $(s).querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.c.toLowerCase() === (lk[k] || '').toLowerCase()))); }
+const QN = { eco: 'Para móviles y tablets antiguas: pelo más ligero.', normal: 'Equilibrado: buena imagen y fluidez.', profundo: 'Pelo denso, sombras suaves y reflejos. Pide una GPU decente.', maximo: 'Máxima fidelidad (fotos y pantallas grandes). Puede ir lento en móviles.', auto: 'Se ajusta solo según los fotogramas por segundo del equipo.' };
+const qEl = $('#quals'); [['eco', 'ECO'], ['normal', 'NORMAL'], ['profundo', 'PROFUNDO'], ['maximo', 'MÁXIMO'], ['auto', 'AUTO']].forEach(([id, n]) => qEl.append(el('button', { class: 'chip' + (id === 'normal' ? ' on' : ''), 'data-id': id, text: n, onclick: () => setQuality(id) })));
+async function setQuality(id) {
+  st.auto = id === 'auto'; const real = st.auto ? st.q : id; qEl.querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); $('#qnote').textContent = QN[id]; if (real === st.q && H.R) return; st.q = real; thumbCache = new Map();
+  await busy('Aplicando calidad ' + real.toUpperCase() + '…', () => { H.setQuality(real); H.setWind(+$('#wind').value, 1.2); H.setPose(curPose); }); paintWorn();
+}
+$('#qnote').textContent = QN.normal;
+let tunes = 0, tuneAt = 0;
+function autoTune(ms) { if (!st.auto || tunes >= 3 || busyEl.classList.contains('on') || document.hidden) return; tuneAt++; if (tuneAt < 4) return; const order = ['eco', 'normal', 'profundo', 'maximo'], i = order.indexOf(st.q); if (ms > 42 && i > 0) { tunes++; tuneAt = 0; setQuality('auto').then(() => { st.q = order[i - 1]; st.auto = true; return busy('Ajustando a ' + order[i - 1].toUpperCase() + '…', () => { H.setQuality(order[i - 1]); H.setWind(+$('#wind').value, 1.2); H.setPose(curPose); }); }); } else if (ms < 17 && i < 2) { tunes++; tuneAt = 0; st.q = order[i + 1]; busy('Ajustando a ' + order[i + 1].toUpperCase() + '…', () => { H.setQuality(order[i + 1]); H.setWind(+$('#wind').value, 1.2); H.setPose(curPose); }); } }
+
+/* ---------- controles de escena ---------- */
+$('#wind').addEventListener('input', (e) => H.setWind(+e.target.value, 1.2));
+$('#walk').addEventListener('click', (e) => { H.walk = !H.walk; e.currentTarget.classList.toggle('on', H.walk); });
+$('#spin').addEventListener('click', (e) => { H.cam.auto = !H.cam.auto; e.currentTarget.classList.toggle('on', H.cam.auto); });
+$('#shot').addEventListener('click', () => { H.step(0.0001); canvas.toBlob((b) => { const a = el('a', { href: URL.createObjectURL(b), download: 'janus-' + st.cr + '.png' }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }); });
+addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') H.cam.yaw -= 0.12; else if (e.key === 'ArrowRight') H.cam.yaw += 0.12; else if (e.key === '+' || e.key === '=') H.cam.dist = Math.max(3.2, H.cam.dist * 0.92); else if (e.key === '-') H.cam.dist = Math.min(11, H.cam.dist * 1.08); });
+
+/* ---------- pestañas ---------- */
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); $('#p-cr').classList.toggle('on', b.dataset.tab === 'cr'); $('#p-vs').classList.toggle('on', b.dataset.tab === 'vs'); if (b.dataset.tab === 'vs') paintGrid(); }));
+
+/* ---------- vestidor ---------- */
+const slotsEl = $('#slots'); J.SLOTS.forEach((s) => slotsEl.append(el('button', { 'data-id': s.id, class: s.id === st.slot ? 'on' : '', onclick: () => { st.slot = s.id; slotsEl.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === s.id)); paintGrid(); } }, [el('span', { text: s.ico }), document.createTextNode(s.name)])));
+$('#wallet').addEventListener('input', (e) => { st.wallet = +e.target.value; $('#wv').textContent = st.wallet; paintGrid(); paintWorn(); });
+const isLocked = (it) => it.stars > st.wallet;
+function paintGrid() {
+  const g = $('#grid'); g.textContent = ''; const items = J.CATALOG.filter((i) => i.slot === st.slot).sort((a, b) => a.stars - b.stars);
+  items.forEach((it) => {
+    const worn = H.outfit[it.slot] && H.outfit[it.slot].id === it.id, lock = isLocked(it), T = J.TIERS[it.tier], key = st.cr + ':' + it.id, cached = thumbCache.get(key);
+    const im = el('div', { class: 'im' }, [cached ? el('img', { src: cached, alt: it.name }) : el('div', { class: 'ph' })]);
+    const card = el('button', { class: 'it' + (lock ? ' lock' : '') + (worn ? ' on' : ''), 'data-id': it.id, onclick: () => toggle(it.id) }, [
+      im, lock ? el('span', { class: 'lk', text: '🔒 ' + (it.stars - st.wallet) + ' ⭐ más' }) : null, worn ? el('span', { class: 'tag' + (lock ? ' try' : ''), text: lock ? 'PRUEBA' : 'PUESTO' }) : null,
+      el('div', { class: 'm' }, [el('b', { text: it.name }), el('div', { class: 'pr' }, [el('span', { class: 'tier', style: 'color:' + T.c, text: T.name }), el('span', { class: 'st', text: '⭐ ' + it.stars })])])]);
+    g.append(card); if (!cached) enqueue(it.id, im);
+  });
+  paintSel();
+}
+function enqueue(id, host) { queue.push({ id, host, token: st.token }); if (!pumping) { pumping = true; setTimeout(pump, 30); } }
+function pump() {
+  const j = queue.shift(); if (!j) { pumping = false; return; }
+  if (j.token === st.token && j.host.isConnected) { const key = st.cr + ':' + j.id; let url = thumbCache.get(key); if (!url) { try { url = J.thumb(j.id, st.cr, { size: 220 }); thumbCache.set(key, url); } catch (e) { url = null; console.warn('thumb', j.id, e); } } if (url) j.host.replaceChildren(el('img', { src: url, alt: j.id })); else j.host.replaceChildren(el('span', { text: '🎁', style: 'font-size:28px' })); }
+  setTimeout(pump, 12);
+}
+async function toggle(id) {
+  const it = J.BY_ID[id], on = H.outfit[it.slot] && H.outfit[it.slot].id === id; st.sel = id;
+  if (on) H.unwear(it.slot); else await busy((it.slot === 'torso' ? 'Cosiendo ' : 'Probando ') + it.name + '…', () => { H.wear(id, st.colors[id]); });
+  paintGrid(); paintWorn();
+}
+function paintSel() {
+  const box = $('#sel'), it = st.sel && J.BY_ID[st.sel]; if (!it || !H.outfit[it.slot] || H.outfit[it.slot].id !== it.id) { box.style.display = 'none'; return; }
+  box.style.display = ''; box.textContent = ''; box.append(el('h4', { text: 'Color de ' + it.name }));
+  [['main', 'Principal'], ['accent', 'Detalle']].forEach(([k, n]) => { const row = el('div', { class: 'sw', style: 'margin-bottom:8px' }); row.append(el('small', { text: n, style: 'width:64px;color:var(--mut);align-self:center' })); IPAL.forEach((c) => row.append(el('button', { style: 'background:' + c, 'aria-label': c, onclick: async () => { st.colors[it.id] = Object.assign({}, st.colors[it.id] || {}, { [k]: c }); await busy('Recoloreando…', () => H.wear(it.id, st.colors[it.id])); paintGrid(); } }))); box.append(row); });
+}
+$('#clear').addEventListener('click', () => { H.clearOutfit(); st.sel = null; paintGrid(); paintWorn(); });
+function paintWorn() {
+  const w = $('#worn'); w.textContent = ''; let need = 0, n = 0;
+  Object.entries(H.outfit).forEach(([slot, o]) => { const it = J.BY_ID[o.id]; n++; if (isLocked(it)) need += it.stars; w.append(el('span', { class: 'chip' }, [document.createTextNode(it.name + (isLocked(it) ? ' 🔒' : '')), el('i', { text: '✕', role: 'button', 'aria-label': 'Quitar ' + it.name, onclick: () => { H.unwear(slot); if (st.sel === it.id) st.sel = null; paintGrid(); paintWorn(); } })])); });
+  const lk = Object.values(H.outfit).filter((o) => isLocked(J.BY_ID[o.id])).length, b = $('#banner'); if (lk) { b.style.display = 'block'; b.textContent = 'Modo prueba: llevas ' + lk + ' accesorio' + (lk > 1 ? 's' : '') + ' bloqueado' + (lk > 1 ? 's' : '') + '. Para tenerlos todos te faltan ' + Math.max(0, need - 0) + ' ⭐ en total.'; } else b.style.display = 'none';
+}
+paintCreature(); paintSw(); paintWorn();
+window.__preview = { H, st, J };
+window.__ready = true;
+})();
+</script>
+</body>
+</html>

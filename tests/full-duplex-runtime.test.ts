@@ -4,8 +4,11 @@ import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import test from 'node:test';
 import { WebSocket } from 'ws';
+import { generateKeyPairSync, sign } from 'node:crypto';
 
 const PCM_MIME = 'audio/pcm;rate=16000;channels=1;format=s16le';
+const founderKeys = generateKeyPairSync('ec', { namedCurve: 'prime256v1',
+  publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
 
 test('runtime full-duplex path carries PCM through local STT, run execution, safe TTS and WebSocket audio', async () => {
   const sttRequests: Array<{ contentType: string; bytes: number }> = [];
@@ -61,6 +64,14 @@ test('runtime full-duplex path carries PCM through local STT, run execution, saf
     const health = await waitForJson(`http://127.0.0.1:${runtimePort}/health`, 8_000);
     assert.equal(health.voice?.streaming?.state, 'available');
     assert.equal(health.voice?.streaming?.transport, 'websocket');
+    const base = `http://127.0.0.1:${runtimePort}`;
+    const denied = await fetch(base + '/api/voice/ticket', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ sessionId: 'full-duplex-e2e' }) });
+    assert.equal(denied.status, 401);
+    const challenge = await (await fetch(base + '/api/auth/challenge', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ principalId: 'founder' }) })).json() as any;
+    const signature = sign('sha256', Buffer.from(challenge.challenge.signingPayload), founderKeys.privateKey).toString('base64url');
+    const login = await (await fetch(base + '/api/auth/verify', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ principalId: 'founder', challengeId: challenge.challenge.id, signature }) })).json() as any;
+    const access = await (await fetch(base + '/api/voice/ticket', { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${login.session.token}` }, body: JSON.stringify({ sessionId: 'full-duplex-e2e' }) })).json() as any;
+    assert.equal(typeof access.ticket, 'string');
 
     ws = new WebSocket(`ws://127.0.0.1:${runtimePort}/api/voice/stream`);
     ws.on('message', (data, isBinary) => {
@@ -84,6 +95,7 @@ test('runtime full-duplex path carries PCM through local STT, run execution, saf
       type: 'hello',
       version: 1,
       sessionId: 'full-duplex-e2e',
+      ticket: access.ticket,
       voiceId: 'janus-e2e',
       audio: { mimeType: PCM_MIME },
     }));
@@ -153,6 +165,7 @@ function spawnRuntime(runtimePort: number, sttPort: number, ttsPort: number): Ch
         ...process.env,
         PORT: String(runtimePort),
         JANUS_DB: ':memory:',
+        JANUS_FOUNDER_PUBLIC_KEY_PEM: founderKeys.publicKey,
         JANUS_TIME_ZONE: 'Europe/Amsterdam',
         JANUS_STT_BASE_URL: `http://127.0.0.1:${sttPort}`,
         JANUS_TTS_BASE_URL: `http://127.0.0.1:${ttsPort}`,

@@ -26,6 +26,9 @@ jobs:
       - name: PWA syntax
         run: |
           node --check apps/pwa/app.js
+          node --check apps/pwa/dashboard-access.js
+          node --check apps/pwa/kendra.js
+          node --check apps/pwa/language-buttons.js
           node --check apps/pwa/app-install.js
           node --check apps/pwa/glow-emblem.js
           node --check apps/pwa/founder-session.js
@@ -35,6 +38,8 @@ jobs:
           node --check scripts/start-local-voice.mjs
       - name: Sidecar syntax
         run: python3 -m py_compile sidecars/qwen3_tts_server.py
+      - name: Build public-safe dashboard fixtures for invariance tests
+        run: npm run dashboard:build
       - name: Tests
         run: npm test
       - name: Runtime smoke
