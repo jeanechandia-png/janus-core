@@ -46,9 +46,9 @@ This document converts observed market capabilities into Janus-native, provider-
 - optional large-scale swarm scheduling across multiple machines;
 - IoT/home/device bridges where useful.
 
-## Referente técnico no comercial — Fable 5.2 (17-11-2026)
+## Referente técnico evolutivo — Fable 5.2 (17-11-2026)
 
-Solicitud del Founder: reproducir y mejorar funciones observables de Claude Fable 5.2 en **JANUS CORE** para uso interno no comercial de esta investigación/capacidad; no crear una segunda aplicación ni copiar pesos, entrenamiento, prompt oculto o propiedad intelectual de terceros. El carácter no comercial no supone permiso para reutilizar tecnología propietaria.
+Solicitud del Founder: reproducir y mejorar funciones observables de Claude Fable 5.2 en **JANUS CORE** inicialmente para uso interno; su futura comercialización queda ABIERTA a decisión del Founder; no crear una segunda aplicación ni copiar pesos, entrenamiento, prompt oculto o propiedad intelectual de terceros. La eventual comercialización no exige reconstruir: diseñar desde ahora módulos originales, reutilizables, trazables y con licencias compatibles. Ni el uso interno ni un uso comercial permiten apropiarse de tecnología propietaria.
 
 **Fuentes públicas de referencia:** [modelo oficial](https://platform.claude.com/docs/en/models/fable-5-2/overview), [notas técnicas](https://platform.claude.com/docs/en/models/fable-5-2/whats-new-fable-5-2).
 
