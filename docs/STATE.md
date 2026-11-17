@@ -1,9 +1,15 @@
+## 17-nov-2026 — CORRECCIÓN VIGENTE: referencia Fable, comercialización futura por decidir
+
+- El Founder pide inspirarse en lo que existe, mejorar sus capacidades y adaptarlas a JANUS como tecnología propia y evolutiva. **Uso actual interno; comercialización futura abierta, no descartada ni aprobada.** La etiqueta anterior «no comercial» queda HISTÓRICA, no hardcodear restricciones de distribución en el producto.
+- Exigir licencias, procedencia, gobernanza de datos y derechos suficientes para un eventual uso comercial; sin copiar pesos ni implementación propietaria. La arquitectura sigue siendo local-first, proveedora-neutral y acumulativa.
+- Se mantiene trabajo en PR #83 del repositorio canónico; sin nuevas dashboards, repositorios o despliegues.
+
 ## 17-nov-2026 — Fable 5.2: evolución agéntica propia, no clonación de pesos
 
 - **VIGENTE:** mantener el repositorio canónico `jeanechandia-png/janus-core`. Se reutiliza la PR #83 abierta y su rama dentro del MISMO producto; no duplicar producto ni alterar dashboards.
 - **HECHO EN CÓDIGO:** `FlowAgentAdapter` ofrece revisión iterativa acotada opcional (`maxRefinementRounds` 0–3, por defecto 0) con verificador independiente y pruebas de denegación, preservando aprobaciones y permisos del motor.
 - **POR VERIFICAR:** CI de este delta, modelos/ejecutores reales, benchmark contra funciones observables de Fable 5.2, duración, coste, ejecución desconectada y pruebas físicas. No afirmar clonación de modelo propietario.
-- **Restricción:** trabajo interno no comercial solicitado; fuentes públicas como referencias técnicas, sin copiar pesos/entrenamiento/código propietario. Más detalle en `docs/flow-agents.md`, `docs/super-agent-capabilities.md` y el handoff del 17-nov.
+- **Estado comercial VIGENTE:** uso interno en esta fase; posibilidad de comercialización futura ABIERTA (decisión aún no tomada). Arquitectura original reutilizable, sin dependencias ni activos con licencias incompatibles. Fuentes públicas como referencias técnicas, sin copiar pesos/entrenamiento/código propietario. Más detalle en `docs/flow-agents.md`, `docs/super-agent-capabilities.md` y el handoff del 17-nov.
 
 ## 17-nov-2026 — CONTINUACIÓN EN REVISIÓN: voz, GitHub y prevención a cinco años
 
