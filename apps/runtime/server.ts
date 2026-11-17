@@ -959,7 +959,7 @@ capabilities.register({
 });
 capabilities.register({
   tool: 'github',
-  actions: ['file.publish'],
+  actions: ['file.publish', 'branch.create'],
   state: githubConfigured ? 'available' : 'needs_auth',
   ...(!githubConfigured
     ? { reason: 'GitHub necesita autorización de escritura antes de publicar la configuración del asistente.' }
