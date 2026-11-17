@@ -4,7 +4,7 @@
  * No envía datos fuera de la máquina ni imprime la voz o la transcripción.
  */
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, realpathSync, statSync } from 'node:fs';
+import { closeSync, createReadStream, existsSync, fstatSync, openSync, readSync, realpathSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import type { VoiceCorpusManifest, VoiceCorpusSample } from './voice-independence.js';
@@ -38,6 +38,43 @@ function privatePath(root: string, candidate: string): string {
   return path;
 }
 
+/** Solo admite audio PCM WAV local, mono 24 kHz / 16 bits, que consume Janus-Qwen. */
+function inspectPcmWav(path: string): { seconds: number } {
+  const fd = openSync(path, 'r');
+  try {
+    const size = fstatSync(fd).size;
+    const prefix = Buffer.alloc(12);
+    if (readSync(fd, prefix, 0, 12, 0) !== 12 || prefix.toString('ascii', 0, 4) !== 'RIFF' || prefix.toString('ascii', 8, 12) !== 'WAVE') {
+      throw new Error('El archivo no es WAV RIFF válido.');
+    }
+    let offset = 12;
+    let fmt: { format: number; channels: number; sampleRate: number; blockAlign: number; bits: number } | null = null;
+    let dataBytes = -1;
+    while (offset + 8 <= size) {
+      const hdr = Buffer.alloc(8);
+      if (readSync(fd, hdr, 0, 8, offset) !== 8) break;
+      const chunkSize = hdr.readUInt32LE(4);
+      const next = offset + 8 + chunkSize + (chunkSize % 2);
+      if (next > size || next <= offset) throw new Error('WAV contiene fragmentos inválidos.');
+      const kind = hdr.toString('ascii', 0, 4);
+      if (kind === 'fmt ' && chunkSize >= 16) {
+        const body = Buffer.alloc(16);
+        if (readSync(fd, body, 0, 16, offset + 8) !== 16) throw new Error('WAV incompleto.');
+        fmt = { format: body.readUInt16LE(0), channels: body.readUInt16LE(2), sampleRate: body.readUInt32LE(4), blockAlign: body.readUInt16LE(12), bits: body.readUInt16LE(14) };
+      }
+      if (kind === 'data') dataBytes = chunkSize;
+      if (fmt && dataBytes >= 0) break;
+      offset = next;
+    }
+    if (!fmt || dataBytes <= 0 || fmt.format !== 1 || fmt.channels !== 1 || fmt.sampleRate !== 24000 || fmt.bits !== 16 || fmt.blockAlign !== 2) {
+      throw new Error('La referencia requiere WAV PCM16 mono a 24 kHz.');
+    }
+    return { seconds: dataBytes / (fmt.sampleRate * fmt.blockAlign) };
+  } finally {
+    closeSync(fd);
+  }
+}
+
 async function sha256(path: string): Promise<string> {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(path)) hash.update(chunk);
@@ -68,6 +105,10 @@ export async function verifyLocalVoiceCorpusEvidence(
       try {
         if (!item.localAudioFile) throw new Error('Falta localAudioFile en el manifiesto.');
         const audio = privatePath(root, item.localAudioFile);
+        const wav = inspectPcmWav(audio);
+        if (!Number.isFinite(item.durationSeconds) || Math.abs(wav.seconds - item.durationSeconds) > 0.15) {
+          throw new Error('La duración del audio no coincide con la duración declarada.');
+        }
         const actualHash = await sha256(audio);
         if (actualHash.toLowerCase() !== item.sha256.toLowerCase()) {
           throw new Error('SHA-256 del audio no coincide con el archivo físico.');
