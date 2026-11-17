@@ -61,3 +61,14 @@ Se extiende `GitHubAdapter` con `branch.create` para preparar ramas `janus/chang
 `JanusEvolutionGuard.premortem` pasa a **60 meses** por defecto y evalúa tres nuevos riesgos: voz/adjuntos a cambio real, delegación y recuperación de subagentes, y portabilidad de proveedores de infraestructura. Una comprobación queda `unknown` hasta existir prueba verificable. El código **no** acredita todavía la ejecución de extremo a extremo de voz → adjuntos → assets → código → preview → publicación, ni certifica GLB, clones locales de voz, apps móviles o compatibilidad futura.
 
 **Siguiente ciclo recomendado:** obtener CI y revisar diff; conciliar seguridad infantil #79 y assets/voz/cámara pendientes en orden cronológico; conectar el orquestador al pipeline existente y validar con GLB auténticos bajo Founder, con rollback. Conservar historial y no forzar la fusión.
+
+
+## Continuación por instrucción del Founder — Fable 5.2 como referente de capacidades (17-11-2026)
+
+**ALCANCE:** construir y perfeccionar capacidades *equivalentes en comportamiento* dentro del JANUS oficial, con modelo y herramientas sustituidos por adaptadores propios. Solicitud no comercial; no se dispone de pesos ni de un procedimiento público para reproducir exactamente el modelo propietario. No copiar código/pesos/prompt oculto ni entrenar con contenido de terceros sin autorización y derechos. No declarar «clonado» al modelo.
+
+**Código implementado en la PR #83 existente** (`chatgpt/janus-voice-evolution-hardening-20261117`): `packages/orchestrator/src/flow-agent-adapter.ts` ahora admite el ciclo opcional de corrección acotada `produce → verify → revise → verify`, con máximo 3 correcciones, 0 por defecto (sin consumo adicional por omisión), verificador independiente, límite de salida, preferencia/exigencia local y auditoría por huellas y recuentos. Se preservan permisos, aprobaciones y fail-closed. Test en `tests/flow-agent-adapter.test.ts`.
+
+**POR VERIFICAR:** CI del nuevo delta, conexión a ejecutores reales, comparativa de calidad, presupuesto de modelos, tareas de horas, recuperación tras reinicio en dispositivos y equivalencia observada frente a Fable. El canal de investigación es interno no comercial; no es una clonación neuronal ni una migración de JANUS a Anthropic.
+
+**Fuentes públicas verificadas el 17-11-2026:** https://platform.claude.com/docs/en/models/fable-5-2/overview y https://platform.claude.com/docs/en/models/fable-5-2/whats-new-fable-5-2.
