@@ -51,7 +51,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 800, height: 1280 }, acceptDownloads: true });
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   const page = await context.newPage();
-  await page.goto(origin + '/', { waitUntil: 'networkidle' });
+  await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
   await page.locator('#founderLinkButton').click();
   await page.locator('#founderKeyBox').waitFor({ state: 'visible' });
   const downloadReady = page.waitForEvent('download');
@@ -63,7 +63,7 @@ try {
   assert.match(publicText, /BEGIN PUBLIC KEY/); assert.doesNotMatch(publicText, /PRIVATE/);
   ok('vinculación desde la interfaz real; descarga exclusivamente pública');
   await stop(); configureLocal(env, publicPath); await start();
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#founderSignInButton').click();
   await page.waitForFunction(() => Boolean(sessionStorage.getItem('janus.founder.session')));
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
@@ -77,7 +77,7 @@ try {
   await stop();
   assert.ok(!readFileSync(join(dir, 'data/janus.db')).includes(Buffer.from('PRIVATE_TABLET_FIXTURE_1126')), 'no private case text stored in plaintext');
   await start();
-  await page.reload({ waitUntil: 'networkidle' });
+  await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#founderSignInButton').click();
   await page.waitForFunction(() => Boolean(sessionStorage.getItem('janus.founder.session')));
   const stored = await page.evaluate(async id => {
@@ -88,7 +88,7 @@ try {
   assert.equal(stored.status, 200); assert.match(stored.text, /PRIVATE_TABLET_FIXTURE_1126/);
   ok('caso cifrado conservado en SQLite después de parada y reinicio');
   for (const route of ['/dashboard/a', '/dashboard/b', '/kendra']) {
-    const response = await page.goto(origin + route, { waitUntil: 'networkidle' });
+    const response = await page.goto(origin + route, { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
     assert.ok(await page.locator('link[rel=manifest]').count());
   }
