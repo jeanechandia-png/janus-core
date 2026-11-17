@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { GitHubAdapter } from '../packages/adapters/src/github-adapter.js';
+import { SENSITIVE_TOOL_ACTIONS } from '../packages/orchestrator/src/sensitive-action-policy.js';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -320,4 +321,8 @@ test('GitHub adapter rejects stale SHA and protected branch names before any wri
   assert.equal(rejectedSha.ok, false);
   assert.match(rejectedSha.error ?? '', /base branch changed/i);
   assert.equal(writes, 0);
+});
+
+test('review-branch creation is classified as sensitive external write', () => {
+  assert.match(SENSITIVE_TOOL_ACTIONS['github.branch.create'] ?? '', /aprobación/i);
 });
