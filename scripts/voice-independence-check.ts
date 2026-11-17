@@ -6,6 +6,7 @@
  * Uso: npm run voice:independence   (JANUS_VOICE_CORPUS=ruta.json para otra ubicación)
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { verifyLocalVoiceCorpusEvidence } from '../packages/voice/src/voice-corpus-evidence.js';
 import {
   assessLocalCloneReadiness,
   type VoiceCorpusManifest,
@@ -31,8 +32,15 @@ try {
   process.exit(1);
 }
 
-const readiness = assessLocalCloneReadiness(manifest);
-console.log(`${readiness.ready ? '✅' : '⬜'} Corpus de «${manifest.subject}»: ${readiness.usableSeconds}s utilizables en ${readiness.usableSampleIds.length} muestra(s).`);
+// No aceptar 'storedLocally: true' por su sola declaración: verificar fichero real,
+ // huella, PCM, duración y presencia de transcripción dentro del directorio privado.
+const privateDir = process.env.JANUS_VOICE_PRIVATE_DIR?.trim() || 'voices/private';
+const evidence = await verifyLocalVoiceCorpusEvidence(manifest, privateDir);
+const readiness = assessLocalCloneReadiness(evidence.verifiedManifest);
+for (const sample of evidence.samples) {
+  for (const failure of sample.failures) console.log(`   ⚠️  Evidencia «${sample.id}»: ${failure}`);
+}
+console.log(`${readiness.ready ? '✅' : '⬜'} Corpus verificable de «${manifest.subject}»: ${readiness.usableSeconds}s utilizables en ${readiness.usableSampleIds.length} muestra(s).`);
 for (const blocker of readiness.blockers) console.log(`   ⛔ ${blocker}`);
 for (const warning of readiness.warnings) console.log(`   ⚠️  ${warning}`);
 
@@ -46,4 +54,4 @@ if (existsSync(voiceConfigPath)) {
   }
 }
 console.log(`${cloneConfigured ? '✅' : '⬜'} Voz local en modo voice_clone declarada en ${voiceConfigPath}.`);
-console.log('\nPara retirar al proveedor deben cumplirse las 5 compuertas de docs/voice-elevenlabs-provider.md (aceptación del Founder incluida).');
+console.log('\nLa bandera cleanAudioConfirmed exige revisión auditiva humana; la transcripción debe revisarse literalmente. Para retirar al proveedor deben cumplirse las 5 compuertas de docs/voice-elevenlabs-provider.md (aceptación del Founder incluida).');
