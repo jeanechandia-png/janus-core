@@ -249,3 +249,82 @@ test('motor: sin agente conectado el nodo agéntico sigue fallando con claridad 
   assert.equal(res.status, 'failed');
   assert.match(res.error!, /Agent Swarm no está conectado/);
 });
+
+test('revisión iterativa acotada: corrige una vez y solo acepta la salida comprobada por otro agente', async () => {
+  const modes: AgentTask['mode'][] = [];
+  let verifications = 0;
+  const producer = ex('ana-local', 'analyst', true, async (task) => {
+    modes.push(task.mode);
+    if (task.mode === 'revise') {
+      assert.deepEqual(task.candidate, { value: 'sin fuente' });
+      assert.deepEqual(task.feedback, ['faltan referencias']);
+      return { output: { value: 'citado' } };
+    }
+    return { output: { value: 'sin fuente' } };
+  });
+  const verifier = ex('ver-local', 'verifier', true, async (task) => {
+    verifications++;
+    return { output: task.candidate && (task.candidate as { value?: string }).value === 'citado'
+      ? { ok: true } : { ok: false, reasons: ['faltan referencias'] } };
+  });
+  const { a, handoffs } = adapter([producer, verifier], { maxRefinementRounds: 1 });
+  const result = await a.run(req({ risk: 'high', requireLocal: true }));
+  assert.deepEqual(result.output, { value: 'citado' });
+  assert.deepEqual(modes, ['produce', 'revise']);
+  assert.equal(verifications, 2);
+  assert.equal(handoffs[0]!.status, 'accepted');
+  assert.equal(handoffs[0]!.refinementRounds, 1);
+  assert.equal(handoffs[0]!.verificationAttempts, 2);
+  assert.equal(handoffs[0]!.verifier!.id, 'ver-local');
+  assert.doesNotMatch(JSON.stringify(handoffs), /sin fuente|citado/);
+});
+
+test('revisión iterativa: el valor por defecto NO reintenta ni consume llamadas extra', async () => {
+  let producerCalls = 0;
+  const p = ex('ana', 'analyst', true, async () => { producerCalls++; return { output: { ok: false } }; });
+  const { a, handoffs } = adapter([p, verifierSaying({ ok: false, reasons: ['no coincide'] })]);
+  await assert.rejects(() => a.run(req({ risk: 'medium' })), AgentVerificationError);
+  assert.equal(producerCalls, 1);
+  assert.equal(handoffs[0]!.refinementRounds, 0);
+  assert.equal(handoffs[0]!.verificationAttempts, 1);
+  assert.equal(handoffs[0]!.status, 'rejected');
+});
+
+test('revisión iterativa: agotamiento del presupuesto no devuelve resultados rechazados', async () => {
+  let producerCalls = 0;
+  let verifierCalls = 0;
+  const producer = ex('ana', 'analyst', true, async () => ({ output: { revision: ++producerCalls } }));
+  const verifier = ex('ver', 'verifier', true, async () => { verifierCalls++; return { output: { ok: false, reasons: ['sin evidencia'] } }; });
+  const { a, handoffs } = adapter([producer, verifier], { maxRefinementRounds: 2 });
+  await assert.rejects(() => a.run(req({ risk: 'high' })), /sin evidencia/);
+  assert.equal(producerCalls, 3);
+  assert.equal(verifierCalls, 3);
+  assert.equal(handoffs[0]!.refinementRounds, 2);
+  assert.equal(handoffs[0]!.verificationAttempts, 3);
+  assert.equal(handoffs[0]!.status, 'rejected');
+});
+
+test('revisión iterativa: las verificaciones sensibles no pueden omitirse por permitir correcciones', async () => {
+  const { a, handoffs } = adapter([ex('ana', 'analyst', true)], { maxRefinementRounds: 2 });
+  await assert.rejects(() => a.run(req({ risk: 'high' })), AgentVerificationError);
+  assert.equal(handoffs[0]!.refinementRounds, 0);
+  for (const limit of [-1, 1.5, 4, NaN]) {
+    assert.throws(() => adapter([ex('ana', 'analyst', true)], { maxRefinementRounds: limit }), /maxRefinementRounds/);
+  }
+});
+
+test('motor de flujos conserva aprobación previa y no ejecuta herramientas si todas las iteraciones fallan', async () => {
+  calls.length = 0;
+  const { a, handoffs } = adapter([
+    ex('ana', 'analyst', true, async (task) => ({ output: { mode: task.mode } })),
+    verifierSaying({ ok: false, reasons: ['no verificado'] }),
+  ], { maxRefinementRounds: 1 });
+  const flow = wf(agentNode({ risk: 'high', requiresApproval: true }));
+  const first = await runWorkflow(flow, { trigger: { payload: { tema: 'x' } } }, { tools, agent: a.run });
+  assert.equal(first.status, 'paused');
+  assert.equal(handoffs.length, 0);
+  const second = await runWorkflow(flow, { resume: { snapshot: first.snapshot, approvals: { ag: 'approved' } } }, { tools, agent: a.run });
+  assert.equal(second.status, 'failed');
+  assert.equal(handoffs[0]!.verificationAttempts, 2);
+  assert.equal(calls.length, 0);
+});
