@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>janus-activity · demo</title>
+<link rel="stylesheet" href="janus-activity.css">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07070a;color:#F3EBDD;font:15px system-ui}.row{display:flex;gap:40px;align-items:center}.r{width:90px;height:110px}.m{width:80px;height:80px}button{margin:4px;padding:8px 12px;border-radius:999px;border:1px solid #E8C37A;background:#111;color:#F3EBDD}</style>
+</head><body>
+<div><div class="row"><div class="m" id="m"></div><div class="r" id="r"></div></div>
+<p id="b"></p></div>
+<script src="janus-activity.js"></script>
+<script>
+const m = JanusActivity.mount(document.getElementById('m'), { kind: 'medallion', medalSrc: '../../assets/medal.png', cls: 'logo' });
+const r = JanusActivity.mount(document.getElementById('r'), { kind: 'robot' });
+document.getElementById('b').innerHTML = JanusActivity.STATES.map((s) => '<button data-s="' + s + '">' + s + '</button>').join('');
+document.getElementById('b').addEventListener('click', (e) => { const s = e.target.dataset.s; if (s) { m.set(s); r.set(s); } });
+</script></body></html>

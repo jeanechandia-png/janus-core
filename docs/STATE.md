@@ -2,6 +2,12 @@
 
 Fecha: 2026-10-23
 
+## DASHBOARD (2026-10-22)
+
+- Prototipo **A · Obsidiana** interactivo en `prototypes/dashboard/` (rama `claude/dashboard-obsidiana`), fuera de `apps/pwa`.
+- Traspaso completo: `prototypes/dashboard/HANDOFF.md`.
+- Pendiente pedido por Jean: **dos dashboards (A y B Platino) en Janus** y **sección Proyectos** en ambos.
+
 ## AHORA
 
 **M1/M2 — Super-Agent Decision Loop + Flow Automation Engine + Continuidad + Ejecución observable**
