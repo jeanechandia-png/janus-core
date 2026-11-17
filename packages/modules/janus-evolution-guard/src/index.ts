@@ -17,6 +17,9 @@ export const EVOLUTION_CHECKS = Object.freeze([
   { id: 'quality.regression', domain: 'quality', windowDays: 14, failure: 'Una mejora rompe tareas existentes o empeora resultados', preventiveAction: 'Comparar evaluación antigua/nueva con pruebas de regresión y rollback' },
   { id: 'hardware.compatibility', domain: 'hardware', windowDays: 90, failure: 'Janus deja de funcionar en dispositivos del propietario', preventiveAction: 'Probar hardware real, navegadores móviles y capacidad local disponible' },
   { id: 'value.user-outcomes', domain: 'value', windowDays: 90, failure: 'Janus acumula funciones sin resolver necesidades reales', preventiveAction: 'Medir tareas terminadas, errores repetidos y valor observado por el usuario' },
+  { id: 'voice.product-evolution', domain: 'autonomy', windowDays: 30, failure: 'Una orden hablada y sus adjuntos no llegan a la actualización del producto canónico con preview y aprobación', preventiveAction: 'Ejecutar prueba de voz a cambio en rama del mismo repositorio, integridad de GLB, revisión, preview, rollback y denegaciones de autoridad' },
+  { id: 'agents.delegation-recovery', domain: 'autonomy', windowDays: 30, failure: 'Los subagentes duplican tareas, pierden contexto, ejecutan sin permiso o no recuperan trabajos interrumpidos', preventiveAction: 'Probar delegación acotada, permisos por tarea, idempotencia, traza y recuperación desde SQLite' },
+  { id: 'infrastructure.provider-exit', domain: 'portability', windowDays: 90, failure: 'Cambios en GitHub, Supabase, Vercel, Netlify o Hostinger impiden mantener o migrar productos propios', preventiveAction: 'Ensayar exportación, sustitución y restauración de adaptadores y despliegues sin secretos ni costes adicionales' },
 ] as const);
 export type EvolutionCheckId = typeof EVOLUTION_CHECKS[number]['id'];
 export type EvolutionState = 'pass' | 'warn' | 'fail' | 'unknown';
@@ -59,7 +62,7 @@ export function premortem(
   options: { horizonMonths?: number; maxAgeDaysByCheck?: Partial<Record<EvolutionCheckId, number>> } = {},
 ): EvolutionAssessment {
   ensureAt(at);
-  const horizonMonths = options.horizonMonths ?? 24;
+  const horizonMonths = options.horizonMonths ?? 60; // horizonte estratégico por defecto: cinco años
   if (!Number.isInteger(horizonMonths) || horizonMonths < 1 || horizonMonths > 120) throw new Error('Horizonte inválido');
   for (const ob of observations) {
     if (!EVOLUTION_CHECKS.some(check => check.id === ob.id)) throw new Error('Chequeo desconocido: ' + ob.id);
