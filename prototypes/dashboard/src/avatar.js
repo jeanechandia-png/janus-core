@@ -58,7 +58,7 @@ const AV_UI = { open: null };
 const avOpen = () => (AV_UI.open === null ? (typeof isPhone === 'function' ? isPhone() : window.innerWidth < 700) : AV_UI.open);
 const AV_ACTS = {
   avToggle: () => { AV_UI.open = !avOpen(); if (typeof rerender === 'function') rerender(); },
-  avForm: (f) => { const J = window.Janus3D; if (!J || !J.FORMS.includes(f)) return; ST.settings.form = f; saveState(); avatarSync(); J.react(2.4, 'alegre'); },
+  avForm: (f) => { const J = window.Janus3D; if (!J || !J.FORMS.includes(f)) return; ST.settings.form = f; saveState(); avatarSync(); J.react(2.4, 'alegre'); window.dispatchEvent(new CustomEvent('janus:avatar-form', { detail: { form: f } })); },
   avNext: () => { const ids = AV_FORMS.map((x) => x[0]), i = ids.indexOf(avForm()); AV_ACTS.avForm(ids[(i + 1) % ids.length]); },
   avMood: (m) => { const J = window.Janus3D; if (J) { J.setMood(m, 10); J.react(1.6); } },
   avEyes: (hex) => { ST.settings.eyes = hex; saveState(); avatarSync(); }

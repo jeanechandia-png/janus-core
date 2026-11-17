@@ -26,16 +26,21 @@ function janusBriefing(M, X) {
   return { greet, lines };
 }
 let BRIEF_SPOKEN = false;
-function speakText(t) {
+function speakText(t, userInitiated) {
+  if (window.JanusAssistantVoice) {
+    if (!userInitiated) return false; // No consumir ElevenLabs al abrir o refrescar la pantalla.
+    void window.JanusAssistantVoice.speak(t).catch((error) => { if (typeof toast === 'function') toast(error.message); });
+    return true;
+  }
   try { if (!('speechSynthesis' in window)) return false; speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'es-ES'; u.rate = 1.02;
     u.onstart = () => { if (window.Janus3D) Janus3D.state.talking = true; }; u.onend = u.onerror = () => { if (window.Janus3D) Janus3D.state.talking = false; };
     speechSynthesis.speak(u); return true; } catch (e) { return false; }
 }
-function speakBriefing(full) {
+function speakBriefing(full, userInitiated) {
   const M = model(), X = derived(M), B = janusBriefing(M, X);
-  BRIEF_SPOKEN = speakText(B.greet + ' ' + (full ? B.lines.join(' ') : ''));
+  BRIEF_SPOKEN = speakText(B.greet + ' ' + (full ? B.lines.join(' ') : ''), userInitiated);
 }
-const BRIEF_ACTS = { brief: () => speakBriefing(true) };
+const BRIEF_ACTS = { brief: () => speakBriefing(true, true) };
 // Saludo al abrir (una vez por sesión). Si el navegador bloquea la voz, se hace en el primer toque.
 (function autoGreet() {
   let done = false; try { done = sessionStorage.getItem('janus.greeted') === '1'; } catch (e) { }

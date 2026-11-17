@@ -78,3 +78,9 @@ Se extiende `GitHubAdapter` con `branch.create` para preparar ramas `janus/chang
 **VIGENTE:** JANUS debe inspirarse en las capacidades observables y públicas de Fable 5.2, construir una versión propia, perfeccionarla y adaptarla acumulativamente al software JANUS. El uso actual es interno; **la comercialización futura no está descartada ni aprobada**, se decidirá cuando corresponda. La redacción anterior «no comercial» pasa a HISTÓRICO como circunstancia temporal; no es una restricción arquitectónica, de licencia de nuestro propio código ni de distribución futura.
 
 **PREVENCIÓN:** evitar copiar pesos, datasets restringidos, código propietario, marcas y prompts privados. Registrar procedencia, licencias de dependencias, permisos y benchmarks; antes de cualquier comercialización, revalidar compatibilidad legal y contractual con las fuentes realmente utilizadas. Reutilizar módulos existentes y gateways sustituibles, no crear un producto paralelo.
+
+## Continuación — instalación de tablet en PR #83 existente
+
+VIGENTE: retomar el HEAD remoto de `chatgpt/janus-voice-evolution-hardening-20261117`, leer el primer bloque de `docs/STATE.md` y `docs/tablet-node.md`. Se conserva el núcleo unificado y se endurece el kit Termux, el alta local del propietario y la caché de las dashboards reales. No se crean aplicaciones ni ramas nuevas. Las instrucciones de instalación de octubre quedan históricas.
+
+La preparación técnica no acredita instalación física, conexión de modelos/voz, piel privada de Work ni personajes GLB. El nuevo job `tablet-browser` prueba la interfaz y persistencia con datos ficticios; no cerrar pendientes hasta observarlo. El historial local antiguo está protegido en stash y rama, no se reintroduce sobre la versión unificada.

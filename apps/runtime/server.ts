@@ -254,7 +254,8 @@ import {
   type JanusStep,
   type TaskAuthorityContext,
 } from '../../packages/core/src/task-runner.js';
-import type { ModelGateway, VoiceGateway } from '../../packages/gateways/src/contracts.js';
+import type { ModelGateway, VoiceGateway, TextToSpeechGateway } from '../../packages/gateways/src/contracts.js';
+import { resolveAssistantVoiceProfiles, selectAssistantVoice } from '../../packages/voice/src/assistant-profiles.js';
 import { DefaultToolGateway } from '../../packages/gateways/src/tool-gateway.js';
 import { compilePlan } from '../../packages/orchestrator/src/compile-plan.js';
 import { deterministicPlan } from '../../packages/orchestrator/src/deterministic-planner.js';
@@ -361,9 +362,12 @@ const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 // Proveedor de voz: 'local' (por defecto) o 'elevenlabs' (temporal y opcional; ver docs/voice-elevenlabs-provider.md).
-const ttsProviderSetting = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() === 'elevenlabs' ? 'elevenlabs' : 'local';
-// Solo este identificador de Janus puede salir a la nube; el resto se atiende siempre en local.
-const elevenLabsVoiceId = process.env.JANUS_ELEVENLABS_VOICE_ID?.trim() || undefined;
+const assistantVoiceConfigPath = process.env.JANUS_ASSISTANT_VOICES_FILE?.trim()
+  || fileURLToPath(new URL('../../config/assistant-voices.local.json', import.meta.url));
+const assistantVoiceConfig = existsSync(assistantVoiceConfigPath) ? JSON.parse(readFileSync(assistantVoiceConfigPath, 'utf8')) : {};
+const requestedTtsProvider = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() || assistantVoiceConfig.provider;
+const ttsProviderSetting = requestedTtsProvider === 'elevenlabs' ? 'elevenlabs' : 'local';
+const assistantVoiceProfiles = resolveAssistantVoiceProfiles(process.env, assistantVoiceConfig);
 let voiceTtsRouting: {
   provider: 'qwen3-tts-adapter' | 'elevenlabs-with-fallback' | 'elevenlabs-only';
   router?: FallbackTextToSpeechGateway;
@@ -1090,6 +1094,7 @@ let runtimeBlueprint = resolveActiveRuntimeBlueprint(
 );
 
 const modelGateway = createConfiguredModelGateway();
+const configuredTtsGateway = createConfiguredTtsGateway();
 const voiceGateway = createConfiguredVoiceGateway();
 
 const voiceAuthority = new VoiceAuthority((token) => authorityAuth.authenticateSession(token) ?? undefined);
@@ -2336,17 +2341,10 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
   return new FallbackModelRouter(providers);
 }
 
-function createConfiguredVoiceGateway(): VoiceGateway | undefined {
+function createConfiguredTtsGateway(): TextToSpeechGateway | undefined {
   const wantsElevenLabs = ttsProviderSetting === 'elevenlabs';
-  if (!sttBaseUrl) return undefined;
-  if (wantsElevenLabs ? !elevenLabsVoiceId : !ttsBaseUrl) return undefined;
-
-  const stt = new WhisperCppSttAdapter({
-    baseUrl: sttBaseUrl,
-    language: process.env.JANUS_STT_LANGUAGE?.trim() || 'auto',
-    allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
-    vocabularyPrompt: transcriptionVocabularyPrompt(),
-  });
+  const mappedProfiles = assistantVoiceProfiles.filter(profile => profile.providerVoiceId);
+  if (wantsElevenLabs ? mappedProfiles.length === 0 : !ttsBaseUrl) return undefined;
   const local = ttsBaseUrl
     ? new Qwen3TtsHttpAdapter({
         baseUrl: ttsBaseUrl,
@@ -2359,17 +2357,25 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
 
   if (!wantsElevenLabs) {
     voiceTtsRouting = { provider: 'qwen3-tts-adapter' };
-    return new CompositeVoiceGateway(stt, local!);
+    return local;
   }
 
   const elevenlabs = new ElevenLabsTtsAdapter({
     apiKeyProvider: () => credentialBroker.accessToken('elevenlabs'),
-    voiceMap: { [defaultVoiceId]: elevenLabsVoiceId! },
+    voiceMap: Object.fromEntries(mappedProfiles.map(profile => [profile.voiceId, profile.providerVoiceId!])),
+    voiceOptions: Object.fromEntries(mappedProfiles.map(profile => [profile.voiceId, {
+      ...(profile.modelId ? { modelId: profile.modelId } : {}),
+      ...(profile.voiceSettings ? { voiceSettings: profile.voiceSettings } : {}),
+    }])),
     modelId: process.env.JANUS_ELEVENLABS_MODEL?.trim() || undefined,
     languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
     maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
-    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'),
+    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS') ?? 3000,
+    usageStore: {
+      read: day => store.voiceProviderUsage('elevenlabs', day),
+      reserve: (day, characters, budget) => store.reserveVoiceProviderUsage('elevenlabs', day, characters, budget),
+    },
   });
   const router = new FallbackTextToSpeechGateway({
     primary: elevenlabs,
@@ -2386,7 +2392,18 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
   if (!local) {
     console.warn('Voice: ElevenLabs sin respaldo local (JANUS_TTS_BASE_URL ausente); si el proveedor falla, no habrá voz.');
   }
-  return new CompositeVoiceGateway(stt, router);
+  return router;
+}
+
+function createConfiguredVoiceGateway(): VoiceGateway | undefined {
+  if (!sttBaseUrl || !configuredTtsGateway) return undefined;
+  const stt = new WhisperCppSttAdapter({
+    baseUrl: sttBaseUrl,
+    language: process.env.JANUS_STT_LANGUAGE?.trim() || 'auto',
+    allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
+    vocabularyPrompt: transcriptionVocabularyPrompt(),
+  });
+  return new CompositeVoiceGateway(stt, configuredTtsGateway);
 }
 
 function parseKnowledgeStatusUrls(raw: string | undefined): Record<string, string> {
@@ -4027,8 +4044,8 @@ const server = createServer(async (request, response) => {
                 ? 'STT y TTS locales no están configurados.'
                 : !sttBaseUrl
                   ? 'STT local no está configurado.'
-                  : ttsProviderSetting === 'elevenlabs' && !elevenLabsVoiceId
-                    ? 'JANUS_TTS_PROVIDER=elevenlabs requiere JANUS_ELEVENLABS_VOICE_ID.'
+                  : ttsProviderSetting === 'elevenlabs' && !assistantVoiceProfiles.some(profile => profile.providerVoiceId)
+                    ? 'JANUS_TTS_PROVIDER=elevenlabs requiere un perfil de voz privado.'
                     : 'TTS local no está configurado.',
             },
       },
@@ -8304,6 +8321,45 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/voice/profiles') {
+    try {
+      requireFounderAuthority(request);
+      json(response, 200, { ok: true, defaultProfile: 'janus', ttsConfigured: Boolean(configuredTtsGateway),
+        profiles: assistantVoiceProfiles.map(profile => ({ id: profile.id, label: profile.label,
+          configured: ttsProviderSetting === 'elevenlabs' ? Boolean(profile.providerVoiceId) : Boolean(ttsBaseUrl) })) });
+    } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }
+    return;
+  }
+
+  // Salida hablada independiente del reconocimiento: no obliga a instalar STT para probar las voces.
+  if (request.method === 'POST' && url.pathname === '/api/voice/speak') {
+    try {
+      requireFounderAuthority(request);
+      const body = await readJson(request);
+      let profile;
+      try { profile = selectAssistantVoice(assistantVoiceProfiles, body.profile); }
+      catch { throw new HttpRequestError(400, 'Seleccione el perfil Janus o Melanie.'); }
+      const text = typeof body.text === 'string' ? body.text.trim() : '';
+      if (!text || text.length > 2000) throw new HttpRequestError(400, 'La frase debe tener entre 1 y 2000 caracteres.');
+      if (!configuredTtsGateway) throw new HttpRequestError(503, 'Voz pendiente de configuración en este equipo.');
+      let bytes = 0;
+      for await (const chunk of configuredTtsGateway.synthesize(text, profile.voiceId)) {
+        if (response.destroyed) break;
+        bytes += chunk.bytes.byteLength;
+        if (bytes > 16 * 1024 * 1024) throw new Error('voice_output_limit');
+        if (!response.headersSent) response.writeHead(200, { 'content-type': chunk.mimeType, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+        response.write(Buffer.from(chunk.bytes));
+      }
+      if (!response.headersSent) throw new HttpRequestError(502, 'No se recibió audio de la voz configurada.');
+      response.end();
+    } catch (error) {
+      if (response.headersSent) response.destroy();
+      else if (error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError) json(response, authErrorStatus(error), authErrorBody(error));
+      else json(response, 503, { ok: false, error: 'No se pudo reproducir la voz configurada; revise la credencial y el presupuesto de voz.' });
+    }
+    return;
+  }
+
   if (request.method === 'POST' && url.pathname === '/api/voice/ticket') {
     try {
       const { token } = requireFounderAuthority(request);
@@ -8457,6 +8513,7 @@ const voiceStream = voiceGateway
       sessions: voiceSessions,
       gatewayFactory: async () => voiceGateway,
       defaultVoiceId,
+      resolveVoiceId: requested => selectAssistantVoice(assistantVoiceProfiles, requested).voiceId,
       authorize: (sessionId, ticket, request) => {
         requireSecureAuthorityTransport(request);
         const origin = request.headers.origin;

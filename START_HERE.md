@@ -1,5 +1,9 @@
 # START HERE — Janus
 
+## CONTINUACIÓN VIGENTE — 18 noviembre 2026
+
+Retomar la PR #83 y la rama **existente** `chatgpt/janus-voice-evolution-hardening-20261117` mientras esté abierta; comprobar su HEAD remoto. No crear una rama ni otro checkout para eludir la continuidad. Ejecutar `npm run instructions:audit`, leer `docs/INSTRUCTION_AUDIT.md` y el primer bloque actual de `docs/STATE.md`. Tablet, voces Jean/Melanie y auditoría de `proyecto_Janus` / `proyecto_Janus 2` son el mismo trabajo acumulativo. La revisión no acredita aún implementación de todos los contratos históricos ni instalación física; no afirmar que solo faltan robots/criaturas.
+
 ## ESTADO VIGENTE — 17 de noviembre de 2026
 **Producto único:** `jeanechandia-png/janus-core`, evolución desde el SHA actual de `origin/main` (NO desde una PR histórica, prototipo aislado, ZIP ni copia de otro agente).
 **PR #82 Claude + PR #81 Core/Kendra: fusionadas en main** (fusión de referencia `2fe56e06946a0747fef8074cf21c466ee70da7e3`). No todas las PR históricas están incorporadas: lista de pendientes, normas de verificación, voz y GLB en `docs/handoffs/2026-11-17-janus-main-unified.md`.

@@ -1,4 +1,5 @@
 import { mountAppInstall } from './app-install.js';
+import { mountAssistantVoiceControls } from './assistant-voice.js';
 import './knowledge-review.js';
 import { currentLanguage, mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { sessionToken } from './founder-session.js';
@@ -84,6 +85,7 @@ const status = document.createElement('span');
 status.setAttribute('role', 'status');
 status.className = 'janus-access-status';
 accessList.append(status);
+mountAssistantVoiceControls(accessList);
 menu.append(accessList);
 controls.append(menu);
 
