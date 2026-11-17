@@ -65,10 +65,16 @@ Se extiende `GitHubAdapter` con `branch.create` para preparar ramas `janus/chang
 
 ## Continuación por instrucción del Founder — Fable 5.2 como referente de capacidades (17-11-2026)
 
-**ALCANCE:** construir y perfeccionar capacidades *equivalentes en comportamiento* dentro del JANUS oficial, con modelo y herramientas sustituidos por adaptadores propios. Solicitud no comercial; no se dispone de pesos ni de un procedimiento público para reproducir exactamente el modelo propietario. No copiar código/pesos/prompt oculto ni entrenar con contenido de terceros sin autorización y derechos. No declarar «clonado» al modelo.
+**ALCANCE:** construir y perfeccionar capacidades *equivalentes en comportamiento* dentro del JANUS oficial, con modelo y herramientas sustituidos por adaptadores propios. Uso inicial interno; comercialización futura posible pero no decidida por el Founder. No se dispone de pesos ni de un procedimiento público para reproducir exactamente el modelo propietario. No copiar código/pesos/prompt oculto ni entrenar con contenido de terceros sin autorización y derechos. No declarar «clonado» al modelo.
 
 **Código implementado en la PR #83 existente** (`chatgpt/janus-voice-evolution-hardening-20261117`): `packages/orchestrator/src/flow-agent-adapter.ts` ahora admite el ciclo opcional de corrección acotada `produce → verify → revise → verify`, con máximo 3 correcciones, 0 por defecto (sin consumo adicional por omisión), verificador independiente, límite de salida, preferencia/exigencia local y auditoría por huellas y recuentos. Se preservan permisos, aprobaciones y fail-closed. Test en `tests/flow-agent-adapter.test.ts`.
 
-**POR VERIFICAR:** CI del nuevo delta, conexión a ejecutores reales, comparativa de calidad, presupuesto de modelos, tareas de horas, recuperación tras reinicio en dispositivos y equivalencia observada frente a Fable. El canal de investigación es interno no comercial; no es una clonación neuronal ni una migración de JANUS a Anthropic.
+**POR VERIFICAR:** CI del nuevo delta, conexión a ejecutores reales, comparativa de calidad, presupuesto de modelos, tareas de horas, recuperación tras reinicio en dispositivos y equivalencia observada frente a Fable. El uso actual de esta capacidad es interno; no se fija una prohibición de comercialización futura. No es una clonación neuronal ni una migración de JANUS a Anthropic.
 
 **Fuentes públicas verificadas el 17-11-2026:** https://platform.claude.com/docs/en/models/fable-5-2/overview y https://platform.claude.com/docs/en/models/fable-5-2/whats-new-fable-5-2.
+
+## Corrección posterior del Founder — destino comercial abierto (17-11-2026)
+
+**VIGENTE:** JANUS debe inspirarse en las capacidades observables y públicas de Fable 5.2, construir una versión propia, perfeccionarla y adaptarla acumulativamente al software JANUS. El uso actual es interno; **la comercialización futura no está descartada ni aprobada**, se decidirá cuando corresponda. La redacción anterior «no comercial» pasa a HISTÓRICO como circunstancia temporal; no es una restricción arquitectónica, de licencia de nuestro propio código ni de distribución futura.
+
+**PREVENCIÓN:** evitar copiar pesos, datasets restringidos, código propietario, marcas y prompts privados. Registrar procedencia, licencias de dependencias, permisos y benchmarks; antes de cualquier comercialización, revalidar compatibilidad legal y contractual con las fuentes realmente utilizadas. Reutilizar módulos existentes y gateways sustituibles, no crear un producto paralelo.
