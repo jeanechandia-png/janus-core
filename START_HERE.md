@@ -1,6 +1,12 @@
 # START HERE — Janus
 
-Last verified: 2026-10-21
+## ESTADO VIGENTE — 17 de noviembre de 2026
+**Producto único:** `jeanechandia-png/janus-core`, evolución desde el SHA actual de `origin/main` (NO desde una PR histórica, prototipo aislado, ZIP ni copia de otro agente).
+**PR #82 Claude + PR #81 Core/Kendra: fusionadas en main** (fusión de referencia `2fe56e06946a0747fef8074cf21c466ee70da7e3`). No todas las PR históricas están incorporadas: lista de pendientes, normas de verificación, voz y GLB en `docs/handoffs/2026-11-17-janus-main-unified.md`.
+**Preflight obligatorio antes de modificar:** sincronizar y proteger el trabajo local de otros agentes, revisar `npm run continuity`, crear una rama de trabajo dentro del MISMO repositorio desde el `origin/main` más reciente y ejecutar `npm run continuity:guard`. Este guard bloquea edición directa de main a propósito. Finalizar cada ciclo con pruebas, commit, reconciliación y handoff; nunca reconstruir lo validado.
+
+
+Previous snapshot: 2026-10-21 (histórico; prevalece ESTADO VIGENTE)
 Owner: InfinitySeed Group
 Canonical operating identity: `jean.echandia@gmail.com`
 
