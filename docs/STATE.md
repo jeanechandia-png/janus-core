@@ -1,3 +1,10 @@
+## 17-nov-2026 — Fable 5.2: evolución agéntica propia, no clonación de pesos
+
+- **VIGENTE:** mantener el repositorio canónico `jeanechandia-png/janus-core`. Se reutiliza la PR #83 abierta y su rama dentro del MISMO producto; no duplicar producto ni alterar dashboards.
+- **HECHO EN CÓDIGO:** `FlowAgentAdapter` ofrece revisión iterativa acotada opcional (`maxRefinementRounds` 0–3, por defecto 0) con verificador independiente y pruebas de denegación, preservando aprobaciones y permisos del motor.
+- **POR VERIFICAR:** CI de este delta, modelos/ejecutores reales, benchmark contra funciones observables de Fable 5.2, duración, coste, ejecución desconectada y pruebas físicas. No afirmar clonación de modelo propietario.
+- **Restricción:** trabajo interno no comercial solicitado; fuentes públicas como referencias técnicas, sin copiar pesos/entrenamiento/código propietario. Más detalle en `docs/flow-agents.md`, `docs/super-agent-capabilities.md` y el handoff del 17-nov.
+
 ## 17-nov-2026 — CONTINUACIÓN EN REVISIÓN: voz, GitHub y prevención a cinco años
 
 - **Producto único:** `jeanechandia-png/janus-core`; base `main@9112ad54cc623b1f09993d2e0c21228abd42ecea`; trabajo en `chatgpt/janus-voice-evolution-hardening-20261117`, dentro del MISMO repositorio. No cambia PWA, dashboard ni la landing aprobada.
