@@ -7,7 +7,7 @@
     "start": "node --import tsx apps/runtime/server.ts",
     "voice:start": "node scripts/start-local-voice.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts tests/*.test.mjs",
     "demo": "node --import tsx examples/observable-run.ts",
     "start:local": "node scripts/start-local.mjs",
     "integrations:check": "node scripts/check-integrations.mjs",
@@ -18,7 +18,9 @@
     "voice:independence": "node --import tsx scripts/voice-independence-check.ts",
     "dashboard:build": "node scripts/build-janus-dashboards.mjs",
     "start:dashboards": "npm run dashboard:build && npm run start:local",
-    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs"
+    "dashboard:test": "node --test prototypes/dashboard/tests/avatar-catalog.test.cjs prototypes/dashboard/tests/core-bridge.test.cjs prototypes/dashboard/tests/core-serve.test.cjs prototypes/dashboard/tests/public-safe.test.cjs",
+    "voice:sample": "node scripts/prepare-voice-reference.mjs",
+    "voice:sample:test": "node --test tests/prepare-voice-reference.test.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"
