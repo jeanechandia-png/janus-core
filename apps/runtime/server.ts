@@ -47,6 +47,7 @@ import { MetaInsightsAdapter } from '../../packages/adapters/src/meta-insights-a
 import { ThreadsInsightsAdapter } from '../../packages/adapters/src/threads-insights-adapter.js';
 import { YouTubeInsightsAdapter } from '../../packages/adapters/src/youtube-insights-adapter.js';
 import { Qwen3TtsHttpAdapter } from '../../packages/adapters/src/qwen3-tts-http-adapter.js';
+import { ElevenLabsTtsAdapter } from '../../packages/adapters/src/elevenlabs-tts-http-adapter.js';
 import { WhisperCppSttAdapter } from '../../packages/adapters/src/whisper-cpp-stt-adapter.js';
 import { CapabilityRegistry } from '../../packages/core/src/capability-registry.js';
 import {
@@ -240,6 +241,14 @@ const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
+const ttsProvider = process.env.JANUS_TTS_PROVIDER?.trim().toLowerCase() || 'qwen3';
+if (ttsProvider !== 'qwen3' && ttsProvider !== 'elevenlabs') {
+  throw new Error('Unsupported JANUS_TTS_PROVIDER (expected qwen3 or elevenlabs)');
+}
+const elevenLabsVoiceId = process.env.JANUS_ELEVENLABS_VOICE_ID?.trim() || undefined;
+const ttsConfigured = ttsProvider === 'elevenlabs'
+  ? Boolean(process.env.ELEVENLABS_API_KEY?.trim() && elevenLabsVoiceId)
+  : Boolean(ttsBaseUrl);
 const defaultVoiceId = process.env.JANUS_VOICE_ID?.trim() || 'janus-default';
 const trustSecureAuthProxy = process.env.JANUS_AUTH_TRUST_SECURE_PROXY === 'true';
 const allowBiometricBootstrap = process.env.JANUS_ALLOW_BIOMETRIC_BOOTSTRAP === 'true';
@@ -1495,7 +1504,7 @@ function createConfiguredModelGateway(): ModelGateway | undefined {
 }
 
 function createConfiguredVoiceGateway(): VoiceGateway | undefined {
-  if (!sttBaseUrl || !ttsBaseUrl) return undefined;
+  if (!sttBaseUrl || !ttsConfigured) return undefined;
 
   const stt = new WhisperCppSttAdapter({
     baseUrl: sttBaseUrl,
@@ -1503,13 +1512,22 @@ function createConfiguredVoiceGateway(): VoiceGateway | undefined {
     allowRemote: process.env.JANUS_STT_ALLOW_REMOTE === 'true',
     vocabularyPrompt: transcriptionVocabularyPrompt(),
   });
-  const tts = new Qwen3TtsHttpAdapter({
-    baseUrl: ttsBaseUrl,
-    language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
-    instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
-    chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
-    allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
-  });
+  // External TTS is strictly opt-in. The default path remains fully local.
+  const tts = ttsProvider === 'elevenlabs'
+    ? new ElevenLabsTtsAdapter({
+        apiKey: process.env.ELEVENLABS_API_KEY!,
+        voiceId: elevenLabsVoiceId!,
+        modelId: process.env.JANUS_ELEVENLABS_MODEL_ID?.trim() || undefined,
+        chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
+        maxCharacters: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
+      })
+    : new Qwen3TtsHttpAdapter({
+        baseUrl: ttsBaseUrl!,
+        language: process.env.JANUS_TTS_LANGUAGE?.trim() || 'Auto',
+        instruct: process.env.JANUS_TTS_INSTRUCT?.trim() || undefined,
+        chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
+        allowRemote: process.env.JANUS_TTS_ALLOW_REMOTE === 'true',
+      });
   return new CompositeVoiceGateway(stt, tts);
 }
 
@@ -2906,15 +2924,17 @@ const server = createServer(async (request, response) => {
               transport: 'websocket',
               input: 'audio/pcm;rate=16000;channels=1;format=s16le',
               stt: 'whisper.cpp-adapter',
-              tts: 'qwen3-tts-adapter',
+              tts: ttsProvider === 'elevenlabs' ? 'elevenlabs-tts-adapter' : 'qwen3-tts-adapter',
             }
           : {
               state: 'unavailable',
-              reason: !sttBaseUrl && !ttsBaseUrl
-                ? 'STT y TTS locales no están configurados.'
+              reason: !sttBaseUrl && !ttsConfigured
+                ? 'STT y TTS no están configurados.'
                 : !sttBaseUrl
                   ? 'STT local no está configurado.'
-                  : 'TTS local no está configurado.',
+                  : ttsProvider === 'elevenlabs'
+                    ? 'ElevenLabs requiere credencial de servidor y voz autorizada.'
+                    : 'TTS local no está configurado.',
             },
       },
       planner: modelGateway ? 'deterministic+model-core-validated' : 'deterministic-core-validated',
