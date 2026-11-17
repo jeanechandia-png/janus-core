@@ -22,9 +22,11 @@ export function evaluateInstructionAudit(
   const ids = new Set(audit.requirements.map(r => r.id));
   if (audit.schemaVersion !== 1 || ids.size !== audit.requirements.length) errors.push('schema_or_duplicate_ids');
   const sources = new Set(audit.sources.map(s => s.id));
+  if (sources.size !== audit.sources.length || audit.sources.some(s => !['read', 'unavailable', 'partial'].includes(s.status))) errors.push('invalid_sources');
   const policies = new Set(audit.requirements.filter(r => r.status !== 'superseded').flatMap(r => r.policySubjects ?? []));
   for (const subject of policySubjects) if (!policies.has(subject)) errors.push('untracked_policy:' + subject);
   for (const requirement of audit.requirements) {
+    if (!requirement.id || !requirement.title || !['verified_in_code', 'partial', 'pending', 'superseded'].includes(requirement.status)) errors.push('invalid_requirement:' + requirement.id);
     if (!requirement.sources.length || requirement.sources.some(s => !sources.has(s))) errors.push('missing_source:' + requirement.id);
     if (requirement.status === 'superseded' && (!requirement.supersededBy || !ids.has(requirement.supersededBy))) errors.push('lost_successor:' + requirement.id);
     if (requirement.status === 'verified_in_code') {

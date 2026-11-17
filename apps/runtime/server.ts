@@ -2371,7 +2371,7 @@ function createConfiguredTtsGateway(): TextToSpeechGateway | undefined {
     languageCode: process.env.JANUS_ELEVENLABS_LANGUAGE?.trim() || undefined,
     chunkMs: numericEnv('JANUS_TTS_CHUNK_MS'),
     maxCharsPerRequest: numericEnv('JANUS_ELEVENLABS_MAX_CHARS'),
-    dailyCharBudget: numericEnv('JANUS_ELEVENLABS_DAILY_CHARS') ?? 3000,
+    dailyCharBudget: (() => { const budget = numericEnv('JANUS_ELEVENLABS_DAILY_CHARS'); return budget !== undefined && budget > 0 ? budget : 3000; })(),
     usageStore: {
       read: day => store.voiceProviderUsage('elevenlabs', day),
       reserve: (day, characters, budget) => store.reserveVoiceProviderUsage('elevenlabs', day, characters, budget),
@@ -8324,7 +8324,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && url.pathname === '/api/voice/profiles') {
     try {
       requireFounderAuthority(request);
-      json(response, 200, { ok: true, defaultProfile: 'janus', ttsConfigured: Boolean(configuredTtsGateway),
+      json(response, 200, { ok: true, defaultProfile: 'janus', ttsConfigured: Boolean(configuredTtsGateway), usage: voiceTtsRouting.elevenlabs?.usage() ?? null,
         profiles: assistantVoiceProfiles.map(profile => ({ id: profile.id, label: profile.label,
           configured: ttsProviderSetting === 'elevenlabs' ? Boolean(profile.providerVoiceId) : Boolean(ttsBaseUrl) })) });
     } catch (error) { json(response, authErrorStatus(error), authErrorBody(error)); }

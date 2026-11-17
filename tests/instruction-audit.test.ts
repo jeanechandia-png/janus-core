@@ -21,3 +21,10 @@ test('supersession retains the old decision and requires an identified successor
   audit.requirements[1]!.supersededBy = 'absent';
   assert.equal(evaluateInstructionAudit(audit, ['voice'], () => true).valid, false);
 });
+
+test('unknown statuses cannot silently disappear from the pending set', () => {
+  const audit = fixture();
+  (audit.requirements[0] as unknown as { status: string }).status = 'done';
+  const result = evaluateInstructionAudit(audit, ['voice'], () => true);
+  assert.equal(result.valid, false); assert.equal(result.allInstructionsImplemented, false);
+});

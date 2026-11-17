@@ -6,7 +6,7 @@ const audit = JSON.parse(readFileSync(path, 'utf8')) as InstructionAudit;
 const library = JSON.parse(readFileSync('config/founder-reference-library.json', 'utf8')) as { records: Array<{ kind: string; classification: string; subject: string }> };
 const subjects = library.records.filter(r => r.kind === 'policy' && r.classification === 'current').map(r => r.subject);
 const result = evaluateInstructionAudit(audit, subjects, existsSync);
-for (const ref of ['HEAD', 'HEAD^']) {
+for (const ref of ['HEAD', 'HEAD^', 'HEAD^2^']) {
   const previous = spawnSync('git', ['show', `${ref}:${path}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   if (previous.status === 0) {
     const checked = evaluateInstructionAudit(audit, subjects, existsSync, JSON.parse(previous.stdout) as InstructionAudit);
