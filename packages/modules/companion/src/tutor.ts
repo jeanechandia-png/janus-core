@@ -8,6 +8,9 @@ export interface Exercise {
   prompt: string;
   answer: string;
   hints: string[];
+  /** Números del enunciado, para que las representaciones (escena 3D) no tengan que interpretar el texto.
+   * suma/resta/multiplicacion: [a, b] · division: [divisor, cociente] · fracciones: [n1, n2, d] · problema: [cajas, galletas por caja]. */
+  params: number[];
 }
 
 function rng(seed: number): () => number {
@@ -20,12 +23,12 @@ const gcd = (a: number, b: number): number => (b ? gcd(b, a % b) : a);
 export function makeExercise(topic: Topic, level: 1 | 2 | 3, seed: number): Exercise {
   const r = rng(seed), id = topic + '-' + level + '-' + seed;
   switch (topic) {
-    case 'suma': { const a = int(r, 10 ** level, 10 ** (level + 1) - 1), b = int(r, 10 ** level, 10 ** (level + 1) - 1); return { id, topic, level, prompt: a + ' + ' + b + ' = ?', answer: String(a + b), hints: ['Suma primero las unidades.', 'Si pasa de 9, te llevas una a las decenas.', 'Ahora suma las decenas y lo que te llevaste.'] }; }
-    case 'resta': { const a = int(r, 10 ** level * 2, 10 ** (level + 1) - 1), b = int(r, 10 ** level, a - 1); return { id, topic, level, prompt: a + ' − ' + b + ' = ?', answer: String(a - b), hints: ['Empieza por las unidades.', 'Si arriba hay menos, pide prestado una decena.', 'Comprueba: tu resultado + ' + b + ' debe dar ' + a + '.'] }; }
-    case 'multiplicacion': { const a = int(r, 2, level === 1 ? 10 : level === 2 ? 25 : 99), b = int(r, 2, level === 3 ? 12 : 10); return { id, topic, level, prompt: a + ' × ' + b + ' = ?', answer: String(a * b), hints: ['Multiplicar es sumar ' + a + ' muchas veces: ' + b + ' veces.', 'Separa: ' + a + ' × ' + b + ' = (' + (a - (a % 10)) + ' × ' + b + ') + (' + (a % 10) + ' × ' + b + ').', 'Suma las dos partes.'] }; }
-    case 'division': { const b = int(r, 2, level === 1 ? 5 : 10), q = int(r, 2, level === 3 ? 30 : 12); return { id, topic, level, prompt: (b * q) + ' ÷ ' + b + ' = ?', answer: String(q), hints: ['¿Qué número por ' + b + ' da ' + (b * q) + '?', 'Piensa en la tabla del ' + b + '.', 'Reparte ' + (b * q) + ' caramelos entre ' + b + ' amigos: ¿cuántos para cada uno?'] }; }
-    case 'fracciones': { const d = int(r, 2, level === 1 ? 4 : 8), n1 = int(r, 1, d - 1), n2 = int(r, 1, d - 1); const n = n1 + n2, g = gcd(n, d); return { id, topic, level, prompt: n1 + '/' + d + ' + ' + n2 + '/' + d + ' = ?', answer: (n / g) + '/' + (d / g), hints: ['Cuando el número de abajo es igual, solo sumas los de arriba.', 'Arriba: ' + n1 + ' + ' + n2 + '. Abajo se queda ' + d + '.', 'Simplifica si puedes dividir arriba y abajo por el mismo número.'] }; }
-    default: { const p = int(r, 3, 9), c = int(r, 2, 6); return { id, topic: 'problema', level, prompt: 'Tienes ' + c + ' cajas con ' + p + ' galletas cada una. Si regalas ' + c + ' galletas, ¿cuántas te quedan?', answer: String(p * c - c), hints: ['Primero: ¿cuántas galletas hay en total?', c + ' × ' + p + ' = ' + p * c + '. Ahora resta las que regalas.', p * c + ' − ' + c + ' = ?'] }; }
+    case 'suma': { const a = int(r, 10 ** level, 10 ** (level + 1) - 1), b = int(r, 10 ** level, 10 ** (level + 1) - 1); return { id, topic, level, prompt: a + ' + ' + b + ' = ?', answer: String(a + b), params: [a, b], hints: ['Suma primero las unidades.', 'Si pasa de 9, te llevas una a las decenas.', 'Ahora suma las decenas y lo que te llevaste.'] }; }
+    case 'resta': { const a = int(r, 10 ** level * 2, 10 ** (level + 1) - 1), b = int(r, 10 ** level, a - 1); return { id, topic, level, prompt: a + ' − ' + b + ' = ?', answer: String(a - b), params: [a, b], hints: ['Empieza por las unidades.', 'Si arriba hay menos, pide prestado una decena.', 'Comprueba: tu resultado + ' + b + ' debe dar ' + a + '.'] }; }
+    case 'multiplicacion': { const a = int(r, 2, level === 1 ? 10 : level === 2 ? 25 : 99), b = int(r, 2, level === 3 ? 12 : 10); return { id, topic, level, prompt: a + ' × ' + b + ' = ?', answer: String(a * b), params: [a, b], hints: ['Multiplicar es sumar ' + a + ' muchas veces: ' + b + ' veces.', 'Separa: ' + a + ' × ' + b + ' = (' + (a - (a % 10)) + ' × ' + b + ') + (' + (a % 10) + ' × ' + b + ').', 'Suma las dos partes.'] }; }
+    case 'division': { const b = int(r, 2, level === 1 ? 5 : 10), q = int(r, 2, level === 3 ? 30 : 12); return { id, topic, level, prompt: (b * q) + ' ÷ ' + b + ' = ?', answer: String(q), params: [b, q], hints: ['¿Qué número por ' + b + ' da ' + (b * q) + '?', 'Piensa en la tabla del ' + b + '.', 'Reparte ' + (b * q) + ' caramelos entre ' + b + ' amigos: ¿cuántos para cada uno?'] }; }
+    case 'fracciones': { const d = int(r, 2, level === 1 ? 4 : 8), n1 = int(r, 1, d - 1), n2 = int(r, 1, d - 1); const n = n1 + n2, g = gcd(n, d); return { id, topic, level, prompt: n1 + '/' + d + ' + ' + n2 + '/' + d + ' = ?', answer: (n / g) + '/' + (d / g), params: [n1, n2, d], hints: ['Cuando el número de abajo es igual, solo sumas los de arriba.', 'Arriba: ' + n1 + ' + ' + n2 + '. Abajo se queda ' + d + '.', 'Simplifica si puedes dividir arriba y abajo por el mismo número.'] }; }
+    default: { const p = int(r, 3, 9), c = int(r, 2, 6); return { id, topic: 'problema', level, prompt: 'Tienes ' + c + ' cajas con ' + p + ' galletas cada una. Si regalas ' + c + ' galletas, ¿cuántas te quedan?', answer: String(p * c - c), params: [c, p], hints: ['Primero: ¿cuántas galletas hay en total?', c + ' × ' + p + ' = ' + p * c + '. Ahora resta las que regalas.', p * c + ' − ' + c + ' = ?'] }; }
   }
 }
 

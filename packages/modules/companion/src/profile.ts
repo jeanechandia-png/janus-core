@@ -1,6 +1,6 @@
 /** Perfil del niño/a: criatura elegida, nombres puestos por él/ella, nivel y estado. Vive en el almacén local del host. */
 import { CREATURES, getCreature, type Creature } from './personas.js';
-import type { EncourageState } from './encourage.js';
+import { isBodySafe, type EncourageState } from './encourage.js';
 
 export interface CompanionProfile {
   childId: string;
@@ -28,6 +28,8 @@ export function renameCreature(p: CompanionProfile, creatureId: string, name: st
   getCreature(creatureId);
   const clean = name.trim().replace(/[<>]/g, '').slice(0, 20);
   if (!clean) throw new Error('El nombre no puede estar vacío');
+  // El nombre lo dice la criatura en cada frase y esas frases pasan por el filtro «nunca hablar de cuerpos»: un nombre de cuerpo/peso se rechaza aquí.
+  if (!isBodySafe(clean)) throw new Error('Ese nombre mejor no: elige otro que le guste a todos');
   p.names[creatureId] = clean; return clean;
 }
 

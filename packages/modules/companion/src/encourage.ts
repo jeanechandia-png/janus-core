@@ -51,7 +51,7 @@ const LINES: Line[] = [
 ];
 
 /** Palabras que el compañero nunca usa al hablar con el niño/a (sesgo de peso y apariencia corporal). */
-export const FORBIDDEN_TOPICS = w(/gord[ao]s?|flac[ao]s?|peso|kilos?|dieta|adelgaz\w*|engord\w*|talla|barriga|gordit[ao]s?/.source);
+export const FORBIDDEN_TOPICS = w(/gord(?:[aeiouy]|it|uch)[a-záéíóúüñ]*|flac(?:[aeiouy]|uch)[a-záéíóúüñ]*|peso|kilos?|dieta|adelgaz\w*|engord\w*|talla|barriga/.source);
 
 export function isBodySafe(text: string): boolean {
   return !FORBIDDEN_TOPICS.test(text);

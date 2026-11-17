@@ -1,0 +1,23 @@
+{
+  "id": "avatar-look",
+  "version": "1.0.0",
+  "kind": "logic-module",
+  "summary": "Personalización estética de un personaje: color de pelo y detalles, ojos, prendas y accesorios (catálogo cerrado), con validación, cambios puros, frases de reacción sin género ni comentarios corporales y modo «sorpréndeme».",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "ninguno",
+  "network": false,
+  "secrets": "ninguno",
+  "dataClassification": "preferencias estéticas de un menor: se guardan solo en el almacén local del host",
+  "locales": [
+    "es"
+  ],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Catálogo cerrado: solo ids de paleta, ojos, prendas y accesorios conocidos; sin texto libre ni subida de imágenes.",
+    "Personalizar es solo estético: no modifica carácter, voz ni comportamiento del personaje.",
+    "Los datos guardados o recibidos de fuera se reparan con sanitizeLook: lo desconocido vuelve a su valor de fábrica.",
+    "Las frases de reacción no usan género ni comentan el cuerpo."
+  ],
+  "reuseNotes": "Cualquier producto con personajes: aportar los colores de fábrica del personaje (LookBase), llamar a applyLookChange() con cada elección y guardar el Look resultante. Para cobrar en estrellas, pasar lookItems() a star-shop (createShop). El render lo hace cada anfitrión (p. ej. la pieza LEGO janus-creatures-3d)."
+}

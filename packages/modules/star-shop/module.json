@@ -1,0 +1,23 @@
+{
+  "id": "star-shop",
+  "version": "1.0.0",
+  "kind": "logic-module",
+  "summary": "Economía de estrellas por esfuerzo (tope diario, idempotente, sin castigos ni dinero real), tienda con catálogo cerrado e inventario: casa, vehículos, decoración y los objetos que aporte el producto.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "ninguno",
+  "network": false,
+  "secrets": "ninguno",
+  "dataClassification": "estado de juego de un menor: solo en el almacén local del host",
+  "locales": [
+    "es"
+  ],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Las estrellas se ganan por esfuerzo y aprendizaje, con tope diario (DAILY_CAP) e idempotencia por eventId.",
+    "Fallar nunca resta estrellas ni quita objetos; sin temporizadores, sin escasez y sin dinero real (el módulo no conoce euros ni pagos).",
+    "Compra idempotente: nunca cobra dos veces ni deja saldo negativo.",
+    "Catálogo cerrado; el mundo guardado se repara con sanitize y nada queda equipado sin ser del jugador."
+  ],
+  "reuseNotes": "Crear la tienda con createShop(objetosDelProducto) y guardar el World en el almacén local. El día llega como parámetro (earn(w, motivo, 'AAAA-MM-DD', eventId)). Cualquier producto con recompensas por esfuerzo puede reutilizarla; cómo se regala o se vende el acceso lo decide el anfitrión."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "scene-stage",
+  "version": "1.0.0",
+  "kind": "logic-module",
+  "summary": "Escena compartida y manipulable entre un guía y quien aprende (columnas de valor posicional, platos, cajas, tartas, carteles, semáforo), con comandos validados por lista blanca, manipulación por parte del niño y lecciones de matemáticas con representaciones concretas, «tu turno» y solución solo bajo petición.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "ninguno",
+  "network": false,
+  "secrets": "ninguno",
+  "dataClassification": "ninguno personal: la escena son datos de un ejercicio",
+  "locales": [
+    "es"
+  ],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "La escena es datos puros (SceneState): el render 3D es una función de ese estado y cualquier motor sirve.",
+    "Los comandos externos (modelo, documentos, web) son datos no confiables: solo pasan por validateCommands (lista blanca estricta; se rebuilda cada comando con campos permitidos; sin HTML).",
+    "El texto mostrado pasa por el TextGuard que aporte el producto; nunca se recorta en silencio.",
+    "canjear conserva el valor posicional (10 por 1 y 1 por 10).",
+    "La primera ayuda de una lección no muestra la solución (LessonStep.reveals); los pasos con solución solo se reproducen si se piden.",
+    "Cada lección es determinista y su resultado coincide con la respuesta del tutor."
+  ],
+  "reuseNotes": "Cualquier tutor o producto educativo: pasar un LessonInput {id, topic, params} y una LessonVoice, reproducir los comandos sobre SceneState y dibujarlos con el motor que se quiera (LEGO janus-stage-3d en el dashboard). El filtro de texto del producto entra por textGuard."
+}

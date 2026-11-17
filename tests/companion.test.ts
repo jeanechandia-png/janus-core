@@ -14,6 +14,14 @@ test('varias criaturas, se puede cambiar y renombrar', () => {
   assert.throws(() => chooseCreature(p, 'desconocida'));
 });
 
+test('el nombre de la criatura pasa por el filtro de cuerpo/peso (la criatura lo dice en cada frase)', () => {
+  const p = newProfile('k1', 'Ana');
+  for (const bad of ['Gordi', 'Gordo', 'gordita', 'GORDITO', 'Flaca', 'Gorducho']) assert.throws(() => renameCreature(p, 'lumi', bad), /nombre/i, bad);
+  assert.equal(p.names.lumi, undefined);
+  for (const good of ['Estrellita', 'Coco', 'Burbuja', 'Lumi Luna']) assert.equal(renameCreature(p, 'lumi', good), good);
+  assert.equal(isBodySafe('hola Gordi'), false);
+});
+
 test('ánimo sutil: límite por hora y separación de espontáneos', () => {
   const p = newProfile('k1', 'Ana'); const t0 = 1_000_000;
   assert.ok(pickEncouragement('espontaneo', 'Ana', p.encourage, t0, undefined, () => 0));
