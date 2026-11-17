@@ -1,0 +1,21 @@
+{
+  "id": "deal-radar",
+  "version": "1.0.0",
+  "kind": "logic-module",
+  "summary": "Radar de ofertas: cesta habitual desde fotos, marcas, electrónica, niños, suscripciones/herramientas y viajes según vacaciones escolares; revisión semanal y resumen con ahorro estimado.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided-adapters",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "user-preferences (lista de vigilancia) + ofertas públicas",
+  "locales": ["es", "nl"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Never invents offers: every alert carries source, observedAt and optional url.",
+    "No network: sources are SourceAdapter implementations provided by the host after ToS review.",
+    "Low-confidence photo recognitions are never added automatically (needsReview).",
+    "Holiday dates come from rijksoverheid.nl with consult date; other years are added by the host from the same source."
+  ],
+  "reuseNotes": "Para otro cliente: crear su DealRadarProfile (región escolar, lista de vigilancia, destinos), implementar SourceAdapter para sus tiendas y llamar a runWeeklyReview(). En Janus se programa los lunes 08:00 Europe/Amsterdam."
+}
