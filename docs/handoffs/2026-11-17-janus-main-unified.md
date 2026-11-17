@@ -45,3 +45,9 @@ Pruebas navegador físico, GLB y audio real se cierran solo con evidencia real. 
 ## Ruta de continuación
 
 PR #81 y #82 son HISTÓRICO fusionado. El `main` remoto es VIGENTE. Próxima prioridad: conciliación selectiva de seguridad Kendra (#79), voz compartida (#75), importador visual GLB (#69/#70), cámara (#80), guard de piloto (#78), después verificación en dispositivos reales. No activar proveedores, comprar créditos, ni desplegar sin compuertas y consentimiento del propietario.
+
+## Actualización 17-nov-2026 — orden verbal y archivos para evolucionar todos los productos
+
+**Nueva instrucción expresa del Founder:** JANUS mismo debe recibir por voz y chat archivos de los seis personajes (Lumi, Bombo, Musgo, Nimbo y dos robots), validarlos e integrarlos en los destinos reales aprobados; también debe ejecutar actualizaciones de web, landing y productos autorizados de InfinitySeed Group a través de sus repositorios y adaptadores propios, manteniendo continuidad entre agentes. No pedir al usuario que escriba código como procedimiento habitual.
+
+**HECHO:** la instrucción se ha fijado en `START_HERE.md`, Norma 10 de `docs/operating-norms.md` y contrato `docs/VOICE_DRIVEN_PRODUCT_EVOLUTION_CONTRACT.md` con proceso, controles y pruebas de aceptación. **POR CONFIRMAR:** la orquestación completa voz → archivos → código → preview → aprobación → despliegue en equipo real; la existencia de componentes separados no es prueba end-to-end. **PRÓXIMO:** conectar módulos vigentes sin duplicar motor ni producto, preservar privacidad/sesión y validar primero en el repositorio Janus; después realizar piloto sobre otro producto del ecosistema con su propia autorización.
