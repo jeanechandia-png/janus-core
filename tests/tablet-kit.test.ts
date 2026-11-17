@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 const root = resolve(import.meta.dirname, '..');
 const kit = join(root, 'scripts', 'tablet');
-const shellScripts = ['install-termux.sh', 'start-janus.sh', 'status.sh'];
+const shellScripts = ['install-termux.sh', 'start-janus.sh', 'status.sh', 'faceid-setup.sh'];
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'janus-tablet-'));
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));

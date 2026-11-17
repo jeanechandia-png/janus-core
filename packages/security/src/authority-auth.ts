@@ -314,6 +314,41 @@ export class LocalAuthorityAuthService {
     return credential;
   }
 
+  /**
+   * Alta de un colaborador por invitación. La autorización NO es una sesión: es una invitación que el Founder creó
+   * antes con su autoridad (quien llama debe haberla validado y consumido). Solo crea o renueva credenciales de
+   * rol `operator`; nunca toca al Founder ni a un administrador.
+   */
+  enrollOperatorFromInvitation(input: DelegateOperatorInput & { authorizedBy: string }): AuthorityPublicCredential {
+    assertPrincipalId(input.principalId);
+    if (input.authorizedBy !== this.founderPrincipalId) {
+      throw new AuthorityAuthenticationError('founder_required', 'Invitation must be issued by the Founder');
+    }
+    if (input.principalId === this.founderPrincipalId) {
+      throw new AuthorityAuthenticationError('invalid_principal', 'Founder credential cannot be replaced through an invitation');
+    }
+    const existing = this.store.get(input.principalId);
+    if (existing && existing.principal.role !== 'operator') {
+      throw new AuthorityAuthenticationError('invalid_principal', 'Invitation cannot replace a non-operator credential');
+    }
+    const publicKeyPem = normalizeP256PublicKey(input.publicKeyPem);
+    const credential: AuthorityPublicCredential = {
+      principal: {
+        id: input.principalId,
+        role: 'operator',
+        active: true,
+        ...(input.displayName?.trim() ? { displayName: clipDisplayName(input.displayName) } : {}),
+      },
+      algorithm: 'ecdsa-p256-sha256',
+      publicKeyPem,
+      createdAt: this.now().toISOString(),
+      delegatedBy: input.authorizedBy,
+    };
+    this.store.upsert(credential);
+    this.revokePrincipalSessions(input.principalId);
+    return credential;
+  }
+
   revokeAdministrator(founderSessionToken: string, principalId: string): AuthorityPublicCredential {
     this.requireFounder(founderSessionToken);
     if (principalId === this.founderPrincipalId) {

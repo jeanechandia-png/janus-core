@@ -21,7 +21,8 @@ export interface AuthorityPublicCredential {
   revokedAt?: string;
 }
 
-export type AuthorityBiometricMethod = 'platform-face';
+/** `platform-face`: puente nativo de Face ID (ADR-007). `webauthn-uv`: llave de acceso del navegador; solo vale para `passkeyActions`. */
+export type AuthorityBiometricMethod = 'platform-face' | 'webauthn-uv';
 
 export interface AuthorityBiometricAttestation {
   principalId: string;
@@ -58,6 +59,8 @@ export interface AuthorityPolicy {
   founderOnlyActions?: string[];
   biometricActions?: string[];
   biometricFreshnessMs?: number;
+  /** Acciones biométricas que TAMBIÉN aceptan la llave de acceso del navegador. Todo lo demás exige `platform-face`. */
+  passkeyActions?: string[];
 }
 
 export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
@@ -93,6 +96,7 @@ export const DEFAULT_AUTHORITY_POLICY: AuthorityPolicy = {
     'transfer_authority',
   ],
   biometricFreshnessMs: 2 * 60_000,
+  passkeyActions: ['security.authority.delegate_operator'],
 };
 
 export function actionRequiresFounderBiometric(
@@ -192,7 +196,10 @@ function validateBiometricAttestation(
   if (
     attestation.principalId !== request.principalId
     || attestation.action !== action
-    || attestation.method !== 'platform-face'
+    || !(
+      attestation.method === 'platform-face'
+      || (attestation.method === 'webauthn-uv' && (policy.passkeyActions ?? []).includes(action))
+    )
   ) {
     return { ok: false, reason: 'founder_biometric_scope_mismatch' };
   }

@@ -91,11 +91,26 @@ const JanusAttach = (() => {
   const clear = drop;
   const take = () => { const a = items.slice(); drop(); return a; };
 
+  /* ---------- configuración opcional (v1.1) ----------
+   * Sin llamar a configure() todo se comporta como en la 1.0 (solo QR, textos en español, piel del anfitrión).
+   * formats: además de 'qr_code' admite 'ean_13', 'upc_a', 'ean_8', 'code_128' (lector nativo o la pieza opcional JanusBarcode1D).
+   * strings: textos del escáner en otro idioma. theme: clase extra `jat-theme-<nombre>` para que el anfitrión lo vista. */
+  const CFG = { formats: ['qr_code'], strings: {}, theme: '' };
+  const tr = (k, d) => (CFG.strings && typeof CFG.strings[k] === 'string' && CFG.strings[k]) || d;
+  function configure(o) {
+    o = o || {};
+    if (Array.isArray(o.formats) && o.formats.length) CFG.formats = o.formats.filter((f) => typeof f === 'string');
+    if (o.strings && typeof o.strings === 'object') CFG.strings = Object.assign({}, o.strings);
+    if (typeof o.theme === 'string') CFG.theme = o.theme.replace(/[^a-z0-9-]/gi, '');
+    det = null; detTried = false;
+    return { formats: CFG.formats.slice(), theme: CFG.theme };
+  }
+
   /* ---------- lectura de QR ---------- */
   let det = null, detTried = false;
   async function detector() {
     if (detTried) return det; detTried = true;
-    try { if ('BarcodeDetector' in window) { const f = await window.BarcodeDetector.getSupportedFormats(); if (f.indexOf('qr_code') >= 0) det = new window.BarcodeDetector({ formats: ['qr_code'] }); } } catch (e) { det = null; }
+    try { if ('BarcodeDetector' in window) { const f = await window.BarcodeDetector.getSupportedFormats(); const want = CFG.formats.filter((x) => f.indexOf(x) >= 0); if (want.indexOf('qr_code') >= 0) det = new window.BarcodeDetector({ formats: want }); } } catch (e) { det = null; }
     return det;
   }
   function drawFit(src, maxSide) { // dibuja cualquier fuente en un lienzo con lado máximo maxSide
@@ -110,8 +125,12 @@ const JanusAttach = (() => {
   /** Lee un QR de un lienzo (cuadro de vídeo o foto). Prueba el lector nativo y, si no, jsQR; en fotos grandes prueba varias escalas. */
   async function decodeCanvas(c, deep) {
     const d = await detector();
-    if (d) { try { const r = await d.detect(c); if (r && r[0] && r[0].rawValue) return { text: r[0].rawValue, format: 'qr_code', via: 'nativo' }; } catch (e) { /* cae a jsQR */ } }
-    let r = jsqrCanvas(c); if (r || !deep) return r;
+    if (d) { try { const r = await d.detect(c); if (r && r[0] && r[0].rawValue) return { text: r[0].rawValue, format: r[0].format || 'qr_code', via: 'nativo' }; } catch (e) { /* cae a jsQR */ } }
+    let r = jsqrCanvas(c);
+    if (!r && CFG.formats.length > 1 && window.JanusBarcode1D) { // códigos de barras clásicos (pieza opcional)
+      try { const b = window.JanusBarcode1D.decode(c.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, c.width, c.height), CFG.formats); if (b) r = { text: b.text, format: b.format, via: 'janus-1d' }; } catch (e) { /* sin lectura */ }
+    }
+    if (r || !deep) return r;
     for (const side of [1100, 760, 480]) { if (Math.max(c.width, c.height) <= side) continue; r = jsqrCanvas(drawFit(c, side)); if (r) return r; }
     return null;
   }
@@ -146,11 +165,11 @@ const JanusAttach = (() => {
   };
   function scan() {
     if (sc) return sc.promise;
-    const prev = document.activeElement, o = document.createElement('div'); o.className = 'jat-scan'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', 'Escáner de códigos QR');
+    const prev = document.activeElement, o = document.createElement('div'); o.className = 'jat-scan'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true'); o.setAttribute('aria-label', tr('aria', 'Escáner de códigos QR')); if (CFG.theme) o.classList.add('jat-theme-' + CFG.theme);
     o.innerHTML = '<video class="jat-vid" playsinline muted autoplay></video><div class="jat-fr" aria-hidden="true"><i></i><i></i><i></i><i></i><b></b></div>' +
-      '<div class="jat-top"><span class="jat-ttl">Escanear código QR</span><button class="jat-x" type="button" aria-label="Cerrar el escáner">' + svg('x') + '</button></div>' +
-      '<div class="jat-msg" role="status" aria-live="polite">Apunta al código QR y mantén la cámara quieta.</div>' +
-      '<div class="jat-bar"><button class="jat-b" type="button" data-a="torch" hidden>' + svg('bolt') + 'Linterna</button><button class="jat-b" type="button" data-a="photo">' + svg('cam') + 'Hacer foto del código</button><button class="jat-b" type="button" data-a="pick">' + svg('img') + 'Elegir imagen</button></div>';
+      '<div class="jat-top"><span class="jat-ttl">' + esc(tr('title', 'Escanear código QR')) + '</span><button class="jat-x" type="button" aria-label="' + esc(tr('close', 'Cerrar el escáner')) + '">' + svg('x') + '</button></div>' +
+      '<div class="jat-msg" role="status" aria-live="polite">' + esc(tr('hint', 'Apunta al código QR y mantén la cámara quieta.')) + '</div>' +
+      '<div class="jat-bar"><button class="jat-b" type="button" data-a="torch" hidden>' + svg('bolt') + esc(tr('torch', 'Linterna')) + '</button><button class="jat-b" type="button" data-a="photo">' + svg('cam') + esc(tr('photo', 'Hacer foto del código')) + '</button><button class="jat-b" type="button" data-a="pick">' + svg('img') + esc(tr('pick', 'Elegir imagen')) + '</button></div>';
     document.body.appendChild(mark(o));
     const vid = o.querySelector('video'), msg = o.querySelector('.jat-msg'), S = { o, prev, stream: null, raf: 0, alive: true, mode: 'live', hintT: 0, torch: false }; let resolve; S.promise = new Promise((r) => { resolve = r; }); sc = S;
     function close(result) {
@@ -159,7 +178,7 @@ const JanusAttach = (() => {
       document.removeEventListener('keydown', onKey, true); document.removeEventListener('visibilitychange', onVis); o.remove(); sc = null;
       try { if (prev && prev.focus) prev.focus(); } catch (e) { /* sin foco previo */ } resolve(result || null);
     }
-    const found = (r) => { try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) { /* sin vibración */ } close(classifyQR(r.text)); };
+    const found = (r) => { try { if (navigator.vibrate) navigator.vibrate(40); } catch (e) { /* sin vibración */ } const c = classifyQR(r.text); if (r.format && r.format !== 'qr_code') c.format = r.format; close(c); };
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(null); } };
     const onVis = () => { if (document.hidden) close(null); };
     document.addEventListener('keydown', onKey, true); document.addEventListener('visibilitychange', onVis);
@@ -170,7 +189,7 @@ const JanusAttach = (() => {
       else if (a === 'torch' && S.stream) { const t = S.stream.getVideoTracks()[0]; S.torch = !S.torch; t.applyConstraints({ advanced: [{ torch: S.torch }] }).catch(() => { S.torch = false; }); b.classList.toggle('on', S.torch); }
     });
     S.close = close; S.found = found; S.msg = (t) => { msg.textContent = t; };
-    S.fallback = (why) => { S.mode = 'foto'; o.classList.add('nolive'); cancelAnimationFrame(S.raf); msg.textContent = (REASON[why] || REASON.none) + ' Haz una foto del código (o elige una imagen) y lo leo igualmente.'; const b = o.querySelector('[data-a="photo"]'); b.classList.add('big'); try { b.focus(); } catch (e) { /* sin foco */ } };
+    S.fallback = (why) => { S.mode = 'foto'; o.classList.add('nolive'); cancelAnimationFrame(S.raf); msg.textContent = tr('fallback', (REASON[why] || REASON.none) + ' Haz una foto del código (o elige una imagen) y lo leo igualmente.'); const b = o.querySelector('[data-a="photo"]'); b.classList.add('big'); try { b.focus(); } catch (e) { /* sin foco */ } };
     start(S, vid, msg);
     try { o.querySelector('.jat-x').focus(); } catch (e) { /* sin foco */ }
     return S.promise;
@@ -181,7 +200,7 @@ const JanusAttach = (() => {
     if (!S.alive) { stream.getTracks().forEach((t) => t.stop()); return; }
     S.stream = stream; vid.srcObject = stream; try { await vid.play(); } catch (e) { /* autoplay ya activo */ }
     try { const t = stream.getVideoTracks()[0], caps = t.getCapabilities ? t.getCapabilities() : null; if (caps && caps.torch) S.o.querySelector('[data-a="torch"]').hidden = false; } catch (e) { /* sin linterna */ }
-    S.hintT = setTimeout(() => { if (S.alive && S.mode === 'live') S.msg('¿Cuesta? Acércate un poco, evita reflejos o usa «Hacer foto del código».'); }, 12000);
+    S.hintT = setTimeout(() => { if (S.alive && S.mode === 'live') S.msg(tr('slow', '¿Cuesta? Acércate un poco, evita reflejos o usa «Hacer foto del código».')); }, 12000);
     let last = 0, busy = false; const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
     const tick = (ts) => {
       if (!S.alive || S.mode !== 'live') return; S.raf = requestAnimationFrame(tick);
@@ -193,8 +212,8 @@ const JanusAttach = (() => {
   }
   async function scanFromFile(file) { // QR leído de una foto (cámara del sistema o galería); si el escáner está abierto lo cierra con el resultado
     let r = null; try { r = await decodeQR(file); } catch (e) { /* imagen ilegible */ }
-    if (r) { const c = classifyQR(r.text); if (sc) sc.close(c); else showResult(c); return c; }
-    const t = 'No encontré ningún código QR en esa imagen. Prueba con más luz, de frente y con el código bien grande en la foto.';
+    if (r) { const c = classifyQR(r.text); if (r.format && r.format !== 'qr_code') c.format = r.format; if (sc) sc.close(c); else showResult(c); return c; }
+    const t = tr('notFound', 'No encontré ningún código QR en esa imagen. Prueba con más luz, de frente y con el código bien grande en la foto.');
     if (sc) sc.msg(t); else say(t, 'warn'); return null;
   }
 
@@ -269,6 +288,6 @@ const JanusAttach = (() => {
 
   const supported = () => ({ camara: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia), nativo: 'BarcodeDetector' in window, jsqr: typeof window.jsQR === 'function' });
   const limits = () => ({ maxItems: MAX_ITEMS, maxBytes: MAX_BYTES, maxText: MAX_TEXT, imageSide: IMG_SIDE });
-  return { menu, pick, scan, showResult, closeSheet, decodeQR, classifyQR, items: () => items, remove, clear, take, images, textFor, meta, addFile, addQR, onChange, notice, supported, limits, svg, kb, _inputs: inputs };
+  return { configure, menu, pick, scan, showResult, closeSheet, decodeQR, classifyQR, items: () => items, remove, clear, take, images, textFor, meta, addFile, addQR, onChange, notice, supported, limits, svg, kb, _inputs: inputs };
 })();
 window.JanusAttach = JanusAttach;

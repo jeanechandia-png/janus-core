@@ -32,6 +32,12 @@ export interface CoordinationOperatorProfile {
   notes?: string;
   /** Presentation language for the reusable text-only work dashboard. */
   locale?: 'es' | 'nl' | 'en';
+  /** Cargo visible en la plantilla laboral (dato de configuración, no concede permisos). */
+  roleTitle?: string;
+  /** Funciones asignadas por el CEO (texto descriptivo, no concede permisos). */
+  functions?: string[];
+  /** Instrucciones permanentes individuales; solo las fija el Founder. */
+  instructions?: string;
 }
 
 export interface CoordinationScope {
@@ -66,8 +72,16 @@ export interface CoordinationAssignment {
   updatedAt: string;
   nextActions: string[];
   lastRunId?: string;
+  /**
+   * Agente (proveedor de modelo) con el que JANUS trabaja esta tarea: 'anthropic' (Claude), 'openai' (ChatGPT),
+   * 'gemini', 'perplexity' o 'custom' (local). Lo fija el Founder; es una preferencia con respaldo, no un permiso.
+   */
+  preferredProvider?: CoordinationPreferredProvider;
   metadata?: Record<string, unknown>;
 }
+
+export const COORDINATION_PREFERRED_PROVIDERS = ['custom', 'openai', 'anthropic', 'gemini', 'perplexity'] as const;
+export type CoordinationPreferredProvider = typeof COORDINATION_PREFERRED_PROVIDERS[number];
 
 export interface CoordinationHandoff {
   id: string;
@@ -282,6 +296,10 @@ export function validateCoordinationAssignment(
   if (!assignment.createdBy.trim()) throw new Error('assignment createdBy is required');
   if (!Number.isFinite(Date.parse(assignment.createdAt))) throw new Error('assignment createdAt is invalid');
   if (!Number.isFinite(Date.parse(assignment.updatedAt))) throw new Error('assignment updatedAt is invalid');
+  if (assignment.preferredProvider !== undefined
+    && !COORDINATION_PREFERRED_PROVIDERS.includes(assignment.preferredProvider)) {
+    throw new Error('assignment preferredProvider is invalid');
+  }
   return {
     ...assignment,
     scopeIds: [...new Set(cleanList(assignment.scopeIds))],

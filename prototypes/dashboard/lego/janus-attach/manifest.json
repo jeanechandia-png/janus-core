@@ -1,7 +1,8 @@
 {
   "piece": "janus-attach",
   "name": "Adjuntos del teclado: hacer foto, subir foto, subir archivo y escáner de códigos QR",
-  "moduleVersion": "1.0.0",
+  "moduleVersion": "1.1.0",
+  "changes": "1.1.0 (10 nov 2026): configure({formats, strings, theme}) OPCIONAL. Sin configurar se comporta como la 1.0 (solo QR, español, piel del anfitrión). Con formatos extra lee EAN-13, UPC-A, EAN-8 y Code 128 mediante el lector nativo o la pieza opcional barcode-1d.js (JanusBarcode1D). Primer anfitrión que lo usa: JANUS Work (ES/NL/EN, tema iba).",
   "origin": "Nuevo (4 nov 2026), a petición de Jean: «en el teclado debe haber la opción de hacer foto, subir archivos, subir fotos, como en ChatGPT o Gemini… y la cámara debe poder leer códigos QR».",
   "dependencies": ["vendor/jsqr.js (jsQR 1.4.0, Apache-2.0; licencia en vendor/jsqr.LICENSE)"],
   "optionalDependencies": ["BarcodeDetector nativo del navegador (camino rápido si existe)", "janus-model-gateway (opts.images y imageLimits) para que el modelo VEA las fotos"],

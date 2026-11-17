@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v15';
+const CACHE = 'janus-shell-v19';
 const SHELL = [
   '/',
   '/index.html',
@@ -10,6 +10,8 @@ const SHELL = [
   '/founder-session.js',
   '/knowledge-review.js',
   '/dashboard-access.js',
+  '/team-panel.js',
+  '/approval-chip.js',
   '/dashboard-access.css',
   '/language-buttons.js',
   '/language-buttons.css',
@@ -72,6 +74,9 @@ self.addEventListener('fetch', (event) => {
       .catch(() => caches.match(request).then(async (cached) => {
         if (cached) return cached;
         if (request.mode !== 'navigate') return Response.error();
+        // Una navegación con parámetros (p. ej. /dashboard/a?x=1) abre la copia guardada de esa misma página.
+        const same = await caches.match(url.pathname);
+        if (same) return same;
         const shell = await caches.match(url.pathname === '/kendra' || url.pathname.startsWith('/kendra/') ? '/kendra' : '/');
         return shell || new Response('JANUS está sin conexión. Vuelve a abrir la app cuando el servidor esté disponible.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8' } });
       })),

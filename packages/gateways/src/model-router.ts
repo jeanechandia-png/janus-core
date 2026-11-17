@@ -32,6 +32,26 @@ export class FallbackModelRouter implements ModelGateway {
     return this.providers.map((provider) => provider.id);
   }
 
+  /**
+   * Delegación por tarea: devuelve un enrutador NUEVO con el proveedor preferido en primer lugar y el resto
+   * como respaldo, en su orden original. Si el preferido no está configurado, conserva el orden (no falla):
+   * la tarea sigue adelante con las alternativas. No muta este enrutador (seguro entre ejecuciones simultáneas).
+   */
+  withPreference(preferredId: string | undefined): FallbackModelRouter {
+    const preferred = preferredId ? this.providers.find((provider) => provider.id === preferredId) : undefined;
+    if (!preferred) return new FallbackModelRouter(this.providers);
+    return new FallbackModelRouter([preferred, ...this.providers.filter((provider) => provider !== preferred)]);
+  }
+
+  /**
+   * «Solo modelo propio»: enrutador limitado a los proveedores indicados (p. ej. ['custom'] = local).
+   * Devuelve null si ninguno está configurado: el llamador debe seguir SIN modelo, nunca con uno externo.
+   */
+  only(allowedIds: readonly string[]): FallbackModelRouter | null {
+    const kept = this.providers.filter((provider) => allowedIds.includes(provider.id));
+    return kept.length ? new FallbackModelRouter(kept) : null;
+  }
+
   lastAttempts(): RouteAttempt[] {
     return this.attempts.map((attempt) => ({ ...attempt }));
   }
