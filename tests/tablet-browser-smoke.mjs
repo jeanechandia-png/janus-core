@@ -25,12 +25,15 @@ for (const key of Object.keys(env)) {
 delete env.JANUS_DB;
 let child, browser;
 let log = '';
+let stage = 'initialisation';
+const browserErrors = [];
 const checks = [];
 const ok = label => { checks.push(label); console.log('OK · ' + label); };
 async function stop() {
-  if (child && child.exitCode === null) {
+  if (child && child.exitCode === null && child.signalCode === null) {
     const exited = new Promise(done => child.once('exit', done));
-    child.kill('SIGTERM'); await exited;
+    const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+    child.kill('SIGTERM'); await exited; clearTimeout(timer);
   }
 }
 async function start() {
@@ -51,6 +54,11 @@ try {
   const context = await browser.newContext({ viewport: { width: 800, height: 1280 }, acceptDownloads: true });
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   const page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  page.setDefaultNavigationTimeout(20000);
+  page.on('pageerror', error => browserErrors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()); });
+  stage = 'owner key creation';
   await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
   await page.locator('#founderLinkButton').click();
   await page.locator('#founderKeyBox').waitFor({ state: 'visible' });
@@ -62,11 +70,13 @@ try {
   const publicText = readFileSync(publicPath, 'utf8');
   assert.match(publicText, /BEGIN PUBLIC KEY/); assert.doesNotMatch(publicText, /PRIVATE/);
   ok('vinculación desde la interfaz real; descarga exclusivamente pública');
+  stage = 'first owner sign-in';
   await stop(); configureLocal(env, publicPath); await start();
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#founderSignInButton').click();
   await page.waitForFunction(() => Boolean(sessionStorage.getItem('janus.founder.session')));
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
+  stage = 'encrypted case persistence';
   const caseId = await page.evaluate(async () => {
     const response = await fetch('/api/cases', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') }, body: JSON.stringify({ id: 'tablet-smoke-case', title: 'Tablet smoke fixture', category: 'Personal / Privado', context: 'PRIVATE_TABLET_FIXTURE_1126', status: 'waiting_reply' }) });
     const body = await response.json();
@@ -87,13 +97,15 @@ try {
   }, caseId);
   assert.equal(stored.status, 200); assert.match(stored.text, /PRIVATE_TABLET_FIXTURE_1126/);
   ok('caso cifrado conservado en SQLite después de parada y reinicio');
+  stage = 'dashboard navigation';
   for (const route of ['/dashboard/a', '/dashboard/b', '/kendra']) {
     const response = await page.goto(origin + route, { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
     assert.ok(await page.locator('link[rel=manifest]').count());
   }
   ok('dashboards A/B y Kendra servidas por el Core con sus manifests');
-  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  stage = 'service worker installation';
+  await page.waitForFunction(async () => Boolean((await navigator.serviceWorker.getRegistration('/'))?.active));
   await page.waitForFunction(async () => Boolean(await caches.match('/dashboard/a')) && Boolean(await caches.match('/dashboard/b')));
   const privateCached = await page.evaluate(async () => {
     for (const name of await caches.keys()) for (const request of await (await caches.open(name)).keys()) {
@@ -102,6 +114,7 @@ try {
     return false;
   });
   assert.equal(privateCached, false);
+  stage = 'offline navigation';
   await context.setOffline(true);
   for (const route of ['/dashboard/a', '/dashboard/b', '/kendra']) {
     const response = await page.goto(origin + route, { waitUntil: 'domcontentloaded' });
@@ -111,6 +124,9 @@ try {
   await context.setOffline(false);
   await context.close();
   console.log(`Tablet browser smoke: ${checks.length} bloques PASS (Chromium; Android físico pendiente).`);
+} catch (error) {
+  console.error('Tablet browser diagnostic:', JSON.stringify({ stage, browserErrors: browserErrors.slice(-12), runtime: log.slice(-1200) }));
+  throw error;
 } finally {
   await browser?.close(); await stop(); rmSync(dir, { recursive: true, force: true });
 }
