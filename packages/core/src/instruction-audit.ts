@@ -1,4 +1,5 @@
 /** Reconciles instruction coverage; file existence and passing unit tests never imply full project completion. */
+import { evaluateHistoricalContracts, type HistoricalContractCatalog } from './historical-contracts.js';
 export interface InstructionAudit {
   schemaVersion: number;
   fullProjectHistoriesAvailable: boolean;
@@ -17,6 +18,7 @@ export function evaluateInstructionAudit(
   policySubjects: readonly string[],
   exists: (path: string) => boolean,
   previous?: Pick<InstructionAudit, 'requirements' | 'legacy'>,
+  contracts?: HistoricalContractCatalog,
 ) {
   const errors: string[] = [];
   const ids = new Set(audit.requirements.map(r => r.id));
@@ -36,16 +38,21 @@ export function evaluateInstructionAudit(
     }
   }
   const legacy = new Set(audit.legacy.contractIds);
-  if (legacy.size !== audit.legacy.contractIds.length || audit.legacy.reconciledIds.some(id => !legacy.has(id))) errors.push('invalid_legacy_catalog');
+  if (legacy.size !== audit.legacy.contractIds.length || new Set(audit.legacy.reconciledIds).size !== audit.legacy.reconciledIds.length || audit.legacy.reconciledIds.some(id => !legacy.has(id))) errors.push('invalid_legacy_catalog');
+  const historical = contracts ? evaluateHistoricalContracts(contracts, exists, audit.legacy.contractIds) : undefined;
+  if (historical) errors.push(...historical.errors);
+  if (audit.legacy.reconciledIds.length && !historical) errors.push('missing_semantic_contract_catalog');
+  if (contracts && contracts.contracts.some(c => !legacy.has(c.id))) errors.push('untracked_semantic_contract');
   if (previous) {
     for (const item of previous.requirements) if (!ids.has(item.id)) errors.push('removed_instruction:' + item.id);
     for (const id of previous.legacy.contractIds) if (!legacy.has(id)) errors.push('removed_legacy_contract:' + id);
   }
   const remaining = audit.requirements.filter(r => r.status === 'partial' || r.status === 'pending');
   const unreconciledLegacy = legacy.size - new Set(audit.legacy.reconciledIds).size;
-  const complete = errors.length === 0 && audit.fullProjectHistoriesAvailable && audit.sources.every(s => s.status === 'read') && remaining.length === 0 && unreconciledLegacy === 0;
+  const complete = errors.length === 0 && audit.fullProjectHistoriesAvailable && audit.sources.every(s => s.status === 'read') && remaining.length === 0 && unreconciledLegacy === 0 && historical?.allImplemented === true;
   return { valid: errors.length === 0, allInstructionsImplemented: complete,
     errors, knownRequirements: audit.requirements.length, verifiedInCode: audit.requirements.filter(r => r.status === 'verified_in_code').length,
     remaining: remaining.map(r => ({ id: r.id, title: r.title, status: r.status, remaining: r.remaining })), unreconciledLegacy,
+    historicalContracts: historical ? { total: historical.total, declared: historical.declared, additional: historical.additional, security: historical.security, implemented: historical.implemented.length, gaps: historical.gaps.length } : null,
     fullProjectHistoriesAvailable: audit.fullProjectHistoriesAvailable };
 }

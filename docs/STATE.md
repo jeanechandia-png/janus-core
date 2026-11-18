@@ -1,3 +1,21 @@
+## AHORA — 18-nov-2026 · inventario semántico y reparación de contratos B26/B27
+
+## Corrección vigente — 18 noviembre 2026 · reconciliación documental y código
+
+La revisión anterior conservó IDs, pero no completó su vinculación semántica. La falta de chats íntegros limita la certificación exhaustiva; **no impide implementar lo documentado y accesible**.
+
+Se releen Manifest v0.21, Child Companion v0.3, Daily Life v0.4 y Sensitive Filter v1.0. Los ocho B registrados eran **B25–B32**, no B01–B08. Faltaban B01–B24 y SF01–SF20 individualizados. N01–N32 siguen expresamente vigentes y no están sustituidos por HC. Total conocido: **454 declarados + 32 N + 32 B + 20 SF = 538**. No se modifica retroactivamente la suma histórica de 454.
+
+`config/historical-contracts.json` conserva cada definición, fuente, índice de párrafo, alcance y candidatos de reutilización; fuentes con SHA-256. Los originales privados quedan fuera de Git, en `data/instruction-sources/`. Los candidatos de una familia no prueban el cumplimiento del ID específico.
+
+Se implementan **B26/B27** sobre el radar existente: referencia comparable/vigente, ausencia de ahorro ficticio, neto tras costes conocidos, coste desconocido explícito, condiciones conservadas y nueva verificación al cambiar importes. Persistencia y payload del runtime reutilizados y probados; no acredita discovery de tiendas, comparación de cesta ni aceptación visual.
+
+La auditoría separa inventario documental de implementación. **536 entradas requieren todavía correspondencia individual con código/prueba y/o implementación**; no son 536 funciones demostradas ausentes. Copiar IDs a `reconciledIds` ya no permite cerrar cobertura.
+
+Búsqueda en ambas cuentas Drive, archivos con Janus en el título y recuperación conversacional: sin exportación íntegra identificada de ambos proyectos; hay documentos y extractos. No reconstruir ni declarar completo un historial a partir de resúmenes del asistente. Esta limitación no bloquea completar código.
+
+Validación local: TypeScript PASS; 854 pruebas / 853 PASS / 1 SKIP previo / 0 FAIL; 25/25 dirigidas. El objetivo de dejar únicamente personajes y aceptación física **todavía no se ha alcanzado**. Continuar en el mismo checkout, rama y PR #83, desde el nuevo HEAD; priorizar SF/menores y conectar las capacidades de dominio. Las cifras anteriores de 494 y B01–B08 son historia corregida por este bloque.
+
 ## AHORA — 18-nov-2026 · voces verificadas y reconciliación de instrucciones
 
 - Misma PR #83/rama `chatgpt/janus-voice-evolution-hardening-20261117`, mismo checkout canónico. La orden sobre voces se suma al cierre de tablet; la nueva auditoría de `proyecto_Janus`/`proyecto_Janus 2` se suma a ambos trabajos.
