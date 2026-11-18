@@ -1,3 +1,13 @@
+## 18-nov-2026 — JANUS 3D FORGE / PILOTO INVERSORES DICIEMBRE — CÓDIGO EN REVISIÓN
+
+- **CONTEXTO VIGENTE:** obtener préstamos/inversores alrededor de mediados de diciembre 2026. Los GLB de seis criaturas/robots podrán usarse como solución **temporal durante diciembre**, luego sustituirse gradualmente por producción propia. La finalidad comercial futura principal son los **módulos reutilizables** de JANUS; comercialización de todo JANUS no es requisito. No contratar proveedor por defecto ni copiar sus modelos.
+- **PRODUCTO CANÓNICO:** `jeanechandia-png/janus-core`, continuidad en PR #83 (rama `chatgpt/janus-voice-evolution-hardening-20261117`) sin crear otros repos o dashboards.
+- **YA EXISTÍA:** `JanusHyper` procedural, `JanusCreatureSlot` y PWA `approved-presence.js` para importación GLB y verificación de identidad visual. Reutilizar estos módulos.
+- **CÓDIGO NUEVO:** `packages/modules/janus-3d-forge/src/index.ts` (validador GLB con BIN real, reglas del slot, registro de SHA/origen/derechos y estado solo-preview), `scripts/janus-3d-forge.ts` (`forge:inspect`/`forge:prepare`, copias locales idempotentes), `sidecars/janus_3d_forge_trellis2.py` (generación autónoma local con TRELLIS.2, GPU Linux NVIDIA >=24GB, descarga de pesos solo autorizada), pruebas unitarias y de CLI. Contrato LEGO module.json/README incluido; documento operativo `docs/janus-3d-forge.md`.
+- **PROHIBICIONES:** no entrenar con resultados/API de Hyper3D, no publicar activos privados ni referencias de menores al repo público, no afirmar que un GLB está aprobado sin revisar rig, morphs, clips y apariencia; no despliegue ni fusión de PR sin autorización.
+- **POR VERIFICAR:** CI nuevo delta, hardware disponible, instalación TRELLIS y sus dependencias/licencias, generación real de seis GLB (actualmente no existen verificados), rigging, compatibilidad Apple real y derechos de exposición en demo. La suite de tablet del commit intermedio mostró 401/timeout de persistencia cifrada; no relacionar automáticamente con Forge y revaluar en HEAD.
+- **SIGUIENTE:** cierre CI de esta rama, revisión humana y pruebas físicas. Preparar seis GLB por cuenta autorizada, importarlos localmente en slots existentes; generar con motor propio cuando hardware/datos lo permitan. Documentación/referencia de procedencia en el contrato, no activos de clientes.
+
 ## AHORA — 18-nov-2026 · inventario semántico y reparación de contratos B26/B27
 
 ## Corrección vigente — 18 noviembre 2026 · reconciliación documental y código
