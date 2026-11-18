@@ -67,6 +67,11 @@ def generate(input_path: Path, output_path: Path, allow_download: bool, texture_
         raise ValueError("The output must end in .glb")
     if input_path.resolve() == output_path.resolve():
         raise ValueError("Output cannot overwrite the original reference")
+    repo_root = Path(__file__).resolve().parents[1]
+    if input_path.resolve().is_relative_to(repo_root):
+        raise ValueError("Original images must remain outside the public JANUS repository")
+    if output_path.resolve().is_relative_to(repo_root):
+        raise ValueError("Generated GLB must be stored outside the public JANUS repository")
     status = preflight()
     if not status["linux_supported_by_upstream"] or not status["gpu_meets_upstream_24gb"]:
         raise RuntimeError("TRELLIS.2 upstream requires Linux and NVIDIA GPU with >=24 GB VRAM")
