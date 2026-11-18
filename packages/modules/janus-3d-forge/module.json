@@ -1,0 +1,25 @@
+{
+  "id": "janus-3d-forge",
+  "version": "0.1.0",
+  "kind": "asset-provenance-module",
+  "summary": "Validación local fail-closed y trazabilidad de modelos GLB auténticos para los seis huecos de Janus; sin reconstruir dashboards ni generar imágenes falsas.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "none; orchestration belongs to scripts/adapters",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "local asset metadata and hashes; private GLB source remains outside public repository",
+  "locales": [
+    "es"
+  ],
+  "invariants": [
+    "Only glTF 2.0 with embedded BIN geometry is accepted for preview.",
+    "GLB is limited to existing PWA budgets; Draco and KTX2 remain unsupported.",
+    "All receipts are preview-only and require independent PWA visual acceptance.",
+    "Hyper3D outputs and unreviewed assets are NEVER authorized as training data.",
+    "Core keeps model selection, approvals, persistence and publication authority.",
+    "Existing six character slots and approved dashboard layouts remain unchanged.",
+    "No network, purchase, training, deployment or secret access in this module."
+  ],
+  "reuseNotes": "Use inspectForgeGlb and makeForgeReceipt from src/index.ts; host stores receipts locally and imports models using existing PWA JanusCreatureSlot, with visual approval."
+}
