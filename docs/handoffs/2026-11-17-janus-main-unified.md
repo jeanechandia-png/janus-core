@@ -84,3 +84,12 @@ Se extiende `GitHubAdapter` con `branch.create` para preparar ramas `janus/chang
 VIGENTE: retomar el HEAD remoto de `chatgpt/janus-voice-evolution-hardening-20261117`, leer el primer bloque de `docs/STATE.md` y `docs/tablet-node.md`. Se conserva el núcleo unificado y se endurece el kit Termux, el alta local del propietario y la caché de las dashboards reales. No se crean aplicaciones ni ramas nuevas. Las instrucciones de instalación de octubre quedan históricas.
 
 La preparación técnica no acredita instalación física, conexión de modelos/voz, piel privada de Work ni personajes GLB. El nuevo job `tablet-browser` prueba la interfaz y persistencia con datos ficticios; no cerrar pendientes hasta observarlo. El historial local antiguo está protegido en stash y rama, no se reintroduce sobre la versión unificada.
+
+
+## Continuidad 18-nov-2026 — JANUS 3D FORGE sin dependencia de Hyper3D
+
+Objetivo vigente del Founder: demo con seis personajes 3D en diciembre para financiación a mediados de mes, preferiblemente usando los GLB externos solo como puente; desarrollar simultáneamente capacidad propia y reutilizable de generación 3D que sea un futuro módulo de InfinitySeed. No comercializar JANUS íntegramente por obligación: potencial comercial principal = módulos. Nunca entrenar el motor con Hyper3D ni extraer su lógica, y no comprar nada sin autorización.
+
+Trabajo en **la misma PR #83** / `chatgpt/janus-voice-evolution-hardening-20261117`, sobre el Janus único. Existían `JanusHyper`, `JanusCreatureSlot` y `approved-presence.js`. Se incorporan `janus-3d-forge` (GLB BIN+SHA/provenance+preview-only), CLI de preparación local, sidecar independiente TRELLIS.2, tests y manual `docs/janus-3d-forge.md`. Se añadió `module.json` y `README.md` al descubrir que el contrato de módulos LEGO los exige (error CI inicial, corregido). Se endureció validación para bloquear GLBs con solo metadatos sin geometría BIN; no prometer que validación sintáctica demuestra calidad visual.
+
+**Alcance no terminado:** no se generó ningún GLB real, no se ejecutó la inferencia de 4B parámetros sin GPU, no hay rig automático ni API de voz-Forge, no hay prueba física en iPhone, no hay contratación, merge ni despliegue. Revisar CI HEAD y no confundir el timeout de test tablet 401 del run intermedio con el módulo de 3D; no tocar flujos biométricos de Kendra sin causa verificable. Continuar de `docs/STATE.md` y esta PR; la presentación del piloto deberá distinguir 2D/preview y 3D riggeado listo.
