@@ -27,7 +27,7 @@ export const FORGE_REQUIRED_SOCKETS = [
   'sock_torso', 'sock_hand_L', 'sock_hand_R', 'sock_foot_L', 'sock_foot_R',
 ] as const;
 
-interface GltfAccessor { count?: unknown }
+interface GltfAccessor { count?: unknown; bufferView?: number; componentType?: number; type?: string; byteOffset?: number }
 interface GltfPrimitive { attributes?: { POSITION?: unknown }; indices?: unknown; mode?: unknown; targets?: Array<Record<string, unknown>>; extensions?: Record<string, unknown> }
 interface GltfMesh { primitives?: GltfPrimitive[]; extras?: { targetNames?: string[] } }
 interface GltfNode { name?: string; mesh?: number; skin?: number; children?: number[] }
@@ -36,10 +36,12 @@ interface GltfDocument {
   meshes?: GltfMesh[];
   nodes?: GltfNode[];
   accessors?: GltfAccessor[];
+  buffers?: Array<{ byteLength?: number; uri?: string }>;
+  bufferViews?: Array<{ buffer?: number; byteOffset?: number; byteLength?: number; byteStride?: number }>;
+  images?: Array<{ uri?: string; bufferView?: number }>;
   skins?: Array<{ joints?: number[] }>;
   animations?: Array<{ name?: string }>;
   textures?: unknown[];
-  images?: unknown[];
   extensionsRequired?: string[];
 }
 
@@ -92,20 +94,63 @@ function missing(required: readonly string[], present: ReadonlySet<string>): str
   return required.filter((name) => !present.has(name));
 }
 function readGltf(bytes: Uint8Array): GltfDocument {
-  if (bytes.byteLength < 20) throw new Error('GLB truncated');
+  if (bytes.byteLength < 28) throw new Error('GLB truncated');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (view.getUint32(0, true) !== 0x46546c67) throw new Error('Not a binary glTF/GLB');
   if (view.getUint32(4, true) !== 2) throw new Error('GLB version must be 2');
   if (view.getUint32(8, true) !== bytes.byteLength) throw new Error('GLB declared length mismatch');
   const chunkLength = view.getUint32(12, true);
-  if (chunkLength < 4 || chunkLength % 4 !== 0 || chunkLength > bytes.byteLength - 20) {
+  if (chunkLength < 4 || chunkLength % 4 !== 0 || chunkLength > bytes.byteLength - 28) {
     throw new Error('Invalid JSON chunk length');
   }
   if (view.getUint32(16, true) !== 0x4e4f534a) throw new Error('First GLB chunk is not JSON');
   const json = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(20, 20 + chunkLength)).trim();
   const doc: unknown = JSON.parse(json);
   if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw new Error('GLB JSON must be an object');
-  return doc as GltfDocument;
+  const gltf = doc as GltfDocument;
+  // A JSON-only GLB (or a synthetic metadata fixture) is NOT genuine geometry.
+  const offset = 20 + chunkLength;
+  if (offset + 8 > bytes.byteLength || view.getUint32(offset + 4, true) !== 0x004e4942) {
+    throw new Error('GLB binary mesh chunk missing');
+  }
+  const binBytes = view.getUint32(offset, true);
+  if (binBytes < 12 || binBytes % 4 !== 0 || offset + 8 + binBytes !== bytes.byteLength) {
+    throw new Error('GLB binary mesh chunk invalid');
+  }
+  const buffers = safeArray(gltf.buffers) as Array<{ byteLength?: number; uri?: string }>;
+  if (buffers.length !== 1 || buffers[0]?.uri || !Number.isSafeInteger(buffers[0]?.byteLength)
+      || (buffers[0]?.byteLength ?? 0) < 12 || (buffers[0]?.byteLength ?? 0) > binBytes) {
+    throw new Error('GLB must contain one embedded binary buffer');
+  }
+  const bufferViews = safeArray(gltf.bufferViews) as Array<{ buffer?: number; byteOffset?: number; byteLength?: number; byteStride?: number }>;
+  for (const item of bufferViews) {
+    const offset = item.byteOffset ?? 0;
+    if (item.buffer !== 0 || !Number.isSafeInteger(offset) || offset < 0
+        || !Number.isSafeInteger(item.byteLength) || (item.byteLength ?? 0) < 0
+        || offset + (item.byteLength ?? 0) > (buffers[0]!.byteLength ?? 0)) {
+      throw new Error('GLB buffer view points outside embedded geometry');
+    }
+  }
+  const components: Record<number, number> = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 };
+  const typeSize: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
+  for (const accessor of safeArray(gltf.accessors) as GltfAccessor[]) {
+    const bv = Number.isInteger(accessor.bufferView) ? bufferViews[accessor.bufferView!] : undefined;
+    const size = components[accessor.componentType ?? 0]! * typeSize[accessor.type ?? '']!;
+    const count = accessor.count;
+    const byteOffset = accessor.byteOffset ?? 0;
+    const stride = bv?.byteStride ?? size;
+    if (!bv || !Number.isSafeInteger(size) || !Number.isSafeInteger(count) || (count as number) < 0
+        || !Number.isSafeInteger(byteOffset) || byteOffset < 0 || !Number.isSafeInteger(stride)
+        || stride < size || byteOffset + Math.max(0, (count as number) - 1) * stride + size > (bv.byteLength ?? 0)) {
+      throw new Error('GLB accessor has no real in-range mesh bytes');
+    }
+  }
+  for (const image of safeArray(gltf.images) as Array<{ uri?: string }>) {
+    if (image.uri && !image.uri.startsWith('data:')) {
+      throw new Error('GLB cannot require external image URLs');
+    }
+  }
+  return gltf;
 }
 
 export function inspectForgeGlb(bytes: Uint8Array): ForgeInspection {
