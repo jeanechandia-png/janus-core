@@ -27,6 +27,7 @@ La identidad y el casting proceden del catálogo y `packages/modules/companion`;
 - `scripts/janus-3d-forge.ts`: herramienta local `inspect` / `prepare`, no realiza red. Los archivos válidos se copian a `~/.janus/private/3d-forge/<slot>/<sha>.glb`, con recibo `.receipt.json`. Copias y recibos se crean sin sobreescribir y con permisos de archivo privados en Unix. No envía archivos a GitHub ni despliega.
 - `sidecars/janus_3d_forge_trellis2.py`: ejecutor propio de generación de imagen original → modelo 3D vía TRELLIS.2 local, usando la API pública de su repositorio. `--check` inspecciona sistema/GPU sin bajar pesos. Por defecto **la inferencia no descarga pesos**: opt-in separado `--allow-model-download`. No instala dependencias. El GLB resultante es **malla estática**: necesitará rigging, morph targets, clips y control de tamaño antes de aceptación en `JanusCreatureSlot`.
 - `tests/janus-3d-forge.test.ts` y `tests/janus-3d-forge-cli.test.mjs`: validaciones de GLB, origen, aviso de animación, límites, SHA, permisos, idempotencia y bloqueo de archivos defectuosos.
+- Seguridad adicional: el CLI prohíbe preparar archivos privados dentro del árbol del repositorio público, y el generador TRELLIS local rechaza imágenes originales o GLB de salida ubicados en ese árbol.
 
 ## Operación local, sin conocimientos de programación
 
