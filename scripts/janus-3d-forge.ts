@@ -12,7 +12,8 @@
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
 import { promises as fs } from 'node:fs';
-import { resolve, join, extname } from 'node:path';
+import { resolve, join, extname, dirname, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   FORGE_SLOTS, inspectForgeGlb, makeForgeReceipt,
   type ForgeOrigin, type ForgeSlot,
@@ -69,6 +70,10 @@ async function main(): Promise<void> {
   }
 
   const root = resolve(flags.get('private-dir') || join(homedir(), '.janus', 'private', '3d-forge'));
+  const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  if (root === repositoryRoot || root.startsWith(repositoryRoot + sep)) {
+    throw new Error('Refusing to store private 3D assets inside the public JANUS repository');
+  }
   const folder = join(root, slot);
   await fs.mkdir(folder, { recursive: true, mode: 0o700 });
   const filename = receipt.sourceSha256 + '.glb';
