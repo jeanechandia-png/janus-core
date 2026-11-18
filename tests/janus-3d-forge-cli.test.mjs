@@ -86,3 +86,16 @@ test('Forge CLI refuses corrupt input and never stages it', () => {
     rmSync(temp, { recursive: true, force: true });
   }
 });
+
+test('Forge CLI refuses staging assets under the public JANUS source tree', () => {
+  const temp = mkdtempSync(join(tmpdir(), 'janus-forge-no-public-'));
+  try {
+    const glbPath = join(temp, 'source.glb');
+    writeFileSync(glbPath, syntheticGlb());
+    const result = cli('prepare', ['--slot', 'nimbo', '--origin', 'manual-local',
+      '--input', glbPath, '--private-dir', join(process.cwd(), 'assets', 'private-temp')]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /public JANUS repository/);
+    assert.equal(existsSync(join(process.cwd(), 'assets', 'private-temp')), false);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
+});
