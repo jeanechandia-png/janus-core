@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync, statSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -8,18 +8,31 @@ import { spawnSync } from 'node:child_process';
 function syntheticGlb() {
   const json = Buffer.from(JSON.stringify({
     asset: { version: '2.0' },
+    buffers: [{ byteLength: 144 }],
+    bufferViews: [
+      { buffer: 0, byteOffset: 0, byteLength: 108 },
+      { buffer: 0, byteOffset: 108, byteLength: 36 },
+    ],
     meshes: [{ primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] }],
-    accessors: [{ count: 9 }, { count: 9 }],
+    accessors: [
+      { count: 9, bufferView: 0, componentType: 5126, type: 'VEC3' },
+      { count: 9, bufferView: 1, componentType: 5125, type: 'SCALAR' },
+    ],
     nodes: [{ name: 'mesh', mesh: 0 }],
   }), 'utf8');
   const size = Math.ceil(json.length / 4) * 4;
-  const buffer = Buffer.alloc(20 + size, 0x20);
+  const buffer = Buffer.alloc(28 + size + 144, 0);
   buffer.writeUInt32LE(0x46546c67, 0);
   buffer.writeUInt32LE(2, 4);
   buffer.writeUInt32LE(buffer.length, 8);
   buffer.writeUInt32LE(size, 12);
   buffer.writeUInt32LE(0x4e4f534a, 16);
+  buffer.fill(0x20, 20, 20 + size);
   json.copy(buffer, 20);
+  buffer.writeUInt32LE(144, 20 + size);
+  buffer.writeUInt32LE(0x004e4942, 24 + size);
+  buffer.writeFloatLE(1, 28 + size + 12);
+  buffer.writeFloatLE(1, 28 + size + 28);
   return buffer;
 }
 function cli(command, args) {
