@@ -28,7 +28,10 @@
     "tablet:check": "node scripts/tablet/check-install.mjs",
     "tablet:test": "node --import tsx --test tests/tablet-kit.test.ts tests/tablet-install.test.mjs",
     "tablet:browser": "node tests/tablet-browser-smoke.mjs",
-    "instructions:audit": "node --import tsx scripts/instruction-audit.ts"
+    "instructions:audit": "node --import tsx scripts/instruction-audit.ts",
+    "forge:inspect": "node --import tsx scripts/janus-3d-forge.ts inspect",
+    "forge:prepare": "node --import tsx scripts/janus-3d-forge.ts prepare",
+    "forge:check": "python3 sidecars/janus_3d_forge_trellis2.py --check"
   },
   "dependencies": {
     "ws": "^8.21.3"
