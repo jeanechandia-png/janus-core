@@ -8,15 +8,39 @@ import {
 
 type Document = Record<string, unknown>;
 function glb(doc: Document): Uint8Array {
-  const json = Buffer.from(JSON.stringify(doc), 'utf8');
+  const copy = JSON.parse(JSON.stringify(doc)) as Document;
+  const accessors = (copy.accessors ?? []) as Array<{ count?: number; bufferView?: number; componentType?: number; type?: string }>;
+  let byteCount = 0;
+  const views: Array<{ buffer: number; byteOffset: number; byteLength: number }> = [];
+  for (let i = 0; i < accessors.length; i++) {
+    const acc = accessors[i]!;
+    acc.bufferView = i;
+    acc.componentType = i === 0 ? 5126 : 5125;
+    acc.type = i === 0 ? 'VEC3' : 'SCALAR';
+    const length = (acc.count ?? 0) * (i === 0 ? 12 : 4);
+    views.push({ buffer: 0, byteOffset: byteCount, byteLength: length });
+    byteCount += length;
+  }
+  byteCount = Math.max(12, Math.ceil(byteCount / 4) * 4);
+  copy.bufferViews = views;
+  copy.buffers = [{ byteLength: byteCount }];
+  const json = Buffer.from(JSON.stringify(copy), 'utf8');
   const jsonLength = Math.ceil(json.length / 4) * 4;
-  const out = Buffer.alloc(20 + jsonLength, 0x20);
+  const out = Buffer.alloc(28 + jsonLength + byteCount, 0);
   out.writeUInt32LE(0x46546c67, 0);
   out.writeUInt32LE(2, 4);
   out.writeUInt32LE(out.length, 8);
   out.writeUInt32LE(jsonLength, 12);
   out.writeUInt32LE(0x4e4f534a, 16);
+  out.fill(0x20, 20, 20 + jsonLength);
   json.copy(out, 20);
+  out.writeUInt32LE(byteCount, 20 + jsonLength);
+  out.writeUInt32LE(0x004e4942, 24 + jsonLength);
+  // Three non-collinear vertices (synthetic TEST fixture, not approved artwork).
+  if (byteCount >= 36) {
+    out.writeFloatLE(1, 28 + jsonLength + 12);
+    out.writeFloatLE(1, 28 + jsonLength + 28);
+  }
   return out;
 }
 function baseDoc(): Document {
@@ -75,6 +99,8 @@ test('3D Forge rejects corrupt, mismatched, non-mesh or disallowed compressed GL
   const empty = glb({ asset: { version: '2.0' }, meshes: [] });
   assert.equal(inspectForgeGlb(empty).valid, false);
   assert.equal(inspectForgeGlb(Buffer.from('not a GLB')).valid, false);
+  const truncated = valid.subarray(0, valid.byteLength - 12);
+  assert.equal(inspectForgeGlb(truncated).valid, false);
   const draco = glb({ ...baseDoc(), extensionsRequired: ['KHR_draco_mesh_compression'] });
   assert.equal(inspectForgeGlb(draco).valid, false);
   const ktx = glb({ ...baseDoc(), extensionsRequired: ['KHR_texture_basisu'] });
