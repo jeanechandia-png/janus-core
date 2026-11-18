@@ -67,6 +67,8 @@ export interface ElevenLabsTtsAdapterOptions {
   modelId?: string;
   languageCode?: string;
   voiceSettings?: ElevenLabsVoiceSettings;
+  /** Parámetros por voz, con el MISMO presupuesto compartido entre todos los perfiles. */
+  voiceOptions?: Readonly<Record<string, { modelId?: string; voiceSettings?: ElevenLabsVoiceSettings }>>;
   baseUrl?: string;
   fetchImpl?: typeof fetch;
   chunkMs?: number;
@@ -76,6 +78,10 @@ export interface ElevenLabsTtsAdapterOptions {
   /** Presupuesto diario de caracteres (UTC). Sin valor = sin tope propio (el plan de ElevenLabs sigue mandando). */
   dailyCharBudget?: number;
   now?: () => Date;
+  usageStore?: {
+    read(day: string): { charactersRequested: number; requests: number };
+    reserve(day: string, characters: number, budget: number | null): boolean;
+  };
 }
 
 export interface ElevenLabsUsageSnapshot {
@@ -91,6 +97,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
   private readonly modelId: string;
   private readonly languageCode?: string;
   private readonly voiceSettings?: Record<string, number | boolean>;
+  private readonly voiceOptions: ElevenLabsTtsAdapterOptions['voiceOptions'];
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly chunkBytes: number;
@@ -98,6 +105,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
   private readonly maxCharsPerRequest: number;
   private readonly dailyCharBudget: number | null;
   private readonly now: () => Date;
+  private readonly usageStore: ElevenLabsTtsAdapterOptions['usageStore'];
   private usageDay = '';
   private usageChars = 0;
   private usageRequests = 0;
@@ -111,6 +119,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
     this.modelId = options.modelId?.trim() || ELEVENLABS_DEFAULT_MODEL_ID;
     this.languageCode = options.languageCode?.trim() || undefined;
     this.voiceSettings = toApiVoiceSettings(options.voiceSettings);
+    this.voiceOptions = options.voiceOptions;
     this.baseUrl = normalizeBaseUrl(options.baseUrl ?? ELEVENLABS_DEFAULT_BASE_URL);
     this.fetchImpl = options.fetchImpl ?? fetch;
     const chunkMs = boundedNumber(options.chunkMs, 40, 10, 250);
@@ -121,6 +130,7 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
       ? Math.floor(Number(options.dailyCharBudget))
       : null;
     this.now = options.now ?? (() => new Date());
+    this.usageStore = options.usageStore;
   }
 
   /** True si el identificador de Janus puede salir a la nube (está mapeado explícitamente). */
@@ -167,9 +177,23 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
       throw new ElevenLabsTtsError('not_configured', 'Falta la credencial del servicio elevenlabs.', 'provider');
     }
 
-    this.usageChars += cleanText.length;
-    this.usageRequests += 1;
+    // Revalidar tras esperar la credencial: dos llamadas concurrentes no pueden saltarse el tope.
+    this.rollUsageDay();
+    if (this.dailyCharBudget !== null && this.usageChars + cleanText.length > this.dailyCharBudget) {
+      throw new ElevenLabsTtsError('budget_exhausted', 'Presupuesto diario de caracteres de voz en la nube agotado.', 'provider');
+    }
+    if (this.usageStore) {
+      if (!this.usageStore.reserve(this.usageDay, cleanText.length, this.dailyCharBudget)) {
+        throw new ElevenLabsTtsError('budget_exhausted', 'Presupuesto diario de caracteres de voz en la nube agotado.', 'provider');
+      }
+      this.rollUsageDay();
+    } else {
+      this.usageChars += cleanText.length;
+      this.usageRequests += 1;
+    }
 
+    const profile = this.voiceOptions?.[voiceId.trim()];
+    const voiceSettings = profile?.voiceSettings ? toApiVoiceSettings(profile.voiceSettings) : this.voiceSettings;
     const url = `${this.baseUrl}/v1/text-to-speech/${encodeURIComponent(providerVoiceId)}/stream?output_format=pcm_24000`;
     let response: Response;
     try {
@@ -182,9 +206,9 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
         },
         body: JSON.stringify({
           text: cleanText,
-          model_id: this.modelId,
+          model_id: profile?.modelId?.trim() || this.modelId,
           ...(this.languageCode ? { language_code: this.languageCode } : {}),
-          ...(this.voiceSettings ? { voice_settings: this.voiceSettings } : {}),
+          ...(voiceSettings ? { voice_settings: voiceSettings } : {}),
         }),
         signal: AbortSignal.timeout(this.requestTimeoutMs),
       });
@@ -239,6 +263,11 @@ export class ElevenLabsTtsAdapter implements TextToSpeechGateway {
       this.usageDay = day;
       this.usageChars = 0;
       this.usageRequests = 0;
+    }
+    if (this.usageStore) {
+      const usage = this.usageStore.read(day);
+      this.usageChars = usage.charactersRequested;
+      this.usageRequests = usage.requests;
     }
   }
 }

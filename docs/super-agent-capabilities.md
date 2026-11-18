@@ -45,3 +45,13 @@ This document converts observed market capabilities into Janus-native, provider-
 - domain Blueprint library;
 - optional large-scale swarm scheduling across multiple machines;
 - IoT/home/device bridges where useful.
+
+## Referente técnico evolutivo — Fable 5.2 (17-11-2026)
+
+Solicitud del Founder: reproducir y mejorar funciones observables de Claude Fable 5.2 en **JANUS CORE** inicialmente para uso interno; su futura comercialización queda ABIERTA a decisión del Founder; no crear una segunda aplicación ni copiar pesos, entrenamiento, prompt oculto o propiedad intelectual de terceros. La eventual comercialización no exige reconstruir: diseñar desde ahora módulos originales, reutilizables, trazables y con licencias compatibles. Ni el uso interno ni un uso comercial permiten apropiarse de tecnología propietaria.
+
+**Fuentes públicas de referencia:** [modelo oficial](https://platform.claude.com/docs/en/models/fable-5-2/overview), [notas técnicas](https://platform.claude.com/docs/en/models/fable-5-2/whats-new-fable-5-2).
+
+**Implementación actual:** ampliación de `FlowAgentAdapter` con revisiones acotadas, verificador independiente, ejecución local preferente y traspaso auditable. Debe mantenerse sustituible el Model Gateway, sin fijar Fable como proveedor. No anunciar paridad de calidad, ventana de contexto de un millón de tokens ni clonación neuronal: requieren modelo propio, benchmarks e infraestructura que todavía no se han acreditado.
+
+**Pruebas para futuras versiones:** suites reproducibles con tareas largas, calidad antes/después de correcciones, fallos/reinicio, coste por solución, privacidad sin proveedor, permisos y publicación aprobada. Registrar métricas propias de JANUS; no usar salida de servicios ajenos para entrenar un modelo propio sin una base jurídica y contractual verificada.

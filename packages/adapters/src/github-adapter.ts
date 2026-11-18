@@ -17,7 +17,7 @@ type JsonRecord = Record<string, unknown>;
 
 export class GitHubAdapter implements ToolAdapter {
   readonly name = 'github';
-  readonly capabilities: string[] = ['repo.get', 'contents.list', 'branch.get', 'file.read', 'file.publish'];
+  readonly capabilities: string[] = ['repo.get', 'contents.list', 'branch.get', 'branch.create', 'file.read', 'file.publish'];
 
   private readonly token?: string;
   private readonly tokenProvider?: () => Promise<string | undefined>;
@@ -72,6 +72,56 @@ export class GitHubAdapter implements ToolAdapter {
         },
         externalReference:
           `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree/${encodeURIComponent(ref)}`,
+      };
+    }
+
+    // A voice-led product change may prepare a review branch, never edit main directly.
+    // The caller must supply the exact expected remote base SHA; stale commands fail closed.
+    if (request.action === 'branch.create') {
+      const ref = requiredString(request.input, 'ref');
+      const baseRef = requiredString(request.input, 'baseRef');
+      const expectedBaseSha = requiredString(request.input, 'expectedBaseSha');
+      if (!/^janus\/(?:change|evolution)-[a-z0-9][a-z0-9-]{2,60}$/.test(ref)) {
+        return { ok: false, error: 'GitHub branch.create requires a janus/change-* or janus/evolution-* review branch' };
+      }
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9._/-]{0,100}$/.test(baseRef)
+        || baseRef.includes('..') || baseRef.includes('//') || baseRef.endsWith('/')
+        || baseRef === ref || !/^[a-f0-9]{40}$/i.test(expectedBaseSha)) {
+        return { ok: false, error: 'Invalid base branch or expectedBaseSha' };
+      }
+      const token = await this.resolveToken();
+      if (!token) return { ok: false, error: 'GitHub branch.create requires authentication' };
+      const targetPath = `/repos/${encodedOwner}/${encodedRepo}/git/ref/heads/${encodePath(ref)}`;
+      const basePath = `/repos/${encodedOwner}/${encodedRepo}/git/ref/heads/${encodePath(baseRef)}`;
+      const existing = await this.requestJson(targetPath, { token });
+      if (existing.ok) {
+        const body = isRecord(existing.body) ? existing.body : {};
+        const object = isRecord(body.object) ? body.object : {};
+        const existingSha = typeof object.sha === 'string' ? object.sha : '';
+        return existingSha === expectedBaseSha
+          ? { ok: true, output: { owner, repo, ref, sha: existingSha, unchanged: true },
+              externalReference: `https://github.com/${encodedOwner}/${encodedRepo}/tree/${encodeURIComponent(ref)}` }
+          : { ok: false, error: 'Review branch already exists at a different commit; do not overwrite it' };
+      }
+      if (existing.status !== 404) return { ok: false, error: existing.error };
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const base = await this.requestJson(basePath, { token });
+        if (!base.ok) return { ok: false, error: base.error };
+        const body = isRecord(base.body) ? base.body : {};
+        const object = isRecord(body.object) ? body.object : {};
+        if (object.sha !== expectedBaseSha) {
+          return { ok: false, error: 'GitHub base branch changed; revalidate remote HEAD before creating review branch' };
+        }
+      }
+      const created = await this.requestJson(
+        `/repos/${encodedOwner}/${encodedRepo}/git/refs`,
+        { method: 'POST', token, body: { ref: `refs/heads/${ref}`, sha: expectedBaseSha } },
+      );
+      if (!created.ok) return { ok: false, error: created.error };
+      return {
+        ok: true,
+        output: { owner, repo, ref, baseRef, sha: expectedBaseSha, unchanged: false },
+        externalReference: `https://github.com/${encodedOwner}/${encodedRepo}/tree/${encodeURIComponent(ref)}`,
       };
     }
 
@@ -287,7 +337,7 @@ export class GitHubAdapter implements ToolAdapter {
   private async requestJson(
     path: string,
     options: {
-      method?: 'GET' | 'PUT';
+      method?: 'GET' | 'PUT' | 'POST';
       token?: string;
       body?: Record<string, unknown>;
     } = {},

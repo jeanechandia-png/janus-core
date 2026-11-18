@@ -1154,6 +1154,22 @@ export class SqliteStore {
   }
 
   /** Control de consumo: una fila por consulta a JANUS iniciada por un colaborador (append-only). */
+  voiceProviderUsage(provider: string, day: string): { charactersRequested: number; requests: number } {
+    const row = this.db.prepare('SELECT characters, requests FROM voice_provider_usage WHERE provider = ? AND day = ?').get(provider, day) as { characters: number; requests: number } | undefined;
+    return { charactersRequested: Number(row?.characters ?? 0), requests: Number(row?.requests ?? 0) };
+  }
+
+  /** Reserva atómica y duradera; ninguna frase, audio, voice_id o credencial en esta tabla. */
+  reserveVoiceProviderUsage(provider: string, day: string, characters: number, budget: number | null): boolean {
+    if (!Number.isSafeInteger(characters) || characters <= 0 || (budget !== null && (!Number.isSafeInteger(budget) || budget < 0))) throw new Error('invalid voice usage');
+    return this.db.prepare(`
+      INSERT INTO voice_provider_usage (provider, day, characters, requests)
+      SELECT ?, ?, ?, 1 WHERE ? IS NULL OR ? <= ?
+      ON CONFLICT(provider, day) DO UPDATE SET characters = characters + excluded.characters, requests = requests + 1
+      WHERE ? IS NULL OR voice_provider_usage.characters + excluded.characters <= ?
+    `).run(provider, day, characters, budget, characters, budget, budget, budget).changes === 1;
+  }
+
   appendOperatorRun(input: { runId: string; principalId: string; at: string }): void {
     this.db.prepare(`
       INSERT OR IGNORE INTO operator_run_usage (run_id, principal_id, at) VALUES (?, ?, ?)
@@ -2602,6 +2618,14 @@ export class SqliteStore {
         run_id TEXT PRIMARY KEY,
         principal_id TEXT NOT NULL,
         at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS voice_provider_usage (
+        provider TEXT NOT NULL,
+        day TEXT NOT NULL,
+        characters INTEGER NOT NULL,
+        requests INTEGER NOT NULL,
+        PRIMARY KEY(provider, day)
       );
 
       CREATE INDEX IF NOT EXISTS idx_operator_run_usage_principal

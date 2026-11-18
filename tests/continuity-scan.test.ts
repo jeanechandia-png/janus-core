@@ -45,3 +45,14 @@ test('the current handoff is the newest by date, even when an older one sits lat
   assert.deepEqual(handoff.body, ['- HECHO: nuevo']);
   assert.equal(latestHandoff('# sin handoffs'), undefined);
 });
+
+test('dated AHORA blocks outrank old Handoffs and other notes; latest explicit current block wins', () => {
+  const md = [
+    '## AHORA — 18-nov-2026 · vigente', '- continuar aquí',
+    '## AHORA — 18-nov-2026 · snapshot anterior', '- no reanudar aquí',
+    '## 18-nov-2026 — nota histórica', '- referencia',
+    '## Handoff 2026-11-07 — antiguo', '- antiguo',
+  ].join('\n');
+  assert.equal(latestHandoff(md)?.heading, '## AHORA — 18-nov-2026 · vigente');
+  assert.deepEqual(latestHandoff(md)?.body, ['- continuar aquí']);
+});

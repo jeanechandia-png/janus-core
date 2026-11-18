@@ -1,3 +1,76 @@
+## 18-nov-2026 — JANUS 3D FORGE / PILOTO INVERSORES DICIEMBRE — CÓDIGO EN REVISIÓN
+
+- **CONTEXTO VIGENTE:** obtener préstamos/inversores alrededor de mediados de diciembre 2026. Los GLB de seis criaturas/robots podrán usarse como solución **temporal durante diciembre**, luego sustituirse gradualmente por producción propia. La finalidad comercial futura principal son los **módulos reutilizables** de JANUS; comercialización de todo JANUS no es requisito. No contratar proveedor por defecto ni copiar sus modelos.
+- **PRODUCTO CANÓNICO:** `jeanechandia-png/janus-core`, continuidad en PR #83 (rama `chatgpt/janus-voice-evolution-hardening-20261117`) sin crear otros repos o dashboards.
+- **YA EXISTÍA:** `JanusHyper` procedural, `JanusCreatureSlot` y PWA `approved-presence.js` para importación GLB y verificación de identidad visual. Reutilizar estos módulos.
+- **CÓDIGO NUEVO:** `packages/modules/janus-3d-forge/src/index.ts` (validador GLB con BIN real, reglas del slot, registro de SHA/origen/derechos y estado solo-preview), `scripts/janus-3d-forge.ts` (`forge:inspect`/`forge:prepare`, copias locales idempotentes), `sidecars/janus_3d_forge_trellis2.py` (generación autónoma local con TRELLIS.2, GPU Linux NVIDIA >=24GB, descarga de pesos solo autorizada), pruebas unitarias y de CLI. Contrato LEGO module.json/README incluido; documento operativo `docs/janus-3d-forge.md`.
+- **PROHIBICIONES:** no entrenar con resultados/API de Hyper3D, no publicar activos privados ni referencias de menores al repo público, no afirmar que un GLB está aprobado sin revisar rig, morphs, clips y apariencia; no despliegue ni fusión de PR sin autorización.
+- **POR VERIFICAR:** CI nuevo delta, hardware disponible, instalación TRELLIS y sus dependencias/licencias, generación real de seis GLB (actualmente no existen verificados), rigging, compatibilidad Apple real y derechos de exposición en demo. La suite de tablet del commit intermedio mostró 401/timeout de persistencia cifrada; no relacionar automáticamente con Forge y revaluar en HEAD.
+- **SIGUIENTE:** cierre CI de esta rama, revisión humana y pruebas físicas. Preparar seis GLB por cuenta autorizada, importarlos localmente en slots existentes; generar con motor propio cuando hardware/datos lo permitan. Documentación/referencia de procedencia en el contrato, no activos de clientes.
+
+## AHORA — 18-nov-2026 · inventario semántico y reparación de contratos B26/B27
+
+## Corrección vigente — 18 noviembre 2026 · reconciliación documental y código
+
+La revisión anterior conservó IDs, pero no completó su vinculación semántica. La falta de chats íntegros limita la certificación exhaustiva; **no impide implementar lo documentado y accesible**.
+
+Se releen Manifest v0.21, Child Companion v0.3, Daily Life v0.4 y Sensitive Filter v1.0. Los ocho B registrados eran **B25–B32**, no B01–B08. Faltaban B01–B24 y SF01–SF20 individualizados. N01–N32 siguen expresamente vigentes y no están sustituidos por HC. Total conocido: **454 declarados + 32 N + 32 B + 20 SF = 538**. No se modifica retroactivamente la suma histórica de 454.
+
+`config/historical-contracts.json` conserva cada definición, fuente, índice de párrafo, alcance y candidatos de reutilización; fuentes con SHA-256. Los originales privados quedan fuera de Git, en `data/instruction-sources/`. Los candidatos de una familia no prueban el cumplimiento del ID específico.
+
+Se implementan **B26/B27** sobre el radar existente: referencia comparable/vigente, ausencia de ahorro ficticio, neto tras costes conocidos, coste desconocido explícito, condiciones conservadas y nueva verificación al cambiar importes. Persistencia y payload del runtime reutilizados y probados; no acredita discovery de tiendas, comparación de cesta ni aceptación visual.
+
+La auditoría separa inventario documental de implementación. **536 entradas requieren todavía correspondencia individual con código/prueba y/o implementación**; no son 536 funciones demostradas ausentes. Copiar IDs a `reconciledIds` ya no permite cerrar cobertura.
+
+Búsqueda en ambas cuentas Drive, archivos con Janus en el título y recuperación conversacional: sin exportación íntegra identificada de ambos proyectos; hay documentos y extractos. No reconstruir ni declarar completo un historial a partir de resúmenes del asistente. Esta limitación no bloquea completar código.
+
+Validación local: TypeScript PASS; 854 pruebas / 853 PASS / 1 SKIP previo / 0 FAIL; 25/25 dirigidas. El objetivo de dejar únicamente personajes y aceptación física **todavía no se ha alcanzado**. Continuar en el mismo checkout, rama y PR #83, desde el nuevo HEAD; priorizar SF/menores y conectar las capacidades de dominio. Las cifras anteriores de 494 y B01–B08 son historia corregida por este bloque.
+
+## AHORA — 18-nov-2026 · voces verificadas y reconciliación de instrucciones
+
+- Misma PR #83/rama `chatgpt/janus-voice-evolution-hardening-20261117`, mismo checkout canónico. La orden sobre voces se suma al cierre de tablet; la nueva auditoría de `proyecto_Janus`/`proyecto_Janus 2` se suma a ambos trabajos.
+- Verificado en cuenta ElevenLabs: clon propio Jean (masculino, colombiano) y voz exacta del agente Melanie. IDs/parámetros solo en `config/assistant-voices.local.json` privado y configuración privada descargable; sin API key, audio ni nuevos clones. No modificar el agente web Melanie.
+- Implementado: perfiles Janus/Melanie, selector, enlace a formas NEXO, salida HTTP Founder sin depender de STT, selección PCM validada y reconexión al cambiar. Mismo adaptador existente con ajustes por voz y presupuesto TOTAL por proveedor en SQLite, atómico y persistente tras reinicios; 3000 caracteres/día por defecto. No generar audio de pago al abrir/cambiar pantalla.
+- Evidencia dirigida: 10/10 adapter/transporte; 3/3 integración nueva (HTTP con servidor real y TTS simulado + mapeos + presupuesto/reinicio/concurrencia). Suite local: 847 pruebas, 846 PASS y 1 SKIP previo; TypeScript y runtime smoke PASS. CI de código `e368a3da62cf7dd1a4c59a2c2ae77379e1cb5150`: Core CI 44201076847 PASS (845 PASS, 2 SKIP por fixture privado ausente y ffmpeg no disponible en el runner; 0 FAIL); tablet-browser PASS. Audio real en la tablet sigue pendiente de credencial/host; no confundir lectura de cuenta, voz simulada o ID correcto con aceptación acústica.
+- Chromium real: 5 bloques PASS de vinculación y descarga solo pública, autenticación tras reinicio, caso cifrado persistente tras reinicio, navegación A/B/Kendra y apertura offline de las tres sin APIs privadas en caché. La prueba ya no espera `networkidle` en pantallas con eventos persistentes; las esperas y la limpieza están acotadas. Esto no sustituye Android/Termux físico.
+- JANUS Work: recuperado en la ruta privada ignorada el CSS aprobado desde el commit canónico 06da714 de ChatBox; SHA-256 y bytes idénticos a `work/skin.lock.json`. `dashboard:test` ahora 26/26 PASS, 0 SKIP; builds core y team PASS. El CSS no se publica en este repositorio público; hay que provisionarlo privadamente en el host final.
+- Hallazgo de continuidad corregido: `latestHandoff` ignoraba todos los encabezados modernos «AHORA — día-mes-año» y podía devolver un handoff de noviembre 7. Ahora interpreta ambos formatos y prioriza AHORA vigente; regresión añadida.
+- Auditoría ampliada: localizados y leídos documentos maestros de Estado, Capacidades, Lecciones y Transferencia en fuentes privadas autorizadas. Contienen capacidades PRE-CONTRACT e historia de Core Swift, además de versiones posteriores. No afirmar que todos los contratos/capacidades históricos están implementados en el runtime TypeScript. No se dispone todavía de una exportación completa identificada de todos los chats de `proyecto_Janus 2`.
+- Reconciliación conservada: 25 documentos maestros/especificaciones leídos; catálogo inicial de 30 grupos y 494 IDs históricos. El manifiesto declara 454 y excluye de su suma N01–N32/B01–B08: conservar los 40 hasta resolver vigencia. `npm run instructions:audit -- --require-complete` debe bloquear una declaración de cobertura completa. La guía es `docs/INSTRUCTION_AUDIT.md`.
+- Código publicado y probado en la misma rama: `e368a3da62cf7dd1a4c59a2c2ae77379e1cb5150`, árbol idéntico al validado local. Las actualizaciones refuerzan validación de estados y comparación con historial de PR, y aprovechan Chromium ya instalado en runner. La PR #83 sigue en revisión; sin merge ni despliegue.
+- Estado: preparación de código y pruebas; aún no certifica app física ni «solo faltan los personajes». Continuar con el inventario trazable de instrucciones, CI/navegador, credenciales del host, dependencias privadas de Work y validación física. No crear otro producto, rama remota o checkout.
+
+## AHORA — 17-nov-2026 · preparación de instalación en la tablet
+
+- Orden vigente: continuar el mismo Janus hasta su instalación en la tablet; dejar robots y criaturas aparte. Se continúa **PR #83 y su rama existente** `chatgpt/janus-voice-evolution-hardening-20261117` desde `0057580abbbfbd19b554494bae047525ef7d8cae`, descendiente de `main@9112ad5`. No se crea repositorio, producto, checkout adicional ni rama remota.
+- Checkout único usado: `/workspace/scratch/6c9b5f811613/janus-core`. Trabajo local antiguo protegido en stash `continuity-preserved-local-20261117-before-unified-janus`; el commit local `77759d9` sigue en su rama previa. Su módulo de incidencias ya tiene evolución remota: no aplicar el stash a ciegas ni sobrescribir el núcleo unificado.
+- Código: instalador sin checkout forzado ni rama artificial, bloqueo de cambios locales/retrocesos/origen incorrecto/servicio activo, `npm ci`, build A/B y diagnóstico. Configuración local cifrada idempotente, rutas de arranque reales, descarga de llave **pública** y registro P-256 sin cambiar otra identidad, parada de la instancia y liberación de wake-lock. PWA v20 precarga A/B además de Kendra y excluye APIs privadas.
+- HECHO local: guard READY contra origin/main, TypeScript PASS, 839 pruebas / 838 PASS / 1 SKIP previo, 7/7 tablet, dashboard:test 23 PASS / 3 SKIP por CSS privado ausente, runtime smoke PASS, smoke Work y casos PASS. No confundir esos resultados con tablet real ni con IA/voz configuradas.
+- Navegador local BLOQUEADO por el entorno: Chromium no puede crear su socket de proceso (`Operation not permitted`). Se añade prueba reproducible y job `tablet-browser` al workflow Core existente; observar su ejecución remota antes de marcar E2E PASS.
+- BLOQUEOS pendientes reales: tablet no conectada (Desktop Commander no tiene dispositivos), conexión privada de modelo y STT/TTS, vinculación del dispositivo real, CSS privado de Work, aceptación y modelos GLB de robots/criaturas. No es veraz afirmar todavía que solo faltan los personajes. No se gastaron créditos, no se activaron servicios ni se publicó un backend de datos personales.
+- Guía única corregida: `docs/tablet-node.md` (las instrucciones viejas de ramas de octubre y bind público quedan superadas). Próximo: CI del commit de esta entrega, corregir fallos concretos, registrar evidencia, y ejecutar en la tablet la instalación/alta/prueba real con los servicios privados elegidos. No abrir otro producto ni presentar una preview estática como app funcional.
+
+## 17-nov-2026 — CORRECCIÓN VIGENTE: referencia Fable, comercialización futura por decidir
+
+- El Founder pide inspirarse en lo que existe, mejorar sus capacidades y adaptarlas a JANUS como tecnología propia y evolutiva. **Uso actual interno; comercialización futura abierta, no descartada ni aprobada.** La etiqueta anterior «no comercial» queda HISTÓRICA, no hardcodear restricciones de distribución en el producto.
+- Exigir licencias, procedencia, gobernanza de datos y derechos suficientes para un eventual uso comercial; sin copiar pesos ni implementación propietaria. La arquitectura sigue siendo local-first, proveedora-neutral y acumulativa.
+- Se mantiene trabajo en PR #83 del repositorio canónico; sin nuevas dashboards, repositorios o despliegues.
+
+## 17-nov-2026 — Fable 5.2: evolución agéntica propia, no clonación de pesos
+
+- **VIGENTE:** mantener el repositorio canónico `jeanechandia-png/janus-core`. Se reutiliza la PR #83 abierta y su rama dentro del MISMO producto; no duplicar producto ni alterar dashboards.
+- **HECHO EN CÓDIGO:** `FlowAgentAdapter` ofrece revisión iterativa acotada opcional (`maxRefinementRounds` 0–3, por defecto 0) con verificador independiente y pruebas de denegación, preservando aprobaciones y permisos del motor.
+- **POR VERIFICAR:** CI de este delta, modelos/ejecutores reales, benchmark contra funciones observables de Fable 5.2, duración, coste, ejecución desconectada y pruebas físicas. No afirmar clonación de modelo propietario.
+- **Estado comercial VIGENTE:** uso interno en esta fase; posibilidad de comercialización futura ABIERTA (decisión aún no tomada). Arquitectura original reutilizable, sin dependencias ni activos con licencias incompatibles. Fuentes públicas como referencias técnicas, sin copiar pesos/entrenamiento/código propietario. Más detalle en `docs/flow-agents.md`, `docs/super-agent-capabilities.md` y el handoff del 17-nov.
+
+## 17-nov-2026 — CONTINUACIÓN EN REVISIÓN: voz, GitHub y prevención a cinco años
+
+- **Producto único:** `jeanechandia-png/janus-core`; base `main@9112ad54cc623b1f09993d2e0c21228abd42ecea`; trabajo en `chatgpt/janus-voice-evolution-hardening-20261117`, dentro del MISMO repositorio. No cambia PWA, dashboard ni la landing aprobada.
+- **CÓDIGO ESCRITO:** GitHubAdapter prepara ramas de revisión desde SHA remoto exacto, comprueba duplicados y caducidad, integrado en política de aprobación y registro de capacidades del runtime. Pruebas unitarias añadidas.
+- **CÓDIGO ESCRITO:** Evolution Guard predeterminado a **60 meses**, ampliado con comprobaciones de flujo voz-activos-cambios, delegación de agentes y salida de proveedores; sin evidencia, estado UNKNOWN. Pruebas unitarias añadidas.
+- **NO CERTIFICADO:** CI, aprobación de PR, merge, despliegue; voz end-to-end y conexión de activos 3D; dispositivos reales; voz clonada localmente; infraestructura autónoma. Mantener esos puntos abiertos hasta evidencia.
+- **CONTINUIDAD:** consultar `docs/handoffs/2026-11-17-janus-main-unified.md`; revisar CI/diff y enlazar módulos ya existentes sin reconstruir productos ni crear repositorios.
+
 ## 17-nov-2026 — Fusión de evolución acumulativa JANUS y Claude
 
 - Integración sin nueva aplicación de rama de voz/CORE (#81) y ampliaciones Claude JANUS Work (#82). Ambas historias se conservan como progenitores; interfaz original y módulos no sustituidos.

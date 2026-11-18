@@ -1,5 +1,9 @@
 # Normas operativas del Founder (VIGENTE desde 2026-10-21)
 
+## Adición vigente — 18 noviembre 2026
+
+Reconciliar las instrucciones de `proyecto_Janus` y `proyecto_Janus 2` mediante `config/instruction-audit.json` y `npm run instructions:audit`. Mantener fuentes, implementación, pruebas, pendientes y sucesores. No declarar cobertura completa si faltan historiales o contratos sin rastrear. La voz masculina es el clon propio Jean; la femenina reutiliza la voz exacta de Melanie. Las decisiones vocales anteriores se preservan como historia; no generan nuevas audiciones ni autorizan cambios de permisos. Estas órdenes se suman a tablet y al producto único.
+
 Fuente: instrucciones directas de Jean. Se cargan como políticas permanentes (`config/founder-reference-library.json`, subjects `founder-policy:*`) y se hacen cumplir en código cuando es posible. El Founder las redactará en orden más adelante; esta es la versión operativa actual.
 
 | # | Norma | Cómo se cumple hoy |

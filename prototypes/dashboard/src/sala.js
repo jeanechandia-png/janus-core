@@ -110,12 +110,16 @@ function janusSystem(P) {
 }
 const refreshSala = () => { if (ROUTE.v === 'trabajo' || ROUTE.v === 'inicio' || !ROUTE.v) { rerender(); scrollThread(); } };
 function askModel(P, list) {
+  const voiceReply = Boolean(list[list.length - 1]?.v);
   UI.js = 'pensando'; saveState();
   const parts = typeof attModelParts === 'function' ? attModelParts(list) : Promise.resolve({ messages: list.slice(-14).filter((m) => m.t).map((m) => ({ role: m.who === 'me' ? 'user' : 'assistant', content: m.t })), images: [], asked: 0 });
   parts.then((pp) => JanusGateway.ask({ system: janusSystem(P), messages: pp.messages, images: pp.images, inputMode: list[list.length - 1]?.v ? 'voice' : 'text' }).then((r) => { r.noImg = pp.asked && (r.imagesSent || 0) < pp.asked; return r; })).then((r) => {
     if (r.via === 'local' || !r.text) { list.push({ who: 'ja', t: 'No pude consultar al modelo' + (r.skipped && r.skipped[0] ? ' (' + r.skipped[0].error + ')' : '') + '. Esta es una respuesta de la vista previa: en la app real trabajaría sobre ' + P.n + ' (siguiente paso: ' + P.next + ').', at: hhmm(), via: 'simulado' }); }
     else list.push({ who: 'ja', t: r.text, at: hhmm(), via: r.label + (r.noImg ? ' · fotos no enviadas' : '') });
     UI.js = 'listo'; saveState(); refreshSala();
+    if (voiceReply && r.coreStatus && r.text && window.JanusAssistantVoice) {
+      void window.JanusAssistantVoice.speak(r.text).catch(error => { if (typeof toast === 'function') toast(error.message); });
+    }
   }).catch((e) => { list.push({ who: 'ja', t: 'No pude consultar al modelo: ' + String((e && e.message) || e).slice(0, 120), at: hhmm(), via: 'error' }); UI.js = 'listo'; saveState(); refreshSala(); });
 }
 function reply(pid, text, voice, tray) {

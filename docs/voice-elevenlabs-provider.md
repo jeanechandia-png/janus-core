@@ -1,3 +1,20 @@
+## VIGENTE — 18 noviembre 2026 · dos voces del mismo Janus
+
+Orden directa del Founder: **masculina = su clon Jean ya existente en ElevenLabs; femenina = la misma voz de Melanie**. Se verificó el clon propio con categoría `cloned`, género masculino y acento colombiano, y se leyó la configuración TTS del agente Melanie existente. No se creó otra voz ni se modificó el agente web.
+
+- Perfiles estables: `janus` y `melanie`, seleccionables en Controles y en el menú A/B. Cambiar NEXO masculino/femenino cambia también el perfil de salida. La sesión PCM activa se reconecta al cambiar de perfil. Las reglas de autoridad y las voces de menores siguen separadas.
+- `config/assistant-voices.local.json` (ignorado por Git) o `JANUS_ASSISTANT_VOICES_FILE` contiene los IDs exactos recuperados y los ajustes de Melanie. No incluye API keys ni grabaciones. La configuración privada de esta entrega se conserva por separado para trasladarla a la tablet.
+- El perfil privado puede seleccionar `provider=elevenlabs`; `JANUS_TTS_PROVIDER=local` lo anula expresamente. Sin configuración privada ni esa variable, sigue local por defecto. La credencial continúa exclusivamente en `CredentialBroker`/bóveda/entorno privado.
+- Se reutiliza **el adaptador existente**, con parámetros por voz y un presupuesto compartido. El runtime aplica por defecto **3000 caracteres/día UTC**; es un límite de uso, no una estimación en euros. La reserva es atómica y persiste en SQLite: cambiar de voz, hacer peticiones simultáneas o reiniciar no reinicia el cupo. Nunca guarda frases/audio/credenciales en el registro de consumo.
+- `GET /api/voice/profiles` y `POST /api/voice/speak` requieren Founder; el cliente solo utiliza perfiles autorizados. La salida hablada funciona sin instalar STT; para conversación PCM completa, STT sigue siendo necesario. No se confunde «configurado» con audio real probado.
+- El saludo/cambio de pantalla no genera audio de pago automáticamente. «Probar voz», el resumen pedido expresamente y la respuesta a una orden dictada usan el perfil elegido. Las respuestas del Core conservan la autorización del propietario y el respaldo local.
+- Identidad exacta de Melanie = **mismo voice_id**, no una voz buscada por nombre ni otra clonación. Su agente usa `eleven_v3_conversational`; el adaptador HTTP TTS de esta entrega conserva `eleven_multilingual_v2` y los valores de estabilidad/similitud/velocidad recuperados. No se promete idéntica prosodia entre motores sin una prueba acústica. El modelo conversacional de Agents no se inserta a ciegas en el endpoint HTTP TTS.
+- El diseño vocal C de septiembre y la antigua prioridad femenina se conservan como historia. La instrucción actual activa ambos perfiles y el clon propio masculino; no se reinicia la audición A/B/C ni se elimina aquel audio.
+
+**HECHO:** pruebas de enrutado exacto, presupuesto persistente/concurrente y ruta HTTP real autenticada con TTS local simulado. **PENDIENTE:** credencial en el host de Janus y reproducción con las voces reales en la tablet. Consultar una voz en ElevenLabs no demuestra haberla instalado ni escuchado desde el runtime. No se sintetizó audio de pago durante esta verificación.
+
+Lo que sigue es el registro histórico del 4-nov; prevalece este bloque en cualquier contradicción sobre una sola voz, necesidad de STT para salida o presupuesto solo en memoria.
+
 # Voz de Janus: ElevenLabs como proveedor temporal + camino al clon propio
 
 Fecha: 2026-11-04 · Estado: adaptador, respaldo local, independencia de voz y pruebas **implementados**; activación en producción **PENDIENTE** (necesita clave, `voice_id` y host con whisper.cpp).

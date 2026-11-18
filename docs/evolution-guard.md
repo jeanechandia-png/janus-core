@@ -4,7 +4,7 @@
 
 ## Qué ejecuta el módulo
 
-- **Premortem (horizonte inicial 24 meses, configurable):** 12 mecanismos plausibles de obsolescencia — sustitución de modelos y voz, uso offline, restauración SQLite, portabilidad, dependencias y permisos, contratos externos, presupuesto, regresiones, dispositivos y valor real — evaluados con evidencia medible, fuente y fecha.
+- **Premortem (horizonte estratégico inicial 60 meses (cinco años), configurable):** 15 mecanismos plausibles de obsolescencia — sustitución de modelos y voz, uso offline, restauración SQLite, portabilidad, dependencias y permisos, contratos externos, presupuesto, regresiones, dispositivos y valor real — evaluados con evidencia medible, fuente y fecha.
 - **Postmortem por incidente:** ERROR → CAUSA → IMPACTO → LECCIÓN → REGLA PREVENTIVA → SOLUCIONES → CAMBIO → VERIFICACIÓN. La reincidencia obliga a revisar por qué falló el control previo y eleva la severidad.
 - **Ciclo de mejora:** OBSERVAR → COMPARAR → PROPONER → PROBAR EN PARALELO → REVISAR → APROBAR → PUBLICAR → MEDIR → conservar/rollback. El último bloque de decisión siempre es del Founder.
 - **Cero verdades inventadas:** cualquier evaluación sin prueba, expirada o no verificada es `unknown` y se presenta como tal, nunca como aprobada.
@@ -23,7 +23,7 @@
 
 El módulo no posee red, dinero, secretos ni memoria propia. El runtime de JANUS CORE deberá registrar cada observación y postmortem en SQLite, con hash, fuente y estado de evidencia, y utilizar el ApprovalQueue existente. Cuando no hay Internet, las observaciones locales siguen disponibles; las comprobaciones externas se revalidan al reconectar, sin ejecutar acciones externas pendientes automáticamente.
 
-Cadencia recomendada como **política versionada**, no como servicio contratado: señales locales con cada build, revisión de proveedores y vulnerabilidades semanal, simulación de sustitución de proveedor mensual, prueba de restauración trimestral, análisis de valor cada trimestre y revisión estratégica de 24 meses continuamente actualizada. La cadencia y ventanas de evidencia del código son configurables; cada observación tiene timestamp.
+Cadencia recomendada como **política versionada**, no como servicio contratado: señales locales con cada build, revisión de proveedores y vulnerabilidades semanal, simulación de sustitución de proveedor mensual, prueba de restauración trimestral, análisis de valor cada trimestre y revisión estratégica de 60 meses continuamente actualizada. La cadencia y ventanas de evidencia del código son configurables; cada observación tiene timestamp.
 
 ## Runtime operativo (endpoints protegidos)
 
@@ -34,4 +34,14 @@ La rama integra el módulo con el SQLite existente, sin inventar un almacén par
 - `POST /api/evolution/postmortem` — guarda causa/impacto/lección/control/cambio/verificación + evidencias; `fingerprint` en `error_lessons` y registro cronológico en SQLite. El mismo ID repetido es idempotente; otra incidencia con igual huella aumenta prioridad.
 - `/health` anuncia la capacidad. Todas las escrituras requieren sesión del Founder y ninguna ejecuta herramientas externas.
 
-**Pendiente explícito:** alimentar automáticamente las 12 pruebas desde CI, comprobaciones oficiales y el dispositivo físico; programar una cadencia local con revalidación después de offline y revisar los resultados en un panel. Los endpoints están conectados al runtime, pero no se ha desplegado ni verificado en el Samsung/iPhone real.
+**Pendiente explícito:** alimentar automáticamente las 15 pruebas desde CI, comprobaciones oficiales y el dispositivo físico; programar una cadencia local con revalidación después de offline y revisar los resultados en un panel. Los endpoints están conectados al runtime, pero no se ha desplegado ni verificado en el Samsung/iPhone real.
+
+## Extensión de código 17-11-2026 — continuidad frente a cinco años
+
+Se añaden tres comprobaciones explícitas, todas inicialmente `unknown` sin evidencia externa verificada:
+
+- `voice.product-evolution`: orden de voz más archivos → cambios en el repositorio canónico → pruebas y preview → aprobación, sin publicar automáticamente.
+- `agents.delegation-recovery`: subagentes con permisos, límites, idempotencia y recuperación del estado local.
+- `infrastructure.provider-exit`: portabilidad y sustitución verificadas de GitHub, Supabase, Vercel, Netlify y Hostinger.
+
+El valor por defecto de `premortem(...)` es 60 meses; revisiones más cortas siguen configurables. Se conserva la semántica **fail closed**: añadir una comprobación no significa que esté superada. No se afirma prueba real de voz, migración completa ni funcionamiento en dispositivos hasta presentar evidencia. El adaptador GitHub puede preparar una rama `janus/change-*` o `janus/evolution-*` a partir del SHA remoto esperado, sujeto a permiso auditado y aprobación del Founder; no fusiona ni despliega.

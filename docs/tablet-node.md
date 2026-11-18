@@ -1,68 +1,115 @@
-# Nodo de Janus en la tablet Samsung (piloto temporal, solo Janus)
+# Janus en la tablet Samsung — instalación del mismo producto
 
-**Decisión de Jean (2026-10-23):** la tablet Samsung se usa **temporalmente y solo para Janus**, hasta tener un equipo propio que pueda estar siempre encendido.
-**Fuera de alcance, sin cambios:** Infinity ChatBox (3 Kings) e IBA siguen como estaba previsto (hosting propio/Hostinger). Nada de clientes va a la tablet.
-**Coste:** 0 € (hardware ya existente; Tailscale Personal es gratuito y de uso no comercial; Janus es asistente personal). Norma 7: no se compra nada.
+Vigente: 17 de noviembre de 2026. Fuente única: `jeanechandia-png/janus-core`.
 
-## Qué se verificó (HECHO VERIFICADO)
-- El núcleo usa `node:sqlite` (SQLite integrado en Node) y una sola dependencia de ejecución (`ws`); `tsx` solo arranca el TypeScript. No hay nada que compilar para Android.
-- Termux publica `nodejs-lts` 24.18.0 y `nodejs` 26.4.0, ambos construidos con `--shared-sqlite` (fuente: `termux-packages/packages/nodejs*/build.sh`, 2026-10-23).
-- Con Node 24.22.1: `npm test` 574 pruebas → 573 correctas, 0 fallos, 1 omitida; `tests/runtime-smoke.mjs` («runtime smoke ok», arranque real del servidor con autorización) y `tests/tablet-kit.test.ts` 5/5.
-- **No verificado:** que el instalador funcione en el Android real de la tablet (modelo y versión por confirmar); que `tsx`/esbuild arranque ahí; autonomía de batería con Termux despierto.
+La tablet ejecuta el núcleo local y abre las pantallas existentes: `/dashboard/a`, `/dashboard/b` y `/kendra`. Se instala como PWA desde Chrome; no es un APK autónomo. Termux mantiene el núcleo, la memoria SQLite y los archivos privados en el mismo dispositivo. No se contrata ningún servidor ni proveedor adicional.
 
-## Qué hace el paquete (`scripts/tablet/`)
-| Archivo | Función |
-|---|---|
-| `install-termux.sh` | Instala Node LTS y git, descarga Janus (`JANUS_REF`, por defecto `main`), instala dependencias, comprueba `node:sqlite` y `tsx`, crea carpetas privadas y un `janus.env` **sin secretos** (modo 600), y deja el arranque automático para Termux:Boot. Se puede repetir. |
-| `start-janus.sh` | Supervisor: una sola instancia, mantiene la CPU despierta, reinicia el runtime si se cae (espera 5 s → 120 s), rota el registro (5 MB) y hace la copia diaria. |
-| `backup-db.mjs` | Copia consistente de SQLite (`VACUUM INTO`) verificada con `integrity_check`; conserva 7. El envío a Drive (`JANUS_BACKUP_RCLONE_REMOTE`) está **inactivo** hasta que Jean autorice y configure un destino cifrado. |
-| `status.sh` | Estado en lenguaje llano: ¿corre?, ¿responde `/health`?, última copia, espacio libre, últimas líneas del registro. Solo lee. |
+## Estado comprobado y límites
 
-La base de datos vive en `~/janus-data/` y los secretos en `~/janus-secrets/` (fuera del repositorio, nunca en SQLite ni en el código).
+- Código y módulos de Claude/Core ya reunidos en `main`; la continuación actual usa la **rama existente** `chatgpt/janus-voice-evolution-hardening-20261117` (PR #83). No instalar desde ramas históricas ni desde previews HTML como si fueran el núcleo.
+- Instalador: instalación inicial, actualización fast-forward, rechazo de trabajo local sin guardar y de retrocesos; memoria y claves conservadas. Compila A/B antes de abrir la app.
+- Configuración local: clave de cifrado y VAPID generadas **en la tablet**, carpetas 700 y configuración 600. Nunca imprime valores. Repetir conserva las claves. Acceso del núcleo limitado a loopback.
+- El botón «Descargar llave pública» usa la llave P-256 ya creada por la app; la privada permanece no extraíble en el navegador. El registro local rechaza llaves privadas, algoritmos distintos y sustituciones del propietario.
+- PWA: manifiestos separados para Founder y Kendra; caché v21 incluye A/B y Kendra. Las API privadas quedan fuera de la caché. Abrir sin red no garantiza disponer de IA o voz sin modelos locales.
+- **Pendiente de equipo real:** instalación Android/Termux, permisos de micrófono, arranque tras reinicio, batería y prueba de los 7 días. No hay tablet conectada a esta sesión.
+- **Pendiente de configuración privada:** llave del propietario del dispositivo real, modelo conversacional, STT/TTS y conexiones a servicios que se quieran activar. Los adaptadores existentes no equivalen a servicios ya funcionando.
+- **JANUS Work:** necesita el CSS privado aprobado de IBA (`work/skin.lock.json`). Si falta, `/work` devuelve 503; el instalador lo dice y no lo sustituye por otro diseño.
+- **Robots y criaturas:** modelos finales y aceptación visual siguen separados y pendientes. No se presentan fixtures ni imágenes 2D como 3D definitivo.
 
-## Pasos en la tablet (copiar y pegar)
-1. Instala **F-Droid** y, desde él, **Termux** y **Termux:Boot** (no uses la versión de Google Play: el propio README de Termux la marca como experimental y con fallos). Instala también **Tailscale**.
-2. Ajustes de Samsung (los nombres cambian según la versión de One UI): Batería → Termux y Termux:Boot en «Sin restricciones»; quitar Termux de «Apps en suspensión»; si existe «Proteger batería» (límite del 85 %), actívalo; Wi-Fi: mantener activo durante la suspensión. Pon la tablet sin funda y en un sitio ventilado.
-3. Abre Termux y pega:
-   ```sh
-   pkg install -y git && git clone --depth 1 -b claude/tablet-nodo-janus https://github.com/jeanechandia-png/janus-core.git ~/janus-core && JANUS_REF=claude/social-accounts-watch sh ~/janus-core/scripts/tablet/install-termux.sh
-   ```
-   (Mientras la pila de PR no esté fusionada, `JANUS_REF` apunta a la rama con todo el trabajo; después se cambia a `main`.)
-4. Arranca y comprueba:
-   ```sh
-   sh ~/janus-core/scripts/tablet/start-janus.sh &
-   sh ~/janus-core/scripts/tablet/status.sh
-   ```
-5. Abre en el navegador de la propia tablet `http://localhost:8787`: `localhost` cuenta como entorno seguro, así que la app de Janus puede iniciar sesión ahí.
+## 1. Preparar la tablet
 
-## Acceso desde el iPhone (PENDIENTE de resolver en la fase 2)
-- Con Tailscale en la tablet y en el iPhone, el iPhone puede llegar a `http://<IP-de-Tailscale-de-la-tablet>:8787` sin abrir puertos del router.
-- **Riesgo (INFERENCIA, por confirmar):** la app de Janus usa criptografía del navegador para iniciar sesión y vincular el dispositivo; fuera de `localhost` eso exige **HTTPS**. El diseño actual ya prevé un proxy HTTPS de confianza (`JANUS_AUTH_TRUST_SECURE_PROXY`, ver `docs/ios-founder-faceid-bridge.md`). Opciones: (a) HTTPS de Tailscale (MagicDNS + Serve), (b) Cloudflare Tunnel gratuito (expone un nombre público: requiere aprobación de Jean), (c) seguir solo con la tablet hasta resolverlo.
-- El puerto 8787 escucha en todas las interfaces de la tablet (`0.0.0.0`): dentro del Wi-Fi de casa es alcanzable, protegido por la autorización de Janus. **No se abre ningún puerto en el router.** Endurecimiento opcional futuro: variable `JANUS_HOST` para escuchar solo en la IP de Tailscale (requiere un cambio pequeño en `apps/runtime/server.ts`).
+Instalar [Termux](https://f-droid.org/en/packages/com.termux/) y [Termux:Boot](https://f-droid.org/en/packages/com.termux.boot/) desde la **misma fuente**. Abrir ambas aplicaciones una vez. Quitar restricciones de batería de Termux y Termux:Boot en los ajustes de Samsung.
 
-## Corte de luz y de internet
-| Situación | Qué pasa |
-|---|---|
-| Se va la luz | Lo normal es que el router también se apague (salvo que tenga batería): **sin internet**. La tablet sigue con su batería. |
-| Tablet con batería, sin internet | Janus sigue funcionando en local y **no pierde nada** (SQLite en disco). No se puede llegar a ella desde el iPhone y fallan las llamadas externas (correo, calendario, clima, modelos). Janus las deja en cola y las **revalida al volver la conexión**. |
-| Vuelve la luz | La tablet carga, el router arranca, el Wi-Fi y Tailscale se reconectan solos y Janus continúa. |
-| La batería llegó a 0 | La tablet se apaga. Al encenderla hay que **desbloquearla una vez** (INFERENCIA: Termux:Boot arranca tras el primer desbloqueo); entonces Janus arranca solo. |
-| Urgente durante el corte | Si el iPhone tiene datos móviles: «Punto de acceso» del iPhone, conectar la tablet a él y entrar por Tailscale (por probar). |
-| Más adelante (gasto al final, Norma 7) | SAI pequeño para el router y el equipo definitivo; no se compra ahora. |
+Fuentes oficiales comprobadas el 17-11-2026: [instalación Termux](https://github.com/termux/termux-app#installation) y [Termux:Boot](https://github.com/termux/termux-boot#usage). La compatibilidad del modelo y Android concretos se valida en el dispositivo.
 
-## Seguridad (mínimo privilegio)
-- Sin secretos en el paquete ni en SQLite; `janus.env` (600) en carpeta 700. Pantalla con bloqueo y cifrado del dispositivo.
-- No se abre ningún puerto en el router. Las acciones externas sensibles siguen exigiendo la aprobación de Jean (cola de aprobaciones del núcleo).
-- Las copias contienen datos personales: solo en la tablet; si se envían a Drive, con destino **cifrado** (rclone crypt) y con autorización previa.
-- Tailscale Personal es de uso no comercial: vale para Janus personal; si el nodo atendiera a Infinity, habría que revisar la licencia (POR CONFIRMAR).
+## 2. Descargar y preparar Janus
 
-## Piloto de 7 días (criterios para decidir)
-1. Janus encendido los 7 días sin intervención (`status.sh` en marcha cada vez que se mire).
-2. Al menos 6 copias verificadas en `~/janus-data/backups/`.
-3. Prueba de corte simulado: apagar el Wi-Fi 10 minutos y encenderlo → Janus sigue y se recupera.
-4. Prueba de reinicio: reiniciar la tablet, desbloquear una vez → Janus vuelve solo.
-5. Batería y temperatura razonables (sin hinchazón, sin calor anormal).
-Si falla alguno, no se pierde nada: se detiene con `pkill -f start-janus.sh` y los datos quedan en `~/janus-data/`.
+Ejecutar en Termux. Se usa **solo** `~/janus-core`; si ya existe, el comando no clona otra carpeta. Hasta integrar PR #83 se indica su rama existente expresamente:
 
-## Cómo volver atrás
-`pkill -f start-janus.sh` y borrar `~/.termux/boot/janus-start.sh`. Los datos y secretos no se tocan.
+```sh
+pkg install -y git
+if [ ! -d "$HOME/janus-core" ]; then
+  git clone --branch chatgpt/janus-voice-evolution-hardening-20261117 --single-branch https://github.com/jeanechandia-png/janus-core.git "$HOME/janus-core"
+fi
+JANUS_REF=chatgpt/janus-voice-evolution-hardening-20261117 sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
+```
+
+Tras integrar esta continuación en `main`, usar `JANUS_REF=main`. Si la instalación existente no contiene todavía este instalador, detenerla, guardar los cambios locales y actualizarla por fast-forward a la rama revisada; **nunca** `reset --hard`, `checkout -f`, borrar la carpeta ni crear otra instalación para eludir un conflicto.
+
+El instalador no activa proveedores de pago. Si hay una configuración previa, la conserva. Si se utiliza JANUS Work, poner el archivo **privado** `iba-command-center.css` en `~/janus-secrets/` antes de repetir el instalador; su huella debe coincidir con `work/skin.lock.json`. No publicarlo en este repositorio.
+
+## 3. Arrancar y abrir
+
+```sh
+sh "$HOME/janus-core/scripts/tablet/start-janus.sh" &
+```
+
+Abrir en Chrome de **esa tablet**: `http://localhost:8787/dashboard/a`. En el menú de Janus, «Instalar app». El acceso instalado abre el dashboard, no una landing. Mantener el mismo origen `localhost` al vincular e instalar: `localhost` y `127.0.0.1` tienen almacenamientos del navegador distintos.
+
+## 4. Vincular al propietario sin editar código
+
+1. En Janus: menú → Controles → «Vincular este dispositivo» → «Descargar llave pública».
+2. En Termux, permitir acceso a Descargas y registrar ese archivo:
+
+```sh
+termux-setup-storage
+cd "$HOME/janus-core"
+node scripts/tablet/configure-local.mjs --founder-key "$HOME/storage/downloads/janus-founder-public.pem"
+sh scripts/tablet/stop-janus.sh
+```
+
+Esperar a que `status.sh` indique «PARADO»; después:
+
+```sh
+sh scripts/tablet/start-janus.sh &
+```
+
+Volver a Controles y pulsar «Entrar como Founder». La llave privada nunca se descarga. El registro inicial no es Face ID: las acciones que exigen prueba biométrica conservan su comprobación adicional. No reemplazar una llave existente ni borrar SQLite si aparece un conflicto de identidad.
+
+## 5. Comprobar la instalación
+
+```sh
+cd "$HOME/janus-core"
+npm run tablet:check -- --runtime
+sh scripts/tablet/status.sh
+```
+
+El diagnóstico comprueba SQLite, archivos, manifiestos y rutas reales; distingue modelo/voz pendientes de configurados. **No afirma una conversación real solo por leer configuración**. Antes de dar el producto por listo, probar acceso, crear un dato, reiniciar y comprobarlo, hablar/escuchar con los servicios elegidos y abrir A/B/Kendra sin conexión. JANUS Work y acceso desde otro equipo requieren además sus dependencias privadas y HTTPS autenticado.
+
+## Actualizar y detener sin perder memoria
+
+```sh
+sh "$HOME/janus-core/scripts/tablet/stop-janus.sh"
+sh "$HOME/janus-core/scripts/tablet/status.sh"
+# Cuando conste PARADO:
+JANUS_REF=chatgpt/janus-voice-evolution-hardening-20261117 sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
+sh "$HOME/janus-core/scripts/tablet/start-janus.sh" &
+```
+
+Las actualizaciones usan el mismo árbol y rechazan retrocesos o ramas divergentes. SQLite y adjuntos viven en `~/janus-data`; las claves, en `~/janus-secrets`. El supervisor reinicia el proceso si cae, mantiene una sola instancia, libera el wake-lock al parar y conserva las copias diarias existentes. Termux:Boot utiliza las mismas rutas, incluidas las personalizadas.
+
+Piloto físico de 7 días: continuidad sin intervención, copias verificadas, recuperación tras corte de Wi-Fi, arranque después de reiniciar/desbloquear y batería/temperatura observadas. No se declara aprobado desde CI.
+
+## Evidencia reproducible para el siguiente agente
+
+```sh
+npm run continuity:guard -- --base=main
+npm run dashboard:build
+npm run typecheck
+npm test
+npm run dashboard:test
+npm run tablet:test
+node tests/runtime-smoke.mjs
+node tests/work-runtime-smoke.mjs
+node tests/priority-case-runtime.mjs
+# Requiere Playwright/Chromium de QA, no se instala en la tablet:
+npm run tablet:browser
+```
+
+El workflow `Janus Core CI` ejecuta el último flujo en Ubuntu/Chromium: vincular mediante interfaz, descargar y registrar solo la llave pública, autenticar tras reinicio, persistir un caso cifrado y abrir las tres pantallas sin red. Los resultados del HEAD publicado se registran en `docs/STATE.md`; una ejecución no observada sigue pendiente.
+
+## Voces de Jean y Melanie (18 noviembre)
+
+Antes de instalar, descargar la configuración privada `assistant-voices.local.json` facilitada con esta entrega y ejecutar `termux-setup-storage`. El instalador la recoge de Descargas y la guarda en `~/janus-secrets/` con modo 600. La configuración contiene los dos IDs verificados, sin API key ni audio; nunca subirla al repositorio público. Si ya existía una, se conserva.
+
+La clave de ElevenLabs se conecta en la configuración privada del mismo Janus (servicio `elevenlabs` del CredentialBroker). En Controles, entrar como Founder, elegir Janus/Melanie y usar «Probar voz». La salida hablada no necesita STT. El micrófono conversacional completo sigue dependiendo de su reconocimiento configurado. El límite de ambas voces es conjunto y sobrevive a reinicios.

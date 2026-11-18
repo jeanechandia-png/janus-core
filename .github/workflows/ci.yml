@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 3
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -30,6 +32,7 @@ jobs:
           node --check apps/pwa/kendra.js
           node --check apps/pwa/language-buttons.js
           node --check apps/pwa/app-install.js
+          node --check apps/pwa/assistant-voice.js
           node --check apps/pwa/glow-emblem.js
           node --check apps/pwa/founder-session.js
           node --check apps/pwa/pcm-capture-worklet.js
@@ -42,5 +45,33 @@ jobs:
         run: npm run dashboard:build
       - name: Tests
         run: npm test
+      - name: Preservar instrucciones y pendientes sin falsear cobertura completa
+        run: npm run instructions:audit -- --summary
       - name: Runtime smoke
         run: node tests/runtime-smoke.mjs
+
+  tablet-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Dependencias de Janus
+        run: npm ci --no-audit --no-fund
+      - name: Compilar las dashboards oficiales
+        run: npm run dashboard:build
+      - name: Chromium para vinculación e instalación PWA
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.58.2
+          BROWSER_BIN="$(command -v google-chrome || command -v chromium || true)"
+          if [ -n "$BROWSER_BIN" ]; then
+            echo "CHROMIUM_PATH=$BROWSER_BIN" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
+      - name: Vinculación, memoria cifrada, reinicio y apertura offline
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright/index.mjs
+        run: node tests/tablet-browser-smoke.mjs
