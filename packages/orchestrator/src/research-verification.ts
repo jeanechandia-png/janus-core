@@ -91,7 +91,8 @@ export function auditClaim(claim: Claim, sources: Source[], opts: { minIndepende
   // Ausencia de descarga/texto no refuta el hecho: clasificar como POR CONFIRMAR.
   // Una cita falsificada sí descarta la evidencia presentada.
   if (refuted || (n === 0 && flags.some((f) => f.startsWith('cita no encontrada')))) verdict = 'DESCARTADO';
-  else if (n >= minIndependent && tierOk) verdict = 'VERIFICADO';
+  // Una cita inválida no puede quedar blanqueada por otras dos fuentes válidas.
+  else if (n >= minIndependent && tierOk && flags.length === 0) verdict = 'VERIFICADO';
   else if (n >= 1 && best !== null && RANK[best] >= RANK['B']) verdict = 'PROBABLE';
   else verdict = 'POR CONFIRMAR';
   if (n < minIndependent) flags.push('fuentes independientes: ' + n + '/' + minIndependent);
