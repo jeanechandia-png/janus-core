@@ -1,3 +1,13 @@
+## 20-nov-2026 — Integración visual en las dashboards oficiales (mismo producto Janus)
+
+- **ÚNICO repositorio:** `jeanechandia-png/janus-core`. Fuente de verdad `main` y pantallas `/dashboard/a` (Obsidiana), `/dashboard/b` (Platino), `/kendra`, `/work` y `/work/team`. Ningún HTML alternativo, copia de repositorio ni nuevo producto.
+- **Continuidad Claude→ChatGPT:** Claude Work `claude/work-dashboard-template` figura en la ascendencia de `main`, integrado por las PR #81/#82. Se respeta `skin.lock.json`, las criaturas originales y las vistas del CEO. La captura de Claude remitida en este ciclo corresponde a ChatBox, IBA y web; no prueba cambios Janus.
+- **Error de continuidad detectado:** PR #83 (`chatgpt/janus-voice-evolution-hardening-20261117`) pasó CI #44640040154 pero está divergida y no fusionable con `main` por conflictos. Su trabajo de voz/seguridad sigue abierto. **No proclamar implementado en main algo que solo exista en PR #83.**
+- **Evolución aditiva:** se han trasladado exactamente los diez archivos de mejoras visuales desde PR #83 a una rama de integración basada en `main` `chatgpt/janus-approved-ui-continuity-20261120`, previo contraste de sus diferencias. Objetivo: 3D de objetos originales, material especular coherente en fallback, tarjetas iluminadas al tacto y reflejos animados en CTA de A/B/Kendra/Work sin cambiar diseño, composición, rutas ni autoridades.
+- **Regresión nueva:** `tests/dashboard-brand-continuity.test.ts`; compara contrato de ruta y fuentes del builder y valida mapping de iconos, materiales, touch, efectos y accesibilidad. **Límite honesto:** 121 iconos admitidos, solo una fracción cuenta con imagen de objeto 3D auténtico; los demás pueden utilizar render pulido o SVG en relieve. No confundir relieve visual con GLB hiperrealista.
+- **Handoff obligatorio:** `docs/handoffs/2026-11-20-janus-approved-dashboards-continuity.md`. Consultar el CI del commit HEAD antes de merge, comprobar ruta real y ensayos manuales en Safari/tablet; después conciliar PR #83 sin duplicar los cambios visuales. La autoría anterior está preservada.
+- **No se han tocado:** repositorios IBA/ChatBox/web, hosting, claves, permisos/rol de Kendra, voces, criaturas ni diseños aprobados.
+
 ## 19-nov-2026 — Integración confirmada de la Puerta de la Verdad (PR #84)
 
 - **FUSIONADA EN MAIN:** PR #84, commit `aa65ecf194ed8168f5689e20375fedc6716fb098`. Se conservó la rama histórica de revisión sin alterar dashboards, voces, secretos ni repositorios de otros productos.
