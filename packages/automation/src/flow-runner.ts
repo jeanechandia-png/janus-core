@@ -135,7 +135,7 @@ export function requireAuditedResearchOutput(output: unknown): void {
       const quote = (claim.quotes as unknown[])[i];
       if (!Number.isInteger(id) || !used.has(id as number) || typeof quote !== 'string' || !quote.trim()) fail();
       const source = sources.get(id as number);
-      if (!source) fail();
+      if (!source) { throw new ResearchEvidenceError(); }
       if (!norm(source.snippet).includes(norm(quote as string))) fail();
       if (claim.verdict === 'VERIFICADO' && source.basis === 'fragmento') fail();
     }
