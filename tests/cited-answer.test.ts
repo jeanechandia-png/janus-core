@@ -137,3 +137,42 @@ test('Perplexity → buscador neutral → respuesta con citas de punta a punta',
   const estatico = await staticSearchProvider('demo', HITS).search('x');
   assert.equal(estatico.length, HITS.length);
 });
+
+test('no certifica una respuesta cuando las afirmaciones auditadas corresponden a otro texto', () => {
+  const sources = numberSources(HITS);
+  const result = verifyCitedAnswer({
+    question: 'q',
+    text: 'El precio mensual subió a 999 euros sin autorización previa [1][2].',
+    sources,
+    claims: [{ text: 'Elogiar el esfuerzo mantiene la motivación', sources: [1, 2],
+      quotes: ['el elogio del esfuerzo la mantiene', 'persisten más ante las dificultades'] }],
+  });
+  assert.equal(result.verdict, 'POR CONFIRMAR');
+  assert.ok(result.warnings.some((x) => x.includes('sin afirmación auditada')));
+});
+
+test('no eleva a VERIFICADO una respuesta respaldada parcialmente por fragmentos', () => {
+  const sources = numberSources([
+    { url: 'https://web.stanford.edu/m', text: 'El esfuerzo es importante.' },
+    { url: 'https://www.nih.gov/n', snippet: 'El esfuerzo es importante.' },
+  ]);
+  const result = verifyCitedAnswer({
+    question: 'q', text: 'El esfuerzo es importante para aprender [1][2].',
+    sources, claims: [{ text: 'El esfuerzo es importante', sources: [1, 2],
+      quotes: ['El esfuerzo es importante', 'El esfuerzo es importante'] }],
+  });
+  assert.equal(result.verdict, 'PROBABLE');
+  assert.ok(result.claims[0]!.flags.some((x) => x.includes('fragmento')));
+});
+
+test('no reproduce como respuesta una salida rechazada con referencia inventada', () => {
+  const result = verifyCitedAnswer({
+    question: 'q',
+    text: 'La información inventada es completamente cierta [99].',
+    sources: numberSources(HITS),
+  });
+  assert.equal(result.verdict, 'RECHAZADO');
+  const rendered = renderCitedMarkdown(result);
+  assert.match(rendered, /ha bloqueado esta respuesta/);
+  assert.doesNotMatch(rendered, /información inventada/);
+});
