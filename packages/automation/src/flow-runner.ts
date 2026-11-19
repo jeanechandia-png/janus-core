@@ -111,31 +111,32 @@ export function requireAuditedResearchOutput(output: unknown): void {
   if (!Array.isArray(result.uncited) || result.uncited.length > 0) fail();
   if (!Array.isArray(result.used) || result.used.length === 0) fail();
   const sources = new Map<number, { snippet: string; basis: string }>();
-  for (const raw of result.sources) {
+  for (const raw of result.sources as unknown[]) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail();
     const source = raw as Record<string, unknown>;
     if (!Number.isInteger(source.n) || Number(source.n) < 1 || sources.has(Number(source.n))) fail();
     if (typeof source.url !== 'string' || !/^https?:\/\//.test(source.url)) fail();
     if (typeof source.snippet !== 'string' || source.snippet.length === 0) fail();
     if (source.basis !== 'pagina' && source.basis !== 'fragmento') fail();
-    sources.set(Number(source.n), { snippet: source.snippet, basis: source.basis });
+    sources.set(Number(source.n), { snippet: source.snippet as string, basis: source.basis as string });
   }
   const norm = (value: string): string => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
   const used = new Set<number>(result.used as number[]);
   if ([...used].some((n) => !Number.isInteger(n) || !sources.has(n))) fail();
-  for (const raw of result.claims) {
+  for (const raw of result.claims as unknown[]) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail();
     const claim = raw as Record<string, unknown>;
     if (claim.verdict !== 'VERIFICADO' && claim.verdict !== 'PROBABLE') fail();
     if (typeof claim.text !== 'string' || !claim.text.trim()) fail();
     if (!Array.isArray(claim.sources) || claim.sources.length === 0 || !Array.isArray(claim.quotes)
       || claim.quotes.length !== claim.sources.length) fail();
-    for (let i = 0; i < claim.sources.length; i++) {
-      const id = claim.sources[i];
-      const quote = claim.quotes[i];
+    for (let i = 0; i < (claim.sources as unknown[]).length; i++) {
+      const id = (claim.sources as unknown[])[i];
+      const quote = (claim.quotes as unknown[])[i];
       if (!Number.isInteger(id) || !used.has(id as number) || typeof quote !== 'string' || !quote.trim()) fail();
       const source = sources.get(id as number);
-      if (!source || !norm(source.snippet).includes(norm(quote))) fail();
+      if (!source) fail();
+      if (!norm(source.snippet).includes(norm(quote as string))) fail();
       if (claim.verdict === 'VERIFICADO' && source.basis === 'fragmento') fail();
     }
     // La comprobación de significado entre cita y afirmación permanece en el auditor upstream.
