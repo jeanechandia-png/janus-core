@@ -123,6 +123,20 @@ export function factualSentences(text: string): string[] {
 /** `quotes[i]` es la cita literal tomada de `sources[i]` (una por fuente). `quote` se admite para afirmaciones de una sola fuente. */
 export interface ModelClaim { text: string; sources: number[]; quotes?: string[]; quote?: string }
 
+/** Compara la afirmación declarada con la frase publicada; los marcadores no son evidencia por sí solos. */
+function normalizedAssertion(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(MARKER, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function claimMatchesSentence(claim: CitedClaim, sentence: string): boolean {
+  const asserted = normalizedAssertion(claim.text);
+  const published = normalizedAssertion(sentence);
+  if (asserted.length < 12 || !published.includes(asserted) || claim.sources.length === 0) return false;
+  const cited = parseMarkers(sentence);
+  return claim.sources.every((n) => cited.includes(n));
+}
+
 /** Verificación automática: no depende de que el modelo «diga» que citó bien. */
 export function verifyCitedAnswer(input: { question: string; text: string; sources: NumberedSource[]; claims?: ModelClaim[]; hits?: readonly SearchHit[]; now?: Date; model?: CitedAnswer['model'] }): CitedAnswer {
   const { question, text, sources } = input;
@@ -154,10 +168,24 @@ export function verifyCitedAnswer(input: { question: string; text: string; sourc
     const claim: Claim = { id: c.text.slice(0, 40), text: c.text, evidence: withQuote.map((p) => ({ url: sources[p.n - 1]!.url, quote: p.quote })) };
     const audit = withQuote.length > 0 ? auditClaim(claim, sourceObjs) : { verdict: 'POR CONFIRMAR' as Verdict, flags: ['sin cita literal declarada'] };
     let verdict = audit.verdict;
-    const onlySnippets = withQuote.length > 0 && withQuote.every((p) => sources[p.n - 1]!.basis === 'fragmento');
-    if (onlySnippets && verdict === 'VERIFICADO') { verdict = 'PROBABLE'; flags.push('solo fragmentos del buscador (no página completa)'); }
+    const anySnippets = withQuote.some((p) => sources[p.n - 1]!.basis === 'fragmento');
+    if (anySnippets && verdict === 'VERIFICADO') {
+      verdict = 'PROBABLE';
+      flags.push('al menos una fuente es solo fragmento del buscador (no página completa)');
+    }
+    if (flags.length > 0 && verdict === 'VERIFICADO') verdict = 'POR CONFIRMAR';
     return { text: c.text, sources: nums.map((p) => p.n), ...(withQuote.length ? { quotes: withQuote.map((p) => p.quote) } : {}), verdict, flags: [...flags, ...audit.flags] };
   });
+
+  // Cada frase publicada debe corresponder a una afirmación auditada; el modelo no puede
+  // certificar un texto inocuo y usar esas citas para aprobar otro texto distinto.
+  const unboundSentences = sentences.filter((sentence) => {
+    const bound = claims.filter((claim) => claimMatchesSentence(claim, sentence));
+    return bound.length === 0 || parseMarkers(sentence).some((n) => !bound.some((claim) => claim.sources.includes(n)));
+  });
+  const unboundClaims = claims.filter((claim) => !sentences.some((sentence) => claimMatchesSentence(claim, sentence)));
+  if (unboundSentences.length > 0) warnings.push(unboundSentences.length + ' frase(s) sin afirmación auditada correspondiente');
+  if (unboundClaims.length > 0) warnings.push(unboundClaims.length + ' afirmación(es) declaradas que no corresponden al texto publicado');
 
   if (invalid.size > 0) warnings.push('Citas a fuentes inexistentes: ' + [...invalid].sort((a, b) => a - b).map((n) => '[' + n + ']').join(' '));
   if (uncited.length > 0) warnings.push(uncited.length + ' frase(s) sin cita');
@@ -174,7 +202,8 @@ export function verifyCitedAnswer(input: { question: string; text: string; sourc
   let verdict: CitedVerdict;
   const verdicts = claims.map((c) => c.verdict);
   if (max === 0 || invalid.size > 0 || coverage < 0.5) verdict = max === 0 ? 'POR CONFIRMAR' : 'RECHAZADO';
-  else if (coverage < 1 || verdicts.length === 0 || verdicts.some((v) => v === 'POR CONFIRMAR' || v === 'DESCARTADO')) verdict = 'POR CONFIRMAR';
+  else if (coverage < 1 || verdicts.length === 0 || unboundSentences.length > 0 || unboundClaims.length > 0
+    || verdicts.some((v) => v === 'POR CONFIRMAR' || v === 'DESCARTADO')) verdict = 'POR CONFIRMAR';
   else if (verdicts.every((v) => v === 'VERIFICADO')) verdict = 'VERIFICADO';
   else verdict = 'PROBABLE';
 
@@ -231,6 +260,11 @@ export async function synthesizeCitedAnswer(input: { question: string; hits: rea
 
 /** Markdown con enlaces directos: `[1](url)` en el texto y bibliografía numerada con nivel y dominio. */
 export function renderCitedMarkdown(answer: CitedAnswer): string {
+  // Jamás publicar el texto rechazado como si fuese la respuesta de JANUS.
+  if (answer.verdict === 'RECHAZADO') {
+    return 'Janus ha bloqueado esta respuesta porque sus citas o su cobertura no superan la verificación. '
+      + 'No puedo confirmar esa información con la evidencia disponible.';
+  }
   const byN = new Map(answer.sources.map((s) => [s.n, s]));
   const linked = answer.text.replace(MARKER, (whole, inner: string) => {
     const nums = parseMarkers(whole);
