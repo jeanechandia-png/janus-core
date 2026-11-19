@@ -24,6 +24,9 @@ function decorate(viewId) {
   ensureDefs();
   const dash = document.getElementById('dash'), view = document.getElementById('view');
   iconize(view.hidden ? dash : view);
+  // La interacción luminosa es una pieza común: también debe operar en Platino
+  // y en cada pestaña de detalle, sin imponer a B las superficies doradas de A.
+  JanusGold.bindLit();
   if (skinNow() !== 'b') goldify(view.hidden ? dash : view); // monedas y botones de oro: solo A (B tiene sus propias superficies); los iconos son los mismos en las dos pieles
   const isNew = viewId !== LAST_VIEW;
   LAST_VIEW = viewId;
@@ -51,7 +54,7 @@ function tiltFrame() {
 }
 if (!REDUCED) {
   document.addEventListener('pointermove', (ev) => {
-    const el = ev.target.closest && ev.target.closest('#app .cd');
+    const el = ev.target.closest && ev.target.closest('#app .cd, #app .pl-cd, #app .a2c');
     if (el !== TILT.el) { tiltReset(TILT.el); TILT.el = el; }
     if (!el) return;
     TILT.x = ev.clientX; TILT.y = ev.clientY;
