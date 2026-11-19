@@ -88,6 +88,60 @@ export interface FlowDeps {
   maxSubflowDepth?: number;
 }
 
+/** Un resultado factual no acreditado es un bloqueo de seguridad, no un fallo recuperable con onError:continue. */
+export class ResearchEvidenceError extends Error {
+  constructor() { super('Investigación sin evidencia comprobable: bloqueada antes de alimentar otros pasos'); this.name = 'ResearchEvidenceError'; }
+}
+
+/**
+ * Defense in depth en la frontera del motor de flujos. No sustituye el auditor semántico
+ * de `cited-answer`: sólo acepta un sobre de investigación ya auditado por ese módulo.
+ * Los datos no dan autoridad y ningún texto del proveedor se usa como mensaje de error.
+ */
+export function requireAuditedResearchOutput(output: unknown): void {
+  const fail = (): never => { throw new ResearchEvidenceError(); };
+  if (!output || typeof output !== 'object' || Array.isArray(output)) fail();
+  const result = output as Record<string, unknown>;
+  if (result.verdict !== 'VERIFICADO' && result.verdict !== 'PROBABLE') fail();
+  if (typeof result.text !== 'string' || !result.text.trim() || result.text.length > 50_000) fail();
+  if (result.coverage !== 1) fail();
+  if (!Array.isArray(result.sources) || result.sources.length === 0 || result.sources.length > 30) fail();
+  if (!Array.isArray(result.claims) || result.claims.length === 0 || result.claims.length > 100) fail();
+  if (!Array.isArray(result.invalidMarkers) || result.invalidMarkers.length > 0) fail();
+  if (!Array.isArray(result.uncited) || result.uncited.length > 0) fail();
+  if (!Array.isArray(result.used) || result.used.length === 0) fail();
+  const sources = new Map<number, { snippet: string; basis: string }>();
+  for (const raw of result.sources) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail();
+    const source = raw as Record<string, unknown>;
+    if (!Number.isInteger(source.n) || Number(source.n) < 1 || sources.has(Number(source.n))) fail();
+    if (typeof source.url !== 'string' || !/^https?:\/\//.test(source.url)) fail();
+    if (typeof source.snippet !== 'string' || source.snippet.length === 0) fail();
+    if (source.basis !== 'pagina' && source.basis !== 'fragmento') fail();
+    sources.set(Number(source.n), { snippet: source.snippet, basis: source.basis });
+  }
+  const norm = (value: string): string => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim();
+  const used = new Set<number>(result.used as number[]);
+  if ([...used].some((n) => !Number.isInteger(n) || !sources.has(n))) fail();
+  for (const raw of result.claims) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail();
+    const claim = raw as Record<string, unknown>;
+    if (claim.verdict !== 'VERIFICADO' && claim.verdict !== 'PROBABLE') fail();
+    if (typeof claim.text !== 'string' || !claim.text.trim()) fail();
+    if (!Array.isArray(claim.sources) || claim.sources.length === 0 || !Array.isArray(claim.quotes)
+      || claim.quotes.length !== claim.sources.length) fail();
+    for (let i = 0; i < claim.sources.length; i++) {
+      const id = claim.sources[i];
+      const quote = claim.quotes[i];
+      if (!Number.isInteger(id) || !used.has(id as number) || typeof quote !== 'string' || !quote.trim()) fail();
+      const source = sources.get(id as number);
+      if (!source || !norm(source.snippet).includes(norm(quote))) fail();
+      if (claim.verdict === 'VERIFICADO' && source.basis === 'fragmento') fail();
+    }
+    // La comprobación de significado entre cita y afirmación permanece en el auditor upstream.
+  }
+}
+
 export interface FlowRunOptions {
   runId?: string;
   /** `nodeId`: nodo de inicio que arranca esta ejecución; el resto de nodos de inicio activos se omiten (un flujo con varios disparadores no debe arrancar por todos a la vez). */
@@ -247,6 +301,9 @@ export async function runWorkflow(workflow: AutomationWorkflow, options: FlowRun
         return;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // Un resultado de investigación engañoso nunca puede continuar por una rama de error,
+        // por `onError:continue` ni por reintentos de proveedores.
+        if (error instanceof ResearchEvidenceError) return fail(node, message, false, true);
         if (canRetryWorkflowNode(node, state) && (state.attempts[node.id] ?? 0) < maxAttempts) {
           await emit('node_retry', { nodeId: node.id, attempt: state.attempts[node.id], detail: message.slice(0, 200) });
           const delay = nextRetryDelayMs(node, state);
@@ -258,9 +315,15 @@ export async function runWorkflow(workflow: AutomationWorkflow, options: FlowRun
     }
   };
 
-  const fail = async (node: WorkflowNode, message: string, retried: boolean): Promise<void> => {
+  const fail = async (node: WorkflowNode, message: string, retried: boolean, terminal = false): Promise<void> => {
     state.errors[node.id] = message;
     await emit('node_failed', { nodeId: node.id, attempt: state.attempts[node.id], detail: message.slice(0, 300) });
+    if (terminal) {
+      state.nodeStatus[node.id] = 'failed';
+      failedNodes.add(node.id);
+      fatal ??= `${node.id}: ${message}`;
+      return;
+    }
     if (node.onError === 'continue') {
       state.nodeStatus[node.id] = 'completed';
       state.completedOutputs[node.id] = undefined;
@@ -475,7 +538,9 @@ async function aiNode(type: string, params: Record<string, unknown>, deps: FlowD
     const question = typeof params.question === 'string' ? params.question.trim() : '';
     if (!question) throw new Error('ai.research requiere question');
     const maxSources = params.maxSources === undefined ? undefined : toNumber(params.maxSources, 8);
-    return { output: await deps.research({ question, ...(maxSources !== undefined ? { maxSources } : {}) }) };
+    const output = await deps.research({ question, ...(maxSources !== undefined ? { maxSources } : {}) });
+    requireAuditedResearchOutput(output);
+    return { output };
   }
   if (!deps.models) throw new Error('Model Gateway no conectado');
   const rawText = typeof params.text === 'string' ? params.text : JSON.stringify(params.text ?? '');
