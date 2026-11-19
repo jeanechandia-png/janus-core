@@ -1,6 +1,6 @@
 # ADR-013 — JANUS: Puerta de la Verdad y prevención de alucinaciones
 
-**Estado:** ADOPTADA COMO DIRECCIÓN DE ARQUITECTURA; implementación transversal incompleta.
+**Estado:** primeros controles FUSIONADOS en `main` (PR #84, commit `aa65ecf`, CI `44634940208` SUCCESS); implementación transversal todavía incompleta.
 **Fecha:** 2026-11-19 (Europe/Amsterdam).
 **Producto único:** `jeanechandia-png/janus-core` — reutilizar `research-verification`, `cited-answer`, `KnowledgeMemory`, `ErrorLedger`, `ModelRouter`, `ToolGateway`, `DeliveryGate` y las rutas vigentes. No crear otro Janus, otra dashboard ni una segunda memoria.
 
@@ -11,6 +11,8 @@
 - Anthropic, citas estructuradas: https://platform.claude.com/docs/en/build-with-claude/citations — referencia válida a documento no implica que el razonamiento de la respuesta sea correcto.
 - OpenAI/Anthropic, evaluación cruzada: https://openai.com/index/openai-anthropic-safety-evaluation/ — medir alucinaciones con evaluaciones concretas, sin extrapolar porcentajes a JANUS.
 - Correctness is not Faithfulness in RAG Attributions: https://arxiv.org/abs/2412.18004 — cita existente no demuestra atribución fiel.
+- Findings of ACL 2026 / FRANQ: https://aclanthology.org/2026.findings-acl.338/ — factualidad y fidelidad documental deben evaluarse por separado.
+- Deceptive Grounding (preprint, 2026): https://arxiv.org/abs/2607.09349 — una cita textual puede referirse a otra persona/entidad; validar vínculo de identidad antes de afirmar.
 
 Ningún proveedor garantiza cero alucinaciones. Un evaluador basado en otro LLM es una señal auxiliar, no prueba determinista suficiente.
 
@@ -40,6 +42,7 @@ Ningún proveedor garantiza cero alucinaciones. Un evaluador basado en otro LLM 
 | Fuente caducada, offline o contradicha | Frescura/versiones/abstención (PENDIENTE global) | no afirmar datos actuales |
 | Voz confunde 15 con 50 euros | Confirmación multimodal (PENDIENTE en dispositivo) | no ejecutar |
 | Memoria infantil se cruza con trabajo | scopes de KnowledgeMemory + autorización | sin fugas |
+| Cita verdadera atribuida a otra persona/negocio | validar entidad, identidad y tenant antes de presentar dato (PENDIENTE) | no atribuir hecho al sujeto equivocado |
 | Médico/urgencia interpretados como diagnóstico | límites de riesgo + fuentes autorizadas | escalado seguro; no inventar lectura de sensores |
 
 ## Instrumentación y métricas (objetivos de aceptación; NO resultados medidos)
@@ -58,7 +61,7 @@ No se anuncian porcentajes alcanzados sin un conjunto de evaluación definido y 
 
 - `packages/orchestrator/src/research-verification.ts`: un fetch sin texto o cita literal válida no cuenta como evidencia. Se distingue ausencia de prueba de retractación/falsificación.
 - `packages/orchestrator/src/cited-answer.ts`: vinculación de claims con frases publicadas; un solo fragmento impide VERIFICADO; renderer bloquea respuestas RECHAZADO.
-- Regresiones en las suites de investigación y respuestas con citas; comprobar CI/compilación de la PR, sin dar por probado tablet ni backend desplegado.
+- Regresiones en las suites de investigación y respuestas con citas. **Comprobado:** PR #84 fusionada; 830 PASS, 0 FAIL, 2 SKIP, typecheck y smoke; CI de integración en main `44634940208` SUCCESS. **No comprobado:** tablet ni backend desplegado.
 
 ## Orden siguiente, aditivo y sin reemplazar lo aprobado
 
