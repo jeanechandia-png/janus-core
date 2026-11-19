@@ -91,7 +91,7 @@ test('JANUS Work stays on its locked approved skin; Kendra keeps local child-onl
   assert.match(k, /\/api\/kid\//);
   assert.match(k, /createApprovedStage/);
   assert.match(k, /app\.addEventListener\('pointerdown'/);
-  assert.doesNotMatch(workExtras, /position:\s*fixed.*(?:top|bottom):\s*0/s);
+  assert.match(workExtras, /janusWorkSpecular/);
   const output = join(root, 'prototypes/dashboard/dist/Janus-A-Obsidiana-interactivo.html');
   if (existsSync(output)) {
     const html = readFileSync(output, 'utf8');
