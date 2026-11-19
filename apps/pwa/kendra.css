@@ -141,3 +141,75 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
 .top .janus-language-switch{display:inline-flex;gap:4px;flex:0 0 auto}
 .top .janus-language-button{width:44px;height:44px;min-width:44px;flex:0 0 44px}
 @media(max-width:480px){.top{flex-wrap:wrap}.top .who{flex-basis:calc(100% - 114px)}.top .janus-language-switch{margin-inline-start:auto}}
+
+/* JANUS · Acabado tridimensional coherente para Kendra (sin cambiar tema ni disposición).
+ * Las criaturas aprobadas no se alteran: sólo navegación, superficies y reflejos de botones. */
+.app .card{
+  position:relative;isolation:isolate;
+  background:radial-gradient(130% 90% at 52% -26%,rgba(255,255,255,.96),transparent 66%),
+    linear-gradient(152deg,rgba(255,255,255,.98),var(--surface) 60%,var(--soft));
+  border-color:var(--border);
+  box-shadow:inset 0 2px 1px rgba(255,255,255,.94),inset 0 -2px 1px rgba(67,38,94,.08),
+    0 8px 0 -5px var(--border),0 17px 24px -18px rgba(57,40,99,.33);
+  transition:box-shadow .24s ease,border-color .2s ease,transform .2s ease
+}
+.app .card::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;opacity:0;
+  background:radial-gradient(360px 220px at var(--light-x,50%) var(--light-y,50%),
+    rgba(255,226,156,.47),rgba(166,146,245,.16) 40%,transparent 75%);
+  transition:opacity .25s ease
+}
+.app .card:is(.is-lit,:focus-within){border-color:var(--accent);
+  box-shadow:inset 0 2px 1px rgba(255,255,255,.98),0 0 0 1px var(--border),
+    0 0 24px rgba(150,118,223,.32),0 17px 26px -18px rgba(57,40,99,.4)}
+.app .card:is(.is-lit,:focus-within)::after{opacity:1}
+.app .card:active{transform:translateY(1px)}
+/* Medallones en relieve: la misma técnica para TODAS las pestañas. No emoji plano sobre fondo plano. */
+.app nav.tabs button span{
+  position:relative;display:grid;place-items:center;
+  inline-size:34px;block-size:34px;line-height:1;border-radius:50%;
+  border:1.5px solid rgba(255,255,255,.95);
+  background:radial-gradient(circle at 31% 24%,#fff 0%,var(--soft) 33%,
+    var(--primary) 70%,var(--accent) 100%);
+  box-shadow:inset 0 2px 2px rgba(255,255,255,.9),inset 0 -4px 6px rgba(67,38,94,.25),
+    0 3px 0 rgba(72,45,111,.25),0 6px 7px -4px rgba(57,40,99,.43);
+  text-shadow:0 1px 1px rgba(255,255,255,.8),0 3px 2px rgba(67,38,94,.3);
+  filter:drop-shadow(0 2px 2px rgba(67,38,94,.14));
+  transform:perspective(160px) rotateX(8deg);
+  transition:transform .18s ease,filter .22s ease,box-shadow .22s ease
+}
+.app nav.tabs button:is(:focus-visible,:active,.is-lit,[aria-current="page"]) span{
+  transform:perspective(160px) rotateX(0deg) translateY(-1px) scale(1.09);
+  box-shadow:inset 0 2px 2px #fff,inset 0 -3px 5px rgba(67,38,94,.22),
+    0 4px 0 rgba(72,45,111,.3),0 0 16px rgba(180,146,235,.75)
+}
+/* Reflejo de luz que recorre cada CTA; el foco no elimina la señal de accesibilidad. */
+.app :is(button.primary,.iconbtn,nav.tabs button,.quick button){
+  position:relative;isolation:isolate;overflow:hidden;
+  transition:transform .2s ease,filter .2s ease,box-shadow .2s ease
+}
+.app :is(button.primary,.iconbtn,nav.tabs button,.quick button)::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(112deg,transparent 25%,rgba(255,255,255,.08) 39%,
+    rgba(255,255,255,.62) 51%,rgba(255,255,255,.08) 62%,transparent 74%);
+  background-size:300% 100%;animation:janusKendraSheen 5.8s ease-in-out infinite;
+  mix-blend-mode:screen
+}
+.app :is(button.primary,.iconbtn,nav.tabs button,.quick button):is(:active,.is-lit,:focus-visible){
+  filter:brightness(1.08);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 0 18px rgba(150,118,223,.52);
+  transform:translateY(1px) scale(.985)
+}
+.app .card > :is(h2,h3){
+  border-block-end:1px solid var(--border);padding-block-end:7px
+}
+@keyframes janusKendraSheen{
+  0%,50%{background-position:130% 0}78%,100%{background-position:-130% 0}
+}
+@media(prefers-reduced-motion:reduce){
+  .app .card,.app .card::after,.app nav.tabs button span,
+  .app :is(button.primary,.iconbtn,nav.tabs button,.quick button),
+  .app :is(button.primary,.iconbtn,nav.tabs button,.quick button)::after{
+    animation:none!important;transition:none!important}
+  .app nav.tabs button span{transform:none!important}
+}
