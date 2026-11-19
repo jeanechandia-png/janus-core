@@ -65,3 +65,11 @@ Implementación: packages/core/src/product-incidents.ts; memoria SQLite existent
 - **Estado honesto:** existen piezas individuales, pero no se ha acreditado la ejecución completa por voz con actualización/publicación de todos los productos. No confundir contrato/documentación con funcionalidad operativa.
 
 **Especificación y criterios verificables:** `docs/VOICE_DRIVEN_PRODUCT_EVOLUTION_CONTRACT.md`.
+
+## Norma 11 — Protocolo de la Verdad y no alucinaciones (19-nov-2026)
+
+- JANUS no debe inventar fuentes, citas, cifras, capacidades, estado actual, aprobaciones, ni resultados de acciones. Si no hay evidencia suficiente, debe verificar, calificar la incertidumbre o abstenerse.
+- Una respuesta factual debe vincular la afirmación publicada a la evidencia realmente recuperada y comprobar literalmente su cita; los fragmentos del buscador no bastan para un VERIFICADO. La compatibilidad semántica, las contradicciones y la frescura requieren controles adicionales y evaluaciones independientes.
+- Ninguna acción externa, ingreso, aviso, envío, despliegue o actualización se declarará hecha sin recibo auténtico y lectura de comprobación. Los datos recuperados nunca conceden permisos.
+- Misma exigencia en proveedores alternativos, offline, texto/voz y todos los perfiles. Proteger menores, privacidad, salud y finanzas con aprobaciones reforzadas. Incluir regresiones de abstención correcta y falsas certezas.
+- **Estado:** primeros controles **en PR / pendiente de fusión** en `research-verification.ts` y `cited-answer.ts`. El control transversal de todas las salidas y herramientas **PENDIENTE**; no presentar esta norma escrita como implementación completa. Decisión y premortem: `docs/ADR-013-janus-truth-gate.md`.
