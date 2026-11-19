@@ -85,3 +85,17 @@ test('una fuente no descargada no es una segunda fuente independiente', () => {
   assert.equal(audit.verdict, 'PROBABLE');
   assert.equal(audit.independentDomains, 1);
 });
+
+test('dos fuentes reales no blanquean una tercera cita inventada', () => {
+  const urls = ['https://web.stanford.edu/a', 'https://www.nih.gov/b', 'https://www.bmj.com/c'];
+  const sources: Source[] = urls.map((url) => ({
+    url, fetched: { ok: true, text: url === urls[2] ? 'No hay coincidencias.' : 'Investigación válida sobre un hecho.' },
+  }));
+  const result = auditClaim({ id: 'c-mixed', text: 'Hecho', evidence: [
+    { url: urls[0]!, quote: 'Investigación válida' },
+    { url: urls[1]!, quote: 'Investigación válida' },
+    { url: urls[2]!, quote: 'Dato falsamente atribuido' },
+  ] }, sources);
+  assert.notEqual(result.verdict, 'VERIFICADO');
+  assert.ok(result.flags.some((f) => f.startsWith('cita no encontrada')));
+});
