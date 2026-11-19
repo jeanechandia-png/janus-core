@@ -21,6 +21,20 @@ const FEED_LABEL = { oferta: '🏷️ Oferta', evento: '🎪 Evento', peli: '�
 const TABS = [['inicio', '🏠', 'Inicio'], ['chat', '💬', 'Charla'], ['dia', '📒', 'Mi día'], ['ver', '▶️', 'Ver'], ['casa', '💡', 'Casa'], ['cosas', '⭐', 'Mis cosas']];
 
 const app = document.querySelector('#app');
+// Misma respuesta táctil que las tarjetas JANUS: iluminación local sin enviar datos,
+// modificar accesos, construir pantallas nuevas ni interferir con las criaturas aprobadas.
+app.addEventListener('pointerdown', (event) => {
+  const el = event.target.closest?.('button,.card,nav.tabs button');
+  if (!el || !app.contains(el) || el.disabled) return;
+  const rect = el.getBoundingClientRect();
+  if (rect.width && rect.height) {
+    el.style.setProperty('--light-x', ((event.clientX - rect.left) / rect.width * 100).toFixed(1) + '%');
+    el.style.setProperty('--light-y', ((event.clientY - rect.top) / rect.height * 100).toFixed(1) + '%');
+  }
+  el.classList.add('is-lit');
+  clearTimeout(el._janusLightTimer);
+  el._janusLightTimer = setTimeout(() => el.classList.remove('is-lit'), 680);
+}, { passive: true });
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 let token = readStorage(TOKEN_KEY);
