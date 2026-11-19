@@ -70,7 +70,7 @@
     });
   }
   // Iluminación al tocar: delegada, sobrevive a los re-render.
-  const LIT = '.go,.btn,.btn2,.bb,.ibtn,.tb2,.sg,.sg2,.snd,.mic,.back,.nt,.chip,.jp,.pjp,.pjr,.stt,.ipj,.ini-mic,.jg-wordmark-wrap,[data-act]';
+  const LIT = '.go,.btn,.btn2,.bb,.ibtn,.tb2,.sg,.sg2,.snd,.mic,.back,.nt,.chip,.jp,.pjp,.pjr,.stt,.ipj,.ini-mic,.jg-wordmark-wrap,.cd,.pl-cd,.a2c,[data-act]';
   let bound = false;
   function bindLit() {
     if (bound) return; bound = true;
