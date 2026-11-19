@@ -141,3 +141,62 @@ html,body{margin:0;background:#f5f7f9}
 .jw-inbox{margin-bottom:16px}
 .jw-inbox-body{margin:8px 0;white-space:pre-wrap;font-size:14px;line-height:1.45}
 @media (max-width:600px){.jt-compose-form{grid-template-columns:1fr}.cc-top-actions{flex-wrap:wrap}}
+
+/* JANUS Work · evolución de la misma piel autorizada: volumen y reflejos sin tocar skin.lock.
+ * La interfaz y la paleta original se conservan; estos estilos se añaden al final. */
+:is(.cc-panel,.cc-attention,.cc-operation-item,.cc-login-card){
+  position:relative;
+  transition:box-shadow .22s ease,filter .22s ease,transform .2s ease
+}
+:is(.cc-panel,.cc-attention,.cc-operation-item,.cc-login-card):is(:hover,:focus-within,:active){
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9),0 0 0 1px rgba(151,174,196,.36),
+    0 0 20px rgba(99,147,193,.18),0 12px 26px -18px rgba(14,25,37,.55);
+  filter:brightness(1.025)
+}
+:is(.cc-panel,.cc-attention,.cc-operation-item,.cc-login-card):active{transform:translateY(1px)}
+.cc-sidebar nav a>span[aria-hidden]{
+  position:relative;display:inline-grid;place-items:center;
+  min-inline-size:26px;min-block-size:26px;border-radius:50%;
+  background:radial-gradient(circle at 30% 24%,#fff8dc,#e8c47d 40%,#9e7434 76%,#453119);
+  border:1px solid rgba(255,240,192,.85);
+  text-shadow:0 1px 0 #fff2c9,0 2px 2px rgba(15,20,26,.45);
+  box-shadow:inset 0 2px 1px #fffae4,inset 0 -3px 4px rgba(42,25,8,.45),
+    0 2px 0 #61441f,0 5px 8px -4px rgba(14,25,37,.7)
+}
+.cc-sidebar nav a:is(:hover,:focus-visible,.active)>span[aria-hidden]{
+  filter:brightness(1.15);box-shadow:inset 0 2px 1px #fff,inset 0 -3px 4px rgba(42,25,8,.4),
+    0 3px 0 #61441f,0 0 18px rgba(232,195,122,.65)
+}
+:is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+ .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button:not(:disabled),
+.cc-sidebar nav a{
+  position:relative;isolation:isolate;overflow:hidden;transition:transform .2s ease,filter .2s ease,box-shadow .2s ease
+}
+:is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+ .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button:not(:disabled)::after,
+.cc-sidebar nav a::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:2;border-radius:inherit;
+  background:linear-gradient(110deg,transparent 32%,rgba(255,255,255,.08) 42%,
+    rgba(255,255,255,.6) 50%,rgba(255,255,255,.08) 59%,transparent 72%);
+  background-size:280% 100%;animation:janusWorkSpecular 5.4s ease-in-out infinite;
+  mix-blend-mode:screen
+}
+:is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+ .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button:not(:disabled):is(:hover,:focus-visible,:active){
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.58),0 0 18px rgba(102,153,202,.35);
+  filter:brightness(1.1)
+}
+:is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+ .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button:not(:disabled):active{
+  transform:translateY(2px) scale(.985)
+}
+@keyframes janusWorkSpecular{0%,47%{background-position:130% 0}78%,100%{background-position:-130% 0}}
+@media(prefers-reduced-motion:reduce){
+  :is(.cc-panel,.cc-attention,.cc-operation-item,.cc-login-card),
+  .cc-sidebar nav a,
+  :is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+  .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button,
+  .cc-sidebar nav a::after,
+  :is(.cc-top-actions,.cc-inline-actions,.cc-row-actions,.jw-actions,.jt-compose-actions,
+  .cc-login-card,.jw-agenda-form,.cc-intake-actions,.jt-invite) button::after{animation:none!important;transition:none!important}
+}
