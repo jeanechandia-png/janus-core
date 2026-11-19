@@ -171,7 +171,7 @@ export function verifyCitedAnswer(input: { question: string; text: string; sourc
     const anySnippets = withQuote.some((p) => sources[p.n - 1]!.basis === 'fragmento');
     if (anySnippets && verdict === 'VERIFICADO') {
       verdict = 'PROBABLE';
-      flags.push('al menos una fuente es solo fragmento del buscador (no página completa)');
+      flags.push('al menos una fuente procede de fragmentos del buscador (no página completa)');
     }
     if (flags.length > 0 && verdict === 'VERIFICADO') verdict = 'POR CONFIRMAR';
     return { text: c.text, sources: nums.map((p) => p.n), ...(withQuote.length ? { quotes: withQuote.map((p) => p.quote) } : {}), verdict, flags: [...flags, ...audit.flags] };
