@@ -2,7 +2,9 @@ name: Janus Core CI
 
 on:
   push:
-    branches: [main]
+    # CI del trabajo ya existente en PR #83; pull_request no ejecuta mientras tenga conflictos con main.
+    # Mantener el mismo repositorio y comprobar el HEAD sin crear otra rama ni otro producto.
+    branches: [main, chatgpt/janus-voice-evolution-hardening-20261117]
   pull_request:
 
 permissions:
