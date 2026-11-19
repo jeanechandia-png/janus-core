@@ -1,3 +1,11 @@
+## 19-nov-2026 — Puerta de la Verdad JANUS (trabajo no fusionado)
+
+- **Repositorio único:** `jeanechandia-png/janus-core`. Base `main` 9112ad54cc623b1f09993d2e0c21228abd42ecea; rama de revisión `chatgpt/janus-truth-gate-20261119` dentro del mismo repositorio, sin nuevas aplicaciones, repositorios o cambios de UI.
+- **Nuevo control de código:** los auditores de citas no cuentan fuentes descargadas sin texto verificable, exigen citas literales y enlazan cada afirmación auditada con su frase publicada. Cualquier respuesta `RECHAZADO` queda bloqueada en el renderizador de respuestas citadas.
+- **Pruebas añadidas:** en `tests/chat-continuity-research.test.ts` y `tests/cited-answer.test.ts`. Estado exacto de CI y aceptación deben verificarse en GitHub antes de fusionar.
+- **ADR:** `docs/ADR-013-janus-truth-gate.md`; alcance, premortem, criterios y pendientes reales. No existe todavía una Puerta de la Verdad aplicada a todas las respuestas del runtime, voz, automatizaciones y redacciones de herramientas.
+- **Pendiente histórico preservado:** reconciliación integral de Janus 1/2, 454 contratos declarados vs 494 IDs inventariados; privacidad SF01–SF20; tablet/audio reales y criaturas/robots. No afirmar cierre por esta PR.
+
 ## 17-nov-2026 — Fusión de evolución acumulativa JANUS y Claude
 
 - Integración sin nueva aplicación de rama de voz/CORE (#81) y ampliaciones Claude JANUS Work (#82). Ambas historias se conservan como progenitores; interfaz original y módulos no sustituidos.
