@@ -60,3 +60,42 @@ test('plan por capas con auditor aislado', () => {
   assert.equal(p.filter((l) => l.layer === 1).length, 2);
   assert.deepEqual(p.find((l) => l.layer === 3)!.isolatedFrom, [1]);
 });
+
+test('no confunde HTTP 200 con una cita verificada cuando falta el texto de la fuente', () => {
+  const url = 'https://www.nih.gov/a';
+  const claim = { id: 'c-no-text', text: 'Dato por verificar', evidence: [{ url, quote: 'dato supuestamente confirmado' }] };
+  const absent = auditClaim(claim, [{ url, fetched: { ok: true, status: 200 } }]);
+  assert.equal(absent.verdict, 'POR CONFIRMAR');
+  assert.equal(absent.independentDomains, 0);
+  assert.ok(absent.flags.some((x) => x.startsWith('sin texto comprobable')));
+  const blank = auditClaim({ ...claim, evidence: [{ url, quote: '   ' }] }, [{ url, fetched: { ok: true, text: 'Un dato' } }]);
+  assert.equal(blank.verdict, 'POR CONFIRMAR');
+  assert.equal(blank.independentDomains, 0);
+});
+
+test('una fuente no descargada no es una segunda fuente independiente', () => {
+  const sources: Source[] = [
+    { url: 'https://web.stanford.edu/a', fetched: { ok: true, text: 'Un hallazgo comprobado.' } },
+    { url: 'https://www.nih.gov/b' },
+  ];
+  const audit = auditClaim({ id: 'c-partial', text: 'Hallazgo', evidence: [
+    { url: sources[0]!.url, quote: 'hallazgo comprobado' },
+    { url: sources[1]!.url, quote: 'hallazgo comprobado' },
+  ] }, sources);
+  assert.equal(audit.verdict, 'PROBABLE');
+  assert.equal(audit.independentDomains, 1);
+});
+
+test('dos fuentes reales no blanquean una tercera cita inventada', () => {
+  const urls = ['https://web.stanford.edu/a', 'https://www.nih.gov/b', 'https://www.bmj.com/c'];
+  const sources: Source[] = urls.map((url) => ({
+    url, fetched: { ok: true, text: url === urls[2] ? 'No hay coincidencias.' : 'Investigación válida sobre un hecho.' },
+  }));
+  const result = auditClaim({ id: 'c-mixed', text: 'Hecho', evidence: [
+    { url: urls[0]!, quote: 'Investigación válida' },
+    { url: urls[1]!, quote: 'Investigación válida' },
+    { url: urls[2]!, quote: 'Dato falsamente atribuido' },
+  ] }, sources);
+  assert.notEqual(result.verdict, 'VERIFICADO');
+  assert.ok(result.flags.some((f) => f.startsWith('cita no encontrada')));
+});

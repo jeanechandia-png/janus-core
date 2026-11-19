@@ -70,18 +70,29 @@ export function auditClaim(claim: Claim, sources: Source[], opts: { minIndepende
   for (const ev of claim.evidence) {
     const s = byUrl.get(ev.url);
     if (!s) { flags.push('fuente no registrada: ' + ev.url); continue; }
-    if (s.fetched && !s.fetched.ok) { flags.push('enlace caído: ' + ev.url); continue; }
     if (s.fetched?.retracted) { flags.push('retractada: ' + ev.url); refuted = true; continue; }
-    if (s.fetched?.text !== undefined && !norm(s.fetched.text).includes(norm(ev.quote))) { flags.push('cita no encontrada en ' + hostOf(ev.url)); continue; }
-    if (!s.fetched) flags.push('sin comprobar (no descargada): ' + hostOf(ev.url));
+    if (!s.fetched) { flags.push('sin comprobar (no descargada): ' + hostOf(ev.url)); continue; }
+    if (!s.fetched.ok) { flags.push('enlace caído: ' + ev.url); continue; }
+    // Una URL que responde HTTP 200 NO es evidencia si el host no descargó texto verificable.
+    // La cita debe existir literalmente en el texto realmente recuperado, nunca en metadatos del modelo.
+    if (!ev.quote.trim()) { flags.push('cita literal vacía: ' + ev.url); continue; }
+    if (typeof s.fetched.text !== 'string' || !s.fetched.text.trim()) {
+      flags.push('sin texto comprobable: ' + hostOf(ev.url)); continue;
+    }
+    if (!norm(s.fetched.text).includes(norm(ev.quote))) {
+      flags.push('cita no encontrada en ' + hostOf(ev.url)); continue;
+    }
     const { tier } = classifySource(s);
     if (best === null || RANK[tier] > RANK[best]) best = tier;
-    if (s.fetched?.ok) domains.add(hostOf(ev.url).split('.').slice(-2).join('.'));
+    domains.add(hostOf(ev.url).split('.').slice(-2).join('.'));
   }
   const n = domains.size; const tierOk = !requireTierA || (best !== null && RANK[best] >= RANK['A-']);
   let verdict: Verdict;
-  if (refuted || (claim.evidence.length > 0 && n === 0 && flags.every((f) => !f.startsWith('sin comprobar')))) verdict = 'DESCARTADO';
-  else if (n >= minIndependent && tierOk) verdict = 'VERIFICADO';
+  // Ausencia de descarga/texto no refuta el hecho: clasificar como POR CONFIRMAR.
+  // Una cita falsificada sí descarta la evidencia presentada.
+  if (refuted || (n === 0 && flags.some((f) => f.startsWith('cita no encontrada')))) verdict = 'DESCARTADO';
+  // Una cita inválida no puede quedar blanqueada por otras dos fuentes válidas.
+  else if (n >= minIndependent && tierOk && flags.length === 0) verdict = 'VERIFICADO';
   else if (n >= 1 && best !== null && RANK[best] >= RANK['B']) verdict = 'PROBABLE';
   else verdict = 'POR CONFIRMAR';
   if (n < minIndependent) flags.push('fuentes independientes: ' + n + '/' + minIndependent);
