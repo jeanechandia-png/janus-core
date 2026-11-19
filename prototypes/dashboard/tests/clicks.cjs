@@ -22,4 +22,7 @@ await t('Mi día añadir', async()=>{await p.click('.tb2[data-go=dia]');await p.
 L.push('  eventos personal: '+await p.$eval('.vb-dia .cd >> nth=0',e=>e.querySelector('.mt').textContent));
 await t('reload persiste', ()=>p.reload());
 L.push('  tras recarga: '+await p.$eval('.vb-dia .cd >> nth=0',e=>e.querySelector('.mt').textContent));
-console.log(L.join('\n'));console.log(errs.length?'ERRORES '+errs.join('|'):'sin errores JS');await b.close();})();
+console.log(L.join('\n'));console.log(errs.length?'ERRORES '+errs.join('|'):'sin errores JS');await b.close();
+// Este smoke debe FALLAR en CI ante un clic roto o error de ejecución; la versión anterior solo imprimía FALLO y devolvía exit 0.
+if (errs.length || L.some(line => line.includes(' FALLO '))) { console.error('JANUS: navegación o control funcional fallido'); process.exitCode = 1; }
+})();
