@@ -81,6 +81,12 @@ jobs:
           cd prototypes/dashboard
           node tests/layout.cjs offline
           node tests/skin.cjs
+      - name: Interacciones reales de dashboard A (tarjetas, pestañas, controles, cambios persistidos)
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+        run: |
+          cd prototypes/dashboard
+          node tests/clicks.cjs
       - name: HTML A/B verificables para revisión (datos genéricos)
         if: always()
         uses: actions/upload-artifact@v4
