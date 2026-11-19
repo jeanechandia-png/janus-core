@@ -1,3 +1,10 @@
+## 19-nov-2026 — Integración confirmada de la Puerta de la Verdad (PR #84)
+
+- **FUSIONADA EN MAIN:** PR #84, commit `aa65ecf194ed8168f5689e20375fedc6716fb098`. Se conservó la rama histórica de revisión sin alterar dashboards, voces, secretos ni repositorios de otros productos.
+- **CI de la PR:** 832 tests, 830 PASS, 0 FAIL, 2 SKIP, más typecheck, sintaxis y runtime smoke. **CI del merge en main:** `44634940208`, SUCCESS (https://github.com/jeanechandia-png/janus-core/actions/runs/44634940208).
+- **En código y verificado por CI:** fuente HTTP sin texto, cita vacía, fuente no descargada, cita falsificada y afirmación desalineada no pueden certificar un hecho como VERIFICADO; la salida RECHAZADO no publica la respuesta original. Detectar una fuente inventada sigue sin sustituir la verificación de *significado*.
+- **PENDIENTE:** aplicación de la política a todas las respuestas normales y habladas del runtime, autorización de acciones con recibo/readback, verificación semántica y temporal de las citas, validación con proveedores reales, tablet física y archivos históricos íntegros. La Norma 11 sigue vigente y exige completar la integración sin duplicar JANUS.
+
 ## 19-nov-2026 — Puerta de la Verdad JANUS (trabajo no fusionado)
 
 - **Repositorio único:** `jeanechandia-png/janus-core`. Base `main` 9112ad54cc623b1f09993d2e0c21228abd42ecea; rama de revisión `chatgpt/janus-truth-gate-20261119` dentro del mismo repositorio, sin nuevas aplicaciones, repositorios o cambios de UI.
