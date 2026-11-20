@@ -12,6 +12,7 @@ export interface VoiceStreamServerOptions {
   gatewayFactory: (sessionId: string) => VoiceGateway | Promise<VoiceGateway>;
   path?: string;
   defaultVoiceId?: string;
+  resolveVoiceId?: (requested: string | undefined) => string;
   maxAudioFrameBytes?: number;
   /** Optional per-session speaker recognition (convenience only). */
   speakerResolverFactory?: (sessionId: string) => SpeakerResolver | undefined;
@@ -50,6 +51,7 @@ export class VoiceStreamServer {
   private readonly gatewayFactory: VoiceStreamServerOptions['gatewayFactory'];
   private readonly path: string;
   private readonly defaultVoiceId: string;
+  private readonly resolveVoiceId?: VoiceStreamServerOptions['resolveVoiceId'];
   private readonly maxAudioFrameBytes: number;
   private readonly speakerResolverFactory?: VoiceStreamServerOptions['speakerResolverFactory'];
   private readonly authorize?: VoiceStreamServerOptions['authorize'];
@@ -64,6 +66,7 @@ export class VoiceStreamServer {
     this.gatewayFactory = options.gatewayFactory;
     this.path = options.path ?? '/api/voice/stream';
     this.defaultVoiceId = options.defaultVoiceId ?? 'janus-default';
+    this.resolveVoiceId = options.resolveVoiceId;
     this.maxAudioFrameBytes = options.maxAudioFrameBytes ?? 128 * 1024;
     this.speakerResolverFactory = options.speakerResolverFactory;
     this.authorize = options.authorize;
@@ -175,7 +178,7 @@ export class VoiceStreamServer {
             const engine = new DuplexVoiceEngine({
               gateway,
               session: this.sessions.get(sessionId),
-              voiceId: control.voiceId?.trim() || this.defaultVoiceId,
+              voiceId: this.resolveVoiceId ? this.resolveVoiceId(control.voiceId?.trim()) : control.voiceId?.trim() || this.defaultVoiceId,
               onEvent: async (event) => this.forwardEngineEvent(ws, event),
               ...(validate ? { beforeTranscript: validate } : {}),
               ...(this.speakerResolverFactory ? (() => { const speakerResolver = this.speakerResolverFactory!(sessionId); return speakerResolver ? { speakerResolver } : {}; })() : {}),
