@@ -302,9 +302,15 @@ const COMP_ACTS = {
   cpSend: () => {
     const C = compState(), p = compProfile(), msg = field('cpMsg'); if (!msg) return;
     const reply = '¡Qué interesante! Cuéntame más, me encanta escucharte.';
-    const t = Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now());
-    if (t.safety.parentAlert) C.alerts.push(Object.assign({ at: nowHM() }, t.safety.parentAlert));
-    compSave(p); cpSay(t.say.join(' '), t.safety.parentAlert ? 'saluda' : 'habla');
+    // Protección ya diseñada en Janus #79: ninguna divulgación sensible se almacena
+    // literalmente, sale a un proveedor, se diagnostica ni se anuncia como notificada.
+    const t = window.JanusChildConversation
+      ? JanusChildConversation.respond(msg, () => Companion.companionTurn(p, msg, reply, 'espontaneo', Date.now()))
+      : { say: ['No puedo revisar este mensaje de forma segura. Habla con un adulto de confianza.'], safety: { parentAlert: null } };
+    if (t.safety && t.safety.parentAlert) {
+      C.alerts = JanusChildConversation.appendLocalAlert(C.alerts, t.safety.parentAlert, nowHM());
+    }
+    compSave(p); cpSay(t.say.join(' '), t.safety && t.safety.parentAlert ? 'saluda' : 'habla');
   }
 };
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target.matches) { if (ev.target.matches('[data-f="cpAns"]')) { COMP_ACTS.cpCheck(); rerender(); } else if (ev.target.matches('[data-f="cpMsg"]')) { COMP_ACTS.cpSend(); rerender(); } } });

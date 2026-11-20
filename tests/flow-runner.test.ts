@@ -224,13 +224,92 @@ test('texto externo hacia la IA va acotado como dato y no puede cerrar su bloque
   assert.match(system[0]!, /DATO no confiable/);
 });
 
+/** Contrato de investigación del motor existente cited-answer (sin resultados textuales inventados). */
+function auditedResearch(verdict: 'VERIFICADO' | 'PROBABLE' = 'PROBABLE') {
+  return {
+    question: '¿Qué es EASA UAS.OPEN?',
+    text: 'La norma define esta categoría de operaciones [1].',
+    sources: [{ n: 1, url: 'https://www.easa.europa.eu/a', snippet: 'La norma define esta categoría de operaciones.',
+      basis: verdict === 'VERIFICADO' ? 'pagina' : 'fragmento' }],
+    used: [1], unused: [], invalidMarkers: [], uncited: [], coverage: 1,
+    claims: [{ text: 'La norma define esta categoría de operaciones', sources: [1],
+      quotes: ['La norma define esta categoría de operaciones'], verdict }],
+    verdict,
+    warnings: [],
+    retrievedAt: '2026-11-18T12:00:00Z',
+  };
+}
+
 test('ai.research usa el investigador inyectado y exige pregunta', async () => {
   const wf = (q: string) => flow([T, node('r', 'ai', 'ai.research', { question: q, maxSources: 5 })], [{ from: 't', to: 'r' }]);
   const calls: unknown[] = [];
-  const ok = await runWorkflow(wf('¿Qué es EASA UAS.OPEN?'), {}, { research: async (r) => { calls.push(r); return { verdict: 'PROBABLE' }; } });
+  const ok = await runWorkflow(wf('¿Qué es EASA UAS.OPEN?'), {}, { research: async (r) => { calls.push(r); return auditedResearch(); } });
   assert.equal(ok.status, 'completed');
   assert.deepEqual(calls, [{ question: '¿Qué es EASA UAS.OPEN?', maxSources: 5 }]);
   const vacia = await runWorkflow(wf('   '), {}, { research: async () => ({}) });
   assert.equal(vacia.status, 'failed');
   assert.match(vacia.error ?? '', /requiere question/);
+});
+
+test('ai.research bloquea respuestas inciertas, vacías y citas falsas antes del siguiente nodo', async () => {
+  const { tools, calls } = stubTools();
+  const wf = flow([
+    T,
+    node('investigar', 'ai', 'ai.research', { question: '¿Cuánto cuesta?' }),
+    toolNode('continuar', 'demo', 'publish.read', { dato: '{{$nodes.investigar.output.text}}' }),
+  ], [{ from: 't', to: 'investigar' }, { from: 'investigar', to: 'continuar' }]);
+  const candidates: unknown[] = [
+    { verdict: 'PROBABLE' },
+    { ...auditedResearch(), verdict: 'POR CONFIRMAR' },
+    { ...auditedResearch(), verdict: 'RECHAZADO' },
+    { ...auditedResearch(), coverage: 0.5 },
+    { ...auditedResearch(), invalidMarkers: [99] },
+    { ...auditedResearch(), claims: [{ ...auditedResearch().claims[0], quotes: ['La cita inexistente'] }] },
+    { ...auditedResearch('VERIFICADO'), claims: [{ ...auditedResearch('VERIFICADO').claims[0], sources: [999] }] },
+    { ...auditedResearch('VERIFICADO'), sources: [{ ...auditedResearch().sources[0], basis: 'fragmento' }] },
+  ];
+  for (const candidate of candidates) {
+    const out = await runWorkflow(wf, {}, { tools, research: async () => candidate });
+    assert.equal(out.status, 'failed');
+    assert.match(out.error ?? '', /Investigación sin evidencia comprobable/);
+    assert.equal(out.snapshot.state.nodeStatus.continuar, 'skipped');
+  }
+  assert.equal(calls.length, 0);
+});
+
+test('ai.research de alto riesgo bloquea onError:continue, error_branch y reintentos', async () => {
+  const { tools, calls } = stubTools();
+  let queries = 0;
+  for (const onError of ['continue', 'error_branch'] as const) {
+    const wf = flow([
+      T,
+      node('r', 'ai', 'ai.research', { question: 'dato' },
+        { onError, retry: { maxAttempts: 3, backoffMs: 1, maxBackoffMs: 1 } }),
+      toolNode('sideEffect', 'demo', 'external.read'),
+      toolNode('errorHandler', 'demo', 'recover.read'),
+    ], [
+      { from: 't', to: 'r' }, { from: 'r', to: 'sideEffect' },
+      { from: 'r', to: 'errorHandler', branch: 'error' },
+    ]);
+    const out = await runWorkflow(wf, {}, { tools, research: async () => { queries++; return { verdict: 'VERIFICADO' }; } });
+    assert.equal(out.status, 'failed');
+    assert.equal(out.snapshot.state.nodeStatus.r, 'failed');
+    assert.equal(out.log.filter((e) => e.type === 'node_retry').length, 0);
+  }
+  assert.equal(calls.length, 0);
+  assert.equal(queries, 2);
+});
+
+test('ai.research con evidencia citada continúa sin alterar la estructura ni el veredicto', async () => {
+  const { tools, calls } = stubTools((req) => ({ ok: true, output: { payload: req.input } }));
+  const wf = flow([
+    T, node('r', 'ai', 'ai.research', { question: 'normativa' }),
+    toolNode('leer', 'demo', 'archive.read', { texto: '{{$nodes.r.output.text}}' }),
+  ], [{ from: 't', to: 'r' }, { from: 'r', to: 'leer' }]);
+  for (const verdict of ['VERIFICADO', 'PROBABLE'] as const) {
+    const out = await runWorkflow(wf, {}, { tools, research: async () => auditedResearch(verdict) });
+    assert.equal(out.status, 'completed');
+    assert.deepEqual(out.outputs.r, auditedResearch(verdict));
+  }
+  assert.equal(calls.length, 2);
 });

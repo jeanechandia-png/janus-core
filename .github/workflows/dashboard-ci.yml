@@ -10,6 +10,10 @@ on:
   pull_request:
     paths:
       - 'prototypes/dashboard/**'
+      - 'apps/pwa/**'
+      - 'apps/runtime/**'
+      - 'packages/voice/**'
+      - 'packages/automation/**'
       - '.github/workflows/dashboard-ci.yml'
   workflow_dispatch:
 
@@ -39,6 +43,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Contratos LEGO · avatares Janus y Melanie, cuatro criaturas
         run: node --test prototypes/dashboard/tests/avatar-catalog.test.cjs
+      - name: Seguridad infantil local - ningún mensaje sensible sin filtro ni registro privado literal
+        run: node --test prototypes/dashboard/tests/child-evidence-safety.test.cjs prototypes/dashboard/tests/child-conversation-integration.test.cjs
       - name: Puerta de seguridad JANUS CORE (sin salida a proveedores externos)
         run: node --test prototypes/dashboard/tests/core-bridge.test.cjs
       - name: Privacidad · ningún dato de local/ puede aparecer en HTML público

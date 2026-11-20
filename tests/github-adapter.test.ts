@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { GitHubAdapter } from '../packages/adapters/src/github-adapter.js';
+import { SENSITIVE_TOOL_ACTIONS } from '../packages/orchestrator/src/sensitive-action-policy.js';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -239,4 +240,89 @@ test('GitHub adapter refuses publish when branch head changed from expected stat
 
   assert.equal(result.ok, false);
   assert.match(result.error ?? '', /branch head changed before publish/);
+});
+
+test('GitHub adapter creates an idempotent review branch only from a matching base SHA', async () => {
+  const sha = 'a'.repeat(40);
+  const calls: string[] = [];
+  const adapter = new GitHubAdapter({
+    token: 'private-token',
+    fetchImpl: async (input, init) => {
+      const url = String(input);
+      const method = init?.method ?? 'GET';
+      calls.push(method + ' ' + url);
+      if (url.endsWith('/git/ref/heads/janus/change-approved-assets')) {
+        return jsonResponse({ message: 'Not Found' }, 404);
+      }
+      if (url.endsWith('/git/ref/heads/main')) return jsonResponse({ object: { sha } });
+      if (url.endsWith('/git/refs') && method === 'POST') {
+        assert.deepEqual(JSON.parse(String(init?.body)), {
+          ref: 'refs/heads/janus/change-approved-assets', sha,
+        });
+        assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer private-token');
+        return jsonResponse({ ref: 'refs/heads/janus/change-approved-assets', object: { sha } }, 201);
+      }
+      throw new Error('Unexpected GitHub request ' + url);
+    },
+  });
+  const result = await adapter.execute({
+    tool: 'github', action: 'branch.create',
+    input: { owner: 'owner', repo: 'repo', ref: 'janus/change-approved-assets', baseRef: 'main', expectedBaseSha: sha },
+  }, async () => {});
+  assert.equal(result.ok, true);
+  assert.equal(result.output?.unchanged, false);
+  assert.equal(calls.filter((x) => x.includes('/git/ref/heads/main')).length, 2);
+  assert.equal(calls.filter((x) => x.startsWith('POST ')).length, 1);
+  assert.equal(JSON.stringify(result).includes('private-token'), false);
+});
+
+test('GitHub adapter leaves an existing review branch unchanged instead of duplicating it', async () => {
+  const sha = 'b'.repeat(40);
+  let reads = 0;
+  const adapter = new GitHubAdapter({
+    token: 'private-token',
+    fetchImpl: async (input) => {
+      assert.match(String(input), /\/git\/ref\/heads\/janus\/change-approved-assets$/);
+      reads += 1;
+      return jsonResponse({ object: { sha } });
+    },
+  });
+  const result = await adapter.execute({
+    tool: 'github', action: 'branch.create',
+    input: { owner: 'owner', repo: 'repo', ref: 'janus/change-approved-assets', baseRef: 'main', expectedBaseSha: sha },
+  }, async () => {});
+  assert.equal(result.ok, true);
+  assert.equal(result.output?.unchanged, true);
+  assert.equal(reads, 1);
+});
+
+test('GitHub adapter rejects stale SHA and protected branch names before any write', async () => {
+  const sha = 'c'.repeat(40);
+  let writes = 0;
+  const adapter = new GitHubAdapter({
+    token: 'private-token',
+    fetchImpl: async (input, init) => {
+      if (init?.method === 'POST') writes += 1;
+      if (String(input).endsWith('/git/ref/heads/main')) {
+        return jsonResponse({ object: { sha: 'd'.repeat(40) } });
+      }
+      return jsonResponse({ message: 'Not Found' }, 404);
+    },
+  });
+  const rejectedName = await adapter.execute({
+    tool: 'github', action: 'branch.create',
+    input: { owner: 'owner', repo: 'repo', ref: 'main', baseRef: 'main', expectedBaseSha: sha },
+  }, async () => {});
+  assert.equal(rejectedName.ok, false);
+  const rejectedSha = await adapter.execute({
+    tool: 'github', action: 'branch.create',
+    input: { owner: 'owner', repo: 'repo', ref: 'janus/change-approved-assets', baseRef: 'main', expectedBaseSha: sha },
+  }, async () => {});
+  assert.equal(rejectedSha.ok, false);
+  assert.match(rejectedSha.error ?? '', /base branch changed/i);
+  assert.equal(writes, 0);
+});
+
+test('review-branch creation is classified as sensitive external write', () => {
+  assert.match(SENSITIVE_TOOL_ACTIONS['github.branch.create'] ?? '', /aprobación/i);
 });

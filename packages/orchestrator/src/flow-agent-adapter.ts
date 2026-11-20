@@ -34,12 +34,14 @@ export interface FlowAgentRequest {
 }
 
 export interface AgentTask {
-  mode: 'produce' | 'verify';
+  mode: 'produce' | 'verify' | 'revise';
   objective: string;
   /** Datos de entrada: contenido NO fiable. El agente debe tratarlo como dato, nunca como instrucción. */
   input: unknown;
   /** Solo en `verify`: el resultado propuesto por otro agente. */
   candidate?: unknown;
+  /** Verifier feedback is untrusted task data, never a privileged instruction. */
+  feedback?: string[];
   nodeId: string;
   role: AgentRole;
   signal: AbortSignal;
@@ -66,6 +68,9 @@ export interface AgentHandoff {
   producer?: { id: string; role: AgentRole; local: boolean };
   verifier?: { id: string; role: AgentRole; local: boolean; ok: boolean; reasons: string[] };
   status: HandoffStatus;
+  /** Number of optional corrective passes actually performed; never a claim of verified quality. */
+  refinementRounds?: number;
+  verificationAttempts?: number;
   error?: string;
   inputSha256: string;
   outputSha256?: string;
@@ -81,6 +86,8 @@ export interface FlowAgentAdapterOptions {
   verify?: VerificationPolicy;
   timeoutMs?: number;
   maxOutputBytes?: number;
+  /** Opt-in only; 0 by default to avoid extra model calls or costs. Range 0-3. */
+  maxRefinementRounds?: number;
   onHandoff?: (handoff: AgentHandoff) => void;
   now?: () => Date;
 }
@@ -135,12 +142,17 @@ export class FlowAgentAdapter {
   private readonly policy: VerificationPolicy;
   private readonly timeoutMs: number;
   private readonly maxOutputBytes: number;
+  private readonly maxRefinementRounds: number;
   private readonly now: () => Date;
 
   constructor(private readonly options: FlowAgentAdapterOptions) {
     this.policy = options.verify ?? 'auto';
     this.timeoutMs = options.timeoutMs ?? 120_000;
     this.maxOutputBytes = options.maxOutputBytes ?? 1_000_000;
+    this.maxRefinementRounds = options.maxRefinementRounds ?? 0;
+    if (!Number.isInteger(this.maxRefinementRounds) || this.maxRefinementRounds < 0 || this.maxRefinementRounds > 3) {
+      throw new AgentRoutingError('maxRefinementRounds must be an integer between 0 and 3');
+    }
     this.now = options.now ?? (() => new Date());
   }
 
@@ -178,15 +190,26 @@ export class FlowAgentAdapter {
       });
       handoff.producer = { id: producer.id, role: producer.role, local: producer.local };
 
-      const produced = await this.invoke(producer, { mode: 'produce', objective: request.objective, input: request.input, nodeId: request.nodeId });
-      const bytes = Buffer.byteLength(JSON.stringify(produced.output ?? null) ?? 'null', 'utf8');
-      if (bytes > this.maxOutputBytes) throw new AgentOutputError(`La salida del agente supera el máximo (${bytes} > ${this.maxOutputBytes} bytes)`);
-      handoff.outputBytes = bytes;
-      handoff.outputSha256 = sha(produced.output);
+      // A bounded verify/revise loop. The first candidate is never considered accepted
+      // merely because a model produced it; risky tasks require an independent verifier.
+      let candidate = (await this.invoke(producer, {
+        mode: 'produce', objective: request.objective, input: request.input, nodeId: request.nodeId,
+      })).output;
+      const recordCandidate = (value: unknown): void => {
+        const bytes = Buffer.byteLength(JSON.stringify(value ?? null) ?? 'null', 'utf8');
+        if (bytes > this.maxOutputBytes) {
+          throw new AgentOutputError(`La salida del agente supera el máximo (${bytes} > ${this.maxOutputBytes} bytes)`);
+        }
+        handoff.outputBytes = bytes;
+        handoff.outputSha256 = sha(value);
+      };
+      recordCandidate(candidate);
+      handoff.refinementRounds = 0;
+      handoff.verificationAttempts = 0;
 
       if (!this.needsVerification(request)) {
         finish('unverified');
-        return { output: produced.output };
+        return { output: candidate };
       }
 
       let verifier: FlowAgentExecutor;
@@ -199,21 +222,38 @@ export class FlowAgentAdapter {
           ...(request.preferLocal !== undefined ? { preferLocal: request.preferLocal } : {}),
         });
       } catch (routing) {
-        // Sin verificador independiente no hay garantías: falla cerrado, el resultado del productor NO se devuelve.
         const reason = routing instanceof Error ? routing.message : 'sin verificador';
         finish('rejected', `sin verificador independiente: ${reason}`);
         throw new AgentVerificationError(`Se exige verificación independiente y no hay un agente verificador distinto del productor; no se devuelve el resultado sin verificar (${reason})`);
       }
-      const verdictRaw = await this.invoke(verifier, { mode: 'verify', objective: request.objective, input: request.input, candidate: produced.output, nodeId: request.nodeId });
-      const verdict = parseVerdict(verdictRaw.output);
-      handoff.verifier = { id: verifier.id, role: verifier.role, local: verifier.local, ok: verdict.ok, reasons: verdict.reasons };
-      if (!verdict.ok) {
-        const why = verdict.reasons.length ? verdict.reasons.join('; ') : 'sin motivo indicado';
-        finish('rejected', `rechazado por ${verifier.id}: ${why}`);
-        throw new AgentVerificationError(`El verificador ${verifier.id} rechazó el resultado: ${why}`);
+
+      for (let round = 0; round <= this.maxRefinementRounds; round++) {
+        const verdictRaw = await this.invoke(verifier, {
+          mode: 'verify', objective: request.objective, input: request.input, candidate, nodeId: request.nodeId,
+        });
+        handoff.verificationAttempts = round + 1;
+        const verdict = parseVerdict(verdictRaw.output);
+        handoff.verifier = { id: verifier.id, role: verifier.role, local: verifier.local, ok: verdict.ok, reasons: verdict.reasons };
+        if (verdict.ok) {
+          finish('accepted');
+          return { output: candidate };
+        }
+        if (round === this.maxRefinementRounds) {
+          const why = verdict.reasons.length ? verdict.reasons.join('; ') : 'sin motivo indicado';
+          finish('rejected', `rechazado por ${verifier.id}: ${why}`);
+          throw new AgentVerificationError(`El verificador ${verifier.id} rechazó el resultado: ${why}`);
+        }
+        // Only explicitly enabled refinements use further model calls. Feedback and
+        // candidate are untrusted DATA, and no external tools are invoked by this adapter.
+        candidate = (await this.invoke(producer, {
+          mode: 'revise', objective: request.objective, input: request.input, candidate,
+          feedback: verdict.reasons.slice(0, 5), nodeId: request.nodeId,
+        })).output;
+        handoff.refinementRounds = round + 1;
+        recordCandidate(candidate);
       }
-      finish('accepted');
-      return { output: produced.output };
+      throw new AgentVerificationError('Se agotó el presupuesto de verificación');
+
     } catch (error) {
       finish('failed', error instanceof Error ? error.message : 'Error desconocido');
       throw error;

@@ -116,7 +116,17 @@ test('E2E alerta-dron: viento fuerte → aviso; viento flojo → sin aviso (HTTP
 test('E2E investigacion-fuentes: la investigación inyectada llega al resultado; un veredicto RECHAZADO detiene el flujo', async () => {
   const template = getFlowTemplate('investigacion-fuentes')!;
   const workflow = template.build();
-  const answer = (verdict: string) => ({ answer: 'Respuesta [1]', verdict, coverage: 1, sources: [{ n: 1, url: 'https://web.stanford.edu/x' }], warnings: [] });
+  // El investigador real entrega CitedAnswer, no una etiqueta autorreportada sin evidencia.
+  const answer = (verdict: string) => ({
+    answer: 'La fuente permite comprobar la afirmación [1].',
+    text: 'La fuente permite comprobar la afirmación [1].',
+    verdict, coverage: 1, invalidMarkers: [], uncited: [], used: [1],
+    sources: [{ n: 1, url: 'https://web.stanford.edu/x', basis: 'pagina',
+      snippet: 'La fuente permite comprobar la afirmación.' }],
+    claims: [{ text: 'La fuente permite comprobar la afirmación', sources: [1],
+      quotes: ['La fuente permite comprobar la afirmación'], verdict }],
+    warnings: [], retrievedAt: '2026-11-19T12:00:00Z',
+  });
   const asked: string[] = [];
   const ok = await runWorkflow(workflow, { trigger: { payload: { question: '¿Cuánto viento soporta un dron de 249 g?' } } }, { research: async (r) => { asked.push(r.question); return answer('VERIFICADO'); } });
   assert.equal(ok.status, 'completed', ok.error);
@@ -125,7 +135,7 @@ test('E2E investigacion-fuentes: la investigación inyectada llega al resultado;
 
   const mal = await runWorkflow(workflow, { trigger: { payload: { question: 'x' } } }, { research: async () => answer('RECHAZADO') });
   assert.equal(mal.status, 'failed');
-  assert.match(mal.error ?? '', /verificación de fuentes/);
+  assert.match(mal.error ?? '', /evidencia comprobable|verificación de fuentes/);
 
   const sin = await runWorkflow(workflow, { trigger: { payload: { question: 'x' } } }, {});
   assert.equal(sin.status, 'failed');

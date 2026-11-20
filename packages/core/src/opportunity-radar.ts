@@ -1,3 +1,4 @@
+import { evaluateDealValue, validateDealEconomics, type DealEconomics, type DealValue } from './deal-value.js';
 /**
  * OPPORTUNITY RADAR — vigilancia y aprovechamiento de oportunidades tecnológicas (incidencia JANUS-OPPORTUNITY-20261110).
  *
@@ -35,6 +36,7 @@ export interface Opportunity {
   fingerprint: string;
   provider: string;
   title: string;
+  economics?: DealEconomics;
   kind: OpportunityKind;
   verification: OpportunityVerification;
   sourceUrl?: string;
@@ -65,6 +67,7 @@ export interface Opportunity {
 export interface OpportunityInput {
   provider: string;
   title: string;
+  economics?: DealEconomics;
   kind?: OpportunityKind;
   verification?: OpportunityVerification;
   sourceUrl?: string;
@@ -143,6 +146,7 @@ export function createOpportunity(input: OpportunityInput, context: { id: string
     fingerprint: opportunityFingerprint(provider, title),
     provider,
     title,
+    ...(input.economics ? { economics: validateDealEconomics(input.economics) } : {}),
     kind: OPPORTUNITY_KINDS.includes(input.kind as OpportunityKind) ? (input.kind as OpportunityKind) : 'promotion',
     verification,
     ...(sourceUrl ? { sourceUrl } : {}),
@@ -186,6 +190,14 @@ export function mergeOpportunity(existing: Opportunity, incoming: Opportunity, n
   for (const field of ['sourceUrl', 'sourceLabel', 'publishedAt', 'notes', 'kind'] as const) {
     const value = incoming[field];
     if (value !== undefined && existing[field] === undefined) (next as unknown as Record<string, unknown>)[field] = value;
+  }
+  if (incoming.economics && JSON.stringify(incoming.economics) !== JSON.stringify(existing.economics)) {
+    next.economics = incoming.economics; changed.push('economics');
+  }
+  if (next.economics && changed.length) {
+    // New price/reference evidence needs its own verification; never inherit an old approval.
+    next.verification = incoming.verification; next.verifiedAt = incoming.verifiedAt;
+    next.notified = [];
   }
   next.projects = [...new Set([...existing.projects, ...incoming.projects])].slice(0, 12);
   if (incoming.verification === 'verified' && existing.verification !== 'verified' && (incoming.sourceUrl ?? existing.sourceUrl)) {
@@ -541,7 +553,7 @@ export async function runRadar(deps: RadarRunDeps): Promise<RadarRunReport> {
 
 export interface RadarView {
   generatedAt: string;
-  opportunities: Array<Opportunity & { status: OpportunityStatus; hoursLeft: number | null; score: OpportunityScore; late: { late: boolean; reason: string } }>;
+  opportunities: Array<Opportunity & { value?: DealValue; status: OpportunityStatus; hoursLeft: number | null; score: OpportunityScore; late: { late: boolean; reason: string } }>;
   alerts: OpportunityAlert[];
   quotas: QuotaWindow[];
   plan: UtilizationPlan | null;
@@ -549,7 +561,7 @@ export interface RadarView {
 }
 
 export function buildRadarView(opportunities: readonly Opportunity[], quotas: readonly QuotaWindow[], now: string): RadarView {
-  const rows = opportunities.map((opportunity) => ({ ...opportunity, status: opportunityStatus(opportunity, now), hoursLeft: hoursLeft(opportunity, now), score: scoreOpportunity(opportunity, now), late: lateDetection(opportunity) }))
+  const rows = opportunities.map((opportunity) => ({ ...opportunity, ...(opportunity.economics ? { value: evaluateDealValue(opportunity.economics, opportunityStatus(opportunity, now) === 'verified' && (!opportunity.startsAt || Date.parse(opportunity.startsAt) <= Date.parse(now)), now) } : {}), status: opportunityStatus(opportunity, now), hoursLeft: hoursLeft(opportunity, now), score: scoreOpportunity(opportunity, now), late: lateDetection(opportunity) }))
     .sort((a, b) => b.score.score - a.score.score || (a.hoursLeft ?? Infinity) - (b.hoursLeft ?? Infinity) || a.title.localeCompare(b.title));
   const open = rows.filter((row) => row.status !== 'expired' && STAGE_ORDER[row.stage] !== 3);
   const top = open.find((row) => row.expiresAt) ?? null;

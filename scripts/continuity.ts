@@ -68,3 +68,7 @@ if (existsSync('docs/STATE.md')) {
   }
 }
 console.log('\n✅ Antes de editar: lee START_HERE.md y docs/PROJECT_MAP.md; continúa desde el último commit; no dupliques módulos.');
+if (existsSync('config/instruction-audit.json')) {
+  console.log('\n📋 INSTRUCCIONES CONSERVADAS Y PENDIENTES:');
+  console.log(run(process.execPath, ['--import', 'tsx', 'scripts/instruction-audit.ts', '--summary']) ?? 'No se pudo validar el catálogo: ejecutar npm run instructions:audit; no afirmar cobertura completa.');
+}

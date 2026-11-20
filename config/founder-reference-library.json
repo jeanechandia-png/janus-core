@@ -289,6 +289,34 @@
         "continuity",
         "founder-provided"
       ]
+    },
+    {
+      "id": "policy-instruction-reconciliation",
+      "subject": "founder-policy:instruction-reconciliation",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Reconciliar todas las instrucciones de Janus",
+      "value": "Conservar y contrastar las instrucciones de proyecto_Janus y proyecto_Janus 2 con código, pruebas y fuentes. No declarar que todo está implementado sin historial completo y trazabilidad. Mantener instrucciones vigentes, sustituidas y pendientes; no borrar una decisión sustituida. Toda entrega deja estado y evidencia para el siguiente agente; ejecutar npm run instructions:audit.",
+      "retention": "preserve",
+      "tags": [
+        "founder-provided",
+        "continuity",
+        "operating-norm"
+      ]
+    },
+    {
+      "id": "policy-approved-assistant-voices",
+      "subject": "founder-policy:approved-assistant-voices",
+      "kind": "policy",
+      "classification": "current",
+      "label": "Dos voces de Janus aprobadas por el Founder",
+      "value": "La voz masculina de Janus es el clon propio Jean existente en ElevenLabs; la femenina reutiliza exactamente la voz de Melanie. IDs y credenciales en configuración privada. No crear otras voces ni reiniciar audiciones históricas. Selección de voz no cambia autoridad ni permisos. Consumo conjunto acotado y persistente; lectura de cuenta o pruebas simuladas no prueban aceptación acústica ni instalación real.",
+      "retention": "preserve",
+      "tags": [
+        "founder-provided",
+        "continuity",
+        "operating-norm"
+      ]
     }
   ]
 }

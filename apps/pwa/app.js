@@ -2,6 +2,7 @@ import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
 import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
+import { mountAssistantVoiceControls, selectedAssistantVoice } from './assistant-voice.js';
 import { mountAttachMenu } from './attach.js';
 import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
@@ -510,6 +511,7 @@ async function connectPcmSocket() {
     version: 1,
     sessionId: voiceSessionId,
     ticket: access.ticket,
+    voiceId: selectedAssistantVoice(),
     audio: { mimeType: PCM_MIME_TYPE },
   }));
   await waitForVoiceReady(socket);
@@ -869,14 +871,22 @@ const founderSignOutButton = document.querySelector('#founderSignOutButton');
 const founderKeyBox = document.querySelector('#founderKeyBox');
 const founderKeyText = document.querySelector('#founderKeyText');
 const founderKeyCopy = document.querySelector('#founderKeyCopy');
+const founderKeyDownload = document.querySelector('#founderKeyDownload');
 let deviceKey = null;
 let approvalsTimer = 0;
+const assistantVoiceControls = mountAssistantVoiceControls(document.querySelector('.approvals'));
+addEventListener('janus:voice-profile', () => {
+  if (listening && voiceMode === 'pcm-stream') {
+    void stopPcmVoice({ preserveMessage: true }).then(() => startPcmVoice()).catch(error => setPresence('Voz', error.message));
+  }
+});
 
 function setApprovalsStatus(text) { approvalsStatus.textContent = text; }
 
 async function refreshFounderControls() {
   deviceKey = await loadDeviceKey();
   const signedIn = Boolean(sessionToken());
+  assistantVoiceControls.refresh();
   founderLinkButton.hidden = Boolean(deviceKey);
   founderSignInButton.hidden = !deviceKey || signedIn;
   founderSignOutButton.hidden = !signedIn;
@@ -1021,6 +1031,15 @@ founderLinkButton.addEventListener('click', async () => {
 founderKeyCopy.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(founderKeyText.value); setApprovalsStatus('Llave pública copiada.'); }
   catch { founderKeyText.select(); setApprovalsStatus('Selecciona y copia la llave manualmente.'); }
+});
+founderKeyDownload.addEventListener('click', () => {
+  if (!founderKeyText.value.startsWith('-----BEGIN PUBLIC KEY-----')) return;
+  const url = URL.createObjectURL(new Blob([founderKeyText.value], { type: 'application/x-pem-file' }));
+  const link = document.createElement('a');
+  link.href = url; link.download = 'janus-founder-public.pem';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setApprovalsStatus('Llave pública descargada. La llave privada sigue en este dispositivo.');
 });
 founderSignInButton.addEventListener('click', async () => {
   founderSignInButton.disabled = true;
