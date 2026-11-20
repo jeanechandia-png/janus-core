@@ -1,5 +1,12 @@
 # START HERE — Janus
 
+## ESTADO VIGENTE — 20 noviembre 2026 (posterior a PR #87)
+
+**ÚNICO producto:** `jeanechandia-png/janus-core`, `origin/main` remoto **actual al iniciar cada sesión**; no checkout del viejo SHA de este documento, ZIP ni HTML de vista previa. PR #81/#82 Claude, #84/#85 verificación factual, #86 estética A/B/Kendra/Work y #87 cobertura de acciones A/B **fusionadas**. Commit de referencia previo a reconciliación #83: `d4893e9a1a5c93588f95f4b282d68dadae24ca00`, **histórico, NO fijarlo como HEAD**. Toda integración posterior debe actualizar este bloque y su handoff con evidencia.
+
+**Continuidad en curso:** PR #83 conserva avances de voz/GLB/tablet/contratos, pero es divergente y no se puede fusionar completa sin riesgo. Consultar `docs/handoffs/2026-11-20-janus-selective-pr83-reconciliation.md`; integrar **piezas probadas selectivamente** sobre `main` sin sobrescribir visuales ni eliminar la Norma 11. Ejecutar `npm run continuity`, `npm run continuity:guard`, `npm run instructions:audit`, pruebas y CI. Validaciones de hardware, audio, GLB y 536 correspondencias contractuales **aún pendientes**. Nunca declarar instalaciones físicas por un navegador simulado.
+
+
 ## ESTADO VIGENTE — 17 de noviembre de 2026
 **Producto único:** `jeanechandia-png/janus-core`, evolución desde el SHA actual de `origin/main` (NO desde una PR histórica, prototipo aislado, ZIP ni copia de otro agente).
 **PR #82 Claude + PR #81 Core/Kendra: fusionadas en main** (fusión de referencia `2fe56e06946a0747fef8074cf21c466ee70da7e3`). No todas las PR históricas están incorporadas: lista de pendientes, normas de verificación, voz y GLB en `docs/handoffs/2026-11-17-janus-main-unified.md`.
