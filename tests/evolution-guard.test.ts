@@ -9,6 +9,10 @@ test('premortem starts UNKNOWN: absence of evidence is never marked PASS', () =>
   assert.equal(report.counts.unverified, EVOLUTION_CHECKS.length);
   assert.equal(report.status, 'insufficient-evidence');
   assert.equal(report.requiresApprovalForChanges, true);
+  assert.equal(report.horizonMonths, 60, 'five years is the default strategic horizon');
+  for (const id of ['voice.product-evolution', 'agents.delegation-recovery', 'infrastructure.provider-exit']) {
+    assert.equal(report.findings.find((finding) => finding.id === id)?.level, 'unverified');
+  }
 });
 test('verified fresh pass may clear its check, stale/unverified assertions cannot', () => {
   const evidence = { id: 'offline.core-workflows' as const, at, result: 'pass' as const, evidenceRef: 'ci:offline:123', verified: true };
@@ -67,4 +71,15 @@ test('proposals stay in draft and promotion requires all independent checks and 
   assert.equal(assessReleaseGate(checks).canPromote, false);
   assert.match(assessReleaseGate(checks).blockers.join(' '), /Founder/);
   assert.equal(assessReleaseGate({ ...checks, founderApproved: true }).canPromote, true);
+});
+
+test('five-year evolution risk remains unknown without independently verified end-to-end evidence', () => {
+  const report = premortem([{
+    id: 'voice.product-evolution', at, result: 'pass',
+    evidenceRef: 'fixture:not-a-real-voice-device', verified: false,
+  }], at);
+  assert.equal(report.horizonMonths, 60);
+  assert.equal(report.findings.find((item) => item.id === 'voice.product-evolution')?.result, 'unknown');
+  assert.equal(report.status, 'insufficient-evidence');
+  assert.equal(premortem([], at, { horizonMonths: 12 }).horizonMonths, 12);
 });
