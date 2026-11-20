@@ -1,3 +1,13 @@
+## 20-nov-2026 — Continuar desde Janus aprobado: contrato de acciones y rutas (PR #87)
+
+- **Main verificado al comenzar:** `4b9a61ab6611ba3e02136dbfeaf8e73f53a4afdf`, fusión de PR #86, CI Core #44645473175 SUCCESS y CI visual A/B previo a la fusión #44644029025 SUCCESS. PR #86 se cerró por merge; sus iconos, tarjetas, reflejos y correcciones de overflow ya pertenecen al producto original. No reconstruirlos.
+- **Producto único:** `jeanechandia-png/janus-core`; pantallas existentes `/dashboard/a`, `/dashboard/b`, `/kendra`, `/work`, `/work/team`. La PR #83 de voz/seguridad continúa abierta y divergente. No mezclarla ni volcar archivos antiguos sobre este main.
+- **Problema concreto detectado:** `prototypes/dashboard/src/app.js` aceptaba silenciosamente `data-act` sin controlador, tratándolo como clic resuelto; la navegación a `data-go` desconocida acababa regresando al dashboard. Se implementó rechazo explícito en consola con marcadores `JANUS_UI_ACTION_NOT_REGISTERED` / `JANUS_UI_ROUTE_NOT_REGISTERED` y verificación por propiedad propia, sin modificar layout ni autoridad.
+- **Prueba nueva:** `prototypes/dashboard/tests/action-inventory.cjs` audita el registro de acciones y vistas originales y cruza ese inventario con los controles DOM realmente renderizados en A/B, tablet/móvil, dashboard inicial y detalles. Verifica también que se emiten errores explícitos ante acciones/rutas falsas. `.github/workflows/dashboard-ci.yml` hace fallar CI si detecta controles sin controlador o destinos inexistentes.
+- **Rama/PR de este ciclo (NO otra aplicación):** `chatgpt/janus-canonical-action-coverage-20261120`, PR #87 contra main. El código se conserva en el mismo árbol de producción y el build original es la única fuente visual.
+- **Evidencia aún por comprobar al revisar este registro:** CI exacto del último commit de PR #87, navegabilidad A/B y posterior merge. No declarar todo botón operativo: esta auditoría demuestra registro de handlers y destinos, no la realidad de proveedores, permisos, persistencia en tablet física ni GLB finales.
+- **Siguiente agente:** leer `START_HERE.md`, `docs/STATE.md`, comprobar HEAD de origin/main y PR #87, esperar/verificar el CI del HEAD, corregir fallos solo en las fuentes canónicas, cerrar PR con validación. Después conciliar PR #83 por funcionalidad y asegurar las pruebas reales de hardware sin crear copias.
+
 ## 20-nov-2026 — Integración visual en las dashboards oficiales (mismo producto Janus)
 
 - **ÚNICO repositorio:** `jeanechandia-png/janus-core`. Fuente de verdad `main` y pantallas `/dashboard/a` (Obsidiana), `/dashboard/b` (Platino), `/kendra`, `/work` y `/work/team`. Ningún HTML alternativo, copia de repositorio ni nuevo producto.
