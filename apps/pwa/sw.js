@@ -1,11 +1,14 @@
-const CACHE = 'janus-shell-v19';
+const CACHE = 'janus-shell-v21';
 const SHELL = [
   '/',
   '/index.html',
+  '/dashboard/a',
+  '/dashboard/b',
   '/styles.css',
   '/app.js',
   '/attach.js',
   '/app-install.js',
+  '/assistant-voice.js',
   '/glow-emblem.js',
   '/founder-session.js',
   '/knowledge-review.js',
