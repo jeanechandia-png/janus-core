@@ -39,6 +39,8 @@ cleanup() {
   [ -n "$BACKUPPER" ] && kill "$BACKUPPER" 2>/dev/null
   [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null
   rm -rf "$LOCK"
+  command -v termux-wake-unlock >/dev/null 2>&1 && termux-wake-unlock
+  :
 }
 trap 'cleanup; exit 0' INT TERM
 trap cleanup EXIT
