@@ -423,3 +423,26 @@ html,body{height:auto!important;overflow-x:hidden!important;overflow-y:auto!impo
 .vb.vb-offline .col3 .cd,.vb.vb-cuentas .col3 .cd{justify-content:flex-start}
 .vb-offline .rdi>span:not(.bb):not(.pill2){white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35}
 .vb-offline .mt{white-space:normal}
+
+/* JANUS — tarjetas A/B aprobadas: nunca ocultar contenido cuando el viewport
+ * de tablet/escritorio es más bajo que la suma de las filas. La rejilla, el
+ * diseño 3D, sus CTA y rutas se mantienen; scroll solo dentro del panel.
+ * Cubre Trabajo, las tarjetas de Ofertas y los umbrales/plan de Clima. */
+@media (min-width:47.51em) and (min-height:31.26em){
+  #view .vb-trabajo .pjc,
+  #view .vb-ofertas > .cd,
+  #view .vb-clima .col3 > .cd{
+    min-height:0;overflow-x:hidden;overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:rgba(232,195,122,.48) transparent
+  }
+  #view .vb-trabajo .pjc::-webkit-scrollbar,
+  #view .vb-ofertas > .cd::-webkit-scrollbar,
+  #view .vb-clima .col3 > .cd::-webkit-scrollbar{width:5px}
+  #view .vb-trabajo .pjc::-webkit-scrollbar-thumb,
+  #view .vb-ofertas > .cd::-webkit-scrollbar-thumb,
+  #view .vb-clima .col3 > .cd::-webkit-scrollbar-thumb{
+    background:linear-gradient(#ffe4a4,#b6833a);
+    border-radius:6px
+  }
+}
