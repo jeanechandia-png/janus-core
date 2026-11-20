@@ -1,5 +1,10 @@
 # START HERE — Janus
 
+## ÚLTIMO MAIN CERTIFICADO — 20 noviembre 2026, después de PR #88
+
+**Un solo JANUS:** `jeanechandia-png/janus-core`, siempre desde `origin/main` remoto vigente. PR #88 **fusionada** (`1cca7df31333cb2ff10fdf6393c96b54c81e1dcb`) sobre PR #87 y visuales Claude aprobados; CI Core de main `44693093002` SUCCESS; CI A/B `44691655974` SUCCESS. Se portaron selectivamente los módulos de verdad, voz Janus/Melanie, contratos 538, Forge GLB, Termux y seguridad infantil, **sin copiar dashboards**. No confundir CI con aceptación acústica/dispositivo real ni contratos inventariados con verificados: 536 todavía carecen de evidencia individual. PR #83 histórica sigue abierta/conflictiva, no fusionarla entera. Ver `docs/STATE.md` y `docs/handoffs/2026-11-20-janus-selective-pr83-reconciliation.md`. Los SHAs aquí son historia, no HEAD permanente.
+
+
 ## ESTADO VIGENTE — 20 noviembre 2026 (posterior a PR #87)
 
 **ÚNICO producto:** `jeanechandia-png/janus-core`, `origin/main` remoto **actual al iniciar cada sesión**; no checkout del viejo SHA de este documento, ZIP ni HTML de vista previa. PR #81/#82 Claude, #84/#85 verificación factual, #86 estética A/B/Kendra/Work y #87 cobertura de acciones A/B **fusionadas**. Commit de referencia previo a reconciliación #83: `d4893e9a1a5c93588f95f4b282d68dadae24ca00`, **histórico, NO fijarlo como HEAD**. Toda integración posterior debe actualizar este bloque y su handoff con evidencia.
