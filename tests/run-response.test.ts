@@ -86,3 +86,35 @@ test('speech sanitizer removes control whitespace and truncates long previews', 
   assert.ok(clean.length <= 420);
   assert.ok(clean.endsWith('…'));
 });
+
+test('Janus no pronuncia una respuesta factual rechazada o sin confirmar', () => {
+  for (const verdict of ['RECHAZADO', 'DESCARTADO', 'POR CONFIRMAR']) {
+    const speech = safeSpokenRunSummary(snapshot('completed'), [
+      event(1, 'artifact.updated', {
+        preview: 'El supuesto hecho sin evidencia queda oculto.',
+        citationVerdict: verdict,
+      }),
+    ]);
+    assert.match(speech ?? '', /No puedo confirmar esa información/);
+    assert.doesNotMatch(speech ?? '', /supuesto hecho/);
+    assert.doesNotMatch(speech ?? '', /^Listo/);
+  }
+});
+
+test('Janus anuncia el nivel PROBABLE en voz sin atribuirle certeza', () => {
+  const speech = safeSpokenRunSummary(snapshot('completed'), [
+    event(1, 'artifact.updated', { preview: 'Una fuente parcial informa una variación.', researchVerdict: 'PROBABLE' }),
+  ]);
+  assert.match(speech ?? '', /^La información es probable, pero no está completamente confirmada\./);
+  assert.doesNotMatch(speech ?? '', /^Listo/);
+});
+
+test('un veredicto anterior no bloquea un artefacto posterior y no expone resultados privados', () => {
+  const speech = safeSpokenRunSummary(snapshot('completed'), [
+    event(1, 'artifact.updated', { preview: 'Dato antiguo no comprobado.', citationVerdict: 'RECHAZADO' }),
+    event(2, 'artifact.updated', { preview: 'Consulta nueva con revisión.', citationVerdict: 'VERIFICADO',
+      result: { token: 'SECRETO' } }),
+  ]);
+  assert.equal(speech, 'Listo. Consulta nueva con revisión.');
+  assert.doesNotMatch(speech ?? '', /SECRETO/);
+});
