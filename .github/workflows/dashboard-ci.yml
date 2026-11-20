@@ -43,7 +43,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Contratos LEGO · avatares Janus y Melanie, cuatro criaturas
         run: node --test prototypes/dashboard/tests/avatar-catalog.test.cjs
-      - name: Seguridad infantil local: ningún mensaje sensible sin filtro ni registro privado literal
+      - name: Seguridad infantil local - ningún mensaje sensible sin filtro ni registro privado literal
         run: node --test prototypes/dashboard/tests/child-evidence-safety.test.cjs prototypes/dashboard/tests/child-conversation-integration.test.cjs
       - name: Puerta de seguridad JANUS CORE (sin salida a proveedores externos)
         run: node --test prototypes/dashboard/tests/core-bridge.test.cjs
