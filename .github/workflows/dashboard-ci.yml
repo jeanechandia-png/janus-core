@@ -64,7 +64,13 @@ jobs:
       - name: Chromium headless para pruebas reales de interfaz
         run: |
           npm install --no-save --ignore-scripts --no-audit --no-fund playwright@1.58.2 sharp@0.34.5
-          npx playwright install --with-deps chromium
+          # Reutilizar Chromium/Chrome del runner cuando existe. Ya lo hace el smoke de tablet del mismo JANUS.
+          BROWSER_BIN="$(command -v google-chrome || command -v chromium || true)"
+          if [ -n "$BROWSER_BIN" ]; then
+            echo "CHROME_PATH=$BROWSER_BIN" >> "$GITHUB_ENV"
+          else
+            npx playwright install --with-deps chromium
+          fi
       - name: Prueba en Chromium móvil y tablet (NEXO, criaturas, GLB)
         env:
           PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
