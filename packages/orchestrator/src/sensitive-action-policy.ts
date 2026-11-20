@@ -10,6 +10,7 @@ export const SENSITIVE_TOOL_ACTIONS: Readonly<Record<string, string>> = Object.f
   'asana.task.create': 'Crea una tarea en Asana (escritura externa).',
   'runway.image.create': 'Genera una imagen en Runway (gasta créditos).',
   'runway.video.create': 'Genera un vídeo en Runway (gasta créditos).',
+  'github.branch.create': 'Crea una rama de revisión en el repositorio canónico (escritura externa; requiere aprobación y SHA vigente).',
   'github.file.publish': 'Publica un archivo en GitHub (escritura externa).',
   'netlify-release.deploy.restore': 'Cambia la versión publicada de un sitio en Netlify (producción).',
   'kling.video.create': 'Genera un vídeo en Kling AI (gasta créditos).',
