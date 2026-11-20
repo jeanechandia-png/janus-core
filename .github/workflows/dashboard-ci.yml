@@ -93,6 +93,12 @@ jobs:
         run: |
           cd prototypes/dashboard
           node tests/clicks.cjs
+      - name: Contrato de acciones y destinos de TODOS los controles A/B, tablet y móvil
+        env:
+          PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright
+        run: |
+          cd prototypes/dashboard
+          node tests/action-inventory.cjs
       - name: HTML A/B verificables para revisión (datos genéricos)
         if: always()
         uses: actions/upload-artifact@v4
