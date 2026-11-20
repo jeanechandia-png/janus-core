@@ -21,7 +21,19 @@ function render() {
 }
 function rerender() { render(); }
 function centerTab() { const tb = document.querySelector('#view .tabs'), on = tb && tb.querySelector('.tb2.on'); if (on) { const a = tb.getBoundingClientRect(), b = on.getBoundingClientRect(); tb.scrollLeft += (b.left + b.width / 2) - (a.left + a.width / 2); } }
-function go(r) { const target = r ? '#' + r : '#'; if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return; } location.hash = target; }
+function go(r) {
+  // Un botón no puede aparentar que funciona abriendo el dashboard por una ruta inexistente.
+  // El detalle posterior a la barra es un subpanel de una vista original, no una nueva aplicación.
+  const viewId = String(r || '').split('/')[0];
+  if (viewId && !Object.prototype.hasOwnProperty.call(VIEWS, viewId)) {
+    console.error('JANUS_UI_ROUTE_NOT_REGISTERED: ' + viewId);
+    return false;
+  }
+  const target = r ? '#' + r : '#';
+  if (location.hash === target || (!r && (location.hash === '' || location.hash === '#'))) { onRoute(); return true; }
+  location.hash = target;
+  return true;
+}
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
@@ -64,8 +76,18 @@ if (typeof slotWire === 'function') slotWire();
 async function refreshWeather() { if (ST.settings.mode !== 'vivo') { rerender(); return; } WX.status = 'loading'; rerender(); await loadLiveWeather(); rerender(); }
 
 function trigger(el) {
-  if (el.hasAttribute('data-act')) { const fn = ACTS[el.getAttribute('data-act')]; if (fn) { const r = fn(el.getAttribute('data-arg')); if (!(r && r.then)) rerender(); } return true; }
-  if (el.hasAttribute('data-go')) { go(el.getAttribute('data-go')); return true; }
+  if (el.hasAttribute('data-act')) {
+    const id = el.getAttribute('data-act');
+    if (!Object.prototype.hasOwnProperty.call(ACTS, id) || typeof ACTS[id] !== 'function') {
+      // Antes se devolvía true aunque no hubiera función: un botón visualmente activo pero inerte.
+      console.error('JANUS_UI_ACTION_NOT_REGISTERED: ' + id);
+      return false;
+    }
+    const result = ACTS[id](el.getAttribute('data-arg'));
+    if (!(result && typeof result.then === 'function')) rerender();
+    return true;
+  }
+  if (el.hasAttribute('data-go')) return go(el.getAttribute('data-go'));
   return false;
 }
 $root.addEventListener('click', (ev) => {
