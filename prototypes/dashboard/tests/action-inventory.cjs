@@ -13,7 +13,7 @@ const base = path.join(__dirname, '..');
 const uiModules = [
   'src/views.js', 'src/sala.js', 'src/ofertas.js', 'src/radar.js',
   'src/casos.js', 'src/cuentas.js', 'src/offline.js', 'src/companero.js',
-  'src/briefing.js', 'src/adjuntos.js', 'src/avatar.js', 'src/app.js',
+  'src/briefing.js', 'src/adjuntos.js', 'src/avatar.js', 'src/casa.js', 'src/app.js',
 ];
 const actions = new Set();
 const routes = new Set();
