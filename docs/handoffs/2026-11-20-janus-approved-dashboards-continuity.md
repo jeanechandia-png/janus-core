@@ -32,3 +32,9 @@ La captura enviada por el propietario enseña un reporte de **Infinity ChatBox**
 - Terminar la iconografía de objeto 3D donde hoy queda fallback SVG; no renombrar pictogramas por conveniencia ni sustituir criaturas/robots finales sin los GLB originales autorizados.
 - **Pendiente separado:** resolver PR #83 contra main con reconciliación manual. Si los cambios visuales ya están en main, no duplicarlos ni reemplazar el main actualizado con los archivos antiguos de PR #83.
 - Agente entrante: `git fetch origin` → comprobar HEAD remoto → leer `START_HERE.md`, `docs/STATE.md`, este handoff → `npm run continuity` y `npm run continuity:guard`; partir del **main actualizado**, no de 1abf482 fijo ni de un HTML aislado.
+
+## Incidencias encontradas tras activar pruebas bloqueantes
+
+El workflow anterior podia registrar `FALLOS` en `prototypes/dashboard/tests/layout.cjs` y continuar con exit 0; lo mismo pasaba cuando `tests/clicks.cjs` imprimía `FALLO`. Ambos scripts ahora devuelven error si hay incidencias, y `.github/workflows/dashboard-ci.yml` ejecuta el recorrido real de clics. El instalador de Chromium reutiliza el binario del runner si ya existe.
+
+**Evidencia del primer CI estricto de A/B:** GitHub Actions #44643299230 encontró 4 desbordamientos en Obsidiana 1194×834, en Trabajo (`.pjc`), Ofertas (`.ofv` y otra `.cd`) y Clima (`.wxp`, `.wxt`); son cuatro rutas/escenarios que requerían scroll interno, no un cambio de composición. Corrección aplicada en `prototypes/dashboard/src/views.css` con desplazamiento interno limitado a desktop/tablet y barras de scroll de canto dorado. **No declarar la reparación comprobada hasta que CI del commit posterior pase**. Nunca volver a silenciar el exit code para simular éxito.
