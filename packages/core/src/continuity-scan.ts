@@ -54,19 +54,28 @@ export function stackOutline(prs: readonly OpenPr[]): string[] {
 }
 
 /**
- * Returns the most recent "## Handoff YYYY-MM-DD ..." section of STATE.md (by date in the heading,
- * not by position), so an agent never resumes from a stale handoff. Undefined when none exists.
+ * Reads both historical Handoff headings and the current dated AHORA format.
+ * An explicitly current section wins over historical notes on the same date.
  */
 export function latestHandoff(markdown: string): { heading: string; body: string[] } | undefined {
   const lines = markdown.split('\n');
-  const sections: Array<{ date: string; start: number }> = [];
+  const sections: Array<{ date: string; start: number; priority: number }> = [];
+  const months: Record<string, string> = { ene: '01', feb: '02', mar: '03', abr: '04', may: '05', jun: '06', jul: '07', ago: '08', sep: '09', oct: '10', nov: '11', dic: '12' };
   lines.forEach((line, index) => {
-    const date = /^## Handoff (\d{4}-\d{2}-\d{2})/.exec(line)?.[1];
-    if (date) sections.push({ date, start: index });
+    if (!/^## /.test(line)) return;
+    const spanish = /\b(\d{1,2})-(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)-(\d{4})\b/i.exec(line);
+    const date = /\b(\d{4}-\d{2}-\d{2})\b/.exec(line)?.[1]
+      ?? (spanish ? `${spanish[3]}-${months[spanish[2]!.toLowerCase()]}-${spanish[1]!.padStart(2, '0')}` : undefined);
+    const priority = /^## AHORA\b/.test(line) ? 3 : /^## Handoff\b/.test(line) ? 2 : 1;
+    if (date) sections.push({ date, start: index, priority });
   });
   if (sections.length === 0) return undefined;
-  // Stable: among equal dates, the later one in the file wins.
-  const latest = sections.reduce((best, current) => (current.date >= best.date ? current : best));
+  const latest = sections.reduce((best, current) => {
+    if (current.date !== best.date) return current.date > best.date ? current : best;
+    if (current.priority !== best.priority) return current.priority > best.priority ? current : best;
+    // AHORA blocks are prepended, historical Handoffs were appended.
+    return current.priority === 3 ? best : current;
+  });
   let end = lines.length;
   for (let i = latest.start + 1; i < lines.length; i += 1) {
     if (/^## /.test(lines[i] ?? '')) { end = i; break; }
