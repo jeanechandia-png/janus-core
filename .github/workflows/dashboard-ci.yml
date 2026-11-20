@@ -10,6 +10,10 @@ on:
   pull_request:
     paths:
       - 'prototypes/dashboard/**'
+      - 'apps/pwa/**'
+      - 'apps/runtime/**'
+      - 'packages/voice/**'
+      - 'packages/automation/**'
       - '.github/workflows/dashboard-ci.yml'
   workflow_dispatch:
 
