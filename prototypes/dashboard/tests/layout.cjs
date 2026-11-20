@@ -57,4 +57,6 @@ function mockMeteo() {
   }
   await br.close();
   console.log(bad ? 'FALLOS: ' + bad : 'TODO OK');
+  // Fallar si hubo clipping o errores JS; nunca aprobar un reporte FALLOS con exit 0.
+  if (bad) process.exitCode = 1;
 })().catch((e) => { console.error(e); process.exit(1); });

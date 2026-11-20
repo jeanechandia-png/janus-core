@@ -86,3 +86,47 @@ img.ji3{stroke:none!important;object-fit:contain;filter:drop-shadow(0 3px 4px rg
 img.ji3,.a2i.o{animation:ji3float 5.5s ease-in-out infinite;animation-delay:var(--gd,0s)}
 .a2i.o:nth-of-type(2n){animation-delay:-2.2s}
 @media (prefers-reduced-motion:reduce){img.ji3,.a2i.o{animation:none}}
+
+/* ===== Identidad única de materiales para TODAS las vistas (A/B/phone).
+ * Assets originales de janus-gold primero; los pictogramas sin render 3D mantienen
+ * la misma familia mediante bisel especular. Nunca sustituir por iconos planos.
+ */
+.stage :is(.bb,.pl-bb,.tb2,.pl-chip,.jg-coin) svg.ji-relief,
+.stage .jiw > svg.ji-relief{
+  stroke:url(#jg)!important;stroke-width:2.25!important;
+  filter:url(#jmetal) drop-shadow(0 1px 0 rgba(255,250,225,.65))
+    drop-shadow(0 2.5px 1px rgba(54,32,5,.86))
+    drop-shadow(0 5px 5px rgba(0,0,0,.55))!important;
+  transition:filter .24s ease,transform .24s ease;transform:translateZ(0)
+}
+.stage :is(.tb2,.go,.jg-row,.jg-cta,.bb,.pl-bb):is(:hover,:focus-visible,[data-lit="true"]) svg.ji-relief{
+  filter:url(#jmetal) drop-shadow(0 2px 0 rgba(255,250,220,.85))
+    drop-shadow(0 3px 2px rgba(54,32,5,.78))
+    drop-shadow(0 0 10px rgba(255,218,139,.85))!important;
+  transform:translateY(-1px) scale(1.07)
+}
+/* Las tarjetas iluminan la zona exacta del dedo o del ratón. No cambian la disposición aprobada. */
+.stage.a .cd:is([data-lit="true"],:focus-within)::after{opacity:1!important;
+  background:radial-gradient(440px 290px at var(--mx,50%) var(--my,50%),
+    rgba(255,230,170,.23),rgba(212,175,105,.08) 36%,transparent 70%)!important}
+.stage.a .cd[data-lit="true"]{border-color:rgba(255,234,180,.85)!important;
+  box-shadow:0 0 0 1px rgba(255,244,214,.48),0 0 34px rgba(212,175,105,.5),
+    inset 0 1px 0 rgba(255,255,255,.56),0 22px 34px -20px #000!important}
+.stage.a .cd[data-lit="true"]>.lb{color:#FFF0C8!important;
+  text-shadow:0 0 13px rgba(255,220,150,.75)!important}
+/* Pestañas también son superficies de metal; no cambiar los nombres ni la navegación. */
+.stage .tb2{position:relative;isolation:isolate;transition:box-shadow .2s,filter .2s,transform .18s,background-color .2s}
+.stage .tb2:is(:hover,:focus-visible,[data-lit="true"]){
+  transform:translateY(-1px);filter:brightness(1.16);
+  box-shadow:inset 0 1px 0 rgba(255,248,224,.56),
+    0 0 0 1px rgba(238,205,144,.6),0 0 18px rgba(212,175,105,.42)}
+.stage .tb2:active{transform:translateY(1px) scale(.98)}
+/* Tarjetas móviles A2: volumen y luminosidad coherentes con los módulos de escritorio. */
+.stage.a .a2c{position:relative;isolation:isolate;transition:filter .2s,box-shadow .2s,border-color .2s}
+.stage.a .a2c[data-lit="true"]{filter:brightness(1.08);
+  box-shadow:inset 0 1px 0 rgba(255,250,224,.65),0 0 22px rgba(212,175,105,.42),
+    0 13px 26px -17px rgba(0,0,0,.85)!important}
+@media(prefers-reduced-motion:reduce){
+  .stage .ji-relief,.stage .tb2,.stage.a .a2c{transition:none!important}
+  .stage .tb2:is(:hover,:focus-visible,[data-lit="true"]),.stage .ji-relief{transform:none!important}
+}

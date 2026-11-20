@@ -31,7 +31,14 @@ const ICONS = ${JSON.stringify(out)};
 const ICON_RE = new RegExp('(' + ${JSON.stringify(keys.join('|'))} + ')\\\\uFE0F?', 'g');
 // Iconos de OBJETO 3D hiperrealista (oro pulido + obsidiana, lego/janus-gold/assets/obj). Si no hay objeto, cae al trazo vectorial.
 const EMO_OBJ = {'🚴':'bike','🤖':'bot','👁':'eye','🏫':'school','📚':'school','🎓':'school','💶':'euro','🎬':'clapperboard','🤝':'handshake','✉':'mail','📧':'mail','📩':'mail','🗓':'calendar-days','📅':'calendar-days','🔐':'lock','🎯':'target','📥':'inbox','🌟':'sparkles','🆕':'sparkles','🩺':'stethoscope','☔':'umbrella','🏖':'umbrella','⚙':'settings','☀':'sun','🛒':'shopping-cart','🛍':'shopping-cart','🎙':'mic','📁':'folder','🏷':'tag','❤':'heart','🤸':'dumbbell','🏃':'dumbbell','✈':'plane'};
-const iconSvg = (e) => (typeof GOLD !== 'undefined' && GOLD.o && GOLD.o[EMO_OBJ[e]]) ? '<img class="ji ji3" src="' + GOLD.o[EMO_OBJ[e]] + '" alt="" aria-hidden="true">' : '<svg class="ji" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICONS[e] + '</svg>';
+const ICON_KEYS = ${JSON.stringify(MAP)};
+const iconAsset = (e) => typeof GOLD === 'undefined' ? null : ((GOLD.o && GOLD.o[EMO_OBJ[e]]) || (GOLD.i && GOLD.i[ICON_KEYS[e]]) || null);
+const iconSvg = (e) => {
+  const image = iconAsset(e);
+  // Mantener significado y material: objeto 3D original > icono pulido 3D del mismo LEGO > relieve especular del mismo metal.
+  return image ? '<img class="ji ji3" src="' + image + '" alt="" aria-hidden="true" decoding="async">' :
+    '<svg class="ji ji-relief" viewBox="0 0 24 24" aria-hidden="true" focusable="false">' + ICONS[e] + '</svg>';
+};
 // Recorre los nodos de texto y cambia cada emoji conocido por su icono (los desconocidos se quedan).
 function iconize(root) {
   if (!root) return;
