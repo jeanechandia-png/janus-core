@@ -23,9 +23,14 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Typecheck
         run: npm run typecheck
+      - name: Audit 538 historical contracts without claiming full implementation
+        run: npm run instructions:audit -- --summary
       - name: PWA syntax
         run: |
           node --check apps/pwa/app.js
+          node --check apps/pwa/assistant-voice.js
+          node --check scripts/tablet/configure-local.mjs
+          node --check scripts/tablet/check-install.mjs
           node --check apps/pwa/dashboard-access.js
           node --check apps/pwa/kendra.js
           node --check apps/pwa/language-buttons.js
@@ -37,7 +42,7 @@ jobs:
           node --check apps/pwa/sw.js
           node --check scripts/start-local-voice.mjs
       - name: Sidecar syntax
-        run: python3 -m py_compile sidecars/qwen3_tts_server.py
+        run: python3 -m py_compile sidecars/qwen3_tts_server.py sidecars/janus_3d_forge_trellis2.py
       - name: Build public-safe dashboard fixtures for invariance tests
         run: npm run dashboard:build
       - name: Tests
