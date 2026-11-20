@@ -1,5 +1,12 @@
 # JANUS — Reconciliación selectiva de la PR #83 · 20 noviembre 2026
 
+## Cierre del ciclo (verificado en GitHub, 20 noviembre)
+
+**PR #88 FUSIONADA** en el único `main` mediante commit `1cca7df31333cb2ff10fdf6393c96b54c81e1dcb`. CI Core de la PR `44691655983` SUCCESS: 879 pruebas / 877 PASS / 0 FAIL / 2 SKIP; CI Dashboard A/B `44691655974` SUCCESS, incluido el guard infantil, NEXO/GLB, layout y navegación; CI Core del merge `44693093002` SUCCESS. Se conservaron las dashboards aprobadas y no se eliminó archivo alguno. Los errores de versiones de caché y de YAML del workflow se detectaron y corrigieron antes de merge. Fuente de verdad en adelante: **HEAD remoto de main**. Este documento conserva los detalles históricos y su bloque «en revisión» anterior no prevalece sobre este cierre.
+
+**POR CONFIRMAR en el mundo físico:** teléfono/tablet conectados, STT/TTS real, identidades y voces acreditadas en el host, CSS privado de Work, 6 GLB finales y auditoría de privacidad/permisos, proveedores reales, recibos/readback y correspondencia individual de 536 contratos. PR #83 no cerrada ni fusionada por sus cambios históricos sin reconciliar. La ausencia de dispositivos remotos conectados impide afirmar prueba física.
+
+
 ## Única fuente de verdad
 
 Repositorio **único** `jeanechandia-png/janus-core`; base `main` verificada al comenzar: `d4893e9a1a5c93588f95f4b282d68dadae24ca00`. Las PR #81/#82 de Claude, #84/#85 de control factual, #86 de estética aprobada y #87 de 21 vistas/106 acciones están fusionadas en `main`. No se creó otra dashboard, app, destino ni repositorio. La PR #83 permanecía abierta y **con conflictos** (62 commits adelantada y 43 detrás de main, 84 archivos) y **NO** debe fusionarse entera ni sustituir código nuevo de main con sus versiones antiguas.
