@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "intervalMs": 120000,
+  "products": [
+    {
+      "productId": "infinity-business-assistant",
+      "name": "IBA",
+      "url": "https://infinitybusinessassistant.nl/api/v1/janus/feed",
+      "tokenEnv": "JANUS_FEED_TOKEN_IBA",
+      "openUrl": "https://infinitybusinessassistant.nl/app"
+    },
+    {
+      "productId": "infinity-chatbox",
+      "name": "Infinity ChatBox",
+      "url": "https://infinitychatbox.nl/api/v1/janus/feed",
+      "tokenEnv": "JANUS_FEED_TOKEN_CHATBOX",
+      "openUrl": "https://infinitychatbox.nl/admin/channels"
+    },
+    {
+      "productId": "infinityseed-group",
+      "name": "Web InfinitySeed"
+    }
+  ]
+}
