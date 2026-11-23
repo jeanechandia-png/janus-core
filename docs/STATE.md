@@ -1,3 +1,13 @@
+## AHORA — 23-nov-2026 · Centralización: solicitudes y clientes de IBA/ChatBox en el dashboard del Founder (rama `claude/janus-product-feeds`)
+
+- **Orden del Founder (23-nov, 20:01):** todo lo de los productos llega a JANUS; nada de un dashboard por producto. Aviso al teléfono para ir a mirar JANUS.
+- **Hecho en código (reutiliza el patrón de `product-incidents`, sin inventar):** `config/product-feeds.json` (IBA, ChatBox, web), `packages/core/src/product-feeds.ts` (contrato, validación, aviso una sola vez, sin repetir avisos antiguos al arrancar), `packages/adapters/src/product-feed-reader.ts` (solo https, token desde `JANUS_FEED_TOKEN_IBA` / `JANUS_FEED_TOKEN_CHATBOX`, 10 s, 512 KB, sin redirecciones), `apps/runtime/server.ts` (`GET /api/products/feed` solo Founder, consulta cada 2 min y `pushToFounders` existente al llegar una solicitud), `prototypes/dashboard/src/solicitudes.js` (franja «SOLICITUDES NUEVAS» en Prioridades, tarjeta de teléfono y pestaña «Solicitudes» con clientes por producto; mismo patrón que `casos.js`).
+- **Privacidad:** nombres, contactos y mensajes viven solo en memoria del proceso; a SQLite no va nada (START_HERE: JANUS no es almacén de datos de clientes de IBA). El repositorio no contiene tokens.
+- **Lado producto:** `infinity-chatbox-platform` `fix/iba-baseline-recovery-20260920`: `GET /api/v1/janus/feed` (token `JANUS_FEED_TOKEN`, solo lectura).
+- **Pruebas:** `tests/product-feeds.test.ts` 5/5; `npm test` 884 (883 PASS, 0 FAIL); typecheck OK; `npm run dashboard:build` OK; `dashboard:test` 29 PASS / 0 FAIL; `action-inventory.cjs` en Chrome real 22 vistas, 9108 controles, 0 fallos; `tests/runtime-smoke.mjs` OK.
+- **NO VERIFICADO:** lectura real contra producción (falta poner el token en ambos lados y desplegar), aviso push real en iPhone (requiere `JANUS_PUSH_VAPID_PRIVATE_KEY`), ChatBox (su feed aún no está en su rama canónica).
+- **Siguiente acción:** Founder pone el mismo token en Vercel (`JANUS_FEED_TOKEN`) y en JANUS (`JANUS_FEED_TOKEN_IBA`), CI verde y fusión.
+
 ## AHORA — 20-nov-2026 · JANUS integrado en main tras PR #88 (estado CERTIFICADO en CI)
 
 - **Producto original y único:** `jeanechandia-png/janus-core` `main` @ `1cca7df31333cb2ff10fdf6393c96b54c81e1dcb`, merge de PR #88 tras PR #87/#86/#84/#85/#81/#82. Sin otros productos, repositorios, dashboards, usuarios clonados ni archivos eliminados; las A/B de Claude, Kendra y Work conservan las fuentes aprobadas.

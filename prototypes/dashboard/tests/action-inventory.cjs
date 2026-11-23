@@ -12,7 +12,7 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = path.join(__dirname, '..');
 const uiModules = [
   'src/views.js', 'src/sala.js', 'src/ofertas.js', 'src/radar.js',
-  'src/casos.js', 'src/cuentas.js', 'src/offline.js', 'src/companero.js',
+  'src/casos.js', 'src/solicitudes.js', 'src/cuentas.js', 'src/offline.js', 'src/companero.js',
   'src/briefing.js', 'src/adjuntos.js', 'src/avatar.js', 'src/casa.js', 'src/app.js',
 ];
 const actions = new Set();

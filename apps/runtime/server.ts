@@ -68,6 +68,8 @@ import {
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { ProductIncidentSync, type IncidentSource } from '../../packages/core/src/product-incidents.js';
 import { productIncidentReader } from '../../packages/adapters/src/product-incident-reader.js';
+import { ProductFeedSync, type ProductFeedSource } from '../../packages/core/src/product-feeds.js';
+import { productFeedReader } from '../../packages/adapters/src/product-feed-reader.js';
 import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
 import { classifyExplicitContinuity } from '../../packages/core/src/continuity-classifier.js';
 import {
@@ -1083,6 +1085,26 @@ const incidentBootstrap = JSON.parse(readFileSync(
   fileURLToPath(new URL('../../config/product-incident-bootstrap.json',import.meta.url)),'utf8'
 )) as {sourceRef:string;feed:{productId:string}};
 productIncidentSync.seed(incidentBootstrap.feed.productId,incidentBootstrap.feed,incidentBootstrap.sourceRef);
+
+// Centralización en JANUS (orden del Founder, 23-nov-2026): solicitudes y clientes de cada producto llegan aquí.
+// JANUS consulta el feed de solo lectura de cada producto; las solicitudes viven solo en memoria (no en SQLite).
+const productFeedConfig = JSON.parse(readFileSync(
+  fileURLToPath(new URL('../../config/product-feeds.json',import.meta.url)),'utf8'
+)) as {products:ProductFeedSource[];intervalMs:number};
+const productFeedSync = new ProductFeedSync({
+  sources:productFeedConfig.products,intervalMs:productFeedConfig.intervalMs,read:productFeedReader(),
+  onNew:(notices)=>{
+    for (const notice of notices.slice(0,5)) {
+      const who = notice.request.name || 'Nueva persona';
+      pushToFounders('JANUS · nueva solicitud en '+notice.productName, (who+' · '+notice.request.message).slice(0,140), 'feed:'+notice.productId+':'+notice.request.id);
+    }
+    if (notices.length>5) pushToFounders('JANUS · solicitudes nuevas', notices.length+' solicitudes nuevas en tus productos', 'feed:batch');
+  },
+});
+if (productFeedSync.configured().some((source)=>source.tokenEnv && process.env[source.tokenEnv]?.trim())) {
+  void productFeedSync.refreshIfDue(true);
+  setInterval(()=>{ void productFeedSync.refreshIfDue(); }, productFeedConfig.intervalMs).unref();
+}
 
 
 let runtimeBlueprint = resolveActiveRuntimeBlueprint(
@@ -6149,6 +6171,15 @@ const server = createServer(async (request, response) => {
         : 400;
       json(response, status, authErrorBody(error));
     }
+    return;
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/products/feed') {
+    try {
+      requireFounderAuthority(request);
+      await productFeedSync.refreshIfDue(url.searchParams.get('refresh') === '1');
+      json(response,200,{ok:true,...productFeedSync.snapshot()});
+    } catch(error) {json(response,authErrorStatus(error),authErrorBody(error));}
     return;
   }
 
