@@ -103,3 +103,13 @@
 .jh-nav .jh-cta{width:100%;height:100%}.jh-more{position:relative;min-width:0}.jh-more>summary{list-style:none}.jh-more-list{position:absolute;bottom:calc(100% + 12px);right:0;width:min(680px,85vw);max-height:60dvh;overflow:auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px;background:var(--jh-surface);border:1px solid var(--jh-edge);border-radius:16px;z-index:80;box-shadow:0 10px 30px #0007}
 @media(max-width:1000px){.jh-shell{padding:12px;gap:10px}.jh-alerts{flex:1 1 55%}.jh-icon{width:32px;height:32px}.jh-card{padding:12px}.jh-nav{gap:6px}.jh-nav .jh-cta{padding:5px;font-size:15px}.jh-card h2{font-size:20px}.jh-cards{gap:8px}}
 @media(prefers-reduced-motion:reduce){.jh-shell .jh-cta::after{animation:none}.jh-shell .jh-cta{transition:none}}
+
+.jh-shell .jh-thread .msg .bub{font-size:18px;line-height:1.35}
+.jh-shell .jh-thread .msg small{font-size:15px;color:var(--jh-muted)}
+.jh-shell .jh-thread .msg.me .bub{background:#0c63c7;color:#fff}
+.b .jh-shell .jh-thread .msg.ja .bub{background:#e3edfb;color:#15223c;border-color:#c2d3ee}
+.jh-shell .jh-cta{background:linear-gradient(180deg,#1c9ddd 0%,#0769c1 28%,#0753be 60%,#122673 100%)}
+.jh-shell .jh-card:is(:focus-within,:hover){box-shadow:inset 0 1px 0 #fff8,0 0 15px #86c9ff55,0 10px 20px var(--jh-shadow)}
+.jh-shell .jh-typing .mjw{width:50px;height:60px;flex:none}
+.jh-shell .jh-alerts .jh-cta{min-height:48px}
+@media(max-height:650px){.jh-shell{grid-template-rows:auto minmax(240px,1fr) minmax(210px,1fr) auto;gap:10px;padding:10px}.jh-presence .jh-robot{width:100px}}
