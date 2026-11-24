@@ -68,7 +68,7 @@ export function sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentA
     : createFailed ? 'No se confirmó el SOS. Llama al 112 o a tu familia.' : 'Intentando registrar el SOS. Puedes llamar ya.';
   const location = gpsError ? 'GPS no disponible; di dónde estás o pide ayuda al personal.'
     : !lastLoc ? 'Buscando ubicación…'
-    : sentAt === lastLoc.at ? 'Última ubicación registrada en Janus'
+    : lastLoc.at && sentAt === lastLoc.at ? 'Última ubicación registrada en Janus'
     : 'Ubicación obtenida; envío todavía sin confirmar';
   return event + ' ' + location + (lastLoc && !gpsError && Number.isFinite(lastLoc.accuracy) ? ' (±' + Math.round(lastLoc.accuracy) + ' m).' : '');
 }
@@ -91,7 +91,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   if (!document.getElementById('ga-css')) document.head.append(el('style', { id: 'ga-css' }, CSS));
   let config = null, sosId = null, watch = null, lastSent = 0, lastLoc = null, sheet = null, stepId = null, kind = 'ayuda';
   let sentAt = null, gpsError = false, createFailed = false, creating = false, sending = false, closing = false, closeError = '', silent = false;
-  let followup = 0, generation = 0, beatActive = false, reportedKind = 'ayuda', kindSending = false;
+  let followup = 0, generation = 0, beatActive = false, reportedKind = 'ayuda', kindSending = false, retryTimer = 0;
   const beat = metronome();
 
   async function loadConfig() {
@@ -114,7 +114,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   function refreshLocation() {
     if (!sheet) return;
     const status = sheet.querySelector('[data-ga-status]');
-    if (status) status.textContent = sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError });
+    if (status) status.textContent = sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError }) + (!practice && lastLoc?.at ? ' Medición: ' + new Date(lastLoc.at).toLocaleTimeString() + '.' : '');
     const text = alertText({ childName, kind, location: lastLoc, lang: 'es' });
     for (const link of sheet.querySelectorAll('[data-ga-contact]')) {
       const guardian = orderedGuardians(config?.guardians)[Number(link.dataset.gaIndex)];
@@ -122,7 +122,8 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
       if (!practice && href) link.href = href;
     }
     for (const link of sheet.querySelectorAll('[data-ga-refuge]')) {
-      const href = !practice && !gpsError && refugeSearchUrl(lastLoc, link.dataset.gaRefuge);
+      const fresh = lastLoc?.at && Date.now() - Date.parse(lastLoc.at) < 60_000;
+      const href = !practice && !gpsError && fresh && refugeSearchUrl(lastLoc, link.dataset.gaRefuge);
       if (href) { link.href = href; link.removeAttribute('aria-disabled'); link.tabIndex = 0; }
       else { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); link.tabIndex = -1; }
     }
@@ -152,6 +153,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
     open();
     if (practice) return;
     startLocation();
+    retryTimer = setInterval(() => { refreshLocation(); void sendLocation(); void sendKind(); }, 20_000);
     void loadConfig().then(() => { if (current === generation && sheet) render(); }).catch(() => {});
     const initial = lastLoc;
     try {
@@ -178,7 +180,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
         closing = false; closeError = 'No se confirmó el cierre. Sigue activo en Janus hasta confirmarlo; puedes volver a intentarlo.'; render(); return;
       }
     }
-    generation++; beat.stop(); beatActive = false;
+    generation++; clearInterval(retryTimer); retryTimer = 0; beat.stop(); beatActive = false;
     try { globalThis.speechSynthesis?.cancel(); } catch { /* nada */ }
     if (watch != null) navigator.geolocation?.clearWatch(watch);
     sosId = null; watch = null; sending = false; closing = false; sheet?.remove(); sheet = null;
@@ -214,7 +216,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
     return el('section', { class: 'ga-step' }, el('h3', {}, 'Busca ayuda cerca'),
       el('p', {}, 'Si te siguen, entra en el lugar abierto con personal y gente más cercano que puedas ver. No vayas a casa, a un atajo ni a un sitio aislado. Pide que llamen al 112.'),
       el('p', { class:'ga-status' }, 'Solo si puedes mirar el móvil sin riesgo: el mapa externo puede recibir tu ubicación. Comprueba que el lugar esté abierto y tenga personal; no podemos garantizar horarios, cámaras ni rutas seguras.'),
-      el('div', { class:'ga-row' }, ...labels.map(([key,label]) => el('a', { 'data-ga-refuge':key, target:'_blank', rel:'noopener noreferrer', 'aria-disabled':'true', tabindex:'-1' }, label))),
+      el('div', { class:'ga-row' }, ...labels.map(([key,label]) => el('a', { 'data-ga-refuge':key, target:'_blank', rel:'noopener noreferrer', 'aria-disabled':'true', tabindex:'-1', onclick:(event)=>{if(!lastLoc?.at || Date.now()-Date.parse(lastLoc.at)>=60_000 || gpsError){event.preventDefault(); refreshLocation();}} }, label))),
       el('p', {}, 'Quédate con el personal o la policía. Si papá no contesta, llama a mamá u otro adulto de confianza. No subas sola a un taxi ni a un coche de desconocidos.'),
       el('button', { type:'button', onclick: () => { followup = Math.min(followup + 1, Math.max(0, orderedGuardians(config?.guardians).length - 1)); render(); } }, 'No me contestan: siguiente contacto'));
   }
@@ -260,7 +262,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
           el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = null; void sendKind(); render(); say('Si estás herida, pide ayuda a una persona adulta. Si es grave, llama a emergencias.'); } }, 'Estoy herida'))),
       !practice && (kind === 'peligro' || kind === 'perdida') ? refugeCard() : null,
       closeError ? el('p', { role:'alert' }, closeError) : null,
-      !practice && createFailed && !sosId ? el('button', {type:'button', onclick:()=>{generation++; if(watch!=null) navigator.geolocation?.clearWatch(watch); watch=null; beat.stop(); beatActive=false; globalThis.speechSynthesis?.cancel(); sheet?.remove(); sheet=null;}}, 'Salir de esta pantalla (aviso no confirmado)') : null,
+      !practice && createFailed && !sosId ? el('button', {type:'button', onclick:()=>{generation++; clearInterval(retryTimer); retryTimer=0; if(watch!=null) navigator.geolocation?.clearWatch(watch); watch=null; beat.stop(); beatActive=false; globalThis.speechSynthesis?.cancel(); sheet?.remove(); sheet=null;}}, 'Salir de esta pantalla (aviso no confirmado)') : null,
       !practice ? el('p', { class:'ga-status' }, 'Sin internet: prueba llamada o SMS si hay cobertura. Sin cobertura: usa SOS satelital del teléfono si está disponible; pide ayuda al personal. No grabes ni enfrentes a nadie si te pone en riesgo.') : null,
       el('div', { class: 'ga-love' }, (config?.messages?.length ? config.messages[Math.floor(Date.now() / 60000) % config.messages.length] : FAMILY_VALUES[2])),
       el('div', { class: 'ga-row' }, el('button', { type: 'button', onclick: () => { if (createFailed && !sosId && !practice) { closeError = 'No se pudo confirmar si se registró el SOS. Confirma con un adulto por llamada o SMS.'; render(); return; } void close(true); } }, practice ? 'Terminar la práctica' : '✅ Estoy bien')),
