@@ -193,7 +193,7 @@ function rebuildTop() {
   topEl.replaceChildren(...[
     h('button', { type: 'button', class: 'who', onClick: openProfile, 'aria-label': 'Cambiar mi nombre, mi icono o mi criatura' },
       h('span', { class: 'avatar', 'aria-hidden': 'true' }, view.profile.icon),
-      h('span', { style: 'min-inline-size:0' }, h('strong', {}, view.profile.displayName), h('small', {}, pet ? `con ${pet.name}` : ''))),
+      h('span', { style: 'min-inline-size:0' }, h('strong', {}, `¡Hola, ${view.profile.displayName}!`), h('small', {}, new Date(ymdToday()+'T12:00:00').toLocaleDateString('es',{weekday:'long',day:'numeric',month:'long'})))),
     pill,
     languageHost,
     h('button', { type: 'button', class: 'iconbtn', 'aria-pressed': String(prefs.speak), 'aria-label': uiLabel('kendra', 'voice'), onClick: () => { prefs.speak = !prefs.speak; savePrefs(); if (!prefs.speak) window.speechSynthesis?.cancel(); rebuildTop(); } }, prefs.speak ? '🔊' : '🔇'),
@@ -272,40 +272,29 @@ function tabOraciones() {
 // ── Pestañas ────────────────────────────────────────────────────────────────────────────────────────────────
 function tabInicio() {
   const pet = creature();
-  const out = [];
-  const say = h('p', { class: 'muted' }, pet ? `${pet.name}: «${pet.catchphrase}»` : '');
+  const say = h('p', { class: 'kid-speech' }, pet ? `${pet.name}: «${pet.catchphrase}»` : 'Tu criatura aún no está disponible.');
   const stage = pet
     ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, createApprovedStage(pet.id))
     : h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon);
-  out.push(h('section', { class: 'card hero kid-hero' }, stage, h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), say, h('button', { type: 'button', class: 'primary', onClick: () => go('chat') }, 'Hablar conmigo'))));
-
-  if (view.reminders.length > 0) {
-    out.push(h('section', { class: 'card' },
-      h('h3', {}, 'No olvides'),
-      h('ul', { class: 'list' }, view.reminders.map((item) => h('li', {}, h('span', { class: 'grow' }, item.text)))),
-      h('button', { type: 'button', class: 'primary', onClick: async () => { await api('POST', '/api/kid/reminders/ack', { keys: view.reminders.map((item) => item.key) }); await load(); } }, 'Vale, ya lo sé')));
-  }
-
-  const access = view.access;
-  if (!access.allowed) out.push(h('p', { class: 'banner lock', role: 'status' }, access.message));
-  else if (access.warn) out.push(h('p', { class: 'banner', role: 'status' }, access.warn.message));
-
-  const weather = outfitCard(); weather.classList.add('kid-weather'); out.push(weather);
-  out.push(kidDatesCard());
-  out.push(h('section', {class:'card kid-media'}, h('h3', {}, 'Ver'), h('p', {class:'muted'}, 'Solo vídeos aprobados por papá.'), h('button', {type:'button',class:'primary',onClick:()=>go('ver')}, 'Ver mis vídeos')));
-
-  out.push(h('section', { class: 'card' },
-    h('h3', {}, 'Mi día'),
-    view.agenda.length === 0 ? h('p', { class: 'muted' }, 'No tienes nada apuntado estos días.') : h('ul', { class: 'list' }, view.agenda.slice(0, 5).map((item) => h('li', {}, h('span', { class: 'grow' }, h('strong', {}, item.title), h('br'), h('small', {}, `${dateLabel(item.date)}${item.time ? ` · ${item.time}` : ''}`)))))));
-
+  const agenda = view.agenda.slice(0, 2);
   const pending = [...view.tasks.overdue, ...view.tasks.soon.filter((task) => !view.tasks.overdue.some((late) => late.id === task.id))];
-  if (pending.length > 0) {
-    out.push(h('section', { class: 'card' },
-      h('h3', {}, 'Mis tareas'),
-      h('ul', { class: 'list' }, pending.slice(0, 4).map((task) => h('li', {}, h('span', { class: 'grow' }, task.title, task.due ? h('small', {}, ` · ${dateLabel(task.due)}`) : null))))));
-  }
-  const grid = h('div', {class:'kid-home-grid'}, ...out);
-  return grid;
+  const day = h('section', { class: 'card kid-day' }, h('h3', {}, 'Mi día'),
+    ...['Ahora', 'Luego'].map((label, i) => h('div', { class: 'kid-time' }, h('strong', {}, label), h('p', {}, agenda[i] ? `${agenda[i].title} · ${dateLabel(agenda[i].date)}${agenda[i].time ? ' · ' + agenda[i].time : ''}` : 'Sin actividad apuntada'))),
+    h('button', { type: 'button', class: 'primary', onClick: () => go('dia') }, 'Ver mi día'));
+  const weather = outfitCard(); weather.classList.add('kid-weather');
+  const media = h('section', { class: 'card kid-media' }, h('h3', {}, 'Ver'),
+    h('p', { class: 'muted' }, 'Solo vídeos aprobados por papá.'),
+    view.videos.length ? h('div', { class: 'kid-video-grid' }, ...view.videos.slice(0, 4).map(video => h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, '▶ ' + video.label))) : h('p', {}, 'Todavía no hay vídeos aprobados.'),
+    h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, 'Ver mis vídeos o pedir uno'));
+  const reminder = h('section', { class: 'card kid-reminders' }, h('h3', {}, 'No olvides'),
+    view.reminders.length ? h('ul', { class: 'list' }, ...view.reminders.slice(0, 4).map(item => h('li', {}, item.text))) : h('p', {}, 'Sin recordatorios pendientes.'),
+    view.reminders.length ? h('button', { type: 'button', class: 'primary', onClick: async () => { await api('POST', '/api/kid/reminders/ack', { keys: view.reminders.map(item => item.key) }); await load(); } }, 'Vale, ya lo sé') : null,
+    pending.length ? h('button', { type: 'button', onClick: () => go('dia') }, `Tienes ${pending.length} tareas próximas o pendientes`) : null,
+    h('div', { class: 'kid-creature hero' }, stage, say),
+    h('button', { type: 'button', class: 'primary', onClick: () => go('chat') }, 'Hablar conmigo'));
+  const access = view.access;
+  return [!access.allowed ? h('p', {class:'banner lock',role:'status'},access.message) : access.warn ? h('p',{class:'banner',role:'status'},access.warn.message) : null,
+    h('div', {class:'kid-home-grid'}, day, weather, kidDatesCard(), media, reminder)];
 }
 
 // Fechas calculadas con el día local que entrega Core; no son citas inventadas.
