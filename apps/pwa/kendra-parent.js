@@ -323,12 +323,13 @@ export function mountKidParentPanel(host, options) {
     const roles = [['padre', 'Padre'], ['madre', 'Madre'], ['tutor_legal', 'Tutor legal'], ['familiar', 'Familiar'], ['otro', 'Otro']];
     const countries = [['NL', 'Países Bajos · 112'], ['BE', 'Bélgica · 112'], ['DE', 'Alemania · 112'], ['ES', 'España · 112'], ['FR', 'Francia · 112'], ['IT', 'Italia · 112'], ['PT', 'Portugal · 112'], ['GB', 'Reino Unido · 999'], ['US', 'EE. UU. · 911'], ['MX', 'México · 911'], ['CO', 'Colombia · 123']];
     const country = h('select', { 'aria-label': 'País' }, countries.map(([value, label]) => h('option', { value, selected: (current?.country ?? 'NL') === value }, label)));
-    const rows = Array.from({ length: 3 }, (_, index) => {
+    const rows = Array.from({ length: 5 }, (_, index) => {
       const g = current?.guardians?.[index];
       return {
         role: h('select', { 'aria-label': 'Relación' }, roles.map(([value, label]) => h('option', { value, selected: (g?.role ?? (index === 0 ? 'padre' : index === 1 ? 'madre' : 'tutor_legal')) === value }, label))),
         name: h('input', { type: 'text', placeholder: 'Nombre', 'aria-label': 'Nombre', maxlength: '60', value: g?.name ?? '' }),
         phone: h('input', { type: 'tel', placeholder: 'Teléfono (+31 6…)', 'aria-label': 'Teléfono', maxlength: '30', value: g?.phone ?? '' }),
+        address: h('input', { type:'text', placeholder:'Dirección privada (recogida segura)', 'aria-label':'Dirección privada', maxlength:'240', value:g?.address ?? '' }),
         wa: h('input', { type: 'checkbox', checked: g ? g.whatsapp : true }),
         primary: h('input', { type: 'radio', name: 'ga-primary', checked: g ? g.primary : index === 0 }),
       };
@@ -338,14 +339,14 @@ export function mountKidParentPanel(host, options) {
     messages.value = (current?.messages ?? []).join('\n');
     return h('section', { class: 'kp-card' },
       h('h3', {}, '👼 Ángel Guardián (SOS)'),
-      h('p', { class: 'kp-muted' }, 'Con el botón rojo SOS (pulsación larga) ella puede llamaros, mandaros un WhatsApp o un SMS con su ubicación exacta, o llamar a emergencias. Te llega un aviso al teléfono con el mapa.'),
+      h('p', { class: 'kp-muted' }, 'Con el botón rojo SOS (pulsación larga) ella puede llamaros, mandaros un WhatsApp o un SMS con su ubicación exacta, o llamar a emergencias. El SOS intenta notificarte; comprueba la recepción. Las direcciones familiares son privadas y sirven para organizar una recogida por un adulto de confianza.'),
       events.length ? h('ul', { class: 'kp-list' }, events.map((e) => { const last = e.locations[e.locations.length - 1]; return h('li', {}, h('strong', {}, e.status === 'activo' ? '🚨 ACTIVO' : '✅ Resuelto'), ` · ${e.kind} · ${e.startedAt.slice(0, 16).replace('T', ' ')}`, last ? h('div', {}, h('a', { href: `https://maps.google.com/?q=${last.lat},${last.lon}`, target: '_blank', rel: 'noopener' }, `Ver en el mapa${last.accuracy !== undefined ? ` (±${last.accuracy} m)` : ''}`)) : h('div', { class: 'kp-muted' }, 'Sin ubicación')); })) : null,
       h('form', { class: 'kp-form', onSubmit: (event) => {
         event.preventDefault();
-        const guardians = rows.filter((r) => r.name.value.trim() && r.phone.value.trim()).map((r) => ({ role: r.role.value, name: r.name.value.trim(), phone: r.phone.value.trim(), whatsapp: r.wa.checked, primary: r.primary.checked }));
+        const guardians = rows.filter((r) => r.name.value.trim() && r.phone.value.trim()).map((r) => ({ role: r.role.value, name: r.name.value.trim(), phone: r.phone.value.trim(), address: r.address.value.trim(), whatsapp: r.wa.checked, primary: r.primary.checked }));
         act('PUT', '/api/parent/kid/guardian-angel', { config: { country: country.value, childName: overview.profile.displayName, guardians, messages: messages.value.split('\n').map((line) => line.trim()).filter(Boolean) } }, 'Contactos y mensajes guardados.');
       } }, h('label', {}, 'País: ', country),
-        ...rows.map((r, index) => h('div', { class: 'kp-row' }, r.role, r.name, r.phone, h('label', {}, r.wa, ' WhatsApp'), h('label', {}, r.primary, index === 0 ? ' Principal' : ' Principal'))),
+        ...rows.map((r, index) => h('div', { class: 'kp-row' }, r.role, r.name, r.phone, r.address, h('label', {}, r.wa, ' WhatsApp'), h('label', {}, r.primary, index === 0 ? ' Principal' : ' Principal'))),
         h('label', {}, 'Mensajes de la familia para ella (privados):'), messages,
         h('button', { type: 'submit' }, 'Guardar contactos y mensajes')),
     );
