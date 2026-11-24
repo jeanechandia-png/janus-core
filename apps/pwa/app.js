@@ -832,7 +832,7 @@ function configureSpeechRecognition() {
 voiceButton.addEventListener('click', () => {
   if (!sessionToken() && !listening) {
     setPresence('Identificación necesaria', 'Entra como Founder antes de activar el micrófono.');
-    document.querySelector('#founderSignInButton')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    void focusFounderAccess();
     return;
   }
   if (voiceMode === 'pcm-stream') {
@@ -885,6 +885,15 @@ addEventListener('janus:voice-profile', () => {
 });
 
 function setApprovalsStatus(text) { approvalsStatus.textContent = text; }
+
+async function focusFounderAccess() {
+  await refreshFounderControls();
+  if (sessionToken()) return;
+  const action = deviceKey ? founderSignInButton : founderLinkButton;
+  setApprovalsStatus(deviceKey ? 'Entra como Founder. Si falta registrar la llave, Janus te indicará cómo.' : 'Primero vincula este dispositivo para crear su llave segura.');
+  action.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  action.focus({ preventScroll: true });
+}
 
 async function refreshFounderControls() {
   deviceKey = await loadDeviceKey();
@@ -1132,7 +1141,7 @@ async function refreshKendraSummary() {
 
 kendraOpenPanel?.addEventListener('click', async () => {
   if (kendraPanelHandle) { kendraPanelHandle.destroy(); kendraPanelHandle = null; kendraPanel.hidden = true; kendraOpenPanel.textContent = 'Abrir su panel'; refreshKendraSummary(); return; }
-  if (!sessionToken()) { kendraSummary.textContent = 'Primero entra como Founder (arriba, en «Tu visto bueno»).'; return; }
+  if (!sessionToken()) { kendraSummary.textContent = 'Identifícate para administrar su panel. Su app se abre por separado con su código.'; await focusFounderAccess(); return; }
   const { mountKidParentPanel } = await import('./kendra-parent.js');
   kendraPanel.hidden = false;
   kendraOpenPanel.textContent = 'Cerrar su panel';
