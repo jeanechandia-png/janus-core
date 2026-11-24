@@ -84,6 +84,8 @@ robot.addEventListener('click', () => {
   void initApprovedPresence();
 });
 accessList.append(robot);
+// El rostro de la portada aprobada abre la configuración original, sin duplicar el panel.
+document.addEventListener('click', (event) => { if (event.target.closest?.('[data-founder-robot]')) robot.click(); });
 configureCharacterSync({ audience: 'founder', headers: authHeaders });
 const status = document.createElement('span');
 status.setAttribute('role', 'status');
