@@ -178,3 +178,59 @@ test('Founder: el brillo de los CTA no genera una caja mayor que el botón', () 
   assert.match(reflection, /animation:janusHomeSpecularSweep/);
   assert.doesNotMatch(reflection, /inset:-|translateX\(/);
 });
+
+test('Founder: las dos pieles actualizan el contenido de la portada en ES/NL sin perder el mensaje', () => {
+  const dash = text('prototypes/dashboard/src/dash.js');
+  const start = dash.indexOf('function renderApprovedTabletHome(');
+  assert.ok(start >= 0);
+  let lang = 'es', skin = 'a';
+  const render = runInNewContext(dash.slice(start) + '\nrenderApprovedTabletHome;', {
+    skinNow: () => skin, localStorage: { getItem: () => lang }, iconAsset: () => null, esc: String,
+    sessionStorage: { getItem: () => null }, document: { querySelector: () => null },
+    projById: () => ({ id: 'janus' }), UI: { pSel: 'janus', js: 'listo', draft: 'texto de prueba' },
+    chatsOf: () => [], attBtn: () => '', attChips: () => '',
+    IMG: { mic: 'mic', medal: 'medal' }, GOLD: { wm: 'wm' },
+    ST: { localEv: [], done: {} }, TABS: [['inicio','','Inicio'], ['correo','','Correo']],
+  }) as (model: unknown, state: unknown) => string;
+  for (const theme of ['a','b']) {
+    skin = theme;
+    lang = 'es';
+    const es = render({ src: 'sin-red' }, {});
+    assert.match(es, /Sin datos verificados/);
+    assert.match(es, /data-go="correo"/);
+    lang = 'nl';
+    const nl = render({ src: 'sin-red' }, {});
+    assert.match(nl, /Geen geverifieerde gegevens/);
+    assert.match(nl, /Versturen/);
+    assert.match(nl, /texto de prueba/);
+    assert.doesNotMatch(nl, /Sin datos verificados/);
+  }
+  assert.match(text('prototypes/dashboard/src/app.js'), /janus:language-changed/);
+  assert.match(text('prototypes/dashboard/src/views.js'), /width:22px;max-width:22px/);
+});
+
+test('Kendra: preferencia de escena cerrada y recuperación de la interfaz sin cambiar el dispositivo', () => {
+  const kid = text('apps/pwa/kendra.js');
+  const start = kid.indexOf('const HOME_SCENES');
+  const end = kid.indexOf('let view = null;', start);
+  assert.ok(start >= 0 && end > start);
+  const prefs = { scene: 'c' };
+  const scene = runInNewContext(kid.slice(start, end) + '\nhomeScene;', { prefs }) as () => string;
+  assert.equal(scene(), 'c');
+  prefs.scene = 'b';
+  assert.equal(scene(), 'b');
+  prefs.scene = 'invalid';
+  assert.equal(scene(), 'a');
+  assert.match(kid, /prefs.scene = selected; savePrefs\(\)/);
+  assert.match(kid, /requestedToken !== token/);
+  assert.match(kid, /!topEl \|\| !topEl.isConnected/);
+  assert.match(kid, /school: tabSchool, baile: tabVer/);
+  assert.match(kid, /api\('GET', '\/api\/kid\/school'\)/);
+  assert.match(kid, /Oír otra vez/);
+  assert.match(kid, /Más despacio/);
+  assert.match(kid, /Salir de concentración/);
+  assert.match(kid, /selection !== mediaSelection/);
+  const css = text('apps/pwa/kendra.css');
+  assert.match(css, /kid-school-focus/);
+  assert.match(css, /prefers-reduced-motion:reduce/);
+});
