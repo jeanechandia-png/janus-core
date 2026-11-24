@@ -57,7 +57,9 @@ export function normalizeConfig(input) {
     if (name.length < 2) return { ok: false, message: 'Escribe el nombre de cada contacto.' };
     const phone = normalizePhone(raw.phone, country);
     if (!phone) return { ok: false, message: `El teléfono de ${name} no es válido (usa el formato internacional, p. ej. +31 6…).` };
-    guardians.push({ id: typeof raw.id === 'string' && /^g[0-9]{1,2}$/.test(raw.id) ? raw.id : `g${index + 1}`, role, name, phone, whatsapp: raw.whatsapp !== false, primary: raw.primary === true });
+    // Destino privado del tutor, nunca enviado automáticamente a mapas ni a transportistas.
+    const address = typeof raw.address === 'string' ? raw.address.replace(/\s+/g, ' ').trim().slice(0, 240) : '';
+    guardians.push({ id: typeof raw.id === 'string' && /^g[0-9]{1,2}$/.test(raw.id) ? raw.id : `g${index + 1}`, role, name, phone, whatsapp: raw.whatsapp !== false, primary: raw.primary === true, ...(address ? { address } : {}) });
   }
   if (!guardians.some((g) => g.primary)) guardians[0].primary = true;
   let seenPrimary = false;
