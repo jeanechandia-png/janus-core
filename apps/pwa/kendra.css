@@ -213,3 +213,35 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
     animation:none!important;transition:none!important}
   .app nav.tabs button span{transform:none!important}
 }
+
+/* 24-nov: la app infantil canónica aprovecha la pantalla Samsung, sin cambiar su token ni sus datos. */
+.kid-home-grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+.kid-home-grid>.card{--kid-ring:linear-gradient(115deg,#15cda2,#f7c844,#f568a8,#8c66ee,#15cda2);border:3px solid transparent!important;background:linear-gradient(150deg,#fff,#f2ecfc) padding-box,var(--kid-ring) border-box!important;box-shadow:inset 0 1px 1px #fff,0 8px 16px #7353a226!important}
+.kid-home-grid>.card:nth-child(3n+2){--kid-ring:linear-gradient(115deg,#f76bad,#b675ff,#49c4e8,#f76bad)}
+.kid-home-grid>.card:nth-child(3n+3){--kid-ring:linear-gradient(115deg,#20cfbe,#ffd25d,#ff7a63,#20cfbe)}
+.kid-home-grid .card h2{font-size:clamp(24px,2.5vw,34px)}
+.kid-home-grid .card h3{font-size:clamp(21px,2vw,26px);font-weight:800}
+.kid-count{font-size:52px;line-height:1.1;color:#8c3fde;font-weight:900}
+.kid-home-grid .kid-hero{gap:18px}
+.kid-home-grid .kid-hero .primary{margin-top:12px}
+.kid-home-grid .card button.primary{min-height:56px;border:1px solid #e5d5ff;background:linear-gradient(#ca99ff,#9146df 45%,#55269f);box-shadow:inset 0 2px 1px #fff8,inset 0 -4px 0 #41217b,0 5px 0 #422079;transform:translateY(0);font-weight:800}
+@media(min-width:780px) and (orientation:landscape){
+  html,body{font-size:20px}
+  .app{max-inline-size:none}
+  .top{padding:12px 18px;flex-wrap:wrap}
+  .top .who strong{font-size:28px}
+  main{padding:12px 18px 120px}
+  .kid-home-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
+  .kid-home-grid>.kid-hero{grid-column:span 2;min-height:240px}
+  .kid-home-grid>.kid-media{grid-column:span 2}
+  .kid-home-grid .card{min-width:0;padding:18px}
+  .kid-home-grid .hero .creature-btn,.kid-home-grid .hero .creature-btn .janus-approved-stage{height:230px!important;min-height:230px!important}
+  .kid-home-grid .hero .creature-btn{width:100%!important}
+  nav.tabs{max-inline-size:none;padding:8px 18px calc(10px + env(safe-area-inset-bottom));gap:10px;background:#f7f1ffef}
+  .app nav.tabs button{border:1px solid #fff;color:white;background:linear-gradient(#c69cff,#9149dc 48%,#54239f);box-shadow:inset 0 2px 1px #fffc,inset 0 -4px 0 #37196c,0 5px 0 #47247b;min-height:68px;font-size:16px;font-weight:800}
+  .app nav.tabs button:nth-child(2n){background:linear-gradient(#ffb4d8,#ec4d9c 48%,#ac2465)}
+  .app nav.tabs button:nth-child(3n){background:linear-gradient(#8fe7ff,#22aecb 48%,#087b9d)}
+  .app nav.tabs button:nth-child(4n){background:linear-gradient(#9ccaff,#327de2 48%,#1b469f)}
+  .app nav.tabs button:nth-child(5n){background:linear-gradient(#ffc38d,#f68a32 48%,#af4616)}
+  .app nav.tabs button[aria-current="page"]{color:white;outline:3px solid #8754e8;outline-offset:2px}
+}
