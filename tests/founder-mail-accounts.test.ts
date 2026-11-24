@@ -41,6 +41,19 @@ test('registro de buzones: normaliza, no duplica, deduce proveedor solo para Gma
   assert.equal(by['mail-persona']!.credentialService, 'google-workspace:mail-persona');
 });
 
+test('iCloud: identifica proveedor sin confundirlo con Gmail ni prometer conexión activa', () => {
+  const doc = parseFounderReferenceLibrary({
+    schemaVersion: 1, ownerPrincipalId: 'founder', updatedAt: '2026-11-06T00:00:00.000Z',
+    records: [rec('mail-icloud', 'persona@icloud.com', ['mail', 'scope:personal'])],
+  });
+  const [account] = buildFounderMailAccountRegistry(doc).accounts;
+  assert.equal(account!.provider, 'icloud');
+  assert.equal(account!.credentialService, 'icloud-mail:mail-icloud');
+  const [plan] = planMailAccess([account!], { adapters: new Set(['google-workspace']), hasCredential: () => true });
+  assert.equal(plan!.readiness, 'adapter_missing');
+  assert.match(plan!.nextStep, /IMAP\/SMTP/);
+});
+
 test('política: el Founder da las instrucciones y confirma cada envío; nada se envía, borra, archiva, reenvía ni responde solo', () => {
   const { policy } = buildFounderMailAccountRegistry(library);
   assert.equal(policy.supervision, 'founder');
