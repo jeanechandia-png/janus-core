@@ -1,3 +1,9 @@
+## AHORA — 24-nov-2026 · Corrección de portada tablet aprobada, continuidad de #97
+
+- **Evidencia física recibida:** la Samsung instaló main 480a0b9, compiló A/B y el Core responde 8787. El Founder rechazó la interfaz porque conservaba la composición antigua. No era un fallo de instalación. Referencias: encargo del 24-nov, Opción 2 Founder, PDF de Kendra. No incluir datos privados ni capturas personales en este repositorio.
+- **Código propuesto:** misma ruta A/B con portada compartida (conversación superior, medallón, micrófono existente, cuatro tarjetas, navegación seis botones y Más; detalle y chat reutilizan módulos canónicos). App infantil original: distribución horizontal, tarjetas de color, fechas calculadas y acceso a vídeo autorizado. Sin sustituir autenticación, biblioteca 3D, SOS, datos o API. Actualización de caché a v30 y adaptación de regresiones a la portada aprobada.
+- **Limitaciones:** fase visual parcial; la piel exacta .b3d del sitio no pudo recuperarse (404), el relieve actual es aproximación de la referencia. Faltan escenas infantiles, navegación completa según PDF, activos 3D articulados, integración real de ingresos/agenda y traducción íntegra; no afirmar coincidencia visual ni producto final. Viewport físico no medido. CI y verificación visual pendientes. Preflight local no ejecutable aquí por DNS; base remota y registro canónico verificados. No fusionar sin pruebas verdes ni hacer nuevas copias.
+
 ## AHORA — 24-nov-2026 · Ampliación Ángel Guardián SOS (PR de continuidad sobre main 1c0d4a8)
 
 - **Orden del Founder:** asistencia contextual, calma, ubicación durante el SOS, refugios cercanos, escalada familiar, opciones de transporte y satélite, evidencia solo cuando sea seguro.
