@@ -10,7 +10,7 @@ export declare const HOLD_MS: number;
 export declare const MAX_GUARDIANS: number;
 export declare const MAX_LOCATIONS: number;
 
-export interface Guardian { id: string; role: GuardianRole; name: string; phone: string; whatsapp: boolean; primary: boolean }
+export interface Guardian { id: string; role: GuardianRole; name: string; phone: string; whatsapp: boolean; primary: boolean; address?: string }
 export interface GuardianConfig { country: string; emergencyNumber: string; childName: string; guardians: Guardian[]; messages: string[] }
 export interface SosLocation { lat: number; lon: number; accuracy?: number; at?: string }
 export interface SosEvent { id: string; startedAt: string; kind: SosKind; status: 'activo' | 'resuelto'; locations: SosLocation[]; resolvedAt?: string }
