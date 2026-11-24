@@ -1,3 +1,11 @@
+## AHORA — 24-nov-2026 · Traspaso a ChatGPT: cierre de las figuras 3D (rama `claude/traspaso-chatgpt-figuras`, desde `origin/main` 8e9926e)
+
+- **Orden del Founder (24-nov, 18:26):** el uso de Claude está al 98 %; ChatGPT («Word») continúa y termina criaturas y robots, **sin hacer copias** y evolucionando el producto único, y se comprueba que todas las instrucciones están implementadas en ambos chats.
+- **Hecho:** documento de traspaso `docs/handoffs/2026-11-24-traspaso-chatgpt-figuras-3d.md` (reglas, estado, matriz de figuras con huellas SHA-256, procedimiento de Rodin verificado, reductor de GLB probado con dos figuras reales, costes, matriz de verificación de instrucciones). Alta del gasto de Rodin anotada en `docs/dormant-capabilities.md` (Norma 7.4). Sin código nuevo.
+- **Pendiente:** Jean sube y aprueba Melanie y la criatura de piedra con musgo; identificar cada figura frente a su ranura; generar Lumi, Bombo, Nimbo y Nexo-Janus; comprobar la tablet y el iPhone reales.
+- **Bloqueado:** saldo de Claude hasta el reinicio semanal (fecha POR CONFIRMAR); créditos de Rodin casi agotados (gasto de Jean, Norma 7).
+- **Decisión de Jean:** permitir tres dependencias de desarrollo (`@gltf-transform/core`, `@gltf-transform/functions`, `meshoptimizer`) para el comando `forge:reduce`; hasta entonces el reductor queda como script externo documentado.
+
 ## AHORA — 24-nov-2026 · Biblioteca central de personajes 3D + guía Hyper3D Rodin (rama `claude/biblioteca-3d-hyper3d`, desde `origin/main` 44f1c6c)
 
 - **Orden del Founder (24-nov, 16:10):** instrucciones para generar en Hyper3D las 4 criaturas de Kendra y los 2 robots Nexo, y poder anexarlos a Janus, a la dashboard de Kendra y a la suya; continuar el producto original sin reiniciar.
