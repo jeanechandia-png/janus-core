@@ -107,3 +107,17 @@ test('offline cache includes controls but does not store protected API responses
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
   assert.match(sw, /no-store/);
 });
+
+
+test('Founder menu authentication anchor exists and Kendra remains independent', () => {
+  const html = text('apps/pwa/index.html');
+  const app = text('apps/pwa/app.js');
+  const access = text('apps/pwa/dashboard-access.js');
+  assert.match(access, /#approvals/);
+  assert.match(html, /id="approvals"[^>]*aria-labelledby="approvalsTitle"/);
+  assert.match(html, /href="\/dashboard\/a"/);
+  assert.match(html, /href="\/dashboard\/b"/);
+  assert.match(html, /id="kendraOpenApp"[^>]*href="\/kendra"/);
+  assert.match(app, /else void refreshKendraSummary\(\)/);
+  assert.match(app, /const action = deviceKey \? founderSignInButton : founderLinkButton/);
+});
