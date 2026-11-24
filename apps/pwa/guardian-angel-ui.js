@@ -70,7 +70,7 @@ export function sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentA
     : !lastLoc ? 'Buscando ubicación…'
     : sentAt === lastLoc.at ? 'Última ubicación registrada en Janus'
     : 'Ubicación obtenida; envío todavía sin confirmar';
-  return event + ' ' + location + (lastLoc && !gpsError ? ' (±' + Math.round(lastLoc.accuracy ?? 0) + ' m).' : '');
+  return event + ' ' + location + (lastLoc && !gpsError && Number.isFinite(lastLoc.accuracy) ? ' (±' + Math.round(lastLoc.accuracy) + ' m).' : '');
 }
 
 // Búsqueda opcional, no navegación certificada ni afirmación de horario o seguridad.
@@ -90,7 +90,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   if (!document.getElementById('ga-css')) document.head.append(el('style', { id: 'ga-css' }, CSS));
   let config = null, sosId = null, watch = null, lastSent = 0, lastLoc = null, sheet = null, stepId = null, kind = 'ayuda';
   let sentAt = null, gpsError = false, createFailed = false, creating = false, sending = false, closing = false, closeError = '', silent = false;
-  let followup = 0, generation = 0, beatActive = false;
+  let followup = 0, generation = 0, beatActive = false, reportedKind = 'ayuda', kindSending = false;
   const beat = metronome();
 
   async function loadConfig() {
@@ -136,7 +136,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
         if (current !== generation || !sheet || closing) return;
         lastLoc = validLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy, at: new Date(pos.timestamp).toISOString() });
         gpsError = !lastLoc;
-        refreshLocation(); void sendLocation();
+        refreshLocation(); void sendLocation(); void sendKind();
       }, () => { if (current === generation) { gpsError = true; refreshLocation(); } }, { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 });
     } catch { gpsError = true; refreshLocation(); }
   }
@@ -146,7 +146,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
     const current = ++generation;
     sosId = null; lastLoc = null; sentAt = null; lastSent = 0; gpsError = false;
     createFailed = false; closeError = ''; silent = false; followup = 0; stepId = null; kind = 'ayuda';
-    creating = !practice;
+    creating = !practice; reportedKind = 'ayuda'; kindSending = false;
     // La ayuda y el número de emergencia no dependen de la red ni del permiso de GPS.
     open();
     if (practice) return;
@@ -161,7 +161,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
       } else createFailed = true;
     } catch { if (current === generation) createFailed = true; }
     finally {
-      if (current === generation) { creating = false; render(); void sendLocation(true); }
+      if (current === generation) { creating = false; render(); void sendLocation(true); void sendKind(); }
     }
   }
 
@@ -183,9 +183,20 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
     sosId = null; watch = null; sending = false; closing = false; sheet?.remove(); sheet = null;
   }
 
+  async function sendKind() {
+    if (practice || !sosId || kindSending || closing || reportedKind === kind) return;
+    const current = generation, selected = kind, id = sosId;
+    kindSending = true;
+    let success = false;
+    try {
+      const result = await request('POST', '/api/kid/sos/' + id + '/kind', { kind: selected });
+      if (current === generation && result.status === 200) { reportedKind = selected; success = true; }
+    } catch { /* Los botones de llamada siguen activos. */ }
+    finally { if (current === generation) { kindSending = false; if (success && kind !== reportedKind) void sendKind(); } }
+  }
   function say(text) { if (!silent) speak(text); }
   function enter(id, nextKind = kind) {
-    kind = nextKind; stepId = id;
+    kind = nextKind; stepId = id; void sendKind();
     if (id.startsWith('calle') || id === 'llamar_calle') {
       silent = true; try { globalThis.speechSynthesis?.cancel(); } catch { /* nada */ }
     }
@@ -239,18 +250,18 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
       practice ? el('p', { class: 'ga-practice' }, 'MODO PRÁCTICA: no avisa a nadie ni llama de verdad.') : null,
       el('h2', {}, '👼 Ángel Guardián'),
       el('p', { class: 'ga-status', 'data-ga-status':'', role:'status' }, sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError })),
-      el('p', {}, 'Si hay peligro inmediato, llama a emergencias ahora. No necesitas esperar a Janus.'),
+      el('p', {}, 'Busca ayuda. Respira despacio. Si hay peligro inmediato, llama a emergencias ahora. No necesitas esperar a Janus.'),
       el('div', { class:'ga-row' }, el('button', { type:'button', onclick:()=>{ silent=true; globalThis.speechSynthesis?.cancel(); beat.stop(); beatActive=false; } }, 'Silenciar voz')),
       contacts(),
       stepId ? stepCard() : el('div', {}, el('h3', {}, '¿Qué pasa?'),
         el('div', { class: 'ga-row' }, ...FIRST_AID_ENTRIES.map(([label, entry]) => el('button', { type: 'button', onclick: () => enter(entry, entry === 'calle' ? 'peligro' : 'ayuda') }, label)),
           el('button', { type: 'button', onclick: () => enter('calle_dentro', 'perdida') }, 'Me he perdido'),
-          el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = null; render(); say('Si estás herida, pide ayuda a una persona adulta. Si es grave, llama a emergencias.'); } }, 'Estoy herida'))),
+          el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = null; void sendKind(); render(); say('Si estás herida, pide ayuda a una persona adulta. Si es grave, llama a emergencias.'); } }, 'Estoy herida'))),
       !practice && (kind === 'peligro' || kind === 'perdida') ? refugeCard() : null,
       closeError ? el('p', { role:'alert' }, closeError) : null,
       !practice ? el('p', { class:'ga-status' }, 'Sin internet: prueba llamada o SMS si hay cobertura. Sin cobertura: usa SOS satelital del teléfono si está disponible; pide ayuda al personal. No grabes ni enfrentes a nadie si te pone en riesgo.') : null,
       el('div', { class: 'ga-love' }, (config?.messages?.length ? config.messages[Math.floor(Date.now() / 60000) % config.messages.length] : FAMILY_VALUES[2])),
-      el('div', { class: 'ga-row' }, el('button', { type: 'button', onclick: () => close(true) }, practice ? 'Terminar la práctica' : '✅ Estoy bien')),
+      el('div', { class: 'ga-row' }, el('button', { type: 'button', onclick: () => { if (createFailed && !sosId && !practice) { closeError = 'No se pudo confirmar si se registró el SOS. Confirma con un adulto por llamada o SMS.'; render(); return; } void close(true); } }, practice ? 'Terminar la práctica' : '✅ Estoy bien')),
       practice ? learnMore() : null,
     ].filter(Boolean));
     refreshLocation();
@@ -277,6 +288,6 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   button.addEventListener('pointerdown', () => { if (practice) return; button.classList.add('ga-hold'); holdTimer = setTimeout(() => { cancel(); navigator.vibrate?.(200); activate(); }, HOLD_MS); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => button.addEventListener(e, cancel));
   button.addEventListener('click', (event) => { if (practice || event.detail === 0) void activate(); });
-  if (!practice) host.append(button);
+  if (!practice) { host.append(button); void loadConfig().catch(() => {}); }
   return { button, practice: () => mountGuardianAngel(host, { request, childName, practice: true }).open(), open: activate };
 }
