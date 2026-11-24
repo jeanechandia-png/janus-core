@@ -197,12 +197,12 @@ function mountModel(target, id) {
     label.textContent = '3D · revisión visual pendiente';
     target.append(label);
   }
-  let yaw = 0, lastX = 0, down = false, playing = 'idle', clock = performance.now(), frame = 0;
+  let yaw = 0, lastX = 0, down = false, playing = 'idle', clock = performance.now(), frame = 0, gestureUntil = 0;
   const action = target.closest('button') || target;
   const onDown = e => { down = true; lastX = e.clientX; };
   const onMove = e => { if (down) { yaw += (e.clientX - lastX) * .008; lastX = e.clientX; } };
   const onUp = () => { down = false; };
-  const onClick = () => { playing = 'celebra'; setTimeout(() => { playing = 'idle'; }, 1200); };
+  const onClick = () => { playing = 'saluda'; gestureUntil = performance.now() + 1500; };
   action.addEventListener('pointerdown', onDown);
   action.addEventListener('pointermove', onMove);
   action.addEventListener('pointerup', onUp);
@@ -219,12 +219,13 @@ function mountModel(target, id) {
   let disposed = false;
   const tick = now => {
     if (disposed || !target.isConnected || !target.querySelector('canvas')) { dispose(); return; }
+    if (gestureUntil && now >= gestureUntil) { playing = 'idle'; gestureUntil = 0; }
     const dt = Math.min(.05, (now - clock) / 1000 || .016);
     clock = now;
     if (document.visibilityState === 'visible') {
       const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
       rig.root.rotation.y += (yaw - rig.root.rotation.y) * .12;
-      if (!reducedMotion || down || playing !== 'idle') rig.update(now / 1000, dt, { pose: playing, mood: playing === 'celebra' ? 'alegre' : 'contento' });
+      if (!reducedMotion || down || playing !== 'idle') rig.update(now / 1000, dt, { pose: playing, mood: playing === 'saluda' ? 'alegre' : 'contento' });
       renderer.render(scene, camera);
     }
     frame = requestAnimationFrame(tick);
