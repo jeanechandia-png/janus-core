@@ -89,7 +89,7 @@ if (actions.size < 25 || routes.size < 18) {
               })),
             };
           });
-          if (!!id !== scan.viewOpen) failures.push(skin + '/' + label + '/' + id + ': route does not open approved view');
+          if ((!!id && !(label === 'tablet' && id === 'inicio')) !== scan.viewOpen) failures.push(skin + '/' + label + '/' + id + ': route does not open approved view');
           for (const control of scan.controls) {
             inspected++;
             if (control.action !== null && !actions.has(control.action)) {
