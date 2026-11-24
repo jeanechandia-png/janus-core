@@ -93,7 +93,7 @@ main{padding:6px 14px 100px;display:grid;gap:14px;align-content:start}
 .petrow .mini{flex:none;inline-size:42px;block-size:42px}
 
 /* Navegación inferior */
-nav.tabs{position:fixed;inset-inline:0;inset-block-end:0;z-index:6;display:grid;grid-template-columns:repeat(6,1fr);gap:2px;max-inline-size:760px;margin-inline:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-block-start:2px solid var(--border)}
+nav.tabs{position:fixed;inset-inline:0;inset-block-end:0;z-index:6;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;max-inline-size:760px;margin-inline:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-block-start:2px solid var(--border)}
 nav.tabs button{min-block-size:56px;padding:4px 2px;border:0;border-radius:14px;background:transparent;display:grid;gap:0;justify-items:center;font-size:.72rem;line-height:1.1}
 nav.tabs button span{font-size:1.4rem;line-height:1.2}
 nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;color:var(--accent)}
@@ -124,7 +124,7 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
 .lock>div{background:var(--surface);border-radius:var(--radius);padding:24px;max-inline-size:420px;text-align:center;display:grid;gap:12px}
 .icons{display:grid;grid-template-columns:repeat(8,1fr);gap:6px}
 .icons button{padding:0;min-block-size:44px;font-size:24px}
-.icons button[aria-pressed="true"],.themes button[aria-pressed="true"],.creatures button[aria-pressed="true"]{border-color:var(--accent);background:var(--soft)}
+.icons button[aria-pressed="true"],.themes button[aria-pressed="true"],.creatures button[aria-pressed="true"],.chips button[aria-pressed="true"]{border-color:var(--accent);background:var(--soft);font-weight:700;color:var(--accent)}
 .themes{display:flex;gap:8px;flex-wrap:wrap}
 .themes button{inline-size:48px;padding:0;border-radius:50%}
 .creatures{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}

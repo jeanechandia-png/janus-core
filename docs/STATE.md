@@ -1,3 +1,20 @@
+## AHORA — 24-nov-2026 · Oraciones en su lengua original (rama `claude/janus-oraciones`)
+
+- **Orden del Founder (24-nov, 11:11):** Padre Nuestro en latín y en su lengua original, Ángel de la Guarda y San Miguel Arcángel para Jean; oraciones para niños para Kendra, con el latín como opción si ella quiere.
+- **Hecho:**
+  - pieza LEGO `prototypes/dashboard/lego/janus-oraciones` (fuente única de los textos, con fuentes, pronunciación y traducción);
+  - vista «Oraciones» del Founder (`src/oraciones.js`, A y B);
+  - pestaña «Rezar» en la app de Kendra (`apps/pwa/kendra.js`, espejo idéntico `apps/pwa/approved-3d/janus-oraciones.js`, `sw.js` v22).
+  - La voz es la del aparato (speechSynthesis), sin nube.
+- **Verdad:** el original escrito del Padre Nuestro es el griego (Mt 6, 9-13); el hebreo es la traducción de Delitzsch (1901, dominio público); *Angele Dei* y San Miguel son latín original.
+- **Pruebas:**
+  - `prototypes/dashboard/tests/oraciones.test.cjs` 6/6, incluida la igualdad del espejo;
+  - `dashboard:test` 35 PASS / 0 FAIL;
+  - `npm test` 884 (883 PASS, 0 FAIL); typecheck OK; `dashboard:build` OK;
+  - capturas en Chrome sin cabeza (vista del Founder en hebreo; Rezar de Kendra con la API simulada).
+- **NO VERIFICADO:** voz real en la tablet Samsung (las voces it-IT, el-GR y he-IL dependen del aparato).
+- **Siguiente acción:** CI verde y fusión; después, que la tablet se actualice sola.
+
 ## AHORA — 23-nov-2026 · Centralización: solicitudes y clientes de IBA/ChatBox en el dashboard del Founder (rama `claude/janus-product-feeds`)
 
 - **Orden del Founder (23-nov, 20:01):** todo lo de los productos llega a JANUS; nada de un dashboard por producto. Aviso al teléfono para ir a mirar JANUS.

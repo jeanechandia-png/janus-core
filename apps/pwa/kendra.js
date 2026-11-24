@@ -18,7 +18,7 @@ const PREF_KEY = 'kendra.prefs.v1';
 const ICONS = ['🦄', '🐙', '🦊', '🐱', '🐼', '🐸', '🐰', '🦋', '🌟', '🌈', '🎀', '🚀', '🎵', '🧸', '🍓', '🐬'];
 const THEMES = { lila: '#7b5cff', menta: '#1f9d6b', sol: '#e08a00', oceano: '#1c7ed6', rosa: '#d6336c' };
 const FEED_LABEL = { oferta: '🏷️ Oferta', evento: '🎪 Evento', peli: '🎬 Peli', producto: '🛍️ Producto', plan: '🗺️ Plan' };
-const TABS = [['inicio', '🏠', 'Inicio'], ['chat', '💬', 'Charla'], ['dia', '📒', 'Mi día'], ['ver', '▶️', 'Ver'], ['casa', '💡', 'Casa'], ['cosas', '⭐', 'Mis cosas']];
+const TABS = [['inicio', '🏠', 'Inicio'], ['chat', '💬', 'Charla'], ['dia', '📒', 'Mi día'], ['ver', '▶️', 'Ver'], ['casa', '💡', 'Casa'], ['cosas', '⭐', 'Mis cosas'], ['rezar', '🙏', 'Rezar']];
 
 const app = document.querySelector('#app');
 // Misma respuesta táctil que las tarjetas JANUS: iluminación local sin enviar datos,
@@ -196,20 +196,21 @@ function rebuildTop() {
 }
 
 function rebuildNav() {
-  const keys = { inicio: 'home', chat: 'chat', dia: 'day', ver: 'watch', casa: 'house', cosas: 'things' };
+  const keys = { inicio: 'home', chat: 'chat', dia: 'day', ver: 'watch', casa: 'house', cosas: 'things', rezar: 'pray' };
   navEl.replaceChildren(...TABS.map(([id, icon, label]) => h('button', { type: 'button', 'aria-current': id === tab ? 'page' : null, onClick: () => go(id) }, h('span', { 'aria-hidden': 'true' }, icon), uiLabel('kendra', keys[id], label))));
 }
 
 function go(next) {
   tab = next;
   if (tab !== 'ver') player = null;
+  if (tab !== 'rezar') globalThis.JanusOraciones?.stop();
   rebuildNav();
   renderMain();
   window.scrollTo({ top: 0 });
 }
 
 function renderMain() {
-  const builders = { inicio: tabInicio, chat: tabChat, dia: tabDia, ver: tabVer, casa: tabCasa, cosas: tabCosas };
+  const builders = { inicio: tabInicio, chat: tabChat, dia: tabDia, ver: tabVer, casa: tabCasa, cosas: tabCosas, rezar: tabRezar };
   const nodes = [];
   if (warnText) nodes.push(h('p', { class: 'banner', role: 'status' }, warnText));
   if (toast) nodes.push(h('p', { class: 'banner ok', role: 'status' }, toast));
@@ -224,6 +225,32 @@ function showLock(message) {
     h('div', {}, h('div', { class: 'avatar', style: 'margin-inline:auto;inline-size:72px;block-size:72px;font-size:40px' }, view?.profile.icon ?? '🌙'),
       h('p', {}, message), h('button', { type: 'button', class: 'primary', onClick: () => { overlay.remove(); go('inicio'); } }, 'Vale')));
   document.body.append(overlay);
+}
+
+// ── Rezar (orden de papá, 24-nov-2026): oraciones para niños en español; el latín solo si ella quiere aprenderlo ──
+let prayId = 'angel-nino';
+let prayLang = 'es';
+function tabRezar() {
+  const ora = globalThis.JanusOraciones;
+  if (!ora) return h('section', { class: 'card' }, h('p', {}, 'Las oraciones no se han podido cargar.'));
+  const list = ora.forAudience('kendra');
+  const p = ora.byId(prayId) ?? list[0];
+  const langs = ora.langsFor(p.id, 'kendra', !!prefs.latin);
+  if (!langs.includes(prayLang)) prayLang = 'es';
+  const text = p.texts[prayLang];
+  const L = ora.LANGS[prayLang];
+  const picker = h('section', { class: 'card' }, h('h2', {}, 'Rezar'),
+    h('div', { class: 'chips' }, ...list.map((q) => h('button', { type: 'button', 'aria-pressed': q.id === p.id ? 'true' : 'false', onClick: () => { ora.stop(); prayId = q.id; prayLang = 'es'; renderMain(); } }, q.title))));
+  const langRow = langs.length > 1 ? h('div', { class: 'chips' }, ...langs.map((l) => h('button', { type: 'button', 'aria-pressed': l === prayLang ? 'true' : 'false', onClick: () => { ora.stop(); prayLang = l; renderMain(); } }, ora.LANGS[l].name))) : null;
+  const lines = h('div', { lang: prayLang, dir: L.dir, style: 'font-size:1.45em;line-height:1.6;font-weight:600' }, ...text.lines.map((x) => h('div', {}, x)));
+  const say = text.say ? h('div', { class: 'muted' }, h('b', {}, 'Cómo se dice'), ...text.say.map((x) => h('div', {}, x))) : null;
+  const listen = h('button', { type: 'button', class: 'primary', onClick: () => { if (!ora.speak(p.id, prayLang, { rate: 0.75 })) flash('Esta tablet no puede leerla en voz alta.'); } }, '🔊 Escuchar');
+  const card = h('section', { class: 'card' }, h('h2', {}, p.title), langRow, lines, say, listen);
+  const offerLatin = !prefs.latin && ora.byId(p.id)?.texts.la
+    ? h('section', { class: 'card' }, h('p', {}, `¿Quieres aprender «${p.title}» en latín, la lengua de la Iglesia?`),
+      h('button', { type: 'button', onClick: () => { prefs.latin = true; savePrefs(); prayLang = 'la'; renderMain(); } }, '¡Sí, quiero!'))
+    : null;
+  return [picker, card, offerLatin].filter(Boolean);
 }
 
 // ── Pestañas ────────────────────────────────────────────────────────────────────────────────────────────────
