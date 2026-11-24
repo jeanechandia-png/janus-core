@@ -1,0 +1,19 @@
+{
+  "id": "family-health",
+  "version": "0.1.0",
+  "kind": "logic-module",
+  "summary": "Seguimiento familiar por temporadas, episodios, informes clínicos no diagnósticos, aislamiento por hogar y vigencia de lecturas.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "host-provided (HealthKit/Health Connect, authenticated encrypted storage, clinical review)",
+  "network": false,
+  "secrets": "No secrets stored in module",
+  "dataClassification": "special-category health data; children",
+  "invariants": [
+    "No external package imports.",
+    "Cross-household access denied by default.",
+    "Measurements are source-labelled and never fabricated.",
+    "No diagnosis, emergency dispatch or pediatric clinical thresholds."
+  ],
+  "reuseNotes": "Reuse in JANUS or Jessica household via distinct tenant IDs, backend RLS, per-metric consent and separate device adapters."
+}
