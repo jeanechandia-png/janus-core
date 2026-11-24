@@ -9,12 +9,12 @@ export const LANGUAGES = Object.freeze([
 ]);
 const UI = Object.freeze({
   founder: {
-    es: { signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
-    nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
+    es: { signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', prayers: 'Oraciones', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
+    nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", prayers: 'Gebeden', install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
   },
   kendra: {
-    es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },
-    nl: { home: 'Start', chat: 'Praten', day: 'Mijn dag', watch: 'Kijken', house: 'Thuis', things: 'Mijn spullen', parent: 'Ouderzone', voice: 'Antwoorden voorlezen' },
+    es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', pray: 'Oraciones', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },
+    nl: { home: 'Start', chat: 'Praten', day: 'Mijn dag', watch: 'Kijken', house: 'Thuis', things: 'Mijn spullen', pray: 'Gebeden', parent: 'Ouderzone', voice: 'Antwoorden voorlezen' },
   },
 });
 export function currentLanguage(scope, storage = globalThis.localStorage) {
