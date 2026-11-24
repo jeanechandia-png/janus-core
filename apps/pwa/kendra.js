@@ -18,7 +18,7 @@ const PREF_KEY = 'kendra.prefs.v1';
 const ICONS = ['🦄', '🐙', '🦊', '🐱', '🐼', '🐸', '🐰', '🦋', '🌟', '🌈', '🎀', '🚀', '🎵', '🧸', '🍓', '🐬'];
 const THEMES = { lila: '#7b5cff', menta: '#1f9d6b', sol: '#e08a00', oceano: '#1c7ed6', rosa: '#d6336c' };
 const FEED_LABEL = { oferta: '🏷️ Oferta', evento: '🎪 Evento', peli: '🎬 Peli', producto: '🛍️ Producto', plan: '🗺️ Plan' };
-const TABS = [['inicio', '🏠', 'Inicio'], ['chat', '💬', 'Charla'], ['dia', '📒', 'Mi día'], ['ver', '▶️', 'Ver'], ['casa', '💡', 'Casa'], ['cosas', '⭐', 'Mis cosas'], ['rezar', '🙏', 'Rezar']];
+const TABS = [['inicio', '🏠', 'Inicio'], ['chat', '💬', 'Charla'], ['dia', '📒', 'Mi día'], ['ver', '▶️', 'Ver'], ['casa', '💡', 'Casa'], ['cosas', '⭐', 'Mis cosas'], ['rezar', '🙏', 'Oraciones']];
 
 const app = document.querySelector('#app');
 // Misma respuesta táctil que las tarjetas JANUS: iluminación local sin enviar datos,
@@ -210,7 +210,7 @@ function go(next) {
 }
 
 function renderMain() {
-  const builders = { inicio: tabInicio, chat: tabChat, dia: tabDia, ver: tabVer, casa: tabCasa, cosas: tabCosas, rezar: tabRezar };
+  const builders = { inicio: tabInicio, chat: tabChat, dia: tabDia, ver: tabVer, casa: tabCasa, cosas: tabCosas, rezar: tabOraciones };
   const nodes = [];
   if (warnText) nodes.push(h('p', { class: 'banner', role: 'status' }, warnText));
   if (toast) nodes.push(h('p', { class: 'banner ok', role: 'status' }, toast));
@@ -227,10 +227,10 @@ function showLock(message) {
   document.body.append(overlay);
 }
 
-// ── Rezar (orden de papá, 24-nov-2026): oraciones para niños en español; el latín solo si ella quiere aprenderlo ──
+// ── Oraciones (orden de papá, 24-nov-2026): oraciones para niños en español; el latín solo si ella quiere aprenderlo ──
 let prayId = 'angel-nino';
 let prayLang = 'es';
-function tabRezar() {
+function tabOraciones() {
   const ora = globalThis.JanusOraciones;
   if (!ora) return h('section', { class: 'card' }, h('p', {}, 'Las oraciones no se han podido cargar.'));
   const list = ora.forAudience('kendra');
@@ -239,7 +239,7 @@ function tabRezar() {
   if (!langs.includes(prayLang)) prayLang = 'es';
   const text = p.texts[prayLang];
   const L = ora.LANGS[prayLang];
-  const picker = h('section', { class: 'card' }, h('h2', {}, 'Rezar'),
+  const picker = h('section', { class: 'card' }, h('h2', {}, 'Oraciones'),
     h('div', { class: 'chips' }, ...list.map((q) => h('button', { type: 'button', 'aria-pressed': q.id === p.id ? 'true' : 'false', onClick: () => { ora.stop(); prayId = q.id; prayLang = 'es'; renderMain(); } }, q.title))));
   const langRow = langs.length > 1 ? h('div', { class: 'chips' }, ...langs.map((l) => h('button', { type: 'button', 'aria-pressed': l === prayLang ? 'true' : 'false', onClick: () => { ora.stop(); prayLang = l; renderMain(); } }, ora.LANGS[l].name))) : null;
   const lines = h('div', { lang: prayLang, dir: L.dir, style: 'font-size:1.45em;line-height:1.6;font-weight:600' }, ...text.lines.map((x) => h('div', {}, x)));

@@ -8,7 +8,7 @@
   "behaviour": "Datos puros y lectura en voz alta con speechSynthesis del aparato (sin red ni nube). Para Kendra: español por defecto; latín solo si ella lo pide; griego y hebreo nunca; San Miguel solo para el Founder.",
   "mounts": [
     { "product": "Janus · dashboard A y B — vista Oraciones", "file": "prototypes/dashboard/src/oraciones.js", "version": "1.0.0" },
-    { "product": "Janus PWA · app de Kendra — pestaña Rezar", "file": "apps/pwa/kendra.js (espejo idéntico en apps/pwa/approved-3d/janus-oraciones.js)", "version": "1.0.0" }
+    { "product": "Janus PWA · app de Kendra — pestaña Oraciones", "file": "apps/pwa/kendra.js (espejo idéntico en apps/pwa/approved-3d/janus-oraciones.js)", "version": "1.0.0" }
   ],
   "knownLimits": [
     "Ningún aparato trae voz latina: se lee con voz italiana (pronunciación eclesiástica aproximada).",
