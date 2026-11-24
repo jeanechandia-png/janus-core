@@ -208,7 +208,7 @@ function rebuildNav() {
 
 function go(next) {
   tab = next;
-  if (tab !== 'ver') player = null;
+  if (tab !== 'ver') stopPlayer();
   if (tab !== 'rezar') globalThis.JanusOraciones?.stop();
   rebuildNav();
   renderMain();
@@ -284,8 +284,8 @@ function tabInicio() {
   const weather = outfitCard(); weather.classList.add('kid-weather');
   const media = h('section', { class: 'card kid-media' }, h('h3', {}, 'Ver'),
     h('p', { class: 'muted' }, 'Solo vídeos aprobados por papá.'),
-    view.videos.length ? h('div', { class: 'kid-video-grid' }, ...view.videos.slice(0, 4).map(video => h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, '▶ ' + video.label))) : h('p', {}, 'Todavía no hay vídeos aprobados.'),
-    h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, 'Ver mis vídeos o pedir uno'));
+    view.videos.length ? h('div', { class: 'kid-video-grid' }, ...view.videos.slice(0, 4).map(video => h('button', { type: 'button', class: 'primary', onClick: () => { go('ver'); void openApprovedVideo(video.id); } }, video.label))) : h('p', {}, 'Todavía no hay vídeos aprobados.'),
+    h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, 'Ver mis vídeos'));
   const reminder = h('section', { class: 'card kid-reminders' }, h('h3', {}, 'No olvides'),
     view.reminders.length ? h('ul', { class: 'list' }, ...view.reminders.slice(0, 4).map(item => h('li', {}, item.text))) : h('p', {}, 'Sin recordatorios pendientes.'),
     view.reminders.length ? h('button', { type: 'button', class: 'primary', onClick: async () => { await api('POST', '/api/kid/reminders/ack', { keys: view.reminders.map(item => item.key) }); await load(); } }, 'Vale, ya lo sé') : null,
@@ -437,25 +437,28 @@ function tabDia() {
   return out;
 }
 
-function stopPlayer() { player = null; }
+// Solo la lista aprobada por el tutor; volver a comprobar el ID concreto en Core antes de reproducir.
+let mediaSelection = 0;
+function stopPlayer() { mediaSelection++; player = null; }
+async function openApprovedVideo(videoId) {
+  const selection = ++mediaSelection;
+  try {
+    const check = await api('POST', '/api/kid/media', { text: 'ponme youtube' });
+    if (tab !== 'ver' || selection !== mediaSelection) return;
+    const approved = check.status === 200 && check.body.status === 'allow' && Array.isArray(check.body.videos)
+      ? check.body.videos.find((video) => video.id === videoId) : null;
+    if (approved) { player = approved; renderMain(); return; }
+    stopPlayer();
+    flash(check.body.status === 'allow' ? 'Este vídeo ya no está en la lista aprobada.' : check.body.message || 'Ahora no se puede.');
+    if (check.body.status === 'blocked') showLock(check.body.message);
+  } catch {
+    if (tab !== 'ver' || selection !== mediaSelection) return;
+    stopPlayer(); flash('No pude comprobar la lista de papá. Inténtalo de nuevo.');
+  }
+}
 
 function tabVer() {
   const out = [];
-  const status = h('p', { class: 'muted', role: 'status' });
-  const input = h('input', { type: 'text', placeholder: '¿Qué quieres ver? (ej.: videos de baile)', maxlength: '120', 'aria-label': '¿Qué quieres ver?' });
-  const form = h('form', { class: 'row' }, input, micButton(input), h('button', { type: 'submit', class: 'primary' }, 'Pedir'));
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!input.value.trim()) return;
-    const result = await api('POST', '/api/kid/media', { text: input.value });
-    status.textContent = result.body.message || result.body.error || '';
-    if (result.status === 200 && result.body.status === 'allow' && result.body.videos?.length === 1) open(result.body.videos[0]);
-  });
-  async function open(video) {
-    const check = await api('POST', '/api/kid/media', { text: 'ponme youtube' });
-    if (check.status === 200 && check.body.status === 'allow') { player = video; renderMain(); }
-    else { status.textContent = check.body.message || 'Ahora no se puede.'; if (check.body.status === 'blocked') showLock(check.body.message); }
-  }
   if (player) {
     out.push(h('section', { class: 'card' },
       h('h2', {}, player.label),
@@ -463,12 +466,11 @@ function tabVer() {
       h('button', { type: 'button', onClick: () => { stopPlayer(); renderMain(); } }, 'Cerrar el vídeo')));
   }
   out.push(h('section', { class: 'card' },
-    h('h2', {}, '▶️ Vídeos para ti'),
+    h('h2', {}, 'Vídeos para ti'),
     view.videos.length === 0
-      ? h('p', { class: 'muted' }, 'Papá todavía no ha elegido vídeos. Pídele alguno y él lo mira antes. 💜')
-      : h('ul', { class: 'list' }, view.videos.map((video) => h('li', {}, h('button', { type: 'button', class: 'vid', onClick: () => open(video) }, h('span', { 'aria-hidden': 'true' }, '▶️'), h('span', {}, video.label))))),
-    form, status,
-    h('p', { class: 'muted' }, 'Si pides algo nuevo, papá recibe el aviso y decide si lo añade.')));
+      ? h('p', { class: 'muted' }, 'Papá todavía no ha elegido vídeos.')
+      : h('ul', { class: 'list' }, view.videos.map((video) => h('li', {}, h('button', { type: 'button', class: 'vid', onClick: () => { void openApprovedVideo(video.id); } }, h('span', {}, video.label))))),
+    h('p', { class: 'muted' }, 'Solo puedes abrir los vídeos que papá ha aprobado.')));
   return out;
 }
 
