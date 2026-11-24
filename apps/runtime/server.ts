@@ -320,6 +320,8 @@ import { fetchHourlyForecast } from '../../packages/adapters/src/open-meteo-adap
 import { CREATURES } from '../../packages/modules/companion/src/index.js';
 import type { HomeDevice, HomeDeviceKind } from '../../packages/modules/kid-dashboard/src/index.js';
 import { createKidRoutes } from './kid-routes.js';
+import { CharacterLibrary, CHARACTER_UPLOAD_LIMIT, isCharacterSlot } from '../../packages/modules/character-library/src/index.js';
+import { inspectForgeGlb, makeForgeReceipt } from '../../packages/modules/janus-3d-forge/src/index.js';
 import { MarcusAureliusToolAdapter } from '../../packages/adapters/src/marcus-aurelius-tool-adapter.js';
 import { InfinityInterpreterToolAdapter } from '../../packages/adapters/src/infinity-interpreter-tool-adapter.js';
 import { createSpeakerRecognition, type SpeakerRecognitionRuntime } from '../../packages/adapters/src/speaker-recognition-adapter.js';
@@ -363,6 +365,22 @@ const attachmentStore = new FileAttachmentStore({
   dir: attachmentsDir,
   ...(Number.isFinite(attachmentsMaxMb) && attachmentsMaxMb > 0 ? { maxTotalBytes: Math.floor(attachmentsMaxMb * 1024 * 1024) } : {}),
 });
+// Biblioteca de personajes 3D (Lumi, Bombo, Musgo, Nimbo, Nexo-Janus y Nexo-Melanie): archivos privados junto a la base de datos,
+// fuera de lo que se publica. Para compartir la carpeta con `npm run forge:prepare`: JANUS_CHARACTERS_DIR=~/.janus/private/3d-forge.
+const charactersDirEnv = process.env.JANUS_CHARACTERS_DIR?.trim();
+const charactersDir = charactersDirEnv
+  || (dbPath === ':memory:' || dbPath === ''
+    ? mkdtempSync(join(tmpdir(), 'janus-characters-')) // base en memoria (pruebas): efímero, nunca en el repositorio
+    : join(dirname(dbPath), 'characters'));
+let characterLibrary: CharacterLibrary | undefined;
+try {
+  characterLibrary = new CharacterLibrary(charactersDir, {
+    inspector: { inspect: inspectForgeGlb, receipt: makeForgeReceipt }, // 3D Forge valida cada GLB antes de guardarlo
+    ...(charactersDirEnv ? { repositoryRoot: fileURLToPath(new URL('../../', import.meta.url)) } : {}),
+  });
+} catch (error) {
+  console.warn('Biblioteca de personajes desactivada: ' + (error instanceof Error ? error.message : String(error)));
+}
 const timeZone = process.env.JANUS_TIME_ZONE?.trim() || undefined;
 const sttBaseUrl = process.env.JANUS_STT_BASE_URL?.trim() || undefined;
 const ttsBaseUrl = process.env.JANUS_TTS_BASE_URL?.trim() || undefined;
@@ -3941,6 +3959,7 @@ const handleKidRoute = createKidRoutes({
   errorStatus: authErrorStatus,
   errorBody: authErrorBody,
   attachmentStore,
+  ...(characterLibrary ? { characters: characterLibrary } : {}),
   ...(modelGateway && !kidChatModelOff ? { model: modelGateway } : {}),
   homeInventory: loadHomeInventory,
   notifyGuardians: (title, body, tag) => pushToFounders(title, body, tag),
@@ -8111,6 +8130,70 @@ const server = createServer(async (request, response) => {
       else faceHints.delete(sessionId);
       // Only decision, profile and score are returned: never embeddings, never the image.
       json(response, 200, { ok: true, hint, authorizes: false, ttlSeconds: FACE_PRESENCE_TTL_MS / 1000 });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
+  // ── Biblioteca de personajes 3D (Founder): subir una vez, aprobar y repartir a las dashboards ──────────────
+  if (url.pathname === '/api/characters' || url.pathname.startsWith('/api/characters/')) {
+    try {
+      requireFounderAuthority(request);
+      if (!characterLibrary) throw new HttpRequestError(503, 'La biblioteca de personajes no está disponible en este equipo.');
+      const parts = url.pathname.split('/').filter(Boolean); // api · characters · :slot · :acción
+      if (request.method === 'GET' && parts.length === 2) {
+        json(response, 200, { ok: true, characters: characterLibrary.overview(), uploadLimitBytes: CHARACTER_UPLOAD_LIMIT });
+        return;
+      }
+      const slot = parts[2] ?? '';
+      if (!isCharacterSlot(slot)) throw new HttpRequestError(404, 'Personaje no encontrado.');
+      const modelFile = /^([a-f0-9]{64})\.glb$/.exec(parts[3] ?? '');
+      if (request.method === 'GET' && parts.length === 4 && modelFile) {
+        const bytes = characterLibrary.bytes(slot, modelFile[1]!);
+        if (!bytes) throw new HttpRequestError(404, 'Modelo no encontrado.');
+        // Contenido direccionado por huella: la URL cambia si el modelo cambia, así que puede cachearse sin riesgo.
+        response.writeHead(200, {
+          'content-type': 'model/gltf-binary', 'content-length': bytes.length,
+          'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff',
+        });
+        response.end(bytes);
+        return;
+      }
+      if (request.method === 'PUT' && parts.length === 3) {
+        const bytes = await readBodyBytes(request, CHARACTER_UPLOAD_LIMIT);
+        const origin = headerValue(request, 'x-character-origin');
+        const pilotUntil = headerValue(request, 'x-character-pilot-until');
+        const result = characterLibrary.admit({
+          slot, bytes,
+          ...(origin ? { origin } : {}),
+          ...(pilotUntil ? { pilotUseUntil: pilotUntil } : {}),
+        });
+        if (!result.ok) {
+          const status = result.code === 'too_large' ? 413 : result.code === 'invalid_model' ? 422 : 400;
+          json(response, status, { ok: false, code: result.code, error: result.message, blocked: result.blocked });
+          return;
+        }
+        console.log(`[personajes] ${result.duplicate ? 'ya estaba' : 'nuevo'} ${slot} ${result.entry.sha256.slice(0, 12)} (${result.entry.tier}, pendiente de revisión visual)`);
+        json(response, result.duplicate ? 200 : 201, { ok: true, duplicate: result.duplicate, character: result.entry });
+        return;
+      }
+      if (request.method === 'POST' && parts.length === 4 && (parts[3] === 'review' || parts[3] === 'activate')) {
+        const body = await readJson(request);
+        const sha = typeof body.sha256 === 'string' ? body.sha256 : '';
+        let entry;
+        if (parts[3] === 'review') {
+          if (body.decision !== 'approved' && body.decision !== 'rejected') throw new HttpRequestError(400, 'La decisión debe ser approved o rejected.');
+          entry = characterLibrary.review(slot, sha, body.decision);
+          if (entry) console.log(`[personajes] revisión visual del Founder: ${slot} ${sha.slice(0, 12)} → ${body.decision}`);
+        } else {
+          entry = characterLibrary.activate(slot, sha);
+        }
+        if (!entry) throw new HttpRequestError(404, 'Versión no encontrada.');
+        json(response, 200, { ok: true, character: entry });
+        return;
+      }
+      throw new HttpRequestError(404, 'Ruta de personajes no encontrada.');
     } catch (error) {
       json(response, authErrorStatus(error), authErrorBody(error));
     }

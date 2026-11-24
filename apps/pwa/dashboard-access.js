@@ -2,10 +2,11 @@ import { mountAppInstall } from './app-install.js';
 import { mountAssistantVoiceControls } from './assistant-voice.js';
 import './knowledge-review.js';
 import { currentLanguage, mountLanguageButtons, uiLabel } from './language-buttons.js';
-import { sessionToken } from './founder-session.js';
+import { authHeaders, sessionToken } from './founder-session.js';
 import { mountTeamPanel } from './team-panel.js';
 import { mountApprovalChip } from './approval-chip.js';
-import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence, openApprovedStageDialog } from './approved-presence.js';
+import { configureCharacterSync, createCharacterLibraryPanel } from './character-sync.js';
 import { registerWithAutoUpdate } from './pwa-update.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
@@ -76,13 +77,14 @@ robot.addEventListener('click', () => {
   const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
   close.addEventListener('click', () => dialog.close());
   dialog.append(title, createApprovedStage('nexo-masculino'));
-  if (sessionToken()) dialog.append(createApprovedAssetControls({ family: 'janus' }));
+  if (sessionToken()) dialog.append(createApprovedAssetControls({ family: 'janus' }), createCharacterLibraryPanel({ openStage: openApprovedStageDialog }));
   dialog.append(close);
   dialog.addEventListener('close', () => dialog.remove());
   document.body.append(dialog); dialog.showModal();
   void initApprovedPresence();
 });
 accessList.append(robot);
+configureCharacterSync({ audience: 'founder', headers: authHeaders });
 const status = document.createElement('span');
 status.setAttribute('role', 'status');
 status.className = 'janus-access-status';

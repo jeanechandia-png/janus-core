@@ -6,7 +6,8 @@ import { mountAssistantVoiceControls, selectedAssistantVoice } from './assistant
 import { mountAttachMenu } from './attach.js';
 import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
-import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+import { createApprovedStage, createApprovedAssetControls, initApprovedPresence, openApprovedStageDialog } from './approved-presence.js';
+import { configureCharacterSync, createCharacterLibraryPanel } from './character-sync.js';
 import { registerWithAutoUpdate } from './pwa-update.js';
 
 // Founder-only private cases. No case identifiers, mail addresses or sensitive text in the public bundle.
@@ -62,6 +63,7 @@ const approvedPresence = document.createElement('div');
 approvedPresence.className = 'janus-founder-presence';
 approvedPresence.append(createApprovedStage('nexo-masculino'));
 document.querySelector('section.presence')?.prepend(approvedPresence);
+configureCharacterSync({ audience: 'founder', headers: authHeaders });
 void initApprovedPresence();
 const transcript = document.querySelector('#transcript');
 const command = document.querySelector('#command');
@@ -1146,7 +1148,7 @@ originalManagerButton.addEventListener('click', () => {
   const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
   const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
   close.addEventListener('click', () => dialog.close());
-  dialog.append(createApprovedAssetControls({ family: 'janus' }), close);
+  dialog.append(createApprovedAssetControls({ family: 'janus' }), createCharacterLibraryPanel({ openStage: openApprovedStageDialog }), close);
   dialog.addEventListener('close', () => dialog.remove());
   document.body.append(dialog); dialog.showModal();
 });

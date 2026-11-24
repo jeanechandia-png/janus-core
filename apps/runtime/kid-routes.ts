@@ -97,6 +97,11 @@ export interface KidRoutesDeps {
   maxModelCallsPerDay?: number;
   /** Ángel Guardián: avisa al tutor (push al teléfono del Founder). Si falta, el aviso queda solo en el panel. */
   notifyGuardians?: (title: string, body: string, tag: string) => void;
+  /** Biblioteca de personajes 3D: la niña solo recibe modelos que el Founder aprobó (kidOverview). */
+  characters?: {
+    kidOverview(): Array<{ slot: string; sha256: string; bytes: number; tier: string }>;
+    bytes(slot: string, sha256: string): Buffer | undefined;
+  };
 }
 
 class KidHttpError extends Error {
@@ -408,6 +413,23 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         if (method === 'GET' && path === '/api/kid/state') {
           const { state } = loadState(kid.kidId);
           json(response, 200, { ok: true, ...(await kidView(state, at)) });
+          return true;
+        }
+        // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
+        if (method === 'GET' && path === '/api/kid/characters') {
+          json(response, 200, { ok: true, characters: deps.characters?.kidOverview() ?? [] });
+          return true;
+        }
+        const characterModel = method === 'GET' ? /^\/api\/kid\/characters\/([a-z-]+)\/([a-f0-9]{64})\.glb$/.exec(path) : null;
+        if (characterModel) {
+          const approved = deps.characters?.kidOverview().some((item) => item.slot === characterModel[1] && item.sha256 === characterModel[2]);
+          const bytes = approved ? deps.characters?.bytes(characterModel[1]!, characterModel[2]!) : undefined;
+          if (!bytes) throw new KidHttpError(404, 'Ese personaje todavía no está listo.');
+          response.writeHead(200, {
+            'content-type': 'model/gltf-binary', 'content-length': bytes.length,
+            'cache-control': 'private, max-age=31536000, immutable', 'x-content-type-options': 'nosniff',
+          });
+          response.end(bytes);
           return true;
         }
         // Ángel Guardián: funciona siempre, sin límites de tiempo ni bloqueos (es para emergencias).
