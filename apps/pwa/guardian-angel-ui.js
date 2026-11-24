@@ -7,7 +7,7 @@
  */
 import {
   HOLD_MS, ROLE_LABEL, FIRST_AID, FIRST_AID_ENTRIES, COMPRESSIONS_PER_MINUTE, SELF_DEFENSE, STREET_SAFETY, FAMILY_VALUES, FIRST_AID_WORDS,
-  alertText, contactLinks, emergencyCall,
+  alertText, contactLinks, emergencyCall, validLocation,
 } from './guardian-angel.js';
 
 const CSS = `
@@ -61,9 +61,36 @@ function metronome() {
   };
 }
 
+// Estados de transporte: guardar en el servidor no demuestra que un tutor haya recibido el push.
+export function sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError }) {
+  if (practice) return 'Práctica: no se envía ubicación ni se avisa a nadie.';
+  const event = sosId ? 'SOS registrado en Janus; recepción por la familia sin confirmar.'
+    : createFailed ? 'No se confirmó el SOS. Llama al 112 o a tu familia.' : 'Intentando registrar el SOS. Puedes llamar ya.';
+  const location = gpsError ? 'GPS no disponible; di dónde estás o pide ayuda al personal.'
+    : !lastLoc ? 'Buscando ubicación…'
+    : sentAt === lastLoc.at ? 'Última ubicación registrada en Janus'
+    : 'Ubicación obtenida; envío todavía sin confirmar';
+  return event + ' ' + location + (lastLoc && !gpsError ? ' (±' + Math.round(lastLoc.accuracy ?? 0) + ' m).' : '');
+}
+
+// Búsqueda opcional, no navegación certificada ni afirmación de horario o seguridad.
+// No se envían datos a mapas hasta pulsar el enlace. Nunca buscar un domicilio familiar en persecución.
+export function refugeSearchUrl(location, category) {
+  const loc = validLocation(location);
+  const terms = { police: 'politie', hospital: 'spoedeisende hulp', staffed: 'supermarkt hotel receptie' };
+  if (!loc || !Object.prototype.hasOwnProperty.call(terms, category)) return null;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(terms[category] + ' near ' + loc.lat + ',' + loc.lon);
+}
+export function orderedGuardians(guardians) {
+  const rank = { padre: 0, madre: 1, tutor_legal: 2, familiar: 3, otro: 4 };
+  return (guardians ?? []).slice().sort((a,b) => Number(b.primary) - Number(a.primary) || (rank[a.role] ?? 9) - (rank[b.role] ?? 9));
+}
+
 export function mountGuardianAngel(host, { request, childName = '', practice = false } = {}) {
   if (!document.getElementById('ga-css')) document.head.append(el('style', { id: 'ga-css' }, CSS));
   let config = null, sosId = null, watch = null, lastSent = 0, lastLoc = null, sheet = null, stepId = null, kind = 'ayuda';
+  let sentAt = null, gpsError = false, createFailed = false, creating = false, sending = false, closing = false, closeError = '', silent = false;
+  let followup = 0, generation = 0, beatActive = false;
   const beat = metronome();
 
   async function loadConfig() {
@@ -71,75 +98,162 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
     if (result.status === 200) { config = result.body.config; childName = result.body.childName || childName; }
   }
 
+  async function sendLocation(force = false) {
+    if (practice || !sheet || !sosId || !lastLoc || sending || closing || sentAt === lastLoc.at) return;
+    if (!force && Date.now() - lastSent < 20_000) return;
+    const current = generation, id = sosId, point = lastLoc;
+    sending = true; lastSent = Date.now();
+    try {
+      const result = await request('POST', '/api/kid/sos/' + id + '/location', { location: point });
+      if (current === generation && result.status === 200) sentAt = point.at;
+    } catch { /* No se afirma entrega. Se reintenta en la próxima actualización GPS. */ }
+    finally { if (current === generation) { sending = false; refreshLocation(); } }
+  }
+
+  function refreshLocation() {
+    if (!sheet) return;
+    const status = sheet.querySelector('[data-ga-status]');
+    if (status) status.textContent = sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError });
+    const text = alertText({ childName, kind, location: lastLoc, lang: 'es' });
+    for (const link of sheet.querySelectorAll('[data-ga-contact]')) {
+      const guardian = orderedGuardians(config?.guardians)[Number(link.dataset.gaIndex)];
+      const href = guardian && contactLinks(guardian, text)[link.dataset.gaContact];
+      if (!practice && href) link.href = href;
+    }
+    for (const link of sheet.querySelectorAll('[data-ga-refuge]')) {
+      const href = !practice && !gpsError && refugeSearchUrl(lastLoc, link.dataset.gaRefuge);
+      if (href) { link.href = href; link.removeAttribute('aria-disabled'); link.tabIndex = 0; }
+      else { link.removeAttribute('href'); link.setAttribute('aria-disabled','true'); link.tabIndex = -1; }
+    }
+  }
+
   function startLocation() {
-    if (!navigator.geolocation) return;
-    watch = navigator.geolocation.watchPosition((pos) => {
-      lastLoc = { lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy, at: new Date(pos.timestamp).toISOString() };
-      render();
-      if (!practice && sosId && Date.now() - lastSent > 20_000) { lastSent = Date.now(); request('POST', `/api/kid/sos/${sosId}/location`, { location: lastLoc }); }
-    }, () => render(), { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 });
+    if (practice) return;
+    if (!navigator.geolocation) { gpsError = true; refreshLocation(); return; }
+    const current = generation;
+    try {
+      watch = navigator.geolocation.watchPosition((pos) => {
+        if (current !== generation || !sheet || closing) return;
+        lastLoc = validLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy, at: new Date(pos.timestamp).toISOString() });
+        gpsError = !lastLoc;
+        refreshLocation(); void sendLocation();
+      }, () => { if (current === generation) { gpsError = true; refreshLocation(); } }, { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 });
+    } catch { gpsError = true; refreshLocation(); }
   }
 
   async function activate() {
-    await loadConfig().catch(() => {});
-    if (!practice) {
-      const created = await request('POST', '/api/kid/sos', { kind, location: lastLoc }).catch(() => ({ status: 0 }));
-      if (created.status === 201) sosId = created.body.id;
-    }
-    stepId = null;
-    startLocation();
+    if (sheet || creating || closing) return;
+    const current = ++generation;
+    sosId = null; lastLoc = null; sentAt = null; lastSent = 0; gpsError = false;
+    createFailed = false; closeError = ''; silent = false; followup = 0; stepId = null; kind = 'ayuda';
+    creating = !practice;
+    // La ayuda y el número de emergencia no dependen de la red ni del permiso de GPS.
     open();
+    if (practice) return;
+    startLocation();
+    void loadConfig().then(() => { if (current === generation && sheet) render(); }).catch(() => {});
+    const initial = lastLoc;
+    try {
+      const created = await request('POST', '/api/kid/sos', { kind, location: initial });
+      if (current !== generation) return;
+      if (created.status === 201 && typeof created.body?.id === 'string') {
+        sosId = created.body.id; sentAt = initial?.at ?? null;
+      } else createFailed = true;
+    } catch { if (current === generation) createFailed = true; }
+    finally {
+      if (current === generation) { creating = false; render(); void sendLocation(true); }
+    }
   }
 
   async function close(ok) {
-    beat.stop(); try { globalThis.speechSynthesis?.cancel(); } catch { /* nada */ }
-    if (watch != null) navigator.geolocation.clearWatch(watch);
-    if (ok && sosId && !practice) await request('POST', `/api/kid/sos/${sosId}/ok`, {}).catch(() => {});
-    sosId = null; watch = null; sheet?.remove(); sheet = null;
+    if (closing) return;
+    if (creating) { closeError = 'Aún no se sabe si el aviso llegó. Puedes llamar o esperar; no se ha cerrado.'; render(); return; }
+    closing = true; closeError = '';
+    if (ok && sosId && !practice) {
+      try {
+        const result = await request('POST', '/api/kid/sos/' + sosId + '/ok', {});
+        if (result.status !== 200) throw new Error('No confirmado');
+      } catch {
+        closing = false; closeError = 'No se confirmó el cierre. Sigue activo en Janus hasta confirmarlo; puedes volver a intentarlo.'; render(); return;
+      }
+    }
+    generation++; beat.stop(); beatActive = false;
+    try { globalThis.speechSynthesis?.cancel(); } catch { /* nada */ }
+    if (watch != null) navigator.geolocation?.clearWatch(watch);
+    sosId = null; watch = null; sending = false; closing = false; sheet?.remove(); sheet = null;
+  }
+
+  function say(text) { if (!silent) speak(text); }
+  function enter(id, nextKind = kind) {
+    kind = nextKind; stepId = id;
+    if (id.startsWith('calle') || id === 'llamar_calle') {
+      silent = true; try { globalThis.speechSynthesis?.cancel(); } catch { /* nada */ }
+    }
+    render();
+    if (FIRST_AID[id]) say(safeStepText(FIRST_AID[id].say));
+  }
+  function safeStepText(text) {
+    return text.replace(/Yo (ya )?aviso a (papá con tu ubicación|tu familia)\./g, 'Usa los botones para avisar a tu familia.')
+      .replace(/Tu familia ya está avisada\./g, 'Confirma con tu familia que recibió el aviso.')
+      .replace(/No estás sola\./g, 'Busca a una persona adulta que pueda ayudarte.');
+  }
+  function refugeCard() {
+    const labels = [['police','Buscar policía'],['hospital','Buscar urgencias hospitalarias'],['staffed','Buscar tienda u hotel con personal']];
+    return el('section', { class: 'ga-step' }, el('h3', {}, 'Busca ayuda cerca'),
+      el('p', {}, 'Si te siguen, entra en el lugar abierto con personal y gente más cercano que puedas ver. No vayas a casa, a un atajo ni a un sitio aislado. Pide que llamen al 112.'),
+      el('p', { class:'ga-status' }, 'Solo si puedes mirar el móvil sin riesgo: el mapa externo puede recibir tu ubicación. Comprueba que el lugar esté abierto y tenga personal; no podemos garantizar horarios, cámaras ni rutas seguras.'),
+      el('div', { class:'ga-row' }, ...labels.map(([key,label]) => el('a', { 'data-ga-refuge':key, target:'_blank', rel:'noopener noreferrer', 'aria-disabled':'true', tabindex:'-1' }, label))),
+      el('p', {}, 'Quédate con el personal o la policía. Si papá no contesta, llama a mamá u otro adulto de confianza. No subas sola a un taxi ni a un coche de desconocidos.'),
+      el('button', { type:'button', onclick: () => { followup = Math.min(followup + 1, Math.max(0, orderedGuardians(config?.guardians).length - 1)); render(); } }, 'No me contestan: siguiente contacto'));
   }
 
   function contacts() {
     const text = alertText({ childName, kind, location: lastLoc, lang: 'es' });
-    const list = (config?.guardians ?? []).slice().sort((a, b) => Number(b.primary) - Number(a.primary));
+    const list = orderedGuardians(config?.guardians);
     const href = (link) => (practice ? null : link);
     return el('div', {},
       el('div', { class: 'ga-row' }, el('a', { class: 'ga-112', href: href(emergencyCall(config ?? undefined)), 'aria-label': 'Llamar a emergencias' }, `📞 ${config?.emergencyNumber ?? '112'}`), el('span', { class: 'ga-status' }, 'Policía, ambulancia y bomberos')),
       list.length === 0 ? el('p', { class: 'ga-status' }, 'Papá todavía no ha puesto sus teléfonos aquí.') : null,
-      ...list.map((g) => { const L = contactLinks(g, text); return el('div', { class: 'ga-row' },
-        el('a', { class: 'ga-call', href: href(L.call) }, `📞 ${ROLE_LABEL[g.role] ?? g.name}`),
-        L.whatsapp ? el('a', { class: 'ga-wa', href: href(L.whatsapp), target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : null,
-        el('a', { href: href(L.sms) }, '✉️ SMS')); }));
+      ...list.map((g, index) => { const L = contactLinks(g, text); return el('div', { class: 'ga-row' },
+        el('a', { class: 'ga-call', href: href(L.call), 'data-ga-contact':'call', 'data-ga-index':index }, `${index === followup ? 'Siguiente: ' : ''}${ROLE_LABEL[g.role] ?? g.name} · ${g.name}`),
+        L.whatsapp ? el('a', { class: 'ga-wa', href: href(L.whatsapp), 'data-ga-contact':'whatsapp','data-ga-index':index, target: '_blank', rel: 'noopener noreferrer' }, 'WhatsApp') : null,
+        el('a', { href: href(L.sms), 'data-ga-contact':'sms','data-ga-index':index }, 'SMS')); }));
   }
 
   function stepCard() {
     const step = FIRST_AID[stepId];
     if (!step) return null;
-    if (step.metronome) beat.start(); else beat.stop();
+    if (step.metronome && !beatActive) { beat.start(); beatActive = true; } else if (!step.metronome && beatActive) { beat.stop(); beatActive = false; }
     return el('section', { class: 'ga-step', 'aria-live': 'polite' },
       el('h3', {}, step.title),
-      el('div', { class: 'ga-say' }, step.say),
+      el('div', { class: 'ga-say' }, safeStepText(step.say)),
       el('div', { class: 'ga-simple' }, step.simple),
       step.metronome ? el('div', { class: 'ga-beat', 'aria-hidden': 'true' }) : null,
-      el('div', { class: 'ga-row' }, ...step.next.map(([label, next]) => el('button', { type: 'button', onclick: () => { stepId = next; render(); speak(FIRST_AID[next].say); } }, label)),
-        el('button', { type: 'button', onclick: () => speak(step.say) }, '🔊 Otra vez')));
+      el('div', { class: 'ga-row' }, ...step.next.map(([label, next]) => el('button', { type: 'button', onclick: () => enter(next) }, label)),
+        el('button', { type: 'button', onclick: () => { silent = false; speak(safeStepText(step.say)); } }, 'Escuchar otra vez')));
   }
 
   function render() {
     if (!sheet) return;
-    const where = lastLoc ? `📍 Ubicación enviada (±${Math.round(lastLoc.accuracy)} m)` : '📍 Buscando tu ubicación…';
     sheet.replaceChildren(...[
       practice ? el('p', { class: 'ga-practice' }, 'MODO PRÁCTICA: no avisa a nadie ni llama de verdad.') : null,
       el('h2', {}, '👼 Ángel Guardián'),
-      el('p', { class: 'ga-status' }, practice ? where.replace('enviada', 'de práctica') : (sosId ? '✅ Papá ya está avisado. ' : '') + where),
+      el('p', { class: 'ga-status', 'data-ga-status':'', role:'status' }, sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentAt, gpsError })),
+      el('p', {}, 'Si hay peligro inmediato, llama a emergencias ahora. No necesitas esperar a Janus.'),
+      el('div', { class:'ga-row' }, el('button', { type:'button', onclick:()=>{ silent=true; globalThis.speechSynthesis?.cancel(); beat.stop(); beatActive=false; } }, 'Silenciar voz')),
       contacts(),
       stepId ? stepCard() : el('div', {}, el('h3', {}, '¿Qué pasa?'),
-        el('div', { class: 'ga-row' }, ...FIRST_AID_ENTRIES.map(([label, entry]) => el('button', { type: 'button', onclick: () => { kind = entry === 'calle' ? 'peligro' : 'ayuda'; stepId = entry; render(); speak(FIRST_AID[entry].say); } }, label)),
-          el('button', { type: 'button', onclick: () => { kind = 'perdida'; stepId = 'calle_dentro'; render(); speak(FIRST_AID.calle_dentro.say); } }, 'Me he perdido'),
-          el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = 'calma'; render(); speak('Estoy contigo. Llama a papá o al 112 con los botones de arriba.'); } }, 'Estoy herida'))),
+        el('div', { class: 'ga-row' }, ...FIRST_AID_ENTRIES.map(([label, entry]) => el('button', { type: 'button', onclick: () => enter(entry, entry === 'calle' ? 'peligro' : 'ayuda') }, label)),
+          el('button', { type: 'button', onclick: () => enter('calle_dentro', 'perdida') }, 'Me he perdido'),
+          el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = null; render(); say('Si estás herida, pide ayuda a una persona adulta. Si es grave, llama a emergencias.'); } }, 'Estoy herida'))),
+      !practice && (kind === 'peligro' || kind === 'perdida') ? refugeCard() : null,
+      closeError ? el('p', { role:'alert' }, closeError) : null,
+      !practice ? el('p', { class:'ga-status' }, 'Sin internet: prueba llamada o SMS si hay cobertura. Sin cobertura: usa SOS satelital del teléfono si está disponible; pide ayuda al personal. No grabes ni enfrentes a nadie si te pone en riesgo.') : null,
       el('div', { class: 'ga-love' }, (config?.messages?.length ? config.messages[Math.floor(Date.now() / 60000) % config.messages.length] : FAMILY_VALUES[2])),
       el('div', { class: 'ga-row' }, el('button', { type: 'button', onclick: () => close(true) }, practice ? 'Terminar la práctica' : '✅ Estoy bien')),
       practice ? learnMore() : null,
     ].filter(Boolean));
+    refreshLocation();
   }
 
   function learnMore() {
@@ -153,7 +267,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   function open() {
     sheet = el('div', { class: 'ga-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Ángel Guardián' });
     document.body.append(sheet); render();
-    if (!practice) speak('Estoy contigo. Papá ya está avisado. Respira despacio. Si es peligro, pulsa el botón rojo.');
+    // Voz voluntaria: en una persecución, hablar sin permiso podría llamar la atención.
   }
 
   // Botón con pulsación larga (evita avisos por accidente). En modo práctica se abre al momento.
@@ -162,7 +276,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
   const cancel = () => { clearTimeout(holdTimer); button.classList.remove('ga-hold'); };
   button.addEventListener('pointerdown', () => { if (practice) return; button.classList.add('ga-hold'); holdTimer = setTimeout(() => { cancel(); navigator.vibrate?.(200); activate(); }, HOLD_MS); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((e) => button.addEventListener(e, cancel));
-  button.addEventListener('click', () => { if (practice) activate(); });
+  button.addEventListener('click', (event) => { if (practice || event.detail === 0) void activate(); });
   if (!practice) host.append(button);
   return { button, practice: () => mountGuardianAngel(host, { request, childName, practice: true }).open(), open: activate };
 }
