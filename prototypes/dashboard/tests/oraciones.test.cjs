@@ -8,20 +8,33 @@ const vm = require('node:vm');
 
 const SRC = path.join(__dirname, '..', 'lego', 'janus-oraciones', 'janus-oraciones.js');
 const MIRROR = path.join(__dirname, '..', '..', '..', 'apps', 'pwa', 'approved-3d', 'janus-oraciones.js');
-const load = () => { const ctx = {}; ctx.globalThis = ctx; vm.createContext(ctx); vm.runInContext(fs.readFileSync(SRC, 'utf8'), ctx); return ctx.JanusOraciones; };
+const load = (extra) => { const ctx = Object.assign({}, extra); ctx.globalThis = ctx; vm.createContext(ctx); vm.runInContext(fs.readFileSync(SRC, 'utf8'), ctx); return ctx.JanusOraciones; };
 
 test('el espejo de la PWA es idéntico a la fuente única (sin copias divergentes)', () => {
   assert.strictEqual(fs.readFileSync(MIRROR, 'utf8'), fs.readFileSync(SRC, 'utf8'));
 });
 
-test('Padre Nuestro en latín, griego, hebreo y español, con fuente', () => {
+test('Padre Nuestro: hebreo primero, latín y español, sin griego, con fuente', () => {
   const o = load(), p = o.byId('pater');
-  assert.deepStrictEqual([...o.langsOf('pater')].sort(), ['el', 'es', 'he', 'la']);
+  assert.deepStrictEqual([...o.langsOf('pater')], ['he', 'la', 'es'], 'el Founder pidió hebreo y latín; el griego sobra');
+  assert.deepStrictEqual([...o.langsFor('pater', 'founder')], ['he', 'la', 'es']);
+  assert.ok(!o.LANGS.el && !p.texts.el, 'sin griego');
   assert.match(p.texts.la.lines.join(' '), /^Pater noster, qui es in caelis,.*sed libera nos a malo\. Amen\.$/);
-  assert.match(p.texts.el.lines[0], /^Πάτερ ἡμῶν/);
   assert.match(p.texts.he.lines[0], /^אָבִינוּ שֶׁבַּשָׁמַיִם/);
-  for (const l of ['la', 'el', 'he', 'es']) assert.ok(p.texts[l].source, 'falta fuente en ' + l);
-  assert.strictEqual(p.original, 'el', 'el original escrito del Padre Nuestro es el griego');
+  for (const l of ['la', 'he', 'es']) assert.ok(p.texts[l].source, 'falta fuente en ' + l);
+  assert.match(o.LANGS.he.note, /arameo/, 'la nota no debe presentar el hebreo como la lengua que hablaba Jesús');
+});
+
+test('voz hebrea: acepta he-IL e iw-IL; sin voz hebrea no lee mal', () => {
+  const mk = (voices) => { const spoken = []; const root = { speechSynthesis: { getVoices: () => voices, speak: (u) => spoken.push(u), cancel() {} }, SpeechSynthesisUtterance: function (t) { this.text = t; } }; return { o: load(root), spoken }; };
+  let r = mk([{ lang: 'es-ES' }]);
+  assert.strictEqual(r.o.hasVoice('he'), false);
+  assert.strictEqual(r.o.speak('pater', 'he'), false);
+  assert.strictEqual(r.spoken.length, 0);
+  r = mk([{ lang: 'iw_IL' }]);
+  assert.strictEqual(r.o.hasVoice('he'), true);
+  assert.strictEqual(r.o.speak('pater', 'he'), true);
+  assert.strictEqual(r.spoken[0].lang, 'he-IL');
 });
 
 test('Ángel de la Guarda y San Miguel en latín (su lengua original), con pronunciación y traducción', () => {

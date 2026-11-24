@@ -234,6 +234,12 @@ function showLock(message) {
 // ── Oraciones (orden de papá, 24-nov-2026): oraciones para niños en español; el latín solo si ella quiere aprenderlo ──
 let prayId = 'angel-nino';
 let prayLang = 'es';
+const LATIN_FACTS = [
+  'El latín es una lengua muy, muy antigua: tiene más de 2.500 años. Nació en la zona de Roma, en Italia. Era la lengua de los romanos.',
+  'El español viene del latín. «Luna» en latín también es luna. «Agua» era aqua. O sea: ¡ya sabes un poquito de latín!',
+  'En la cruz de Jesús había un cartel con las letras INRI. Son palabras en latín: «Jesús de Nazaret, Rey de los judíos».',
+  'Jesús hablaba arameo. Después la Iglesia rezó en latín durante muchísimos años, y el Papa todavía lo usa.',
+];
 function tabOraciones() {
   const ora = globalThis.JanusOraciones;
   if (!ora) return h('section', { class: 'card' }, h('p', {}, 'Las oraciones no se han podido cargar.'));
@@ -251,8 +257,11 @@ function tabOraciones() {
   const listen = h('button', { type: 'button', class: 'primary', onClick: () => { if (!ora.speak(p.id, prayLang, { rate: 0.75 })) flash('Esta tablet no puede leerla en voz alta.'); } }, '🔊 Escuchar');
   const card = h('section', { class: 'card' }, h('h2', {}, p.title), langRow, lines, say, listen);
   const offerLatin = !prefs.latin && ora.byId(p.id)?.texts.la
-    ? h('section', { class: 'card' }, h('p', {}, `¿Quieres aprender «${p.title}» en latín, la lengua de la Iglesia?`),
-      h('button', { type: 'button', onClick: () => { prefs.latin = true; savePrefs(); prayLang = 'la'; renderMain(); } }, '¡Sí, quiero!'))
+    ? h('section', { class: 'card' }, h('h3', {}, '🏛️ ¿Sabías esto del latín?'),
+      // Hechos comprobados (Protocolo de la Verdad): latín del Lacio (Roma), más de 2.500 años; el español viene del
+      // latín; INRI = Iesus Nazarenus Rex Iudaeorum (Jn 19, 19-20); Jesús hablaba arameo; el Vaticano usa el latín.
+      ...LATIN_FACTS.map((x) => h('p', {}, x)),
+      h('button', { type: 'button', class: 'primary', onClick: () => { prefs.latin = true; savePrefs(); prayLang = 'la'; renderMain(); } }, `Rezar «${p.title}» como los romanos`))
     : null;
   return [picker, card, offerLatin].filter(Boolean);
 }

@@ -2,13 +2,21 @@
   "piece": "janus-oraciones",
   "name": "Oraciones católicas en su lengua original y en español, con pronunciación y voz del aparato",
   "moduleVersion": "1.0.0",
-  "origin": "Nuevo (24 nov 2026, orden del Founder): Padre Nuestro en latín, griego (original escrito) y hebreo (Delitzsch); Ángel de la Guarda y San Miguel Arcángel en latín; oraciones para niños.",
+  "origin": "Nuevo (24 nov 2026, orden del Founder): Padre Nuestro recitado en hebreo (Delitzsch) y en latín, sin griego (orden 24-nov 13:20); Ángel de la Guarda y San Miguel Arcángel en latín; oraciones para niños.",
   "dependencies": [],
   "api": "JanusOraciones.forAudience('founder'|'kendra') · byId(id) · langsOf(id) · langsFor(id, who, latinOptIn) · speak(id, lang, {rate,onEnd}) → bool · stop() · hasVoice(lang) · LANGS · PRAYERS",
-  "behaviour": "Datos puros y lectura en voz alta con speechSynthesis del aparato (sin red ni nube). Para Kendra: español por defecto; latín solo si ella lo pide; griego y hebreo nunca; San Miguel solo para el Founder.",
+  "behaviour": "Datos puros y lectura en voz alta con speechSynthesis del aparato (sin red ni nube). Founder: el Padre Nuestro se recita primero en hebreo. Para Kendra: español por defecto; latín solo si ella lo pide; hebreo nunca; San Miguel solo para el Founder.",
   "mounts": [
-    { "product": "Janus · dashboard A y B — vista Oraciones", "file": "prototypes/dashboard/src/oraciones.js", "version": "1.0.0" },
-    { "product": "Janus PWA · app de Kendra — pestaña Oraciones", "file": "apps/pwa/kendra.js (espejo idéntico en apps/pwa/approved-3d/janus-oraciones.js)", "version": "1.0.0" }
+    {
+      "product": "Janus · dashboard A y B — vista Oraciones",
+      "file": "prototypes/dashboard/src/oraciones.js",
+      "version": "1.0.0"
+    },
+    {
+      "product": "Janus PWA · app de Kendra — pestaña Oraciones",
+      "file": "apps/pwa/kendra.js (espejo idéntico en apps/pwa/approved-3d/janus-oraciones.js)",
+      "version": "1.0.0"
+    }
   ],
   "knownLimits": [
     "Ningún aparato trae voz latina: se lee con voz italiana (pronunciación eclesiástica aproximada).",
@@ -17,9 +25,11 @@
   ],
   "sources": [
     "Misal Romano / Vulgata Mt 6, 9-13 (latín)",
-    "Mateo 6, 9-13, texto griego crítico",
     "Franz Delitzsch, Nuevo Testamento hebreo, 12.ª ed. (1901), dominio público",
     "Angele Dei: oración tradicional latina",
     "Sancte Michael Archangele: León XIII (1886)"
+  ],
+  "limits": [
+    "El hebreo solo suena si el aparato tiene voz hebrea (he-IL o iw-IL); si no, Janus no lo lee mal: muestra cómo instalarla."
   ]
 }
