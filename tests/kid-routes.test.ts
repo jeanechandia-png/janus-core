@@ -108,6 +108,17 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     });
     assert.equal(open.status, 200);
 
+    // School: la ruta reutiliza el módulo educativo, solo para el dispositivo infantil autenticado.
+    assert.equal((await call('GET', '/api/kid/school')).status, 401);
+    assert.ok([401, 403].includes((await call('GET', '/api/kid/school', founder)).status));
+    const school = await call('GET', '/api/kid/school', kid);
+    assert.equal(school.status, 200);
+    assert.equal(school.body.status, 'available');
+    assert.deepEqual(school.body.techniques.map((item: { id: string }) => item.id).sort(), ['amigos-del-10', 'cpa-concreto-dibujo-simbolo']);
+    assert.ok(school.body.techniques.every((item: { steps: unknown[]; materials: unknown[] }) => item.steps.length > 0 && item.materials.length > 0));
+    assert.ok(school.body.techniques.every((item: Record<string, unknown>) => !('caution' in item) && !('evidenceIds' in item)));
+
+
     // 5) Personalización por la propia niña (listas cerradas).
     const state = await call('GET', '/api/kid/state', kid);
     assert.equal(state.status, 200);
