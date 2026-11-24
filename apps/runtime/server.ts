@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { createReadStream, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, extname, join } from 'node:path';
@@ -349,6 +349,10 @@ const founderReferenceLocalOverlayPath = fileURLToPath(
   new URL('../../config/founder-reference-library.local.json', import.meta.url),
 );
 const dbPath = process.env.JANUS_DB ?? join(process.cwd(), 'data', 'janus.db');
+// Voz guardada (orden del Founder, 24-nov-2026: «no pagar cada vez»): textos fijos —oraciones— se generan UNA vez con
+// la voz configurada y se guardan junto a la memoria; después suenan desde el disco sin coste. Fuera del repositorio.
+const voiceCacheDir = process.env.JANUS_VOICE_CACHE_DIR ?? join(dirname(dbPath), 'voice-cache');
+const VOICE_CACHE_MAX_FILES = 400;
 // Adjuntos del chat («+»): junto a la base de datos (en la tablet: ~/janus-data/attachments). Tope total de espacio configurable.
 const attachmentsDir = process.env.JANUS_ATTACHMENTS_DIR?.trim()
   || (dbPath === ':memory:' || dbPath === ''
@@ -8373,17 +8377,39 @@ const server = createServer(async (request, response) => {
       catch { throw new HttpRequestError(400, 'Seleccione el perfil Janus o Melanie.'); }
       const text = typeof body.text === 'string' ? body.text.trim() : '';
       if (!text || text.length > 2000) throw new HttpRequestError(400, 'La frase debe tener entre 1 y 2000 caracteres.');
+      // keep: texto fijo (oración) que se guarda para no volver a pagarlo. Solo frases cortas, con tope de archivos.
+      const keep = body.keep === true && text.length <= 400;
+      const cacheFile = keep ? join(voiceCacheDir, createHash('sha256').update(profile.id + '\n' + text).digest('hex') + '.audio') : '';
+      if (keep && existsSync(cacheFile)) {
+        const saved = readFileSync(cacheFile);
+        const mime = saved.subarray(0, 64).toString('latin1').split('\n')[0] ?? 'audio/mpeg';
+        const audio = saved.subarray(saved.indexOf(10) + 1);
+        response.writeHead(200, { 'content-type': mime, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-janus-voice': 'saved' });
+        response.end(audio);
+        return;
+      }
       if (!configuredTtsGateway) throw new HttpRequestError(503, 'Voz pendiente de configuración en este equipo.');
       let bytes = 0;
+      let mimeType = 'audio/mpeg';
+      const parts: Buffer[] = [];
       for await (const chunk of configuredTtsGateway.synthesize(text, profile.voiceId)) {
         if (response.destroyed) break;
         bytes += chunk.bytes.byteLength;
         if (bytes > 16 * 1024 * 1024) throw new Error('voice_output_limit');
-        if (!response.headersSent) response.writeHead(200, { 'content-type': chunk.mimeType, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
-        response.write(Buffer.from(chunk.bytes));
+        mimeType = chunk.mimeType;
+        if (!response.headersSent) response.writeHead(200, { 'content-type': chunk.mimeType, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff', 'x-janus-voice': keep ? 'generated-saved' : 'generated' });
+        const piece = Buffer.from(chunk.bytes);
+        if (keep) parts.push(piece);
+        response.write(piece);
       }
       if (!response.headersSent) throw new HttpRequestError(502, 'No se recibió audio de la voz configurada.');
       response.end();
+      if (keep && !response.destroyed && parts.length) {
+        try {
+          mkdirSync(voiceCacheDir, { recursive: true, mode: 0o700 });
+          if (readdirSync(voiceCacheDir).length < VOICE_CACHE_MAX_FILES) writeFileSync(cacheFile, Buffer.concat([Buffer.from(mimeType.replace(/[\r\n]/g, '') + '\n', 'latin1'), ...parts]), { mode: 0o600 });
+        } catch { /* sin disco: suena igual, se generará otra vez la próxima */ }
+      }
     } catch (error) {
       if (response.headersSent) response.destroy();
       else if (error instanceof HttpRequestError || error instanceof AuthorityAuthenticationError) json(response, authErrorStatus(error), authErrorBody(error));

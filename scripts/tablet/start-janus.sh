@@ -2,7 +2,9 @@
 # JANUS · supervisor para la tablet: mantiene el runtime encendido, lo reinicia si se cae (con espera creciente),
 # rota el registro y hace la copia diaria de la base de datos. Una sola instancia a la vez.
 # Variables opcionales: PORT, JANUS_APP_DIR, JANUS_DATA_DIR, JANUS_SECRETS_DIR, JANUS_BACKUP_EVERY_S (0 = sin copias),
-# JANUS_RESTART_MAX_S (espera máxima entre reinicios, por defecto 120).
+# JANUS_RESTART_MAX_S (espera máxima entre reinicios, por defecto 120),
+# JANUS_UPDATE_EVERY_S (cada cuánto busca versión nueva; por defecto 1800 = 30 min; 0 = sin actualización automática),
+# JANUS_UPDATE_REF (rama que sigue; por defecto main).
 set -u
 
 HOME_DIR="${HOME:-/data/data/com.termux/files/home}"
@@ -13,6 +15,7 @@ LOG="$DATA_DIR/logs/janus.log"
 LOCK="$DATA_DIR/janus.lock"
 BACKUP_EVERY="${JANUS_BACKUP_EVERY_S:-86400}"
 RESTART_MAX="${JANUS_RESTART_MAX_S:-120}"
+UPDATE_EVERY="${JANUS_UPDATE_EVERY_S:-1800}"
 MAX_LOG_BYTES=5242880
 
 mkdir -p "$DATA_DIR/logs" "$DATA_DIR/backups"
@@ -35,8 +38,10 @@ echo $$ >"$LOCK/pid"
 
 CHILD=""
 BACKUPPER=""
+UPDATER=""
 cleanup() {
   [ -n "$BACKUPPER" ] && kill "$BACKUPPER" 2>/dev/null
+  [ -n "$UPDATER" ] && kill "$UPDATER" 2>/dev/null
   [ -n "$CHILD" ] && kill "$CHILD" 2>/dev/null
   rm -rf "$LOCK"
   command -v termux-wake-unlock >/dev/null 2>&1 && termux-wake-unlock
@@ -64,6 +69,23 @@ if [ "$BACKUP_EVERY" -gt 0 ] 2>/dev/null; then
   BACKUPPER=$!
 fi
 
+# Actualización automática (orden del Founder, 24-nov-2026). Si hay versión nueva lista, se reinicia solo el runtime;
+# la memoria y las claves no se tocan. La app abierta se recarga sola en un momento tranquilo (apps/pwa/pwa-update.js).
+if [ "$UPDATE_EVERY" -gt 0 ] 2>/dev/null; then
+  (
+    sleep 120   # deja arrancar tranquilo antes de la primera comprobación
+    while :; do
+      sh "$APP_DIR/scripts/tablet/update-janus.sh" >>"$LOG" 2>&1
+      if [ $? -eq 0 ]; then
+        RUNNING="$(cat "$LOCK/child" 2>/dev/null || true)"
+        [ -n "$RUNNING" ] && kill "$RUNNING" 2>/dev/null
+      fi
+      sleep "$UPDATE_EVERY"
+    done
+  ) &
+  UPDATER=$!
+fi
+
 DELAY=5
 log "arrancando (puerto $PORT, versión $(git -C "$APP_DIR" rev-parse --short HEAD 2>/dev/null || echo desconocida))"
 while :; do
@@ -71,6 +93,7 @@ while :; do
   STARTED="$(date +%s)"
   node "$APP_DIR/scripts/start-local.mjs" >>"$LOG" 2>&1 &
   CHILD=$!
+  echo "$CHILD" >"$LOCK/child"
   wait "$CHILD"
   CODE=$?
   CHILD=""

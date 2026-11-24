@@ -7,6 +7,7 @@ import { mountAttachMenu } from './attach.js';
 import { proposalFromEvent, reviewKnowledgeProposal } from './knowledge-review.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+import { registerWithAutoUpdate } from './pwa-update.js';
 
 // Founder-only private cases. No case identifiers, mail addresses or sensitive text in the public bundle.
 // Never render this area for anonymous or expired sessions. The Core is the only authority.
@@ -1086,9 +1087,7 @@ refreshFounderLocale();
 mountGlowEmblem(document.querySelector('#janusEmblem'));
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png', lang: document.documentElement.lang || 'es' });
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
+registerWithAutoUpdate('/sw.js');
 
 // ── Tarjeta de Kendra (módulo kid-dashboard): resumen + panel de padres con la sesión de Founder ─────────────────────
 const kendraSummary = document.querySelector('#kendraSummary');
