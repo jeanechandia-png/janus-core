@@ -221,6 +221,7 @@ function renderMain() {
   if (warnText) nodes.push(h('p', { class: 'banner', role: 'status' }, warnText));
   if (toast) nodes.push(h('p', { class: 'banner ok', role: 'status' }, toast));
   nodes.push(...[].concat(builders[tab]()));
+  mainEl.classList.toggle('kid-home', tab === 'inicio');
   mainEl.replaceChildren(...nodes.filter(Boolean));
 }
 
@@ -276,11 +277,11 @@ function tabInicio() {
   const stage = pet
     ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, createApprovedStage(pet.id))
     : h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon);
-  out.push(h('section', { class: 'card hero' }, stage, h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), say)));
+  out.push(h('section', { class: 'card hero kid-hero' }, stage, h('div', {}, h('h2', {}, `¡Hola, ${view.profile.displayName}!`), say, h('button', { type: 'button', class: 'primary', onClick: () => go('chat') }, 'Hablar conmigo'))));
 
   if (view.reminders.length > 0) {
     out.push(h('section', { class: 'card' },
-      h('h3', {}, '⏰ Te toca recordar'),
+      h('h3', {}, 'No olvides'),
       h('ul', { class: 'list' }, view.reminders.map((item) => h('li', {}, h('span', { class: 'grow' }, item.text)))),
       h('button', { type: 'button', class: 'primary', onClick: async () => { await api('POST', '/api/kid/reminders/ack', { keys: view.reminders.map((item) => item.key) }); await load(); } }, 'Vale, ya lo sé')));
   }
@@ -289,19 +290,35 @@ function tabInicio() {
   if (!access.allowed) out.push(h('p', { class: 'banner lock', role: 'status' }, access.message));
   else if (access.warn) out.push(h('p', { class: 'banner', role: 'status' }, access.warn.message));
 
-  out.push(outfitCard());
+  const weather = outfitCard(); weather.classList.add('kid-weather'); out.push(weather);
+  out.push(kidDatesCard());
+  out.push(h('section', {class:'card kid-media'}, h('h3', {}, 'Ver'), h('p', {class:'muted'}, 'Solo vídeos aprobados por papá.'), h('button', {type:'button',class:'primary',onClick:()=>go('ver')}, 'Ver mis vídeos')));
 
   out.push(h('section', { class: 'card' },
-    h('h3', {}, '📅 Lo que viene'),
+    h('h3', {}, 'Mi día'),
     view.agenda.length === 0 ? h('p', { class: 'muted' }, 'No tienes nada apuntado estos días.') : h('ul', { class: 'list' }, view.agenda.slice(0, 5).map((item) => h('li', {}, h('span', { class: 'grow' }, h('strong', {}, item.title), h('br'), h('small', {}, `${dateLabel(item.date)}${item.time ? ` · ${item.time}` : ''}`)))))));
 
   const pending = [...view.tasks.overdue, ...view.tasks.soon.filter((task) => !view.tasks.overdue.some((late) => late.id === task.id))];
   if (pending.length > 0) {
     out.push(h('section', { class: 'card' },
-      h('h3', {}, '✏️ Para ir pensando'),
+      h('h3', {}, 'Mis tareas'),
       h('ul', { class: 'list' }, pending.slice(0, 4).map((task) => h('li', {}, h('span', { class: 'grow' }, task.title, task.due ? h('small', {}, ` · ${dateLabel(task.due)}`) : null))))));
   }
-  return out;
+  const grid = h('div', {class:'kid-home-grid'}, ...out);
+  return grid;
+}
+
+// Fechas calculadas con el día local que entrega Core; no son citas inventadas.
+function kidDatesCard() {
+  const now = new Date(String(view.today) + 'T00:00:00Z');
+  const count = (month, day) => {
+    if (!Number.isFinite(now.getTime())) return null;
+    const y = now.getUTCFullYear();
+    let date = Date.UTC(y, month - 1, day); if (date < now.getTime()) date = Date.UTC(y + 1, month - 1, day);
+    return Math.round((date - now.getTime()) / 86400000);
+  };
+  const christmas = count(12,25), sinterklaas = count(12,5), yearEnd = count(12,31);
+  return h('section', {class:'card kid-dates'}, h('h3',{},'Fechas especiales'), christmas === null ? h('p',{},'Fecha pendiente de sincronizar.') : h('div',{},h('strong',{class:'kid-count'},String(christmas)),h('p',{},'días para Navidad'),h('p',{class:'muted'},`Sinterklaas: ${sinterklaas} días · Fin de año: ${yearEnd} días`)));
 }
 
 // Al tocar a la criatura: salta, pone cara de fiesta, dice una de sus frases y la lee con la voz LOCAL (si ella lo tiene activado).
