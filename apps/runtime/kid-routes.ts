@@ -64,7 +64,7 @@ import {
   type KidState,
   type PinRecord,
 } from '../../packages/modules/kid-dashboard/src/index.js';
-import { addLocation, alertText, mapsUrl, newSosEvent, normalizeConfig as normalizeGuardianConfig, resolveSos, validLocation, type SosEvent } from '../../packages/modules/guardian-angel/src/index.js';
+import { addLocation, alertText, mapsUrl, newSosEvent, normalizeConfig as normalizeGuardianConfig, KINDS, resolveSos, validLocation, type SosEvent } from '../../packages/modules/guardian-angel/src/index.js';
 
 /**
  * Rutas del dashboard de la niña. Dos puertas distintas:
@@ -435,7 +435,10 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         // Ángel Guardián: funciona siempre, sin límites de tiempo ni bloqueos (es para emergencias).
         if (method === 'GET' && path === '/api/kid/guardian-angel') {
           const { state } = loadState(kid.kidId);
-          json(response, 200, { ok: true, config: state.settings.guardianAngel ?? null, childName: state.profile.displayName });
+          const guardianConfig = state.settings.guardianAngel;
+          // Los destinos privados solo los reciben los tutores autenticados, nunca la vista infantil ni un proveedor externo.
+          const config = guardianConfig ? { ...guardianConfig, guardians: guardianConfig.guardians.map(({ address: _address, ...guardian }) => guardian) } : null;
+          json(response, 200, { ok: true, config, childName: state.profile.displayName });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/sos') {
@@ -448,7 +451,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
           json(response, 201, { ok: true, id: event.id });
           return true;
         }
-        const sosOne = path.match(/^\/api\/kid\/sos\/(sos_[a-z0-9-]{6,40})\/(location|ok)$/);
+        const sosOne = path.match(/^\/api\/kid\/sos\/(sos_[a-z0-9-]{6,40})\/(location|kind|ok)$/);
         if (method === 'POST' && sosOne) {
           const body = await deps.readJson(request);
           const { state } = loadState(kid.kidId);
@@ -460,6 +463,20 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             json(response, 200, { ok: true });
             return true;
           }
+          if (sosOne[2] === 'kind') {
+            if (event.status !== 'activo') throw new KidHttpError(409, 'El aviso ya se cerró.');
+            const kind = KINDS.find((value) => value === body.kind);
+            if (!kind) throw new KidHttpError(400, 'Tipo de aviso no válido.');
+            if (kind !== event.kind) {
+              const next = { ...event, kind };
+              mutate(kid.kidId, (current) => ({ sos: current.sos.map((item) => (item.id === event.id ? next : item)) }));
+              const text = alertText({ childName: state.profile.displayName, kind, location: event.locations.at(-1), lang: 'es' });
+              try { deps.notifyGuardians?.('SOS · situación actualizada', text, 'sos:' + event.id); } catch { /* queda registrado, recepción no confirmada */ }
+            }
+            json(response, 200, { ok: true });
+            return true;
+          }
+          if (event.status !== 'activo') throw new KidHttpError(409, 'El aviso ya se cerró.');
           const loc = validLocation(body.location);
           if (!loc) throw new KidHttpError(400, 'Ubicación no válida.');
           const next = addLocation(event as SosEvent, loc, at.toISOString());
