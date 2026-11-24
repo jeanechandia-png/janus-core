@@ -13,7 +13,7 @@ export interface StoredGuardianConfig {
   country: string;
   emergencyNumber: string;
   childName: string;
-  guardians: Array<{ id: string; role: string; name: string; phone: string; whatsapp: boolean; primary: boolean }>;
+  guardians: Array<{ id: string; role: string; name: string; phone: string; whatsapp: boolean; primary: boolean; address?: string }>;
   /** Mensajes de la familia para la niña (privados, en el aparato). */
   messages?: string[];
 }
