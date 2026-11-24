@@ -10,11 +10,20 @@ const ts = require('typescript');
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 
 const base = path.join(__dirname, '..');
-const uiModules = [
-  'src/views.js', 'src/sala.js', 'src/ofertas.js', 'src/radar.js',
-  'src/casos.js', 'src/solicitudes.js', 'src/cuentas.js', 'src/offline.js', 'src/companero.js',
-  'src/briefing.js', 'src/adjuntos.js', 'src/avatar.js', 'src/casa.js', 'src/app.js',
-];
+// Discover the exact source modules assembled by the production build. A new
+// route must never fail simply because a second, hand-maintained list went stale.
+const buildSource = ts.createSourceFile('build.cjs', fs.readFileSync(path.join(base, 'build.cjs'), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.JS);
+const uiModules = [];
+function discoverBuildModules(node) {
+  if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === 'files' && node.initializer && ts.isArrayLiteralExpression(node.initializer)) {
+    for (const element of node.initializer.elements) {
+      if (ts.isStringLiteral(element) && /^src\/[a-z0-9-]+\.js$/i.test(element.text)) uiModules.push(element.text);
+    }
+  }
+  ts.forEachChild(node, discoverBuildModules);
+}
+discoverBuildModules(buildSource);
+if (!uiModules.includes('src/oraciones.js') || !uiModules.includes('src/app.js')) throw new Error('JANUS: production registry discovery incomplete');
 const actions = new Set();
 const routes = new Set();
 for (const relativePath of uiModules) {
@@ -42,9 +51,12 @@ for (const relativePath of uiModules) {
   visit(source);
 }
 const required = ['clima','dia','familia','prioridades','janus','ingresos','alcance','chatbots',
-  'contenido','clientes','datos','trabajo','inicio','ofertas','correo','radar','casos','cuentas','offline','companero'];
+  'contenido','clientes','datos','trabajo','inicio','ofertas','correo','radar','casos','cuentas','offline','companero','oraciones'];
 for (const id of required) {
   if (!routes.has(id)) throw new Error('JANUS: missing original approved view: ' + id);
+}
+for (const action of ['oraSel','oraLang','oraRecite','oraSpeak','oraStop']) {
+  if (!actions.has(action)) throw new Error('JANUS: missing prayer action: ' + action);
 }
 if (actions.size < 25 || routes.size < 18) {
   throw new Error('JANUS: action/view registry was not discovered from original sources');
