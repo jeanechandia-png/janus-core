@@ -101,7 +101,7 @@ test('language preferences are isolated by profile and UI chrome has translated 
 
 test('offline cache includes controls but does not store protected API responses', () => {
   const sw = text('apps/pwa/sw.js');
-  assert.match(sw, /janus-shell-v29/);
+  assert.match(sw, /janus-shell-v30/);
   assert.match(sw, /'\/language-buttons\.js'/);
   assert.match(sw, /'\/language-buttons\.css'/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
@@ -120,4 +120,19 @@ test('Founder menu authentication anchor exists and Kendra remains independent',
   assert.match(html, /id="kendraOpenApp"[^>]*href="\/kendra"/);
   assert.match(app, /else void refreshKendraSummary\(\)/);
   assert.match(app, /const action = deviceKey \? founderSignInButton : founderLinkButton/);
+});
+
+
+test('la portada tablet usa la opción 2 y la app infantil conserva el mismo host', () => {
+  const dash = text('prototypes/dashboard/src/dash.js');
+  const app = text('prototypes/dashboard/src/app.js');
+  const kid = text('apps/pwa/kendra.js');
+  assert.match(dash, /function renderApprovedTabletHome/);
+  assert.match(dash, /data-layout="approved-option-2"/);
+  assert.match(app, /tabletHome \? renderApprovedTabletHome\(M, X\)/);
+  assert.match(dash, /Sin datos verificados/);
+  assert.match(kid, /kid-home-grid/);
+  assert.match(kid, /kidDatesCard/);
+  assert.match(kid, /mountGuardianAngel/);
+  assert.match(kid, /createApprovedStage\(pet.id\)/);
 });
