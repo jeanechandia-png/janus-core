@@ -1,3 +1,17 @@
+## AHORA — 24-nov-2026 · Equipo que cuida a Kendra y citas de logopedia (rama `claude/kendra-equipo-cuidado`)
+
+- **Orden del Founder (24-nov, 12:02):** la agenda de Kendra incluye logopedia y los especialistas que la tratan (médico de cabecera, Youz, Kentalis/TOS…), con nombre y especialidad.
+- **Hecho:**
+  - `packages/modules/kid-dashboard/src/care-team.ts`: modelo, validación, etiquetas para el tutor y etiquetas amables y sin diagnósticos para la niña.
+  - `KidState.careTeam` (tope de 40; carga defensiva).
+  - En la agenda: tipos `logopedia` y `medico`, y `providerId`, que solo asigna el tutor.
+  - Rutas de solo tutor: `POST /api/parent/kid/care-team`, `PUT` y `DELETE /api/parent/kid/care-team/:id`. Si se borra un especialista, sus citas se conservan.
+  - Panel de padres: sección «Equipo que cuida a…» y especialista en cada cita.
+  - App de Kendra: «Logopedia con … (centro)» en su agenda.
+- **Privacidad:** los datos viven en el estado del aparato (SQLite); el repositorio no lleva nombres reales. La niña nunca recibe teléfonos, correos, direcciones ni notas (lo comprueba la prueba).
+- **Pruebas:** `tests/kid-routes.test.ts` (paso 13b) en verde; `npm test` 884 (883 PASS, 0 FAIL); typecheck OK; `dashboard:test` 35/0; captura del panel con datos simulados.
+- **Siguiente acción:** Jean apunta a los especialistas en el panel de padres; CI verde y fusión.
+
 ## AHORA — 24-nov-2026 · Oraciones en su lengua original (rama `claude/janus-oraciones`)
 
 - **Orden del Founder (24-nov, 11:11):** Padre Nuestro en latín y en su lengua original, Ángel de la Guarda y San Miguel Arcángel para Jean; oraciones para niños para Kendra, con el latín como opción si ella quiere.

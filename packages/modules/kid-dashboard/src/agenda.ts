@@ -1,7 +1,7 @@
 import { HM, addDays, daysBetween, foldAccents, hmToMinutes, isValidYmd, localTime, weekdayOf } from './time.js';
 import { stripLinks } from './safety.js';
 
-export const AGENDA_KINDS = ['cita', 'turno', 'escuela', 'cumple', 'actividad', 'recordatorio'] as const;
+export const AGENDA_KINDS = ['cita', 'logopedia', 'medico', 'turno', 'escuela', 'cumple', 'actividad', 'recordatorio'] as const;
 export type AgendaKind = (typeof AGENDA_KINDS)[number];
 
 export interface AgendaItem {
@@ -15,6 +15,8 @@ export interface AgendaItem {
   remindMinutesBefore: number[];
   createdBy: 'kid' | 'parent';
   done?: boolean;
+  /** Especialista del equipo de cuidado (solo lo asigna el tutor). */
+  providerId?: string;
 }
 
 export const DEFAULT_REMINDERS = [60, 0];
@@ -34,6 +36,7 @@ export function normalizeAgendaInput(input: unknown, createdBy: 'kid' | 'parent'
   const reminders = Array.isArray(raw.remindMinutesBefore) ? raw.remindMinutesBefore : DEFAULT_REMINDERS;
   const cleaned = [...new Set(reminders.filter((value): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 2880))].slice(0, 4);
   const notes = typeof raw.notes === 'string' ? stripLinks(raw.notes).trim().slice(0, 300) : undefined;
+  const providerId = createdBy === 'parent' && typeof raw.providerId === 'string' && /^care_[a-z0-9-]{6,40}$/.test(raw.providerId) ? raw.providerId : undefined;
   return {
     ok: true,
     item: {
@@ -42,6 +45,7 @@ export function normalizeAgendaInput(input: unknown, createdBy: 'kid' | 'parent'
       ...(typeof raw.time === 'string' && raw.time ? { time: raw.time } : {}),
       kind: kind as AgendaKind,
       ...(notes ? { notes } : {}),
+      ...(providerId ? { providerId } : {}),
       remindMinutesBefore: cleaned.length > 0 ? cleaned.sort((a, b) => b - a) : DEFAULT_REMINDERS,
       createdBy,
     },

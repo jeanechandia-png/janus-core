@@ -27,6 +27,10 @@ import {
   localTime,
   newId,
   normalizeAgendaInput,
+  normalizeCareProviderInput,
+  careKidView,
+  CARE_LABEL_PARENT,
+  CARE_SPECIALTIES,
   normalizeFeedInput,
   normalizeInterestInput,
   normalizeProjectInput,
@@ -246,7 +250,11 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       access: accessFor(state, 'chat', at),
       limits: { allowedFrom: state.settings.limits.allowedFrom, allowedUntil: state.settings.limits.allowedUntil },
       usage: usageToday(state, at),
-      agenda: upcomingAgenda(state.agenda, at, tz, 21),
+      agenda: upcomingAgenda(state.agenda, at, tz, 21).map((item) => {
+        const who = item.providerId ? careKidView(state.careTeam).find((provider) => provider.id === item.providerId) : undefined;
+        return who ? { ...item, with: who } : item;
+      }),
+      careTeam: careKidView(state.careTeam),
       reminders: dueReminders(state.agenda, at, tz, delivered).map((due) => ({ key: due.key, text: reminderText(due) })),
       tasks: { overdue: overdueTasks(state.tasks, today), soon: dueSoonTasks(state.tasks, today, 7), all: state.tasks.filter((task) => task.status !== 'hecha').slice(0, 50) },
       projects: state.projects.map((project) => ({ ...project, progress: projectProgress(project.id, state.tasks) })),
@@ -281,6 +289,9 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       transcripts: state.settings.transcriptVisibility === 'full' ? store.kidListTranscripts(state.kidId, 60) : undefined,
       categories: CATEGORY_LABELS_ES,
       bonus: state.bonus,
+      careTeam: state.careTeam,
+      careSpecialties: CARE_SPECIALTIES.map((id) => ({ id, label: CARE_LABEL_PARENT[id] })),
+      agenda: state.agenda.filter((item) => !item.done).slice(-60),
     };
   }
 
@@ -665,9 +676,41 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const { kidId } = parentAuth(request, body.kidId);
         const checked = normalizeAgendaInput(body.item ?? body, 'parent');
         if (!checked.ok) throw new KidHttpError(400, checked.message);
+        if (checked.item.providerId && !loadState(kidId).state.careTeam.some((provider) => provider.id === checked.item.providerId)) throw new KidHttpError(400, 'Ese especialista no está en su equipo.');
         const item = { id: newId('ag'), ...checked.item };
         mutate(kidId, (current) => ({ agenda: [...current.agenda, item].slice(-CAPS.agenda) }));
         json(response, 201, { ok: true, item });
+        return true;
+      }
+      // Equipo que cuida a la niña (orden del Founder, 24-nov-2026). Solo el tutor; la niña nunca ve contactos ni notas.
+      if (method === 'POST' && path === '/api/parent/kid/care-team') {
+        const body = await deps.readJson(request);
+        const { kidId } = parentAuth(request, body.kidId);
+        const checked = normalizeCareProviderInput(body.provider ?? body);
+        if (!checked.ok) throw new KidHttpError(400, checked.message);
+        if (loadState(kidId).state.careTeam.length >= CAPS.careTeam) throw new KidHttpError(409, 'El equipo está lleno.');
+        const provider = { id: newId('care'), ...checked.provider };
+        mutate(kidId, (current) => ({ careTeam: [...current.careTeam, provider] }));
+        json(response, 201, { ok: true, provider });
+        return true;
+      }
+      const careOne = path.match(/^\/api\/parent\/kid\/care-team\/(care_[a-z0-9-]{6,40})$/);
+      if ((method === 'PUT' || method === 'DELETE') && careOne) {
+        const body = method === 'PUT' ? await deps.readJson(request) : {};
+        const { kidId } = parentAuth(request, method === 'PUT' ? body.kidId : url.searchParams.get('kidId'));
+        const id = careOne[1]!;
+        if (!loadState(kidId).state.careTeam.some((provider) => provider.id === id)) throw new KidHttpError(404, 'Especialista no encontrado.');
+        if (method === 'DELETE') {
+          // Sus citas se conservan; solo pierden el vínculo con el especialista borrado.
+          mutate(kidId, (current) => ({ careTeam: current.careTeam.filter((provider) => provider.id !== id), agenda: current.agenda.map(({ providerId, ...item }) => (providerId === id ? item : { ...item, ...(providerId ? { providerId } : {}) })) }));
+          json(response, 200, { ok: true });
+          return true;
+        }
+        const checked = normalizeCareProviderInput(body.provider ?? body);
+        if (!checked.ok) throw new KidHttpError(400, checked.message);
+        const provider = { id, ...checked.provider };
+        mutate(kidId, (current) => ({ careTeam: current.careTeam.map((item) => (item.id === id ? provider : item)) }));
+        json(response, 200, { ok: true, provider });
         return true;
       }
       if (method === 'POST' && path === '/api/parent/kid/tasks') {
