@@ -11,6 +11,7 @@
 import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+import { configureCharacterSync } from './character-sync.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { mountGuardianAngel } from './guardian-angel-ui.js';
 import { registerWithAutoUpdate } from './pwa-update.js';
@@ -593,5 +594,7 @@ registerWithAutoUpdate('/sw.js'); // se actualiza sola en un momento tranquilo (
 setInterval(heartbeat, 30_000);
 setInterval(() => { if (document.visibilityState === 'visible' && view && tab !== 'chat') load(); }, 5 * 60_000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token) load(); });
+// Personajes 3D: la tablet recibe solo lo que el Founder aprobó (y retira lo que luego rechace).
+configureCharacterSync({ audience: 'kid', headers: () => (token ? { authorization: `Bearer ${token}` } : {}) });
 void initApprovedPresence();
 start();

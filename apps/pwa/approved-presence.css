@@ -47,3 +47,9 @@
  .presence:has(.janus-founder-presence)>.orb{grid-column:1}
  .presence:has(.janus-founder-presence)>div:not(.janus-founder-presence){grid-column:2}
 }
+
+.janus-library-list{display:grid;gap:10px}
+.janus-library-row{display:grid;gap:6px;padding:10px;border:1px solid #b8956540;border-radius:14px;background:#14131a}
+.janus-library-state{color:#d9c7a8;font-size:13px}
+.janus-library-actions{display:flex;flex-wrap:wrap;gap:8px}
+.janus-library-actions button{min-height:40px;padding:6px 14px;border-radius:12px;border:1px solid #b89565;background:#241f2c;color:#f7eddf;font:inherit}

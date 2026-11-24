@@ -1,3 +1,16 @@
+## AHORA — 24-nov-2026 · Biblioteca central de personajes 3D + guía Hyper3D Rodin (rama `claude/biblioteca-3d-hyper3d`, desde `origin/main` 44f1c6c)
+
+- **Orden del Founder (24-nov, 16:10):** instrucciones para generar en Hyper3D las 4 criaturas de Kendra y los 2 robots Nexo, y poder anexarlos a Janus, a la dashboard de Kendra y a la suya; continuar el producto original sin reiniciar.
+- **Hecho:**
+  - **Módulo `packages/modules/character-library`** (`module.json`, README, sin dependencias; el inspector de GLB —3D Forge— se inyecta desde el servidor). Guarda cada GLB por huella SHA-256 con recibo, en carpeta privada fuera del repositorio; subida idempotente; índice atómico y reconstruible; lectura verificada por huella. Nivel `full` (esqueleto+animaciones) o `partial` (malla válida sin rig, lo normal en Rodin).
+  - **Rutas del Founder:** `GET /api/characters`, `PUT /api/characters/:slot`, `GET /api/characters/:slot/:sha.glb`, `POST /api/characters/:slot/review|activate`.
+  - **Rutas de la niña (solo lectura, solo aprobados):** `GET /api/kid/characters`, `GET /api/kid/characters/:slot/:sha.glb`.
+  - **PWA:** `apps/pwa/character-sync.js` (sincroniza por huella, retira de la tablet lo rechazado, funciona offline) y panel «Biblioteca de personajes 3D» para subir, ver, aprobar y rechazar. `approved-presence.js` quita el aviso «revisión visual pendiente» solo si el Founder aprobó; sigue sin `fetch(`. Caché `janus-shell-v28`.
+  - **Guía** `docs/HYPER3D_RODIN_PLAYBOOK.md` (nivel Medium para la primera prueba, orden de trabajo, costes, licencia).
+- **Decisiones reversibles para el Founder:** (1) la biblioteca admite figuras fijas («parcial») aprobadas por él; la importación manual antigua conserva la compuerta estricta. (2) Kendra recibe solo modelos aprobados, nunca pendientes.
+- **Pruebas:** 908 / 907 PASS / 0 FAIL / 1 SKIP (`npm test` tras `npm run dashboard:build`); `tsc` limpio; `continuity:guard` READY.
+- **Pendiente:** generar los 6 GLB en Rodin (lo hace el Founder, créditos suyos); licencia comercial de lo generado (POR CONFIRMAR); rig/expresiones/animaciones (paso aparte, de pago, a decidir); vista previa en iPhone real; auditoría de subidas en el registro del Core (hoy: recibo + índice + línea en el log).
+
 ## AHORA — 24-nov-2026 · Ángel Guardián: SOS, primeros auxilios guiados y seguridad en la calle (rama `claude/angel-guardian`, apilada sobre `claude/kendra-equipo-cuidado`)
 
 - **Orden del Founder (24-nov, 12:03–12:17):** módulo reutilizable de seguridad para menores.

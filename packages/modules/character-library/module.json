@@ -1,0 +1,23 @@
+{
+  "id": "character-library",
+  "version": "0.1.0",
+  "kind": "asset-library-module",
+  "summary": "Biblioteca central de modelos 3D de los seis personajes de Janus: se sube cada GLB una sola vez, se valida con 3D Forge y se sirve a las dashboards con aprobación visual del Founder.",
+  "entry": "src/index.ts",
+  "dependencies": [],
+  "externalIo": "local filesystem under a private directory supplied by the host; no network",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "private GLB assets and review state; never stored in the public repository",
+  "locales": ["es"],
+  "invariants": [
+    "Only the six canonical slots are accepted; the classic robot slot and approved dashboards stay untouched.",
+    "Every upload is inspected fail-closed by an injected GLB inspector (3D Forge in JANUS) before it is written.",
+    "A new upload is always pending_visual_review; only the Founder can approve it.",
+    "Surfaces for minors receive only approved models, never a pending one.",
+    "Files are content-addressed (SHA-256), idempotent and verified on every read.",
+    "The private directory must live outside the public repository.",
+    "Outputs of vendor generators are never authorized as training data."
+  ],
+  "reuseNotes": "Create CharacterLibrary(privateDir, { inspector, repositoryRoot }) with inspector = { inspect: inspectForgeGlb, receipt: makeForgeReceipt } in the host; call admit() from an authenticated upload route, overview()/kidOverview() for listings, bytes() to serve a model and review() for the Founder's visual decision."
+}

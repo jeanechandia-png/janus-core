@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v27';
+const CACHE = 'janus-shell-v28';
 const SHELL = [
   '/',
   '/index.html',
@@ -20,6 +20,7 @@ const SHELL = [
   '/language-buttons.js',
   '/language-buttons.css',
   '/approved-presence.js',
+  '/character-sync.js',
   '/approved-presence.css',
   '/approved-3d/vendor/three-r160.min.js',
   '/approved-3d/vendor/gltf-kit.js',

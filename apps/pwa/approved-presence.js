@@ -127,6 +127,9 @@ export function initApprovedPresence() {
         listening = true;
       }
       await slot.restore();
+      // Biblioteca central: descarga en segundo plano lo que el servidor tenga (character-sync.js); no bloquea la pantalla.
+      window.addEventListener('janus:characters-changed', () => notify());
+      window.JanusCharacterSync?.start?.();
       return true;
     }).catch(() => false);
   }
@@ -185,10 +188,15 @@ function mountModel(target, id) {
   target.append(renderer.domElement);
   target.dataset.media = 'glb-3d-preview';
   target.dataset.visualApproval = 'pending';
-  const label = document.createElement('span');
-  label.className = 'janus-approval-label';
-  label.textContent = '3D · revisión visual pendiente';
-  target.append(label);
+  // Modelo de la biblioteca que el Founder ya aprobó: sin aviso de «pendiente». Todo lo demás conserva el aviso.
+  if (window.JanusCharacterSync?.meta?.(id)?.review === 'approved') {
+    target.dataset.visualApproval = 'approved';
+  } else {
+    const label = document.createElement('span');
+    label.className = 'janus-approval-label';
+    label.textContent = '3D · revisión visual pendiente';
+    target.append(label);
+  }
   let yaw = 0, lastX = 0, down = false, playing = 'idle', clock = performance.now(), frame = 0;
   const action = target.closest('button') || target;
   const onDown = e => { down = true; lastX = e.clientX; };
@@ -274,6 +282,19 @@ export function createApprovedStage(id, { compact = false } = {}) {
   viewers.add(box);
   queueMicrotask(() => void refreshViewer(box));
   return box;
+}
+/** Abre un diálogo con la vista 3D de un personaje para que el Founder lo revise (usado por la biblioteca de personajes). */
+export function openApprovedStageDialog(id) {
+  const dialog = document.createElement('dialog');
+  dialog.className = 'janus-3d-dialog';
+  const close = document.createElement('button');
+  close.type = 'button'; close.textContent = 'Cerrar';
+  close.addEventListener('click', () => dialog.close());
+  dialog.append(createApprovedStage(id), close);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
+  void initApprovedPresence();
 }
 export function createApprovedAssetControls({ family = 'kendra' } = {}) {
   const panel = document.createElement('section');

@@ -71,6 +71,10 @@ Usar el control actual del Founder para importar un GLB desde un archivo privado
 
 **Importante:** la admisión inicial de Forge solo comprueba la estructura. Un GLB sin esqueleto, expresiones o clips puede pasar el preflight estático, pero **será rechazado por la compuerta PWA**, que aplica requisitos más exigentes. Rodin y TRELLIS no garantizan esas prestaciones por sí solos.
 
+## Biblioteca central de personajes (24-nov-2026)
+
+`packages/modules/character-library` guarda cada GLB una sola vez (huella SHA-256 + recibo de este módulo) y lo reparte a la app del Founder, a las dashboards y a la tablet de Kendra; ver `docs/HYPER3D_RODIN_PLAYBOOK.md`. La biblioteca admite además **figuras fijas** (malla válida sin rig, como las de Rodin) como nivel «parcial», con aviso hasta la aprobación visual del Founder, y a Kendra solo le llega lo aprobado. La importación manual de arriba conserva la compuerta estricta.
+
 ## Evidencias y criterios de cierre
 
 - **Hasta mediados de diciembre:** seis GLB finales identificados por SHA, derechos de demostración confirmados, revisión individual de compatibilidad/estética, prueba física, presentación de inversores sin assets falsos.
