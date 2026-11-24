@@ -30,6 +30,7 @@ export function configureCharacterSync({ audience, headers }) {
   window.JanusCharacterSync = Object.freeze({
     audience,
     canDisplay: canDisplayApproved,
+    clearKidApprovals: () => { if (config?.audience === 'kid') { writeSynced({}); meta.clear(); announce(); } },
     meta: (id) => meta.get(id) || null,
     start: startCharacterSync,
     sync: syncCharacters,
@@ -120,7 +121,7 @@ async function run() {
       delete synced[id]; meta.delete(id);
       if (slot.info?.(id)?.sha256 === old && slot.remove(id)) removed++;
     }
-    writeSynced(synced); announce();
+    writeSynced(synced); if (removed || JSON.stringify([...meta.entries()]) !== before) announce();
   }
 
   for (const want of wanted) {
@@ -166,6 +167,7 @@ export function startCharacterSync() {
   started = true;
   void syncCharacters();
   window.addEventListener('online', () => void syncCharacters());
+  if (config.audience === 'kid') setInterval(() => { if (document.visibilityState === 'visible' && authHeaders()) void syncCharacters(); }, RESYNC_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - lastRun > RESYNC_MS) void syncCharacters();
   });

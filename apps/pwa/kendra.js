@@ -44,6 +44,7 @@ let token = readStorage(TOKEN_KEY);
 let prefs = parseJson(readStorage(PREF_KEY)) ?? { speak: true };
 const HOME_SCENES = Object.freeze([['a', 'Paseo'], ['b', 'Mi cuarto'], ['c', 'Escenario']]);
 const homeScene = () => HOME_SCENES.some(([id]) => id === prefs.scene) ? prefs.scene : 'a';
+const activityScene = (section) => prefs.autoScene === true ? ({school:'b', baile:'c', dia:'b', casa:'b'}[section] || homeScene()) : homeScene();
 let view = null;
 let tab = 'inicio';
 let player = null;
@@ -64,6 +65,7 @@ function parseJson(text) { try { return text ? JSON.parse(text) : null; } catch 
 const savePrefs = () => writeStorage(PREF_KEY, JSON.stringify(prefs));
 
 async function api(method, path, body, headers = {}) {
+  const requestedToken = token;
   try {
     const response = await fetch(path, {
       method,
@@ -73,7 +75,7 @@ async function api(method, path, body, headers = {}) {
     });
     let data = {};
     try { data = await response.json(); } catch { data = {}; }
-    if (response.status === 401 && token && path.startsWith('/api/kid/') && path !== '/api/kid/redeem') unpair();
+    if (response.status === 401 && token && token === requestedToken && path.startsWith('/api/kid/') && path !== '/api/kid/redeem') unpair();
     return { status: response.status, body: data };
   } catch {
     return { status: 0, body: { error: 'Parece que no hay internet. Inténtalo en un ratito.' } };
@@ -83,6 +85,7 @@ async function api(method, path, body, headers = {}) {
 function unpair() {
   token = '';
   writeStorage(TOKEN_KEY, '');
+  window.JanusCharacterSync?.clearKidApprovals?.();
   view = null;
   document.title = 'Kendra';
   chat = null;
@@ -113,8 +116,11 @@ function speak(text, rate = 1, language = 'es-ES') {
   if (!prefs.speak || !('speechSynthesis' in window) || !text) return;
   try {
     window.speechSynthesis.cancel();
+    const voices = window.speechSynthesis.getVoices();
+    const local = voices.find(v => v.localService && v.lang.toLowerCase() === language.toLowerCase()) || voices.find(v => v.localService && v.lang.split('-')[0].toLowerCase() === language.split('-')[0].toLowerCase());
+    if (!local) { if (tab === 'school') flash('No hay una voz local instalada para este idioma. Puedes leerlo en pantalla.'); return; }
     const utterance = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ''));
-    utterance.lang = language; utterance.pitch = 1.15; utterance.rate = rate;
+    utterance.voice = local; utterance.lang = local.lang; utterance.pitch = 1.15; utterance.rate = rate;
     window.speechSynthesis.speak(utterance);
   } catch { /* sin voz local */ }
 }
@@ -243,8 +249,7 @@ function renderMain() {
   nodes.push(...[].concat(builders[tab]()));
   mainEl.classList.toggle('kid-home', tab === 'inicio');
   app.classList.toggle('kid-school-focus', tab === 'school' && schoolFocus);
-  if (tab === 'inicio') mainEl.dataset.scene = homeScene();
-  else delete mainEl.dataset.scene;
+  mainEl.dataset.scene = activityScene(tab);
   mainEl.replaceChildren(...nodes.filter(Boolean));
   updateKidClock();
 }
@@ -539,7 +544,7 @@ function tabSchool() {
   const lesson = school.techniques.find(item => item.id === schoolLesson);
   if (!lesson) {
     const subjects = [...new Set(school.techniques.map(item => item.subject || 'Matemáticas'))];
-    const assigned = view.tasks.all.filter(item => item.createdBy === 'parent');
+    const assigned = (view.tasks?.all || []).filter(item => item.createdBy === 'parent');
     return h('section',{class:'card'},header,h('p',{},'Elige una materia y practica a tu ritmo.'),
       assigned.length ? h('div',{},h('h3',{},'Mis ejercicios de casa'), ...assigned.map(item=>h('button',{type:'button',onClick:()=>go('dia')},item.title))) : null,
       ...subjects.map(subject => h('section',{class:'kid-school-subject'},h('h3',{},subject),
@@ -628,15 +633,17 @@ function openScreen() {
   if (!view || document.querySelector('[data-kid-screen]')) return;
   const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Mi pantalla', 'data-kid-screen': 'true' });
   let selected = homeScene();
+  const auto = h('input', {type:'checkbox'}); auto.checked = prefs.autoScene === true;
   const sceneButtons = h('div', { class: 'chips kid-scene-options' }, ...HOME_SCENES.map(([id, label]) =>
     h('button', { type: 'button', 'aria-pressed': String(id === selected), onClick: (event) => {
       selected = id;
       sceneButtons.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button === event.currentTarget)));
     } }, label)));
   sheet.append(h('div', {}, h('h2', {}, 'Mi pantalla'), h('p', {}, 'Elige tu escena.'), sceneButtons,
+    h('label',{class:'kid-auto-scene'},auto,' Cambiar de escena según la actividad'),
     h('p', {class:'muted'}, 'Tu elección se guarda. El decorado 3D definitivo estará disponible cuando se incorpore el modelo aprobado.'),
     h('div', {class:'row'},
-      h('button', {type:'button', class:'primary', onClick: () => { prefs.scene = selected; savePrefs(); sheet.remove(); renderMain(); }}, 'Guardar'),
+      h('button', {type:'button', class:'primary', onClick: () => { prefs.scene = selected; prefs.autoScene = auto.checked; savePrefs(); sheet.remove(); renderMain(); }}, 'Guardar'),
       h('button', {type:'button', onClick:() => { sheet.remove(); openProfile(); }}, 'Cambiar color y criatura'),
       h('button', {type:'button', onClick:() => sheet.remove()}, 'Cancelar'))));
   document.body.append(sheet);
@@ -730,6 +737,7 @@ async function heartbeat() {
 async function start() {
   if (!token) { renderPair(); return; }
   await load();
+  if (token) void window.JanusCharacterSync?.sync?.();
 }
 
 registerWithAutoUpdate('/sw.js'); // se actualiza sola en un momento tranquilo (orden del Founder, 24-nov-2026)

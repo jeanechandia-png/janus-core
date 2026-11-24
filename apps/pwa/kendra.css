@@ -266,3 +266,13 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
  .composer{inset-block-end:calc(135px + env(safe-area-inset-bottom))}
 }
 @media(prefers-reduced-motion:reduce){.kid-home-grid>.card{animation:none}}
+
+/* Escuela: materias y respuestas táctiles en el layout existente. */
+.kid-school-subject,.kid-school-reading,.kid-school-options{display:grid;gap:12px;min-width:0}
+.kid-school-subject{padding-block:12px;border-block-end:1px solid #b9a9d84d}
+.kid-school-reading strong{font-size:clamp(28px,4vw,46px);overflow-wrap:anywhere}
+.kid-school-subject button,.kid-school-options button,.kid-school-reading button{min-height:52px;white-space:normal;overflow-wrap:anywhere}
+.kid-auto-scene{display:flex;align-items:center;gap:8px;min-height:44px}
+.kid-auto-scene input{width:24px;height:24px;flex:0 0 24px}
+/* Color provisional solamente; los escenarios artísticos aprobados aún no están instalados. */
+main[data-scene="a"]{background-color:#e8faf6}main[data-scene="b"]{background-color:#f6ecff}main[data-scene="c"]{background-color:#fff0f7}

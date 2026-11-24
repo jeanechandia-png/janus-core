@@ -221,7 +221,7 @@ test('Kendra: preferencia de escena cerrada y recuperación de la interfaz sin c
   assert.equal(scene(), 'b');
   prefs.scene = 'invalid';
   assert.equal(scene(), 'a');
-  assert.match(kid, /prefs.scene = selected; savePrefs\(\)/);
+  assert.match(kid, /prefs.scene = selected; prefs.autoScene = auto.checked; savePrefs\(\)/);
   assert.match(kid, /requestedToken !== token/);
   assert.match(kid, /!topEl \|\| !topEl.isConnected/);
   assert.match(kid, /school: tabSchool, baile: tabVer/);
@@ -233,4 +233,17 @@ test('Kendra: preferencia de escena cerrada y recuperación de la interfaz sin c
   const css = text('apps/pwa/kendra.css');
   assert.match(css, /kid-school-focus/);
   assert.match(css, /prefers-reduced-motion:reduce/);
+});
+
+
+test('Kendra: auto-scene can be enabled without replacing the selected home scene', () => {
+  const kid = text('apps/pwa/kendra.js');
+  const prefs = {scene:'c',autoScene:false};
+  const choose = runInNewContext(kid.slice(kid.indexOf('const HOME_SCENES'),kid.indexOf('let view = null;')) + '\nactivityScene;', {prefs}) as (tab:string)=>string;
+  assert.equal(choose('school'),'c');
+  prefs.autoScene = true;
+  assert.equal(choose('school'),'b');
+  assert.equal(choose('baile'),'c');
+  assert.equal(choose('inicio'),'c');
+  assert.equal(prefs.scene,'c');
 });
