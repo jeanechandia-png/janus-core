@@ -202,7 +202,7 @@ function mountModel(target, id) {
   const onDown = e => { down = true; lastX = e.clientX; };
   const onMove = e => { if (down) { yaw += (e.clientX - lastX) * .008; lastX = e.clientX; } };
   const onUp = () => { down = false; };
-  const onClick = () => { playing = 'saluda'; gestureUntil = performance.now() + 1500; };
+  const onClick = () => { playing = window.JanusCreatureSlot?.report?.(id)?.stats?.clips?.includes('saluda') ? 'saluda' : 'celebra'; gestureUntil = performance.now() + 1500; };
   action.addEventListener('pointerdown', onDown);
   action.addEventListener('pointermove', onMove);
   action.addEventListener('pointerup', onUp);
@@ -225,7 +225,7 @@ function mountModel(target, id) {
     if (document.visibilityState === 'visible') {
       const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
       rig.root.rotation.y += (yaw - rig.root.rotation.y) * .12;
-      if (!reducedMotion || down || playing !== 'idle') rig.update(now / 1000, dt, { pose: playing, mood: playing === 'saluda' ? 'alegre' : 'contento' });
+      if (!reducedMotion || down || playing !== 'idle') rig.update(now / 1000, dt, { pose: playing, mood: playing !== 'idle' ? 'alegre' : 'contento' });
       renderer.render(scene, camera);
     }
     frame = requestAnimationFrame(tick);
