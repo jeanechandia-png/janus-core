@@ -73,6 +73,8 @@ install.type = 'button';
 install.textContent = uiLabel('founder', 'install');
 install.setAttribute('data-app-install', '');
 accessList.append(install);
+const NEXO_PREF = 'janus.founder.nexo';
+const nexoChoice = () => { try { return localStorage.getItem(NEXO_PREF) === 'nexo-femenino' ? 'nexo-femenino' : 'nexo-masculino'; } catch { return 'nexo-masculino'; } };
 const robot = document.createElement('button');
 robot.type = 'button'; robot.textContent = 'JANUS 02 NEXO · 3D';
 robot.addEventListener('click', () => {
@@ -81,7 +83,20 @@ robot.addEventListener('click', () => {
   const title = document.createElement('h2'); title.textContent = 'JANUS · 02 NEXO';
   const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
   close.addEventListener('click', () => dialog.close());
-  dialog.append(title, createApprovedStage('nexo-masculino'));
+  const choices = document.createElement('div'); choices.className = 'janus-nexo-choice';
+  const stage = document.createElement('div');
+  let selected = nexoChoice();
+  const paint = () => {
+    title.textContent = selected === 'nexo-femenino' ? 'MELANIE · NEXO' : 'JANUS · 02 NEXO';
+    choices.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.nexo === selected)));
+    stage.replaceChildren(createApprovedStage(selected));
+  };
+  for (const [id,label] of [['nexo-masculino','Janus NEXO'],['nexo-femenino','Melanie NEXO']]) {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.nexo = id; button.textContent = label;
+    button.addEventListener('click', () => { selected=id; try { localStorage.setItem(NEXO_PREF,id); } catch {} paint(); });
+    choices.append(button);
+  }
+  dialog.append(title, choices, stage); paint();
   if (sessionToken()) dialog.append(createApprovedAssetControls({ family: 'janus' }), createCharacterLibraryPanel({ openStage: openApprovedStageDialog }));
   dialog.append(close);
   dialog.addEventListener('close', () => dialog.remove());

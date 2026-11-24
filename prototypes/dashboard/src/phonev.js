@@ -37,7 +37,7 @@ function renderPhoneA(M, X) {
   const bots = sec('chatbots', '🤖', 'Chatbots', 'en vivo', D.bots.map((b) => '<div class="pvl"><i class="dot ' + (b.warn ? 'w' : 'g') + '"></i><span class="tx">' + esc(b.n) + '</span><b class="mono">' + b.c + '</b>' + svgSpark(b.days, 50, 14, '#86B6FF') + '</div>').join(''));
   const cont = sec('contenido', '🎬', 'Reels', 'top 3', D.reels.map((r, i) => '<div class="pvl"><span class="mono tm">' + (i + 1) + '</span><span class="tx">' + esc(r.t) + '</span><b class="mono">' + r.views + 'K</b><span class="mono dim">€' + r.eur + '</span></div>').join(''));
   const cli = sec('clientes', '🤝', 'Embudo', '30 d', '<div class="pvfun">' + D.F.map((f, i) => '<span style="--w:' + (100 - i * 24) + '%"><b class="serif">' + f.n + '</b><small class="mono">' + f.t + '</small></span>').join('') + '</div>');
-  const pro = sec('trabajo', '📁', 'Proyectos', '⚙ CI ' + REAL.ci.length + ' · PR ' + REAL.prs.length, '<div class="pvp">' + D.proj.map((p) => '<span class="go"' + goAttr('trabajo/' + p.id, p.n) + '><span class="bb s">' + p.e + '</span>' + esc(p.s || p.n) + '<i></i></span>').join('') + '</div>');
+  const pro = sec('trabajo', '📁', 'Proyectos', snapshotStatus() + ' · CI ' + REAL.ci.length + ' · PR ' + REAL.prs.length, '<div class="pvp">' + D.proj.map((p) => '<span class="go"' + goAttr('trabajo/' + p.id, p.n) + '><span class="bb s">' + p.e + '</span>' + esc(p.s || p.n) + '<i></i></span>').join('') + '</div>');
   return pvHead(M, X) + '<main class="pvA">' + clima + dia + fam + pri + kp + '<div class="pv2">' + bots + cont + '</div><div class="pv2">' + cli + pro + '</div></main>';
 }
 
@@ -54,8 +54,8 @@ function renderPhoneB(M, X) {
   const bots = sec('chatbots', '🤖', 'Chatbots', '', D.bots.map((b) => '<div class="pvl2"><span class="tx">' + esc(b.n.split(' · ')[0]) + '</span><b class="mono">' + b.c + '</b>' + (b.warn ? '<i class="dot w"></i>' : '<i class="dot g"></i>') + '</div>').join('') + svgSpark(D.bots[0].days.map((v, i) => v + D.bots[1].days[i]), 120, 22, '#86B6FF'));
   const cont = sec('contenido', '🎬', 'Reels', '', D.reels.map((r) => '<div class="pvl2"><span class="tx">' + esc(r.t) + '</span><b class="mono">' + r.views + 'K</b></div>').join(''));
   const cli = sec('clientes', '🤝', 'Clientes', '', '<div class="pvfun sm">' + D.F.map((f, i) => '<span style="--w:' + (100 - i * 24) + '%"><b class="serif">' + f.n + '</b><small class="mono">' + f.t + '</small></span>').join('') + '</div>');
-  const pro = sec('trabajo', '📁', 'Proyectos', 'PR ' + REAL.prs.length, D.proj.map((p) => '<div class="pvl2"><span class="tx">' + p.e + ' ' + esc(p.s || p.n) + '</span><i class="dot g"></i></div>').join(''));
-  const jan = '<section class="cd pv full pvjr"><div class="pvt go"' + goAttr('janus', 'Janus') + '><span class="bb s">⚙</span><span class="mono">Janus</span><span class="mt mono">● real · ' + REAL.syncedAt.slice(11) + '</span></div><div class="pvjn">' + [['✅', 'CI', REAL.ci.length + '/' + REAL.ci.length], ['🧩', 'PR', REAL.prs.length], ['🔐', 'Aprobar', X.apprOpen.length], ['🌦', 'Clima', M.src === 'vivo' ? 'vivo' : 'ejemplo']].map((r) => '<span><span class="bb s">' + r[0] + '</span><small class="mono">' + r[1] + '</small><b class="mono">' + r[2] + '</b></span>').join('') + '</div></section>';
+  const pro = sec('trabajo', '📁', 'Proyectos', snapshotStatus() + ' · PR ' + REAL.prs.length, D.proj.map((p) => '<div class="pvl2"><span class="tx">' + p.e + ' ' + esc(p.s || p.n) + '</span><i class="dot g"></i></div>').join(''));
+  const jan = '<section class="cd pv full pvjr"><div class="pvt go"' + goAttr('janus', 'Janus') + '><span class="bb s">⚙</span><span class="mono">Janus</span><span class="mt mono">' + esc(snapshotStatus()) + '</span></div><div class="pvjn">' + [['✅', 'CI', REAL.ci.length + '/' + REAL.ci.length], ['🧩', 'PR', REAL.prs.length], ['🔐', 'Aprobar', X.apprOpen.length], ['🌦', 'Clima', M.src === 'vivo' ? 'vivo' : 'ejemplo']].map((r) => '<span><span class="bb s">' + r[0] + '</span><small class="mono">' + r[1] + '</small><b class="mono">' + r[2] + '</b></span>').join('') + '</div></section>';
   return pvHead(M, X) + '<main class="pvB">' + clima + dia + fam + pri + fol + ing + alc + bots + cont + cli + pro + jan + '</main>';
 }
 
@@ -82,7 +82,7 @@ function renderPhoneC(M, X) {
     ['chatbots', '🤖', 'Chatbots', D.bots.reduce((a, b) => a + b.c, 0) + ' conv. 7 d', D.bots.map((b) => b.n.split(' · ')[0] + ' ' + b.c).join(' · ')],
     ['contenido', '🎬', 'Reels', D.reels[0].views + 'K top', D.reels.map((r) => r.t.split(' ')[0] + ' ' + r.views + 'K').join(' · ')],
     ['clientes', '🤝', 'Embudo', D.F.map((f) => f.n).join(' → '), D.F.map((f) => f.t).join(' → ')],
-    ['trabajo', '📁', 'Proyectos', D.proj.length + ' activos · PR ' + REAL.prs.length, D.proj.map((p) => p.s || p.n).join(' · ')]
+    ['trabajo', '📁', 'Proyectos', D.proj.length + ' · ' + snapshotStatus() + ' · PR ' + REAL.prs.length, D.proj.map((p) => p.s || p.n).join(' · ')]
   ].map((r) => '<div class="pvr go"' + goAttr(r[0], r[2]) + '><span class="bb s">' + r[1] + '</span><div><b>' + r[2] + ' <span class="mono gold">' + esc(String(r[3])) + '</span></b><small>' + esc(r[4]) + '</small></div></div>').join('') + '</section>';
   return pvHead(M, X) + '<main class="pvCm">' + tl + kp + st + '</main>';
 }
