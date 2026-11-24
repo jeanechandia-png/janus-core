@@ -373,7 +373,7 @@ function tabDia() {
   out.push(h('section', { class: 'card' },
     h('h2', {}, '📅 Mi agenda'),
     view.agenda.length === 0 ? h('p', { class: 'muted' }, 'Todavía no hay nada. ¡Apunta algo!') : h('ul', { class: 'list' }, view.agenda.map((item) => h('li', {},
-      h('span', { class: 'grow' }, h('strong', {}, item.title), h('br'), h('small', {}, `${dateLabel(item.date)}${item.time ? ` · ${item.time}` : ''}`)),
+      h('span', { class: 'grow' }, h('strong', {}, item.title), h('br'), h('small', {}, `${dateLabel(item.date)}${item.time ? ` · ${item.time}` : ''}${item.with ? ` · ${item.with.label} con ${item.with.name}${item.with.organization ? ` (${item.with.organization})` : ''}` : ''}`)),
       h('button', { type: 'button', 'aria-label': `Ya pasó: ${item.title}`, onClick: async () => { await api('POST', `/api/kid/agenda/${item.id}/done`, {}); await load(); } }, '✔')))),
     agendaForm, agendaMsg));
 

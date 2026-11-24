@@ -10,3 +10,4 @@ export * from './school.js';
 export * from './feed.js';
 export * from './outfit.js';
 export * from './state.js';
+export * from './care-team.js';

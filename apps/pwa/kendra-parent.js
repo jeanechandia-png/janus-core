@@ -11,7 +11,7 @@
 
 const SEVERITY = { alert: 'Alerta', block: 'Bloqueado', note: 'Aviso' };
 const KIND_LABELS = { oferta: 'Oferta', evento: 'Evento', peli: 'Película', producto: 'Producto', plan: 'Plan' };
-const AGENDA_KINDS = ['cita', 'turno', 'escuela', 'cumple', 'actividad', 'recordatorio'];
+const AGENDA_KINDS = ['cita', 'logopedia', 'medico', 'turno', 'escuela', 'cumple', 'actividad', 'recordatorio'];
 const HOME_KINDS = { light: 'Luces', plug: 'Enchufes', fan: 'Ventilador', heater: 'Calefacción', thermostat: 'Termostato' };
 
 export function h(tag, props = {}, ...children) {
@@ -264,6 +264,10 @@ export function mountKidParentPanel(host, options) {
     const date = h('input', { type: 'date', 'aria-label': 'Fecha' });
     const time = h('input', { type: 'time', 'aria-label': 'Hora' });
     const kind = h('select', { 'aria-label': 'Tipo' }, AGENDA_KINDS.map((value) => h('option', { value }, value)));
+    const team = overview.careTeam ?? [];
+    const who = h('select', { 'aria-label': 'Con qué especialista' }, h('option', { value: '' }, 'Sin especialista'), ...team.map((provider) => h('option', { value: provider.id }, `${provider.name} · ${labelOf(provider.specialty)}`)));
+    const byId = new Map(team.map((provider) => [provider.id, provider]));
+    const upcoming = (overview.agenda ?? []).filter((item) => item.date >= (overview.today?.date ?? '')).sort((a, b) => `${a.date} ${a.time ?? ''}`.localeCompare(`${b.date} ${b.time ?? ''}`)).slice(0, 8);
     const task = h('input', { type: 'text', placeholder: 'Tarea para ella (p. ej. Leer 10 minutos)', 'aria-label': 'Tarea', maxlength: '100' });
     const due = h('input', { type: 'date', 'aria-label': 'Para el día' });
     return h('section', { class: 'kp-card' },
@@ -271,13 +275,45 @@ export function mountKidParentPanel(host, options) {
       h('form', { class: 'kp-form', onSubmit: (event) => {
         event.preventDefault();
         if (!title.value.trim() || !date.value) return;
-        act('POST', '/api/parent/kid/agenda', { item: { title: title.value.trim(), date: date.value, ...(time.value ? { time: time.value } : {}), kind: kind.value } }, 'Añadido a su agenda con recordatorios.');
-      } }, title, h('div', { class: 'kp-row' }, date, time, kind), h('button', { type: 'submit' }, 'Añadir a su agenda')),
+        act('POST', '/api/parent/kid/agenda', { item: { title: title.value.trim(), date: date.value, ...(time.value ? { time: time.value } : {}), kind: kind.value, ...(who.value ? { providerId: who.value } : {}) } }, 'Añadido a su agenda con recordatorios.');
+      } }, title, h('div', { class: 'kp-row' }, date, time, kind), team.length ? who : null, h('button', { type: 'submit' }, 'Añadir a su agenda')),
+      upcoming.length ? h('ul', { class: 'kp-list' }, upcoming.map((item) => { const p = item.providerId ? byId.get(item.providerId) : null; return h('li', {}, h('strong', {}, item.title), ` · ${item.date}${item.time ? ` ${item.time}` : ''}`, p ? h('span', { class: 'kp-muted' }, ` · ${p.name} (${labelOf(p.specialty)}${p.organization ? `, ${p.organization}` : ''})`) : null); })) : null,
       h('form', { class: 'kp-form', onSubmit: (event) => {
         event.preventDefault();
         if (!task.value.trim()) return;
         act('POST', '/api/parent/kid/tasks', { task: { title: task.value.trim(), ...(due.value ? { due: due.value } : {}) } }, 'Tarea añadida.');
       } }, task, h('label', {}, 'Para el ', due), h('button', { type: 'submit' }, 'Añadir tarea')),
+    );
+  }
+
+  function labelOf(specialty) { return (overview.careSpecialties ?? []).find((item) => item.id === specialty)?.label ?? specialty; }
+
+  // Equipo que cuida a la niña: nombre, especialidad, centro y contacto. Privado: la niña solo ve nombre, etiqueta y centro.
+  function sectionCareTeam() {
+    const team = overview.careTeam ?? [];
+    const name = h('input', { type: 'text', placeholder: 'Nombre (p. ej. Dra. …)', 'aria-label': 'Nombre', maxlength: '80' });
+    const specialty = h('select', { 'aria-label': 'Especialidad' }, (overview.careSpecialties ?? []).map((item) => h('option', { value: item.id }, item.label)));
+    const org = h('input', { type: 'text', placeholder: 'Centro (p. ej. Kentalis, Youz, huisartspraktijk)', 'aria-label': 'Centro', maxlength: '80' });
+    const phone = h('input', { type: 'tel', placeholder: 'Teléfono', 'aria-label': 'Teléfono', maxlength: '30' });
+    const email = h('input', { type: 'email', placeholder: 'Correo', 'aria-label': 'Correo', maxlength: '120' });
+    const address = h('input', { type: 'text', placeholder: 'Dirección', 'aria-label': 'Dirección', maxlength: '160' });
+    const notes = h('input', { type: 'text', placeholder: 'Notas (días, qué trabaja con ella…)', 'aria-label': 'Notas', maxlength: '300' });
+    const row = (provider) => h('li', {},
+      h('strong', {}, provider.name), ` · ${labelOf(provider.specialty)}${provider.organization ? ` · ${provider.organization}` : ''}`,
+      provider.phone ? h('div', { class: 'kp-muted' }, `Tel. ${provider.phone}`) : null,
+      provider.email ? h('div', { class: 'kp-muted' }, provider.email) : null,
+      provider.address ? h('div', { class: 'kp-muted' }, provider.address) : null,
+      provider.notes ? h('div', { class: 'kp-muted' }, provider.notes) : null,
+      h('button', { type: 'button', class: 'kp-small', onClick: () => { if (confirm(`¿Quitar a ${provider.name} del equipo? Sus citas se conservan.`)) act('DELETE', url(`/api/parent/kid/care-team/${provider.id}`), undefined, 'Quitado del equipo.'); } }, 'Quitar'));
+    return h('section', { class: 'kp-card' },
+      h('h3', {}, `Equipo que cuida a ${overview.profile.displayName}`),
+      h('p', { class: 'kp-muted' }, 'Médicos, logopedia, Kentalis, Youz… Ella solo ve el nombre y el centro, nunca teléfonos ni notas.'),
+      team.length ? h('ul', { class: 'kp-list' }, team.map(row)) : h('p', { class: 'kp-muted' }, 'Todavía no hay nadie apuntado.'),
+      h('form', { class: 'kp-form', onSubmit: (event) => {
+        event.preventDefault();
+        if (name.value.trim().length < 2) return;
+        act('POST', '/api/parent/kid/care-team', { provider: { name: name.value.trim(), specialty: specialty.value, organization: org.value.trim(), phone: phone.value.trim(), email: email.value.trim(), address: address.value.trim(), notes: notes.value.trim() } }, 'Añadido al equipo.');
+      } }, name, h('div', { class: 'kp-row' }, specialty, org), h('div', { class: 'kp-row' }, phone, email), address, notes, h('button', { type: 'submit' }, 'Añadir al equipo')),
     );
   }
 
@@ -327,7 +363,7 @@ export function mountKidParentPanel(host, options) {
           h('button', { type: 'button', class: 'kp-small', onClick: load }, 'Actualizar'),
           onClose ? h('button', { type: 'button', class: 'kp-small', onClick: onClose }, 'Cerrar') : null)),
       notice ? h('p', { class: 'kp-notice', role: 'status' }, notice) : null,
-      sectionToday(), sectionFlags(), sectionVideo(), sectionFeed(), sectionLimits(), sectionHome(), sectionPlace(), sectionAgenda(), sectionPrivacy(), sectionDevices(),
+      sectionToday(), sectionFlags(), sectionVideo(), sectionFeed(), sectionLimits(), sectionHome(), sectionPlace(), sectionCareTeam(), sectionAgenda(), sectionPrivacy(), sectionDevices(),
     ].filter(Boolean));
     notice = '';
   }
@@ -343,6 +379,8 @@ export const PARENT_PANEL_CSS = `
 .kp-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 .kp-head h2{margin:0;font-size:1.15rem}
 .kp-card{padding:12px 14px;border-radius:14px;border:1px solid var(--kp-border,rgba(128,128,128,.35));background:var(--kp-bg,rgba(128,128,128,.08));display:grid;gap:8px}
+.kp-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.kp-list li{padding:8px 10px;border-radius:10px;border:1px solid var(--kp-border,rgba(128,128,128,.35))}
 .kp-card h3,.kp-card h4{margin:0}
 .kp-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .kp-list li{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -352,7 +390,7 @@ export const PARENT_PANEL_CSS = `
 .kp-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .kp-wrap{row-gap:4px}
 .kp-check{display:flex;gap:6px;align-items:center}
-.kp-root input[type=text],.kp-root input[type=url],.kp-root input[type=number],.kp-root input[type=date],.kp-root input[type=time],.kp-root input[type=password],.kp-root select{min-block-size:42px;padding:6px 10px;border-radius:10px;border:1px solid var(--kp-border,rgba(128,128,128,.45));background:transparent;color:inherit;font:inherit;max-inline-size:100%}
+.kp-root input[type=text],.kp-root input[type=url],.kp-root input[type=number],.kp-root input[type=date],.kp-root input[type=time],.kp-root input[type=password],.kp-root input[type=tel],.kp-root input[type=email],.kp-root select{min-block-size:42px;padding:6px 10px;border-radius:10px;border:1px solid var(--kp-border,rgba(128,128,128,.45));background:transparent;color:inherit;font:inherit;max-inline-size:100%}
 .kp-root button{min-block-size:42px;padding:6px 14px;border-radius:10px;border:1px solid var(--kp-border,rgba(128,128,128,.45));background:var(--kp-btn,rgba(128,128,128,.18));color:inherit;font:inherit;cursor:pointer}
 .kp-root button.kp-small{min-block-size:34px;padding:2px 10px;font-size:.9em}
 .kp-root button.kp-danger{border-color:#d66}

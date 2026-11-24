@@ -6,6 +6,7 @@ import { DEFAULT_HOME_POLICY, type HomePolicy } from './home.js';
 import { DEFAULT_INTERESTS, type FeedItem, type Interest } from './feed.js';
 import type { AgendaItem } from './agenda.js';
 import type { SchoolProject, SchoolTask } from './school.js';
+import { sanitizeCareTeam, type CareProvider } from './care-team.js';
 
 export interface KidSettings {
   limits: TimeLimits;
@@ -31,11 +32,13 @@ export interface KidState {
   projects: SchoolProject[];
   feed: FeedItem[];
   mediaRequests: MediaRequest[];
+  /** Especialistas que la tratan (lo escribe solo el tutor; privado, en el aparato). */
+  careTeam: CareProvider[];
   /** Minutos extra concedidos por el tutor para una fecha concreta. */
   bonus?: { date: string; minutes: number };
 }
 
-export const CAPS = { agenda: 300, tasks: 300, projects: 40, feed: 200, mediaRequests: 50, interests: 30 } as const;
+export const CAPS = { agenda: 300, tasks: 300, projects: 40, feed: 200, mediaRequests: 50, interests: 30, careTeam: 40 } as const;
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomUUID().slice(0, 12)}`;
@@ -59,6 +62,7 @@ export function emptyKidState(kidId: string, timeZone = 'Europe/Amsterdam'): Kid
     projects: [],
     feed: [],
     mediaRequests: [],
+    careTeam: [],
   };
 }
 
@@ -85,6 +89,7 @@ export function sanitizeKidState(value: unknown, kidId: string): KidState {
     projects: arr(raw.projects, CAPS.projects, []),
     feed: arr(raw.feed, CAPS.feed, []),
     mediaRequests: arr(raw.mediaRequests, CAPS.mediaRequests, []),
+    careTeam: sanitizeCareTeam(raw.careTeam),
     ...(raw.bonus ? { bonus: raw.bonus } : {}),
   };
 }

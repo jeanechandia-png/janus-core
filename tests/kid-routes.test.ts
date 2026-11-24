@@ -181,6 +181,31 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     assert.equal(overview.body.transcripts, undefined, 'sin transcripciones por defecto: solo avisos');
     assert.equal((await call('GET', '/api/parent/kid/overview', viaPin)).status, 200, 'el área de padres de la tablet de ella también lo ve');
 
+    // 13b) Equipo que cuida a la niña (24-nov-2026): solo el tutor lo escribe; la niña ve nombre, etiqueta y centro, nunca contactos.
+    assert.equal((await call('POST', '/api/parent/kid/care-team', founder, { kidId: 'kendra', provider: { name: 'X', specialty: 'logopedia' } })).status, 400, 'nombre demasiado corto');
+    assert.equal((await call('POST', '/api/parent/kid/care-team', founder, { kidId: 'kendra', provider: { name: 'Dra. Prueba', specialty: 'brujería' } })).status, 400, 'especialidad fuera de la lista');
+    const logo = await call('POST', '/api/parent/kid/care-team', founder, { kidId: 'kendra', provider: { name: 'Logopeda de prueba', specialty: 'lenguaje_tos', organization: 'Centro de prueba', phone: '+31 6 0000 0000', notes: 'Trabaja vocabulario' } });
+    assert.equal(logo.status, 201);
+    const careId = logo.body.provider.id as string;
+    assert.match(careId, /^care_/);
+    const appt = await call('POST', '/api/parent/kid/agenda', founder, { kidId: 'kendra', item: { title: 'Logopedia', date: new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10), time: '10:00', kind: 'logopedia', providerId: careId } });
+    assert.equal(appt.status, 201);
+    assert.equal((await call('POST', '/api/parent/kid/agenda', founder, { kidId: 'kendra', item: { title: 'Cita', date: new Date(Date.now() + 86_400_000).toISOString().slice(0, 10), providerId: 'care_noexiste1' } })).status, 400);
+    const kidSees = (await call('GET', '/api/kid/state', kid)).body;
+    const seen = kidSees.agenda.find((item: { title: string }) => item.title === 'Logopedia');
+    assert.deepEqual(seen.with, { id: careId, name: 'Logopeda de prueba', label: 'Logopedia', organization: 'Centro de prueba' });
+    assert.ok(!JSON.stringify(kidSees.careTeam).includes('+31'), 'la niña no ve teléfonos');
+    assert.ok(!JSON.stringify(kidSees.careTeam).includes('vocabulario'), 'la niña no ve notas');
+    assert.ok([401, 403].includes((await call('POST', '/api/parent/kid/care-team', kid, { provider: { name: 'Intruso', specialty: 'otro' } })).status), 'la niña no puede escribir en el equipo');
+    assert.equal((await call('PUT', `/api/parent/kid/care-team/${careId}`, founder, { kidId: 'kendra', provider: { name: 'Logopeda de prueba', specialty: 'logopedia', organization: 'Centro de prueba' } })).status, 200);
+    const parentSees = (await call('GET', '/api/parent/kid/overview?kidId=kendra', founder)).body;
+    assert.equal(parentSees.careTeam[0].specialty, 'logopedia');
+    assert.ok(parentSees.careSpecialties.some((item: { id: string }) => item.id === 'salud_mental_juvenil'));
+    assert.equal((await call('DELETE', `/api/parent/kid/care-team/${careId}?kidId=kendra`, founder)).status, 200);
+    const afterDelete = (await call('GET', '/api/kid/state', kid)).body;
+    assert.equal(afterDelete.careTeam.length, 0);
+    assert.equal(afterDelete.agenda.find((item: { title: string }) => item.title === 'Logopedia').with, undefined, 'la cita se conserva sin el especialista');
+
     // 14) Aprobar un canal/vídeo y minutos extra; después YouTube funciona solo con lo aprobado.
     const approve = await call('PUT', '/api/parent/kid/settings', founder, {
       kidId: 'kendra',
