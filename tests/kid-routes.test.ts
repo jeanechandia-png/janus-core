@@ -206,6 +206,25 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     assert.equal(afterDelete.careTeam.length, 0);
     assert.equal(afterDelete.agenda.find((item: { title: string }) => item.title === 'Logopedia').with, undefined, 'la cita se conserva sin el especialista');
 
+    // 13c) Ángel Guardián: el tutor configura los contactos; la niña lanza un SOS con ubicación y lo cierra.
+    assert.equal((await call('PUT', '/api/parent/kid/guardian-angel', founder, { kidId: 'kendra', config: { guardians: [] } })).status, 400);
+    assert.ok([401, 403].includes((await call('PUT', '/api/parent/kid/guardian-angel', kid, { config: { guardians: [{ role: 'otro', name: 'Intruso', phone: '+31612345678' }] } })).status), 'la niña no cambia los contactos');
+    const ga = await call('PUT', '/api/parent/kid/guardian-angel', founder, { kidId: 'kendra', config: { country: 'NL', guardians: [{ role: 'padre', name: 'Papá prueba', phone: '06 1234 5678' }] } });
+    assert.equal(ga.status, 200);
+    assert.equal(ga.body.config.guardians[0].phone, '+31612345678');
+    const kidGa = await call('GET', '/api/kid/guardian-angel', kid);
+    assert.equal(kidGa.body.config.emergencyNumber, '112');
+    const sos = await call('POST', '/api/kid/sos', kid, { kind: 'peligro', location: { lat: 51.98, lon: 5.9, accuracy: 9 } });
+    assert.equal(sos.status, 201);
+    assert.equal((await call('POST', `/api/kid/sos/${sos.body.id}/location`, kid, { location: { lat: 999, lon: 0 } })).status, 400);
+    assert.equal((await call('POST', `/api/kid/sos/${sos.body.id}/location`, kid, { location: { lat: 51.981, lon: 5.901, accuracy: 6 } })).status, 200);
+    let panel = (await call('GET', '/api/parent/kid/overview?kidId=kendra', founder)).body;
+    assert.equal(panel.sos[0].status, 'activo');
+    assert.equal(panel.sos[0].locations.length, 2);
+    assert.equal((await call('POST', `/api/kid/sos/${sos.body.id}/ok`, kid, {})).status, 200);
+    panel = (await call('GET', '/api/parent/kid/overview?kidId=kendra', founder)).body;
+    assert.equal(panel.sos[0].status, 'resuelto');
+
     // 14) Aprobar un canal/vídeo y minutos extra; después YouTube funciona solo con lo aprobado.
     const approve = await call('PUT', '/api/parent/kid/settings', founder, {
       kidId: 'kendra',

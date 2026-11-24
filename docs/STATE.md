@@ -1,3 +1,33 @@
+## AHORA — 24-nov-2026 · Ángel Guardián: SOS, primeros auxilios guiados y seguridad en la calle (rama `claude/angel-guardian`, apilada sobre `claude/kendra-equipo-cuidado`)
+
+- **Orden del Founder (24-nov, 12:03–12:17):** módulo reutilizable de seguridad para menores.
+  - Plantilla de padre, madre o tutor legal.
+  - SOS con ubicación precisa; llamar o escribir al tutor (teléfono, WhatsApp, SMS, dashboard) y llamar a emergencias.
+  - Guía de primeros auxilios para una niña de 10 años, con fuentes que se apoyan entre sí.
+  - Qué hacer si la siguen en la calle; defensa personal básica; mensajes de la familia.
+- **Hecho:**
+  - **Módulo `packages/modules/guardian-angel`** (sin dependencias, `module.json` y README). JS puro con `.d.ts`; espejo idéntico en `apps/pwa/guardian-angel.js`, comprobado por prueba.
+  - **Rutas de la niña** (funcionan siempre, sin límites de tiempo): `GET /api/kid/guardian-angel`, `POST /api/kid/sos`, `POST /api/kid/sos/:id/location|ok`.
+  - **Ruta del tutor:** `PUT /api/parent/kid/guardian-angel`.
+  - **Aviso push** al Founder con el enlace al mapa (`notifyGuardians` → `pushToFounders`).
+  - **Interfaz:** `apps/pwa/guardian-angel-ui.js`, botón SOS con pulsación de 2 s, por encima del bloqueo. Lleva los botones 112, llamar, WhatsApp y SMS; los pasos guiados con voz y metrónomo de 110/min; y un modo práctica en «Mis cosas».
+  - **Panel de padres:** contactos, país y mensajes de la familia, más el historial de SOS con mapa.
+- **Primeros auxilios:**
+  - ERC 2025 BLS, Resuscitation Council UK 2025, Nederlandse Reanimatie Raad, ILCOR «Kids Save Lives» (2023), Epilepsiefonds y Rode Kruis.
+  - Primero se llama al 112 con el altavoz; en la duda, se actúa como si no respirara; nada en la boca durante una convulsión.
+- **Calle:** policía de Luxemburgo, nidirect, Halifax/KidsHealth y Kidpower.
+- **Privacidad:** los mensajes personales de la familia y los teléfonos van solo en la configuración privada del aparato; el código solo lleva mensajes genéricos. Las pruebas usan únicamente el número de ejemplo permitido.
+- **Límites (verdad):**
+  - Una web no llama ni envía SMS sola: lo deja listo para pulsar.
+  - Nada de conexión directa a Starlink ni a satélites: eso depende del teléfono y de su operador.
+  - La ubicación exige https o localhost en el teléfono de la niña, con permiso.
+- **Pruebas:** `tests/guardian-angel.test.ts` 5/5; `kid-routes` 13c; `npm test` 889 (888 PASS, 0 FAIL); typecheck OK; `dashboard:test` 35/0; recorrido SOS en Chrome sin cabeza con la API simulada (crea el aviso y envía la ubicación).
+- **NO VERIFICADO:**
+  - Teléfono real de la niña y acceso https a Janus desde fuera de casa.
+  - Push real al iPhone (requiere `JANUS_PUSH_VAPID_PRIVATE_KEY`).
+  - Voz del aparato.
+- **Siguiente acción:** fusionar la PR #92; después, esta PR. Jean configura los contactos y los mensajes en el panel de padres.
+
 ## AHORA — 24-nov-2026 · Equipo que cuida a Kendra y citas de logopedia (rama `claude/kendra-equipo-cuidado`)
 
 - **Orden del Founder (24-nov, 12:02):** la agenda de Kendra incluye logopedia y los especialistas que la tratan (médico de cabecera, Youz, Kentalis/TOS…), con nombre y especialidad.

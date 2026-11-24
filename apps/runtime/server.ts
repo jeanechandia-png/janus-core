@@ -3939,6 +3939,7 @@ const handleKidRoute = createKidRoutes({
   attachmentStore,
   ...(modelGateway && !kidChatModelOff ? { model: modelGateway } : {}),
   homeInventory: loadHomeInventory,
+  notifyGuardians: (title, body, tag) => pushToFounders(title, body, tag),
   // homeExecutor: pendiente (necesita credenciales Tuya y el inventario real) → las órdenes de la casa quedan en modo latente.
   ...(kidWeatherOff ? {} : { weather: (input) => fetchHourlyForecast(input) }),
   companions: CREATURES.map((creature) => ({ id: creature.id, name: creature.defaultName, primary: creature.palette.primary, glow: creature.palette.glow, catchphrase: creature.catchphrases[0] ?? '', catchphrases: creature.catchphrases })),

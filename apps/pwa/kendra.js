@@ -12,6 +12,7 @@ import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { mountGuardianAngel } from './guardian-angel-ui.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
 const PREF_KEY = 'kendra.prefs.v1';
@@ -48,6 +49,7 @@ let toast = '';
 const mainEl = h('main');
 let topEl = null;
 let navEl = null;
+let guardian = null;
 
 // ── Utilidades ──────────────────────────────────────────────────────────────────────────────────────────────
 function readStorage(key) { try { return localStorage.getItem(key) ?? ''; } catch { return ''; } }
@@ -174,6 +176,8 @@ function buildShell() {
   topEl = h('header', { class: 'top' });
   navEl = h('nav', { class: 'tabs', 'aria-label': 'Secciones' });
   app.replaceChildren(topEl, mainEl, navEl);
+  // Ángel Guardián: botón SOS siempre visible, también con el tiempo agotado (está por encima del aviso de bloqueo).
+  if (!guardian) guardian = mountGuardianAngel(document.body, { request: api, childName: view.profile.displayName });
   rebuildTop();
   rebuildNav();
   renderMain();
@@ -474,6 +478,9 @@ function tabCasa() {
 
 function tabCosas() {
   const out = [];
+  out.push(h('section', { class: 'card' }, h('h2', {}, '👼 Ángel Guardián'),
+    h('p', { class: 'muted' }, 'El botón rojo SOS avisa a papá con tu ubicación. Aquí puedes practicar sin avisar a nadie: qué hacer si alguien de casa se desmaya, si te siguen en la calle y cómo defenderte.'),
+    h('button', { type: 'button', class: 'primary', onClick: () => guardian?.practice() }, 'Practicar')));
   const input = h('input', { type: 'text', placeholder: 'Ej.: Minecraft', maxlength: '30', 'aria-label': 'Nuevo interés' });
   const form = h('form', { class: 'row' }, input, h('button', { type: 'submit', class: 'primary' }, 'Añadir'));
   form.addEventListener('submit', async (event) => {

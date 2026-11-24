@@ -1,0 +1,27 @@
+{
+  "id": "guardian-angel",
+  "name": "Ángel Guardián",
+  "version": "1.0.0",
+  "kind": "safety-module",
+  "summary": "Botón de auxilio para menores: llamar al padre, la madre o el tutor legal, avisarles por WhatsApp o SMS con la ubicación exacta y llamar al número de emergencias del país (112 en la UE).",
+  "entry": "src/index.ts",
+  "clientEntry": "src/guardian-angel.js (ES module puro; las apps sirven un espejo idéntico)",
+  "dependencies": [],
+  "externalIo": "none (el anfitrión decide cómo avisar: push, correo…)",
+  "network": false,
+  "secrets": false,
+  "dataClassification": "personal-sensitive (teléfonos de tutores y ubicación de un menor): solo en el almacenamiento privado del anfitrión, nunca en el repositorio",
+  "locales": ["es", "nl"],
+  "invariants": [
+    "Imports nothing outside its folder.",
+    "Never places a call or sends a message by itself: it prepares tel:, sms: and WhatsApp links that the person taps.",
+    "Activation needs a long press (HOLD_MS) to avoid accidental alerts; calling emergency services needs a second, separate tap.",
+    "Does not claim satellite connectivity: satellite SOS belongs to the phone and its carrier.",
+    "Location is only shared during an active SOS, with the guardians configured by the parent."
+  ],
+  "mounts": [
+    { "product": "Janus · app de Kendra (apps/pwa/kendra.js)", "version": "1.0.0" },
+    { "product": "Janus · panel de padres (apps/pwa/kendra-parent.js) y rutas /api/kid/sos*, /api/parent/kid/guardian-angel", "version": "1.0.0" }
+  ],
+  "reuseNotes": "Servidor: importar src/index.ts y guardar config y eventos en el almacenamiento privado del producto. Cliente: copiar src/guardian-angel.js tal cual (la prueba de espejo lo garantiza en Janus) y montar el botón. Productos candidatos: apps familiares de InfinitySeed y automatizaciones para padres."
+}

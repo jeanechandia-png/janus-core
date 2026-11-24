@@ -64,6 +64,7 @@ import {
   type KidState,
   type PinRecord,
 } from '../../packages/modules/kid-dashboard/src/index.js';
+import { addLocation, alertText, mapsUrl, newSosEvent, normalizeConfig as normalizeGuardianConfig, resolveSos, validLocation, type SosEvent } from '../../packages/modules/guardian-angel/src/index.js';
 
 /**
  * Rutas del dashboard de la niña. Dos puertas distintas:
@@ -94,6 +95,8 @@ export interface KidRoutesDeps {
   companions?: Array<{ id: string; name: string; primary: string; glow: string; catchphrase: string; catchphrases?: string[] }>;
   defaultTimeZone?: string;
   maxModelCallsPerDay?: number;
+  /** Ángel Guardián: avisa al tutor (push al teléfono del Founder). Si falta, el aviso queda solo en el panel. */
+  notifyGuardians?: (title: string, body: string, tag: string) => void;
 }
 
 class KidHttpError extends Error {
@@ -290,6 +293,8 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       categories: CATEGORY_LABELS_ES,
       bonus: state.bonus,
       careTeam: state.careTeam,
+      guardianAngel: state.settings.guardianAngel ?? null,
+      sos: state.sos.slice(-10).reverse(),
       careSpecialties: CARE_SPECIALTIES.map((id) => ({ id, label: CARE_LABEL_PARENT[id] })),
       agenda: state.agenda.filter((item) => !item.done).slice(-60),
     };
@@ -403,6 +408,46 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         if (method === 'GET' && path === '/api/kid/state') {
           const { state } = loadState(kid.kidId);
           json(response, 200, { ok: true, ...(await kidView(state, at)) });
+          return true;
+        }
+        // Ángel Guardián: funciona siempre, sin límites de tiempo ni bloqueos (es para emergencias).
+        if (method === 'GET' && path === '/api/kid/guardian-angel') {
+          const { state } = loadState(kid.kidId);
+          json(response, 200, { ok: true, config: state.settings.guardianAngel ?? null, childName: state.profile.displayName });
+          return true;
+        }
+        if (method === 'POST' && path === '/api/kid/sos') {
+          const body = await deps.readJson(request);
+          const { state } = loadState(kid.kidId);
+          const event = newSosEvent({ id: newId('sos'), at: at.toISOString(), kind: String(body.kind ?? 'ayuda'), location: body.location });
+          mutate(kid.kidId, (current) => ({ sos: [...current.sos, event].slice(-CAPS.sos) }));
+          const text = alertText({ childName: state.profile.displayName, kind: event.kind, location: event.locations[0], lang: 'es' });
+          try { deps.notifyGuardians?.('🚨 ' + text.slice(0, 60), text, 'sos:' + event.id); } catch { /* el aviso también queda en el panel */ }
+          json(response, 201, { ok: true, id: event.id });
+          return true;
+        }
+        const sosOne = path.match(/^\/api\/kid\/sos\/(sos_[a-z0-9-]{6,40})\/(location|ok)$/);
+        if (method === 'POST' && sosOne) {
+          const body = await deps.readJson(request);
+          const { state } = loadState(kid.kidId);
+          const event = state.sos.find((item) => item.id === sosOne[1]);
+          if (!event) throw new KidHttpError(404, 'Aviso no encontrado.');
+          if (sosOne[2] === 'ok') {
+            mutate(kid.kidId, (current) => ({ sos: current.sos.map((item) => (item.id === event.id ? resolveSos(item as SosEvent, at.toISOString()) : item)) }));
+            try { deps.notifyGuardians?.('✅ ' + state.profile.displayName + ' dice que está bien', 'Aviso SOS cerrado desde su app.', 'sos:' + event.id); } catch { /* nada */ }
+            json(response, 200, { ok: true });
+            return true;
+          }
+          const loc = validLocation(body.location);
+          if (!loc) throw new KidHttpError(400, 'Ubicación no válida.');
+          const next = addLocation(event as SosEvent, loc, at.toISOString());
+          mutate(kid.kidId, (current) => ({ sos: current.sos.map((item) => (item.id === event.id ? next : item)) }));
+          const previous = event.locations[event.locations.length - 1];
+          const lastAt = previous?.at ? Date.parse(previous.at) : 0;
+          if (event.status === 'activo' && (event.locations.length === 0 || at.getTime() - lastAt >= 60_000)) {
+            try { deps.notifyGuardians?.('📍 ' + state.profile.displayName + ' · ubicación', mapsUrl(loc) + (loc.accuracy !== undefined ? ' (±' + loc.accuracy + ' m)' : ''), 'sos:' + event.id); } catch { /* nada */ }
+          }
+          json(response, 200, { ok: true });
           return true;
         }
         if (method === 'PUT' && path === '/api/kid/profile') {
@@ -680,6 +725,15 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const item = { id: newId('ag'), ...checked.item };
         mutate(kidId, (current) => ({ agenda: [...current.agenda, item].slice(-CAPS.agenda) }));
         json(response, 201, { ok: true, item });
+        return true;
+      }
+      if (method === 'PUT' && path === '/api/parent/kid/guardian-angel') {
+        const body = await deps.readJson(request);
+        const { kidId } = parentAuth(request, body.kidId);
+        const checked = normalizeGuardianConfig(body.config ?? body);
+        if (!checked.ok) throw new KidHttpError(400, checked.message);
+        mutate(kidId, (current) => ({ settings: { ...current.settings, guardianAngel: checked.config } }));
+        json(response, 200, { ok: true, config: checked.config });
         return true;
       }
       // Equipo que cuida a la niña (orden del Founder, 24-nov-2026). Solo el tutor; la niña nunca ve contactos ni notas.
