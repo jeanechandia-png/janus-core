@@ -89,6 +89,7 @@ function unpair() {
   tab = 'inicio';
   schoolRequest++; school = null; schoolLesson = null; schoolStep = 0; schoolFocus = false;
   app.classList.remove('kid-school-focus');
+  document.querySelector('[data-kid-screen]')?.remove();
   topEl = null;
   navEl = null;
   renderPair('Este dispositivo ya no está emparejado. Pídele a papá un código nuevo.');
@@ -159,10 +160,17 @@ function renderPair(message = '') {
 
 // ── Carga y pintado ─────────────────────────────────────────────────────────────────────────────────────────
 async function load() {
+  const requestedToken = token;
   const result = await api('GET', '/api/kid/state');
-  if (result.status !== 200) {
-    if (result.status === 0 && view) return;
-    if (result.status !== 401) app.replaceChildren(h('p', { class: 'loading' }, result.body.error || 'No pude cargar. Inténtalo en un ratito.'));
+  if (requestedToken !== token) return; // una respuesta de un emparejamiento anterior no puede reabrir la app
+  if (result.status !== 200 || !result.body?.profile || !Array.isArray(result.body.videos)) {
+    if (result.status !== 401 && view) {
+      // Mantener la interfaz existente y el texto local; no reproducir vídeo si no se puede verificar.
+      if (player) stopPlayer();
+      if (tab !== 'chat') renderMain();
+      return;
+    }
+    if (result.status !== 401) app.replaceChildren(h('section', {class:'loading'}, h('p', {}, result.body?.error || 'No pude cargar. Inténtalo en un ratito.'), h('button', {type:'button', class:'primary', onClick:() => void load()}, 'Reintentar')));
     return;
   }
   view = result.body;
@@ -170,7 +178,7 @@ async function load() {
   const activeCreature = creature();
   document.title = activeCreature ? `Kendra · ${activeCreature.name}` : 'Kendra';
   applyTheme();
-  if (!topEl) buildShell(); else { rebuildTop(); if (tab !== 'chat') renderMain(); }
+  if (!topEl || !topEl.isConnected) buildShell(); else { rebuildTop(); if (tab !== 'chat') renderMain(); }
 }
 
 function applyTheme() {
@@ -509,6 +517,7 @@ function tabSchool() {
   const header = h('h2', {}, 'Janus School');
   if (!school || school.status === 'loading') return h('section', {class:'card'}, header, h('p', {role:'status'}, 'Cargando ejercicios…'));
   if (school.status !== 'available') return h('section', {class:'card'}, header, h('p', {role:'status'}, school.message || 'Ejercicios no disponibles.'), h('button', {type:'button', onClick:() => { void loadSchool(); renderMain(); }}, 'Reintentar'));
+  if (!Array.isArray(school.techniques) || !school.techniques.length) return h('section', {class:'card'}, header, h('p', {role:'status'}, 'No hay ejercicios disponibles todavía.'), h('button', {type:'button', onClick:() => { void loadSchool(); renderMain(); }}, 'Reintentar'));
   const lesson = school.techniques.find(item => item.id === schoolLesson);
   if (!lesson) return h('section', {class:'card'}, header, h('p', {}, 'Matemáticas: elige un ejercicio.'), ...school.techniques.map(item =>
     h('button', {type:'button', class:'primary', onClick:() => { schoolLesson = item.id; schoolStep = 0; renderMain(); }}, item.title)));
