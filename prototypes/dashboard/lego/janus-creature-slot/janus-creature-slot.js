@@ -86,14 +86,17 @@ const JanusCreatureSlot = (() => {
     if (rep.level === 'error') return rep;
     gltf.scene.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = false; } });
     patchWind(gltf.scene);
-    reg[id] = { gltf, buf, report: rep, name: (opts && opts.name) || id + '.glb', at: Date.now() };
+    // La huella describe los bytes realmente cargados, incluso al restaurar IndexedDB.
+    let sha256 = null;
+    try { if (globalThis.crypto?.subtle) sha256 = [...new Uint8Array(await crypto.subtle.digest('SHA-256', buf))].map(x => x.toString(16).padStart(2, '0')).join(''); } catch { /* sin huella: nunca se presume aprobación */ }
+    reg[id] = { gltf, buf, sha256, report: rep, name: (opts && opts.name) || id + '.glb', at: Date.now() };
     if (!(opts && opts.volatile)) idbPut(id, buf, reg[id].name);
     emit(id); return rep;
   }
   function remove(id) { if (!reg[id]) return false; delete reg[id]; idbDel(id); emit(id); return true; }
   const has = (id) => !!reg[id];
   const report = (id) => (reg[id] ? reg[id].report : null);
-  const info = (id) => (reg[id] ? { name: reg[id].name, at: reg[id].at, level: reg[id].report.level, summary: reg[id].report.summary, stats: reg[id].report.stats } : null);
+  const info = (id) => (reg[id] ? { name: reg[id].name, sha256: reg[id].sha256, at: reg[id].at, level: reg[id].report.level, summary: reg[id].report.summary, stats: reg[id].report.stats } : null);
   const onChange = (fn) => { listeners.push(fn); };
   const guessId = (name) => IDS.find((i) => new RegExp('(^|[^a-z])' + i + '([^a-z]|$)', 'i').test(String(name || ''))) || null;
 

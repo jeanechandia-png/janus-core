@@ -9,7 +9,7 @@ const hex = (data: Uint8Array) => createHash('sha256').update(data).digest('hex'
 type Entry = { slot: string; sha256: string; tier: string; review: string };
 function setup(opts: { headers?: Record<string, string>; kidList?: Entry[]; founderList?: Array<{ slot: string; active?: Entry; servable?: Entry }>; files?: Map<string, Uint8Array>; offline?: boolean }) {
   const store = new Map<string, string>();
-  const loaded = new Map<string, { size: number; name: string }>();
+  const loaded = new Map<string, { size: number; name: string; sha256: string }>();
   const removed: string[] = [];
   const events: string[] = [];
   const calls: string[] = [];
@@ -18,7 +18,8 @@ function setup(opts: { headers?: Record<string, string>; kidList?: Entry[]; foun
     JanusCreatureSlot: {
       supported: () => true,
       has: (id: string) => loaded.has(id),
-      load: async (id: string, buf: ArrayBuffer, o: { name: string }) => { loaded.set(id, { size: buf.byteLength, name: o.name }); return { level: 'avisos', summary: 'ok' }; },
+      info: (id: string) => loaded.get(id),
+      load: async (id: string, buf: ArrayBuffer, o: { name: string }) => { loaded.set(id, { size: buf.byteLength, name: o.name, sha256: hex(new Uint8Array(buf)) }); return { level: 'avisos', summary: 'ok' }; },
       remove: (id: string) => { removed.push(id); return loaded.delete(id); },
     },
   });
@@ -120,4 +121,21 @@ test('cableado PWA: Founder y Kendra sincronizan; el aviso solo se quita con mod
   assert.match(sw, /'\/character-sync\.js'/);
   assert.match(sw, /janus-shell-v31/);
   assert.doesNotMatch(source('apps/pwa/character-sync.js'), /innerHTML|eval\(|new Function/);
+});
+
+
+test('Kendra: una importación local no hereda la aprobación del slot', async () => {
+  const bytes = model('original'); const sha = hex(bytes);
+  const env = setup({ files: new Map([[sha, bytes]]), kidList: [{ slot: 'lumi', sha256: sha, tier: 'partial', review: 'approved' }] });
+  const { configureCharacterSync, syncCharacters, canDisplayApproved } = await loadModule();
+  configureCharacterSync({ audience: 'kid', headers: () => ({ authorization: 'Bearer kdv_x' }) });
+  await syncCharacters();
+  assert.equal(canDisplayApproved('lumi'), true);
+  env.loaded.set('lumi', { size: 10, name: 'otro.glb', sha256: hex(model('otro')) });
+  assert.equal(canDisplayApproved('lumi'), false);
+  await syncCharacters();
+  assert.equal(canDisplayApproved('lumi'), true);
+  (globalThis as any).fetch = async () => Response.json({ok:false}, {status:403});
+  await syncCharacters();
+  assert.equal(canDisplayApproved('lumi'), false);
 });
