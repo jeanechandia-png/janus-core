@@ -27,7 +27,9 @@ function vOraciones(M, X, sub) {
   return frame('oraciones', sub, M, '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:14px;align-items:start"><div>' + left + '</div><div>' + center + '</div></div>');
 }
 VIEWS.oraciones = vOraciones;
-TABS.push(['oraciones', '✝', 'Oraciones']);
+// No ocupa sitio en la barra de pestañas (orden del Founder: sin desplazamiento lateral). Se abre desde el menú ☰ y solo
+// aparece en la barra mientras se está en ella.
+TABS.push(['oraciones', '✝', 'Oraciones', 'menu']);
 const ORA_ACTS = {
   oraSel: (id) => { JanusOraciones.stop(); ORA.playing = false; ORA.id = id; },
   oraLang: (l) => { JanusOraciones.stop(); ORA.playing = false; ORA.lang = l; },

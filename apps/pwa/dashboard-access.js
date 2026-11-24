@@ -51,6 +51,7 @@ const links = [
   ['signIn', `/?returnTo=${back}#approvals`],
   ['controls', '/'],
   ['kidApp', '/kendra'],
+  ['prayers', '#oraciones'],
 ];
 const linkNodes = new Map();
 for (const [key, href] of links) {

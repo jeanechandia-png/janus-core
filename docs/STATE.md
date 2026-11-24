@@ -3,7 +3,7 @@
 - **Orden del Founder (24-nov, 11:11):** Padre Nuestro en latín y en su lengua original, Ángel de la Guarda y San Miguel Arcángel para Jean; oraciones para niños para Kendra, con el latín como opción si ella quiere.
 - **Hecho:**
   - pieza LEGO `prototypes/dashboard/lego/janus-oraciones` (fuente única de los textos, con fuentes, pronunciación y traducción);
-  - vista «Oraciones» del Founder (`src/oraciones.js`, A y B);
+  - vista «Oraciones» del Founder (`src/oraciones.js`, A y B). Se abre desde el menú ☰ («Oraciones»), no añade pestaña a la barra (sin desplazamiento lateral);
   - pestaña «Oraciones» en la app de Kendra (`apps/pwa/kendra.js`, espejo idéntico `apps/pwa/approved-3d/janus-oraciones.js`, `sw.js` v22).
   - La voz es la del aparato (speechSynthesis), sin nube.
 - **Verdad:** el original escrito del Padre Nuestro es el griego (Mt 6, 9-13); el hebreo es la traducción de Delitzsch (1901, dominio público); *Angele Dei* y San Miguel son latín original.
