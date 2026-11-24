@@ -887,7 +887,8 @@ addEventListener('janus:voice-profile', () => {
 function setApprovalsStatus(text) { approvalsStatus.textContent = text; }
 
 async function focusFounderAccess() {
-  await refreshFounderControls();
+  try { await refreshFounderControls(); }
+  catch { setApprovalsStatus('No se pudo recuperar la llave local. Comprueba que estás en localhost o HTTPS y vuelve a intentarlo.'); return; }
   if (sessionToken()) return;
   const action = deviceKey ? founderSignInButton : founderLinkButton;
   setApprovalsStatus(deviceKey ? 'Entra como Founder. Si falta registrar la llave, Janus te indicará cómo.' : 'Primero vincula este dispositivo para crear su llave segura.');
@@ -1060,6 +1061,7 @@ founderSignInButton.addEventListener('click', async () => {
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
     const returnTo = new URLSearchParams(location.search).get('returnTo');
     if (returnTo === '/dashboard/a' || returnTo === '/dashboard/b') location.assign(returnTo);
+    else void refreshKendraSummary().catch(() => { if (kendraSummary) kendraSummary.textContent = 'Sesión iniciada; no se pudo cargar el resumen. Puedes abrir el panel para reintentar.'; });
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
