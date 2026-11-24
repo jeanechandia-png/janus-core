@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
+import { runInNewContext } from 'node:vm';
 // @ts-expect-error Browser ESM component without a declaration file.
 import { LANGUAGES, currentLanguage, uiLabel } from '../apps/pwa/language-buttons.js';
 
@@ -135,4 +136,45 @@ test('la portada tablet usa la opción 2 y la app infantil conserva el mismo hos
   assert.match(kid, /kidDatesCard/);
   assert.match(kid, /mountGuardianAngel/);
   assert.match(kid, /createApprovedStage\(pet.id\)/);
+});
+
+test('Kendra: sin buscador, cada acceso abre solo un vídeo aún aprobado por Core', async () => {
+  const kid = text('apps/pwa/kendra.js');
+  const start = kid.indexOf('let mediaSelection = 0;');
+  const end = kid.indexOf('function tabVer()', start);
+  const next = kid.indexOf('function tabCasa()', end);
+  assert.ok(start >= 0 && end > start && next > end);
+  assert.doesNotMatch(kid.slice(end, next), /h\('input'|h\('form'|micButton\(/);
+  assert.match(kid, /go\('ver'\); void openApprovedVideo\(video.id\)/);
+  const video = { id: 'approved', label: 'Vídeo aprobado', embedUrl: 'https://www.youtube-nocookie.com/embed/approved' };
+  const stale = { id: 'revoked', label: 'Retirado', embedUrl: 'https://example.invalid' };
+  let response: { status: number; body: { status: string; videos?: typeof video[]; message?: string } } =
+    { status: 200, body: { status: 'allow', videos: [video] } };
+  const messages: string[] = [];
+  const context = {
+    tab: 'ver', player: null as typeof video | null,
+    api: async () => response,
+    renderMain: () => {}, flash: (message: string) => messages.push(message), showLock: () => {},
+  };
+  const open = runInNewContext(kid.slice(start, end) + '\nopenApprovedVideo;', context) as (id: string) => Promise<void>;
+  await open(video.id);
+  assert.equal(context.player?.id, video.id);
+  await open(stale.id);
+  assert.equal(context.player, null);
+  assert.match(messages.at(-1) ?? '', /ya no está/);
+  response = { status: 0, body: { status: 'offline' } };
+  await open(video.id);
+  assert.equal(context.player, null);
+  response = { status: 200, body: { status: 'allow', videos: [video] } };
+  context.tab = 'inicio';
+  await open(video.id);
+  assert.equal(context.player, null);
+});
+
+test('Founder: el brillo de los CTA no genera una caja mayor que el botón', () => {
+  const css = text('prototypes/dashboard/src/companero-stage.css');
+  const reflection = css.match(/\.jh-shell \.b3d:not\(\.off\)::before\{[^}]+\}/)?.[0] ?? '';
+  assert.match(reflection, /inset:0;/);
+  assert.match(reflection, /animation:janusHomeSpecularSweep/);
+  assert.doesNotMatch(reflection, /inset:-|translateX\(/);
 });
