@@ -42,6 +42,8 @@ const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRec
 
 let token = readStorage(TOKEN_KEY);
 let prefs = parseJson(readStorage(PREF_KEY)) ?? { speak: true };
+const HOME_SCENES = Object.freeze([['a', 'Paseo'], ['b', 'Mi cuarto'], ['c', 'Escenario']]);
+const homeScene = () => HOME_SCENES.some(([id]) => id === prefs.scene) ? prefs.scene : 'a';
 let view = null;
 let tab = 'inicio';
 let player = null;
@@ -82,7 +84,8 @@ function unpair() {
   view = null;
   document.title = 'Kendra';
   chat = null;
-  player = null;
+  stopPlayer();
+  tab = 'inicio';
   topEl = null;
   navEl = null;
   renderPair('Este dispositivo ya no está emparejado. Pídele a papá un código nuevo.');
@@ -160,6 +163,7 @@ async function load() {
     return;
   }
   view = result.body;
+  if (player && !view.videos.some(video => video.id === player.id)) stopPlayer();
   const activeCreature = creature();
   document.title = activeCreature ? `Kendra · ${activeCreature.name}` : 'Kendra';
   applyTheme();
@@ -222,7 +226,10 @@ function renderMain() {
   if (toast) nodes.push(h('p', { class: 'banner ok', role: 'status' }, toast));
   nodes.push(...[].concat(builders[tab]()));
   mainEl.classList.toggle('kid-home', tab === 'inicio');
+  if (tab === 'inicio') mainEl.dataset.scene = homeScene();
+  else delete mainEl.dataset.scene;
   mainEl.replaceChildren(...nodes.filter(Boolean));
+  updateKidClock();
 }
 
 function flash(message) { toast = message; if (tab !== 'chat') renderMain(); setTimeout(() => { if (toast === message) { toast = ''; if (tab !== 'chat') renderMain(); } }, 3500); }
@@ -274,11 +281,11 @@ function tabInicio() {
   const pet = creature();
   const say = h('p', { class: 'kid-speech' }, pet ? `${pet.name}: «${pet.catchphrase}»` : 'Tu criatura aún no está disponible.');
   const stage = pet
-    ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Saludar a ${pet.name}`, onClick: (event) => cheer(event.currentTarget, pet, say) }, createApprovedStage(pet.id))
+    ? h('button', { type: 'button', class: 'big creature-btn', 'aria-label': `Personalizar a ${pet.name}`, onClick: openProfile }, createApprovedStage(pet.id))
     : h('div', { class: 'big', 'aria-hidden': 'true' }, view.profile.icon);
   const agenda = view.agenda.slice(0, 2);
   const pending = [...view.tasks.overdue, ...view.tasks.soon.filter((task) => !view.tasks.overdue.some((late) => late.id === task.id))];
-  const day = h('section', { class: 'card kid-day' }, h('h3', {}, 'Mi día'),
+  const day = h('section', { class: 'card kid-day' }, h('h3', {}, 'Mi día'), h('time', { class: 'kid-clock', 'data-kid-clock': 'true', 'aria-label': 'Hora local' }),
     ...['Ahora', 'Luego'].map((label, i) => h('div', { class: 'kid-time' }, h('strong', {}, label), h('p', {}, agenda[i] ? `${agenda[i].title} · ${dateLabel(agenda[i].date)}${agenda[i].time ? ' · ' + agenda[i].time : ''}` : 'Sin actividad apuntada'))),
     h('button', { type: 'button', class: 'primary', onClick: () => go('dia') }, 'Ver mi día'));
   const weather = outfitCard(); weather.classList.add('kid-weather');
@@ -291,9 +298,11 @@ function tabInicio() {
     view.reminders.length ? h('button', { type: 'button', class: 'primary', onClick: async () => { await api('POST', '/api/kid/reminders/ack', { keys: view.reminders.map(item => item.key) }); await load(); } }, 'Vale, ya lo sé') : null,
     pending.length ? h('button', { type: 'button', onClick: () => go('dia') }, `Tienes ${pending.length} tareas próximas o pendientes`) : null,
     h('div', { class: 'kid-creature hero' }, stage, say),
+    pet ? h('button', { type: 'button', onClick: () => cheer(stage, pet, say) }, `Saludar a ${pet.name}`) : null,
     h('button', { type: 'button', class: 'primary', onClick: () => go('chat') }, 'Hablar conmigo'));
   const access = view.access;
   return [!access.allowed ? h('p', {class:'banner lock',role:'status'},access.message) : access.warn ? h('p',{class:'banner',role:'status'},access.warn.message) : null,
+    h('div', {class:'kid-scene-toolbar'}, h('span', {}, HOME_SCENES.find(([id]) => id === homeScene())[1]), h('button', {type:'button', class:'primary', onClick:openScreen}, 'Mi pantalla')),
     h('div', {class:'kid-home-grid'}, day, weather, kidDatesCard(), media, reminder)];
 }
 
@@ -306,8 +315,8 @@ function kidDatesCard() {
     let date = Date.UTC(y, month - 1, day); if (date < now.getTime()) date = Date.UTC(y + 1, month - 1, day);
     return Math.round((date - now.getTime()) / 86400000);
   };
-  const christmas = count(12,25), sinterklaas = count(12,5), yearEnd = count(12,31);
-  return h('section', {class:'card kid-dates'}, h('h3',{},'Fechas especiales'), christmas === null ? h('p',{},'Fecha pendiente de sincronizar.') : h('div',{},h('strong',{class:'kid-count'},String(christmas)),h('p',{},'días para Navidad'),h('p',{class:'muted'},`Sinterklaas: ${sinterklaas} días · Fin de año: ${yearEnd} días`)));
+  const christmas = count(12,25), eve = count(12,24), sinterklaas = count(12,5), yearEnd = count(12,31), halloween = count(10,31);
+  return h('section', {class:'card kid-dates'}, h('h3',{},'Fechas especiales'), christmas === null ? h('p',{},'Fecha pendiente de sincronizar.') : h('div',{},h('strong',{class:'kid-count'},String(christmas)),h('p',{},'días para Navidad'),h('p',{class:'muted'},`Sinterklaas: ${sinterklaas} días · Nochebuena: ${eve} días · Fin de año: ${yearEnd} días · Halloween: ${halloween} días`)));
 }
 
 // Al tocar a la criatura: salta, pone cara de fiesta, dice una de sus frases y la lee con la voz LOCAL (si ella lo tiene activado).
@@ -522,6 +531,34 @@ function tabCosas() {
 }
 
 // ── Personalizar (lo que ELLA puede cambiar) ────────────────────────────────────────────────────────────────
+function updateKidClock() {
+  const clock = mainEl.querySelector('[data-kid-clock]');
+  if (!clock) return;
+  const now = new Date();
+  clock.dateTime = now.toISOString();
+  clock.textContent = new Intl.DateTimeFormat('es-NL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' }).format(now);
+}
+
+// Selección de escena persistente en el dispositivo, sin crear otra PWA ni otro perfil.
+// No afirmar que existe un decorado GLB cuando aún no está aprobado/disponible.
+function openScreen() {
+  if (!view || document.querySelector('[data-kid-screen]')) return;
+  const sheet = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Mi pantalla', 'data-kid-screen': 'true' });
+  let selected = homeScene();
+  const sceneButtons = h('div', { class: 'chips kid-scene-options' }, ...HOME_SCENES.map(([id, label]) =>
+    h('button', { type: 'button', 'aria-pressed': String(id === selected), onClick: (event) => {
+      selected = id;
+      sceneButtons.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button === event.currentTarget)));
+    } }, label)));
+  sheet.append(h('div', {}, h('h2', {}, 'Mi pantalla'), h('p', {}, 'Elige tu escena.'), sceneButtons,
+    h('p', {class:'muted'}, 'Tu elección se guarda. El decorado 3D definitivo estará disponible cuando se incorpore el modelo aprobado.'),
+    h('div', {class:'row'},
+      h('button', {type:'button', class:'primary', onClick: () => { prefs.scene = selected; savePrefs(); sheet.remove(); renderMain(); }}, 'Guardar'),
+      h('button', {type:'button', onClick:() => { sheet.remove(); openProfile(); }}, 'Cambiar color y criatura'),
+      h('button', {type:'button', onClick:() => sheet.remove()}, 'Cancelar'))));
+  document.body.append(sheet);
+}
+
 function openProfile() {
   const draft = { ...view.profile };
   const name = h('input', { type: 'text', value: draft.displayName, maxlength: '20', 'aria-label': 'Mi nombre' });
@@ -583,6 +620,7 @@ function currentCategory() {
 }
 
 async function heartbeat() {
+  updateKidClock();
   const category = currentCategory();
   if (!category) return;
   const result = await api('POST', '/api/kid/activity', { category, seconds: 30 });
