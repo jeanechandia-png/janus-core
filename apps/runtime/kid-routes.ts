@@ -3,6 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ModelGateway, ModelMessage } from '../../packages/gateways/src/contracts.js';
 import type { SqliteStore } from '../../packages/core/src/sqlite-store.js';
 import { OPEN_METEO_ATTRIBUTION } from '../../packages/adapters/src/open-meteo-adapter.js';
+import { listTechniques } from '../../packages/modules/janus-school/src/index.js';
 import {
   FileAttachmentStore,
   describeAttachmentsForMessage,
@@ -413,6 +414,18 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         if (method === 'GET' && path === '/api/kid/state') {
           const { state } = loadState(kid.kidId);
           json(response, 200, { ok: true, ...(await kidView(state, at)) });
+          return true;
+        }
+        // Janus School: usa las técnicas del módulo canónico, no un modelo de pago.
+        if (method === 'GET' && path === '/api/kid/school') {
+          const { state } = loadState(kid.kidId);
+          const access = accessFor(state, 'school', at);
+          if (!access.allowed) { json(response, 200, { ok: true, status: 'blocked', message: access.message }); return true; }
+          // Primera entrega: técnicas revisadas de matemáticas. No exponer notas clínicas ni
+          // técnicas con cautelas o referencias visuales aún no verificadas.
+          const ids = new Set(['amigos-del-10', 'cpa-concreto-dibujo-simbolo']);
+          const techniques = listTechniques('8-10').filter(item => ids.has(item.id)).map(({ id, title, skill, minutes, steps, materials }) => ({ id, title, skill, minutes, steps, materials }));
+          json(response, 200, { ok: true, status: 'available', techniques });
           return true;
         }
         // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
