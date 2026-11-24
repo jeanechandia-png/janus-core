@@ -121,9 +121,9 @@
     0 2px 0 #03215e,0 5px 0 #020d31,0 8px 15px rgba(0,0,0,.58),0 0 22px rgba(0,140,255,.48);
   transition:transform .18s cubic-bezier(.2,.8,.2,1),filter .18s ease,box-shadow .18s ease,border-color .18s ease;
   animation:finalCtaCinematicBreath 3.4s ease-in-out infinite}
-.jh-shell .b3d:not(.off)::before{content:"";position:absolute;z-index:-1;pointer-events:none;inset:-80% -35%;opacity:.66;height:auto;left:-35%;right:-35%;top:-80%;
+.jh-shell .b3d:not(.off)::before{content:"";position:absolute;z-index:-1;pointer-events:none;inset:0;opacity:.66;
   background:linear-gradient(112deg,transparent 34%,rgba(255,255,255,.08) 42%,rgba(255,255,255,.82) 49%,rgba(137,235,255,.18) 56%,transparent 65%);
-  transform:translateX(-62%) rotate(3deg);animation:finalCtaSpecularSweep 3.8s cubic-bezier(.22,.7,.2,1) infinite;transition:none}
+  transform:none;background-size:240% 100%;background-position:100% 50%;animation:janusHomeSpecularSweep 3.8s cubic-bezier(.22,.7,.2,1) infinite;transition:none}
 .jh-shell .b3d:not(.off)::after{content:"";position:absolute;inset:2px 4px auto;height:38%;border-radius:11px;pointer-events:none;z-index:-1;transform:none;transition:none;
   background:linear-gradient(180deg,rgba(255,255,255,.36),rgba(255,255,255,.05));opacity:.74}
 /* ChatBox OWNER LOCK «ALL LANDING CTA»: los secundarios reciben el mismo 3D cinematográfico que los primarios. */
@@ -131,7 +131,8 @@
   box-shadow:inset 0 3px 2px rgba(255,255,255,.82),inset 0 -6px 10px rgba(0,13,100,.65),0 2px 0 #06429c,0 6px 0 #02194f,0 12px 22px rgba(0,0,0,.56),0 0 18px rgba(80,224,255,.95),0 0 42px rgba(0,122,255,.88),0 0 72px rgba(0,102,255,.48)}
 .jh-shell .b3d:not(.off):active{transform:translateY(4px) scale(.982);filter:brightness(1.28) saturate(1.18);
   box-shadow:inset 0 5px 10px rgba(0,12,90,.62),inset 0 1px 2px rgba(255,255,255,.72),0 1px 0 #031b55,0 3px 8px rgba(0,0,0,.52),0 0 24px rgba(89,231,255,1),0 0 52px rgba(0,122,255,.95)}
-@keyframes finalCtaSpecularSweep{0%,58%{transform:translateX(-68%) rotate(3deg);opacity:.16}72%{opacity:.78}88%,100%{transform:translateX(68%) rotate(3deg);opacity:.12}}
+/* El reflejo se mueve dentro del botón: sin pseudo-elemento sobredimensionado ni scroll vertical. */
+@keyframes janusHomeSpecularSweep{0%,58%{background-position:100% 50%;opacity:.16}72%{opacity:.78}88%,100%{background-position:0% 50%;opacity:.12}}
 @keyframes finalCtaCinematicBreath{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.075) saturate(1.07)}}
 
 .jh-shell .b3d:not(.off){min-height:56px;padding:8px 12px;font-size:clamp(15px,1.35vw,20px);min-width:0;line-height:1.15;text-align:center}
