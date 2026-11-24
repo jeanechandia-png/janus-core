@@ -118,6 +118,6 @@ test('cableado PWA: Founder y Kendra sincronizan; el aviso solo se quita con mod
   assert.match(presence, /3D · revisión visual pendiente/);
   const sw = source('apps/pwa/sw.js');
   assert.match(sw, /'\/character-sync\.js'/);
-  assert.match(sw, /janus-shell-v29/);
+  assert.match(sw, /janus-shell-v30/);
   assert.doesNotMatch(source('apps/pwa/character-sync.js'), /innerHTML|eval\(|new Function/);
 });
