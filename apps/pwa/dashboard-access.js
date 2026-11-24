@@ -39,6 +39,11 @@ controls.prepend(team.compact);
 // «Aprobar»: visible solo si hay acciones en pausa esperando la decisión del CEO (cola de aprobaciones existente).
 const approvals = mountApprovalChip();
 controls.prepend(approvals.element);
+// El CTA de la portada real abre esta misma cola, nunca las decisiones ficticias del preview.
+document.addEventListener('click', event => {
+  if(!event.target.closest?.('[data-live-approvals], .jh-shell [data-go="janus/aprob"]'))return;
+  event.preventDefault(); event.stopPropagation(); approvals.open();
+},true);
 const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');
