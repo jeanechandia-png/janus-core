@@ -48,6 +48,7 @@ let view = null;
 let tab = 'inicio';
 let player = null;
 let school = null, schoolLesson = null, schoolStep = 0, schoolFocus = false, schoolRequest = 0;
+let schoolFeedback = '', schoolAnswerPending = false, schoolCorrect = false;
 let chat = null;
 let warnText = '';
 let toast = '';
@@ -108,12 +109,12 @@ function dateLabel(ymd) {
 }
 const euros = (cents) => (cents / 100).toLocaleString('es', { style: 'currency', currency: 'EUR' });
 
-function speak(text, rate = 1) {
+function speak(text, rate = 1, language = 'es-ES') {
   if (!prefs.speak || !('speechSynthesis' in window) || !text) return;
   try {
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, ''));
-    utterance.lang = 'es-ES'; utterance.pitch = 1.15; utterance.rate = rate;
+    utterance.lang = language; utterance.pitch = 1.15; utterance.rate = rate;
     window.speechSynthesis.speak(utterance);
   } catch { /* sin voz local */ }
 }
@@ -174,11 +175,11 @@ async function load() {
     return;
   }
   view = result.body;
-  if (player && !view.videos.some(video => video.id === player.id)) stopPlayer();
+  if (player && (!view.videos.some(video => video.id === player.id) || view.mediaAccess?.allowed === false)) stopPlayer();
   const activeCreature = creature();
   document.title = activeCreature ? `Kendra · ${activeCreature.name}` : 'Kendra';
   applyTheme();
-  if (!topEl || !topEl.isConnected) buildShell(); else { rebuildTop(); if (tab !== 'chat') renderMain(); }
+  if (!topEl || !topEl.isConnected) buildShell(); else { rebuildTop(); if (tab !== 'chat' && !(isMediaTab() && player)) renderMain(); else updateUsageDisplay(); }
 }
 
 function applyTheme() {
@@ -203,7 +204,8 @@ function buildShell() {
 function rebuildTop() {
   const pet = creature();
   const access = view.access;
-  const pill = access && access.allowed && access.minutesLeft !== undefined ? h('span', { class: 'pill' }, `⏳ ${access.minutesLeft} min`) : null;
+  const minutes = view.usage?.limitedMinutes;
+  const pill = Number.isFinite(minutes) ? h('span', {class:'pill', 'data-kid-usage':'true'}, `Tiempo de ocio: ${Math.round(minutes)} min`) : null;
   const languageHost = h('div', { class: 'janus-language-switch' });
   topEl.replaceChildren(...[
     h('button', { type: 'button', class: 'who', onClick: openProfile, 'aria-label': 'Cambiar mi nombre, mi icono o mi criatura' },
@@ -226,7 +228,7 @@ function go(next) {
   tab = next;
   if (previous !== tab || !isMediaTab()) stopPlayer();
   if (tab !== 'school') { schoolRequest++; schoolFocus = false; }
-  if (tab === 'school' && previous !== 'school') { school = null; schoolLesson = null; schoolStep = 0; void loadSchool(); }
+  if (tab === 'school' && previous !== 'school') { school = null; schoolLesson = null; schoolStep = 0; schoolFeedback = ''; schoolCorrect = false; schoolAnswerPending = false; void loadSchool(); }
   if (tab !== 'rezar') globalThis.JanusOraciones?.stop();
   rebuildNav();
   renderMain();
@@ -250,7 +252,8 @@ function renderMain() {
 function flash(message) { toast = message; if (tab !== 'chat') renderMain(); setTimeout(() => { if (toast === message) { toast = ''; if (tab !== 'chat') renderMain(); } }, 3500); }
 
 function showLock(message) {
-  const overlay = h('div', { class: 'lock', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': 'Aviso' },
+  document.querySelector('[data-kid-lock]')?.remove();
+  const overlay = h('div', { class: 'lock', 'data-kid-lock':'true', role: 'alertdialog', 'aria-modal': 'true', 'aria-label': 'Aviso' },
     h('div', {}, h('div', { class: 'avatar', style: 'margin-inline:auto;inline-size:72px;block-size:72px;font-size:40px' }, view?.profile.icon ?? '🌙'),
       h('p', {}, message), h('button', { type: 'button', class: 'primary', onClick: () => { overlay.remove(); go('inicio'); } }, 'Vale')));
   document.body.append(overlay);
@@ -305,7 +308,7 @@ function tabInicio() {
     h('button', { type: 'button', class: 'primary', onClick: () => go('dia') }, 'Ver mi día'), h('button', {type:'button', class:'primary', onClick:() => go('school')}, 'Janus School'));
   const weather = outfitCard(); weather.classList.add('kid-weather');
   const media = h('section', { class: 'card kid-media' }, h('h3', {}, 'Ver'),
-    h('p', { class: 'muted' }, 'Solo vídeos aprobados por papá.'),
+    h('p', { class: 'muted' }, 'Solo vídeos aprobados por papá.'), videoTimeNotice(),
     view.videos.length ? h('div', { class: 'kid-video-grid' }, ...view.videos.slice(0, 4).map(video => h('button', { type: 'button', class: 'primary', onClick: () => { go('ver'); void openApprovedVideo(video.id); } }, video.label))) : h('p', {}, 'Todavía no hay vídeos aprobados.'),
     h('button', { type: 'button', class: 'primary', onClick: () => go('ver') }, 'Ver mis vídeos'), h('button', {type:'button', class:'primary', onClick:() => go('baile')}, 'Baile'));
   const reminder = h('section', { class: 'card kid-reminders' }, h('h3', {}, 'No olvides'),
@@ -316,7 +319,7 @@ function tabInicio() {
     pet ? h('button', { type: 'button', onClick: () => cheer(stage, pet, say) }, `Saludar a ${pet.name}`) : null,
     h('button', { type: 'button', class: 'primary', onClick: () => go('chat') }, 'Hablar conmigo'));
   const access = view.access;
-  return [!access.allowed ? h('p', {class:'banner lock',role:'status'},access.message) : access.warn ? h('p',{class:'banner',role:'status'},access.warn.message) : null,
+  return [!access.allowed ? h('p', {class:'banner',role:'status'},access.message) : access.warn ? h('p',{class:'banner',role:'status'},access.warn.message) : null,
     h('div', {class:'kid-scene-toolbar'}, h('span', {}, HOME_SCENES.find(([id]) => id === homeScene())[1]), h('button', {type:'button', class:'primary', onClick:openScreen}, 'Mi pantalla')),
     h('div', {class:'kid-home-grid'}, day, weather, kidDatesCard(), media, reminder)];
 }
@@ -437,7 +440,7 @@ function tabDia() {
     h('h2', {}, '✏️ Mis tareas'),
     view.tasks.all.length === 0 ? h('p', { class: 'muted' }, '¡Nada pendiente! 🎉') : h('ul', { class: 'list' }, view.tasks.all.map((task) => h('li', { style: 'align-items:flex-start;flex-wrap:wrap' },
       h('label', { class: 'check grow' },
-        h('input', { type: 'checkbox', onChange: async () => { await api('POST', `/api/kid/tasks/${task.id}/status`, { status: 'hecha' }); flash('¡Bien hecho! 🎉'); await load(); } }),
+        h('input', { type: 'checkbox', onChange: async (event) => { const result = await api('POST', `/api/kid/tasks/${task.id}/status`, { status: 'hecha' }); if(result.status===200){ flash('¡Bien hecho!'); await load(); } else { event.target.checked=false; flash(result.body.error || 'No pude guardar la tarea.'); } } }),
         h('span', {}, task.title, task.due ? h('small', {}, ` · ${dateLabel(task.due)}${lateIds.has(task.id) ? ' (¡ya pasó!)' : ''}`) : null)),
       task.steps && task.steps.length > 0 ? h('ul', { class: 'list', style: 'inline-size:100%' }, task.steps.map((step, index) => h('li', {},
         h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: step.done, onChange: async () => { await api('POST', `/api/kid/tasks/${task.id}/step`, { index }); await load(); } }), h('span', { class: step.done ? 'done' : '' }, step.text))))) : null))),
@@ -482,6 +485,11 @@ async function openApprovedVideo(videoId) {
   }
 }
 
+function videoTimeNotice() {
+  const access = view.mediaAccess;
+  return h('p',{class:'muted','data-kid-video-time':'true'},access?.allowed === false ? access.message : Number.isFinite(access?.minutesLeft) ? `Tiempo disponible para vídeos: ${access.minutesLeft} min` : 'Tiempo de vídeo pendiente de comprobar.');
+}
+
 function tabVer() {
   const out = [];
   const dance = tab === 'baile';
@@ -494,7 +502,7 @@ function tabVer() {
       h('button', { type: 'button', onClick: () => { stopPlayer(); renderMain(); } }, 'Cerrar el vídeo')));
   }
   out.push(h('section', { class: 'card' },
-    h('h2', {}, dance ? 'Baile' : 'Vídeos para ti'),
+    h('h2', {}, dance ? 'Baile' : 'Vídeos para ti'), videoTimeNotice(),
     videos.length === 0
       ? h('p', { class: 'muted' }, dance ? 'Aún no hay vídeos de baile aprobados.' : 'Papá todavía no ha elegido vídeos.')
       : h('ul', { class: 'list' }, videos.map((video) => h('li', {}, h('button', { type: 'button', class: 'vid', onClick: () => { void openApprovedVideo(video.id); } }, h('span', {}, video.label))))),
@@ -503,6 +511,16 @@ function tabVer() {
 }
 
 // Escuela: una instrucción visible cada vez, lectura repetible y sin cronómetro.
+async function answerSchool(lesson,index) {
+  if (schoolAnswerPending || schoolCorrect || !view) return;
+  const request = ++schoolRequest; schoolAnswerPending=true; renderMain();
+  const result=await api('POST','/api/kid/school/answer',{id:lesson.id,answer:index});
+  if(request!==schoolRequest || tab!=='school' || schoolLesson!==lesson.id || !view)return;
+  schoolAnswerPending=false;
+  if(result.status===200 && result.body.status==='answered') { schoolCorrect=result.body.correct===true;schoolFeedback=result.body.message;lesson.progress=result.body.progress; }
+  else { schoolFeedback=result.body.message || result.body.error || 'No pude comprobar la respuesta. Inténtalo otra vez.'; }
+  renderMain();
+}
 async function loadSchool() {
   const request = ++schoolRequest;
   school = { status: 'loading' };
@@ -513,21 +531,33 @@ async function loadSchool() {
 }
 
 function tabSchool() {
-  const back = h('button', {type:'button', onClick:() => { schoolFocus = false; schoolLesson = null; schoolStep = 0; renderMain(); }}, 'Elegir otro ejercicio');
+  const back = h('button', {type:'button', onClick:() => { schoolRequest++; schoolFocus = false; schoolLesson = null; schoolStep = 0; schoolFeedback = ''; schoolCorrect = false; schoolAnswerPending = false; renderMain(); }}, 'Elegir otro ejercicio');
   const header = h('h2', {}, 'Janus School');
   if (!school || school.status === 'loading') return h('section', {class:'card'}, header, h('p', {role:'status'}, 'Cargando ejercicios…'));
   if (school.status !== 'available') return h('section', {class:'card'}, header, h('p', {role:'status'}, school.message || 'Ejercicios no disponibles.'), h('button', {type:'button', onClick:() => { void loadSchool(); renderMain(); }}, 'Reintentar'));
   if (!Array.isArray(school.techniques) || !school.techniques.length) return h('section', {class:'card'}, header, h('p', {role:'status'}, 'No hay ejercicios disponibles todavía.'), h('button', {type:'button', onClick:() => { void loadSchool(); renderMain(); }}, 'Reintentar'));
   const lesson = school.techniques.find(item => item.id === schoolLesson);
-  if (!lesson) return h('section', {class:'card'}, header, h('p', {}, 'Matemáticas: elige un ejercicio.'), ...school.techniques.map(item =>
-    h('button', {type:'button', class:'primary', onClick:() => { schoolLesson = item.id; schoolStep = 0; renderMain(); }}, item.title)));
+  if (!lesson) {
+    const subjects = [...new Set(school.techniques.map(item => item.subject || 'Matemáticas'))];
+    const assigned = view.tasks.all.filter(item => item.createdBy === 'parent');
+    return h('section',{class:'card'},header,h('p',{},'Elige una materia y practica a tu ritmo.'),
+      assigned.length ? h('div',{},h('h3',{},'Mis ejercicios de casa'), ...assigned.map(item=>h('button',{type:'button',onClick:()=>go('dia')},item.title))) : null,
+      ...subjects.map(subject => h('section',{class:'kid-school-subject'},h('h3',{},subject),
+        ...school.techniques.filter(item => (item.subject || 'Matemáticas') === subject).map(item =>
+          h('button',{type:'button',class:'primary',onClick:()=>{schoolLesson=item.id;schoolStep=0;schoolFeedback='';schoolCorrect=false;schoolAnswerPending=false;renderMain();}},item.title,
+          item.progress?.correct > 0 ? ' · Practicado' : '')))));
+  }
   const done = schoolStep >= lesson.steps.length;
-  const instruction = done ? 'Has llegado al final. Gracias por practicar.' : lesson.steps[schoolStep];
+  const instruction = done ? (lesson.check ? lesson.check.question : 'Has llegado al final. Gracias por practicar.') : lesson.steps[schoolStep];
   return h('section', {class:'card kid-school-card'}, header, h('h3', {}, lesson.title),
     h('button', {type:'button', 'aria-pressed':String(schoolFocus), onClick:() => { schoolFocus = !schoolFocus; renderMain(); }}, schoolFocus ? 'Salir de concentración' : 'Concentrarme'),
-    h('p', {class:'muted'}, done ? 'Ejercicio terminado' : 'Paso ' + (schoolStep + 1) + ' de ' + lesson.steps.length),
+    h('p', {class:'muted'}, done ? (lesson.check && !schoolCorrect ? 'Comprueba lo aprendido' : 'Ejercicio terminado') : 'Paso ' + (schoolStep + 1) + ' de ' + lesson.steps.length),
     !done && schoolStep === 0 ? h('p', {}, 'Materiales: ' + lesson.materials.join(', ')) : null,
     h('p', {class:'kid-school-instruction', 'aria-live':'polite'}, instruction),
+    lesson.reading && !done ? h('div',{class:'kid-school-reading'},h('strong',{lang:lesson.reading.lang},lesson.reading.text), h('button',{type:'button',disabled:!prefs.speak,onClick:()=>speak(lesson.reading.text,.75,lesson.reading.lang)},'Escuchar la palabra')) : null,
+    done && lesson.check ? h('div',{class:'kid-school-options'},...lesson.check.options.map((option,index)=>h('button',{type:'button',class:'primary',disabled:schoolAnswerPending||schoolCorrect,onClick:()=>void answerSchool(lesson,index)},option)),h('p',{role:'status'},schoolFeedback),
+      !schoolAnswerPending && !schoolCorrect ? h('button',{type:'button',onClick:()=>{schoolStep=0;schoolFeedback='';renderMain();}},'Repasar') : null) : null,
+    lesson.source ? h('small',{class:'muted'},'Fuente: '+lesson.source) : null,
     h('div', {class:'row'},
       h('button', {type:'button', disabled:!prefs.speak, onClick:() => speak(instruction)}, 'Oír otra vez'),
       h('button', {type:'button', disabled:!prefs.speak, onClick:() => speak(instruction, .75)}, 'Más despacio'),
@@ -541,7 +571,7 @@ function tabCasa() {
   async function run(text) {
     status.textContent = '…';
     const result = await api('POST', '/api/kid/home', { text });
-    status.textContent = result.body.message || result.body.summary || result.body.error || 'Hecho.';
+    status.textContent = result.body.message || result.body.summary || result.body.error || (result.status === 200 && result.body.status === 'done' ? 'Acción confirmada.' : 'No pude confirmar la acción.');
     if (result.body.status === 'blocked') showLock(result.body.message);
   }
   const input = h('input', { type: 'text', placeholder: 'Ej.: apaga la luz de la cama', maxlength: '120', 'aria-label': 'Qué quieres hacer en la casa' });
@@ -672,16 +702,29 @@ function currentCategory() {
   return null;
 }
 
+function updateUsageDisplay() {
+  const badge = topEl?.querySelector('[data-kid-usage]');
+  if(badge && Number.isFinite(view?.usage?.limitedMinutes)) badge.textContent = 'Tiempo de ocio: ' + Math.round(view.usage.limitedMinutes) + ' min';
+  for(const node of mainEl.querySelectorAll('[data-kid-video-time]')) node.textContent = videoTimeNotice().textContent;
+}
 async function heartbeat() {
   updateKidClock();
   const category = currentCategory();
   if (!category) return;
+  const requestedToken = token;
   const result = await api('POST', '/api/kid/activity', { category, seconds: 30 });
-  if (result.status !== 200) return;
+  if (!view || requestedToken !== token || category !== currentCategory()) return;
+  if (result.status !== 200 || !result.body.access) {
+    if(category==='youtube' && player){ stopPlayer(); renderMain(); flash('No pude comprobar el permiso del vídeo.'); }
+    return;
+  }
   const access = result.body.access;
-  if (!access.allowed) { stopPlayer(); schoolFocus = false; if (tab === 'school') { schoolRequest++; school = { status:'blocked', message:access.message }; schoolLesson = null; renderMain(); } showLock(access.message); return; }
+  if (result.body.usage) view.usage = result.body.usage;
+  if(category==='youtube')view.mediaAccess=access;
+  updateUsageDisplay();
+  if (!access.allowed) { stopPlayer(); schoolFocus = false; if (tab === 'school') { schoolRequest++; school = { status:'blocked', message:access.message }; schoolLesson = null; } if(tab!=='chat')renderMain(); showLock(access.message); return; }
   const next = access.warn ? access.warn.message : '';
-  if (next !== warnText) { warnText = next; if (tab !== 'chat') renderMain(); }
+  if (next !== warnText) { warnText = next; if (tab !== 'chat' && !(category==='youtube' && player)) renderMain(); }
 }
 
 async function start() {
