@@ -76,6 +76,7 @@ export function sosDeliveryLabel({ practice, sosId, createFailed, lastLoc, sentA
 // Búsqueda opcional, no navegación certificada ni afirmación de horario o seguridad.
 // No se envían datos a mapas hasta pulsar el enlace. Nunca buscar un domicilio familiar en persecución.
 export function refugeSearchUrl(location, category) {
+  if (typeof location?.lat !== 'number' || typeof location?.lon !== 'number') return null;
   const loc = validLocation(location);
   const terms = { police: 'politie', hospital: 'spoedeisende hulp', staffed: 'supermarkt hotel receptie' };
   if (!loc || !Object.prototype.hasOwnProperty.call(terms, category)) return null;
@@ -259,6 +260,7 @@ export function mountGuardianAngel(host, { request, childName = '', practice = f
           el('button', { type: 'button', onclick: () => { kind = 'herida'; stepId = null; void sendKind(); render(); say('Si estás herida, pide ayuda a una persona adulta. Si es grave, llama a emergencias.'); } }, 'Estoy herida'))),
       !practice && (kind === 'peligro' || kind === 'perdida') ? refugeCard() : null,
       closeError ? el('p', { role:'alert' }, closeError) : null,
+      !practice && createFailed && !sosId ? el('button', {type:'button', onclick:()=>{generation++; if(watch!=null) navigator.geolocation?.clearWatch(watch); watch=null; beat.stop(); beatActive=false; globalThis.speechSynthesis?.cancel(); sheet?.remove(); sheet=null;}}, 'Salir de esta pantalla (aviso no confirmado)') : null,
       !practice ? el('p', { class:'ga-status' }, 'Sin internet: prueba llamada o SMS si hay cobertura. Sin cobertura: usa SOS satelital del teléfono si está disponible; pide ayuda al personal. No grabes ni enfrentes a nadie si te pone en riesgo.') : null,
       el('div', { class: 'ga-love' }, (config?.messages?.length ? config.messages[Math.floor(Date.now() / 60000) % config.messages.length] : FAMILY_VALUES[2])),
       el('div', { class: 'ga-row' }, el('button', { type: 'button', onclick: () => { if (createFailed && !sosId && !practice) { closeError = 'No se pudo confirmar si se registró el SOS. Confirma con un adulto por llamada o SMS.'; render(); return; } void close(true); } }, practice ? 'Terminar la práctica' : '✅ Estoy bien')),
