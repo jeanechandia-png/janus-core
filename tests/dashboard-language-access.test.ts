@@ -102,7 +102,7 @@ test('language preferences are isolated by profile and UI chrome has translated 
 
 test('offline cache includes controls but does not store protected API responses', () => {
   const sw = text('apps/pwa/sw.js');
-  assert.match(sw, /janus-shell-v31/);
+  assert.match(sw, /janus-shell-v32/);
   assert.match(sw, /'\/language-buttons\.js'/);
   assert.match(sw, /'\/language-buttons\.css'/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
@@ -246,4 +246,38 @@ test('Kendra: auto-scene can be enabled without replacing the selected home scen
   assert.equal(choose('baile'),'c');
   assert.equal(choose('inicio'),'c');
   assert.equal(prefs.scene,'c');
+});
+
+test('Kendra School: selección, lectura local, concentración y respuesta confirmada sin doble envío', async () => {
+  const kid = text('apps/pwa/kendra.js');
+  const code = kid.slice(kid.indexOf('async function answerSchool'),kid.indexOf('function tabCasa'));
+  type Node = {tag:string;props:Record<string,any>;children:any[]};
+  const h = (tag:string,props:Record<string,any>,...children:any[]):Node => ({tag,props,children:children.flat(Infinity).filter(x=>x!=null)});
+  const lesson = {id:'nl',title:'Nederlands',subject:'Neerlandés',steps:['Paso'],materials:[],reading:{text:'fiets',lang:'nl-NL'},check:{question:'¿Qué?',options:['A','B']},progress:{correct:0}};
+  const reads:any[][] = [], requests:any[][] = [], responses:any[] = [];
+  const api = async (...args:any[])=>{requests.push(args);return responses.shift();};
+  const env = runInNewContext(`let school={status:'available',techniques:[lesson]},schoolLesson=null,schoolStep=0,schoolFocus=false,schoolRequest=0,schoolFeedback='',schoolCorrect=false,schoolAnswerPending=false,tab='school',view={tasks:{all:[]}},prefs={speak:true};const renderMain=()=>{},go=()=>{},speak=(...a)=>reads.push(a);
+${code}
+({tabSchool,answerSchool,state:()=>({schoolLesson,schoolStep,schoolFocus,schoolCorrect,schoolFeedback,schoolAnswerPending})});`,{h,api,reads,lesson}) as {tabSchool:()=>Node;answerSchool:(lesson:unknown,index:number)=>Promise<void>;state:()=>Record<string,any>};
+  const walk = (n:any):Node[] => n && typeof n==='object' ? [n,...n.children.flatMap(walk)] : [];
+  const btn = (label:string)=>walk(env.tabSchool()).find(n=>n.tag==='button'&&n.children.includes(label))!;
+  assert.ok(walk(env.tabSchool()).some(n=>n.children.includes('Neerlandés')));
+  btn('Nederlands').props.onClick();
+  assert.equal(env.state().schoolLesson,'nl');
+  btn('Escuchar la palabra').props.onClick();
+  assert.deepEqual(reads[0],['fiets',.75,'nl-NL']);
+  btn('Concentrarme').props.onClick();
+  assert.equal(env.state().schoolFocus,true);
+  btn('Terminar').props.onClick();
+  assert.ok(btn('A'));
+  responses.push({status:200,body:{status:'answered',correct:false,message:'Repite',progress:{correct:0}}});
+  await env.answerSchool(lesson,0);
+  assert.equal(env.state().schoolCorrect,false);
+  assert.equal(env.state().schoolFeedback,'Repite');
+  responses.push({status:200,body:{status:'answered',correct:true,message:'Bien',progress:{correct:1}}});
+  await Promise.all([env.answerSchool(lesson,1),env.answerSchool(lesson,1)]);
+  assert.equal(requests.length,2);
+  assert.equal(lesson.progress.correct,1);
+  assert.equal(env.state().schoolCorrect,true);
+  assert.equal(btn('B').props.disabled,true);
 });

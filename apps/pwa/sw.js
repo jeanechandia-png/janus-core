@@ -1,4 +1,4 @@
-const CACHE = 'janus-shell-v31';
+const CACHE = 'janus-shell-v32';
 const SHELL = [
   '/',
   '/index.html',
