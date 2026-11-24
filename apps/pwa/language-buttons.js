@@ -13,8 +13,8 @@ const UI = Object.freeze({
     nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", prayers: 'Gebeden', install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
   },
   kendra: {
-    es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', pray: 'Oraciones', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },
-    nl: { home: 'Start', chat: 'Praten', day: 'Mijn dag', watch: 'Kijken', house: 'Thuis', things: 'Mijn spullen', pray: 'Gebeden', parent: 'Ouderzone', voice: 'Antwoorden voorlezen' },
+    es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', pray: 'Oraciones', school: 'School', dance: 'Baile', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },
+    nl: { home: 'Start', chat: 'Praten', day: 'Mijn dag', watch: 'Kijken', house: 'Thuis', things: 'Mijn spullen', pray: 'Gebeden', school: 'School', dance: 'Dansen', parent: 'Ouderzone', voice: 'Antwoorden voorlezen' },
   },
 });
 export function currentLanguage(scope, storage = globalThis.localStorage) {
