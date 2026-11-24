@@ -37,6 +37,8 @@ function go(r) {
 }
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
+// La bandera existente actualiza la portada, sin crear otra sesión ni perder el borrador.
+document.addEventListener('janus:language-changed', event => { if (event.detail?.scope === 'founder' && document.querySelector('[data-layout="approved-option-2"]')) render(); });
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
 window.addEventListener('popstate', onRoute);
 
