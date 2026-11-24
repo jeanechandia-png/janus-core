@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ModelGateway, ModelMessage } from '../../packages/gateways/src/contracts.js';
 import type { SqliteStore } from '../../packages/core/src/sqlite-store.js';
 import { OPEN_METEO_ATTRIBUTION } from '../../packages/adapters/src/open-meteo-adapter.js';
-import { listTechniques } from '../../packages/modules/janus-school/src/index.js';
+import { KID_GUIDED_PRACTICE, listTechniques } from '../../packages/modules/janus-school/src/index.js';
 import {
   FileAttachmentStore,
   describeAttachmentsForMessage,
@@ -257,6 +257,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       profile: state.profile,
       today,
       access: accessFor(state, 'chat', at),
+      mediaAccess: accessFor(state, 'youtube', at),
       limits: { allowedFrom: state.settings.limits.allowedFrom, allowedUntil: state.settings.limits.allowedUntil },
       usage: usageToday(state, at),
       agenda: upcomingAgenda(state.agenda, at, tz, 21).map((item) => {
@@ -421,11 +422,30 @@ export function createKidRoutes(deps: KidRoutesDeps) {
           const { state } = loadState(kid.kidId);
           const access = accessFor(state, 'school', at);
           if (!access.allowed) { json(response, 200, { ok: true, status: 'blocked', message: access.message }); return true; }
-          // Primera entrega: técnicas revisadas de matemáticas. No exponer notas clínicas ni
-          // técnicas con cautelas o referencias visuales aún no verificadas.
           const ids = new Set(['amigos-del-10', 'cpa-concreto-dibujo-simbolo']);
-          const techniques = listTechniques('8-10').filter(item => ids.has(item.id)).map(({ id, title, skill, minutes, steps, materials }) => ({ id, title, skill, minutes, steps, materials }));
-          json(response, 200, { ok: true, status: 'available', techniques });
+          const maths = listTechniques('8-10').filter(item => ids.has(item.id)).map(({ id, title, skill, minutes, steps, materials }) => ({ id, title, skill, minutes, steps, materials, subject:'Matemáticas' }));
+          const guided = KID_GUIDED_PRACTICE.map(({ id,title,skill,minutes,steps,materials,subject,reading,check,source }) => ({
+            id,title,skill,minutes,steps,materials,subject,reading,
+            check:{question:check.question,options:check.options}, source:source?.name,
+            progress:state.schoolPractice?.[id] ?? {attempts:0,correct:0}
+          }));
+          json(response, 200, { ok: true, status: 'available', techniques:[...maths,...guided] });
+          return true;
+        }
+        if (method === 'POST' && path === '/api/kid/school/answer') {
+          const { state } = loadState(kid.kidId);
+          const access = accessFor(state, 'school', at);
+          if (!access.allowed) { json(response, 200, {ok:true,status:'blocked',message:access.message}); return true; }
+          const body = await deps.readJson(request);
+          const lesson = KID_GUIDED_PRACTICE.find(item => item.id === body.id);
+          const answer = body.answer;
+          if (!lesson || typeof answer !== 'number' || !Number.isInteger(answer) || answer < 0 || answer >= lesson.check.options.length) throw new KidHttpError(400,'Respuesta no válida.');
+          const correct = answer === lesson.check.answer;
+          const next = mutate(kid.kidId, current => {
+            const prior = current.schoolPractice?.[lesson.id] ?? {attempts:0,correct:0};
+            return {schoolPractice:{...current.schoolPractice,[lesson.id]:{attempts:Math.min(100000,prior.attempts+1),correct:Math.min(100000,prior.correct+(correct?1:0))}}};
+          });
+          json(response,200,{ok:true,status:'answered',correct,message:correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.',progress:next.schoolPractice?.[lesson.id]});
           return true;
         }
         // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
@@ -527,7 +547,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             store.kidAppendActivity({ kidId: kid.kidId, at: at.toISOString(), category, seconds });
           }
           const { state } = loadState(kid.kidId);
-          json(response, 200, { ok: true, access: accessFor(state, category, at) });
+          json(response, 200, { ok: true, access: accessFor(state, category, at), usage:usageToday(state,at) });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/reminders/ack') {

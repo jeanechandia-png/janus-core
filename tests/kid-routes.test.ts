@@ -114,8 +114,22 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     const school = await call('GET', '/api/kid/school', kid);
     assert.equal(school.status, 200);
     assert.equal(school.body.status, 'available');
-    assert.deepEqual(school.body.techniques.map((item: { id: string }) => item.id).sort(), ['amigos-del-10', 'cpa-concreto-dibujo-simbolo']);
-    assert.ok(school.body.techniques.every((item: { steps: unknown[]; materials: unknown[] }) => item.steps.length > 0 && item.materials.length > 0));
+    assert.equal(school.body.techniques.length,12);
+    assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='amigos-del-10'));
+    assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='zh-nihao'));
+    assert.ok(school.body.techniques.filter((item:{check?:Record<string,unknown>})=>item.check).every((item:{check:Record<string,unknown>})=>!('answer' in item.check)));
+    assert.equal((await call('POST','/api/kid/school/answer',{}, {id:'mat-amigos',answer:1})).status,401);
+    assert.ok([401,403].includes((await call('POST','/api/kid/school/answer',founder,{id:'mat-amigos',answer:1})).status));
+    assert.equal((await call('POST','/api/kid/school/answer',kid,{id:'no-existe',answer:0})).status,400);
+    assert.equal((await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:99})).status,400);
+    const wrongPractice=await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:0});
+    assert.equal(wrongPractice.body.correct,false);
+    const correctPractice=await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:1});
+    assert.equal(correctPractice.body.correct,true);
+    assert.deepEqual(correctPractice.body.progress,{attempts:2,correct:1});
+    const reopenedSchool=await call('GET','/api/kid/school',kid);
+    assert.deepEqual(reopenedSchool.body.techniques.find((item:{id:string})=>item.id==='mat-amigos').progress,{attempts:2,correct:1});
+    assert.ok(school.body.techniques.every((item: { steps: unknown[]; materials: unknown[] }) => item.steps.length > 0 && Array.isArray(item.materials)));
     assert.ok(school.body.techniques.every((item: Record<string, unknown>) => !('caution' in item) && !('evidenceIds' in item)));
 
 
