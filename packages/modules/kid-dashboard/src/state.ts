@@ -8,6 +8,25 @@ import type { AgendaItem } from './agenda.js';
 import type { SchoolProject, SchoolTask } from './school.js';
 import { sanitizeCareTeam, type CareProvider } from './care-team.js';
 
+/** Forma guardada de la configuración del módulo guardian-angel (se valida allí; aquí solo se almacena). */
+export interface StoredGuardianConfig {
+  country: string;
+  emergencyNumber: string;
+  childName: string;
+  guardians: Array<{ id: string; role: string; name: string; phone: string; whatsapp: boolean; primary: boolean }>;
+  /** Mensajes de la familia para la niña (privados, en el aparato). */
+  messages?: string[];
+}
+/** Forma guardada de un aviso SOS del módulo guardian-angel. */
+export interface StoredSosEvent {
+  id: string;
+  startedAt: string;
+  kind: string;
+  status: 'activo' | 'resuelto';
+  locations: Array<{ lat: number; lon: number; accuracy?: number; at?: string }>;
+  resolvedAt?: string;
+}
+
 export interface KidSettings {
   limits: TimeLimits;
   media: MediaPolicy;
@@ -17,6 +36,8 @@ export interface KidSettings {
   timeZone: string;
   /** Zona para el tiempo y los planes cercanos. POR CONFIRMAR por el tutor. */
   locality?: { label: string; lat: number; lon: number };
+  /** Ángel Guardián: contactos de emergencia (padre, madre, tutor legal…) y país. Lo configura solo el tutor. */
+  guardianAngel?: StoredGuardianConfig;
 }
 
 export interface MediaRequest { id: string; text: string; at: string; status: 'pending' | 'approved' | 'dismissed' }
@@ -34,11 +55,13 @@ export interface KidState {
   mediaRequests: MediaRequest[];
   /** Especialistas que la tratan (lo escribe solo el tutor; privado, en el aparato). */
   careTeam: CareProvider[];
+  /** Avisos SOS del Ángel Guardián (últimos 30). */
+  sos: StoredSosEvent[];
   /** Minutos extra concedidos por el tutor para una fecha concreta. */
   bonus?: { date: string; minutes: number };
 }
 
-export const CAPS = { agenda: 300, tasks: 300, projects: 40, feed: 200, mediaRequests: 50, interests: 30, careTeam: 40 } as const;
+export const CAPS = { agenda: 300, tasks: 300, projects: 40, feed: 200, mediaRequests: 50, interests: 30, careTeam: 40, sos: 30 } as const;
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomUUID().slice(0, 12)}`;
@@ -63,6 +86,7 @@ export function emptyKidState(kidId: string, timeZone = 'Europe/Amsterdam'): Kid
     feed: [],
     mediaRequests: [],
     careTeam: [],
+    sos: [],
   };
 }
 
@@ -90,6 +114,7 @@ export function sanitizeKidState(value: unknown, kidId: string): KidState {
     feed: arr(raw.feed, CAPS.feed, []),
     mediaRequests: arr(raw.mediaRequests, CAPS.mediaRequests, []),
     careTeam: sanitizeCareTeam(raw.careTeam),
+    sos: arr(raw.sos, CAPS.sos, []),
     ...(raw.bonus ? { bonus: raw.bonus } : {}),
   };
 }

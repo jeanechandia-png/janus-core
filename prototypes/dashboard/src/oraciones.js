@@ -1,12 +1,11 @@
 'use strict';
 /* ===== Oraciones del Founder (orden de Jean, 24-nov-2026) =====
- * Padre Nuestro en latín, en griego (el original escrito) y en hebreo (traducción de Delitzsch); Ángel de la Guarda y
+ * Padre Nuestro recitado en hebreo y en latín (sin griego, orden del Founder 24-nov 13:20); Ángel de la Guarda y
  * San Miguel Arcángel en latín. Texto, pronunciación, traducción y fuente; voz del propio aparato, sin nube.
  * Datos: lego/janus-oraciones (fuente única). Aquí solo se pinta.
  */
-const ORA = { id: 'pater', lang: 'la', playing: false };
-const ORA_LANG_ORDER = ['la', 'el', 'he', 'es'];
-const oraLangs = (id) => { const have = JanusOraciones.langsFor(id, 'founder'); return ORA_LANG_ORDER.filter((l) => have.includes(l)); };
+const ORA = { id: 'pater', lang: 'he', playing: false };
+const oraLangs = (id) => JanusOraciones.langsFor(id, 'founder');
 function vOraciones(M, X, sub) {
   const list = JanusOraciones.forAudience('founder');
   const p = JanusOraciones.byId(ORA.id) || list[0];
@@ -21,7 +20,9 @@ function vOraciones(M, X, sub) {
   const es = ORA.lang !== 'es' && p.texts.es ? '<div class="note" style="margin-top:12px"><b>En español</b>' + p.texts.es.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
   const voice = JanusOraciones.hasVoice(ORA.lang);
   const play = '<div class="rdb"><span class="btn"' + act(ORA.playing ? 'oraStop' : 'oraSpeak', ORA.lang, ORA.playing ? 'Parar' : 'Escuchar') + '>' + (ORA.playing ? '■ Parar' : '▶ Escuchar') + '</span></div>' +
-    (voice ? '' : '<div class="note mono">Este aparato no tiene voz en ' + esc(L.name.toLowerCase()) + ': se intentará con la voz por defecto.</div>');
+    (voice ? '' : ORA.lang === 'he'
+      ? '<div class="note mono">Este aparato aún no tiene la voz hebrea. iPhone: Ajustes › Accesibilidad › Contenido leído › Voces › Hebreo (descárgala). Android: Ajustes › Accesibilidad › Salida de texto a voz › motor de Google › Instalar datos de voz › Hebreo. Luego vuelve a pulsar Escuchar.</div>'
+      : '<div class="note mono">Este aparato no tiene voz en ' + esc(L.name.toLowerCase()) + ': se intentará con la voz por defecto.</div>');
   const center = panel('', '✝', esc(p.title), esc(p.latinTitle || ''), tabs + text + play + say + es +
     '<div class="note mono">' + esc(t.source) + (L.note ? ' ' + esc(L.note) : '') + '</div>');
   return frame('oraciones', sub, M, '<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:14px;align-items:start"><div>' + left + '</div><div>' + center + '</div></div>');

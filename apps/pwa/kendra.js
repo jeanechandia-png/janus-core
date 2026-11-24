@@ -12,6 +12,7 @@ import { mountAttachMenu } from './attach.js';
 import { h, mountKidParentPanel } from './kendra-parent.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
+import { mountGuardianAngel } from './guardian-angel-ui.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
 const PREF_KEY = 'kendra.prefs.v1';
@@ -48,6 +49,7 @@ let toast = '';
 const mainEl = h('main');
 let topEl = null;
 let navEl = null;
+let guardian = null;
 
 // ── Utilidades ──────────────────────────────────────────────────────────────────────────────────────────────
 function readStorage(key) { try { return localStorage.getItem(key) ?? ''; } catch { return ''; } }
@@ -174,6 +176,8 @@ function buildShell() {
   topEl = h('header', { class: 'top' });
   navEl = h('nav', { class: 'tabs', 'aria-label': 'Secciones' });
   app.replaceChildren(topEl, mainEl, navEl);
+  // Ángel Guardián: botón SOS siempre visible, también con el tiempo agotado (está por encima del aviso de bloqueo).
+  if (!guardian) guardian = mountGuardianAngel(document.body, { request: api, childName: view.profile.displayName });
   rebuildTop();
   rebuildNav();
   renderMain();
@@ -230,6 +234,12 @@ function showLock(message) {
 // ── Oraciones (orden de papá, 24-nov-2026): oraciones para niños en español; el latín solo si ella quiere aprenderlo ──
 let prayId = 'angel-nino';
 let prayLang = 'es';
+const LATIN_FACTS = [
+  'El latín es una lengua muy, muy antigua: tiene más de 2.500 años. Nació en la zona de Roma, en Italia. Era la lengua de los romanos.',
+  'El español viene del latín. «Luna» en latín también es luna. «Agua» era aqua. O sea: ¡ya sabes un poquito de latín!',
+  'En la cruz de Jesús había un cartel con las letras INRI. Son palabras en latín: «Jesús de Nazaret, Rey de los judíos».',
+  'Jesús hablaba arameo. Después la Iglesia rezó en latín durante muchísimos años, y el Papa todavía lo usa.',
+];
 function tabOraciones() {
   const ora = globalThis.JanusOraciones;
   if (!ora) return h('section', { class: 'card' }, h('p', {}, 'Las oraciones no se han podido cargar.'));
@@ -247,8 +257,11 @@ function tabOraciones() {
   const listen = h('button', { type: 'button', class: 'primary', onClick: () => { if (!ora.speak(p.id, prayLang, { rate: 0.75 })) flash('Esta tablet no puede leerla en voz alta.'); } }, '🔊 Escuchar');
   const card = h('section', { class: 'card' }, h('h2', {}, p.title), langRow, lines, say, listen);
   const offerLatin = !prefs.latin && ora.byId(p.id)?.texts.la
-    ? h('section', { class: 'card' }, h('p', {}, `¿Quieres aprender «${p.title}» en latín, la lengua de la Iglesia?`),
-      h('button', { type: 'button', onClick: () => { prefs.latin = true; savePrefs(); prayLang = 'la'; renderMain(); } }, '¡Sí, quiero!'))
+    ? h('section', { class: 'card' }, h('h3', {}, '🏛️ ¿Sabías esto del latín?'),
+      // Hechos comprobados (Protocolo de la Verdad): latín del Lacio (Roma), más de 2.500 años; el español viene del
+      // latín; INRI = Iesus Nazarenus Rex Iudaeorum (Jn 19, 19-20); Jesús hablaba arameo; el Vaticano usa el latín.
+      ...LATIN_FACTS.map((x) => h('p', {}, x)),
+      h('button', { type: 'button', class: 'primary', onClick: () => { prefs.latin = true; savePrefs(); prayLang = 'la'; renderMain(); } }, `Rezar «${p.title}» como los romanos`))
     : null;
   return [picker, card, offerLatin].filter(Boolean);
 }
@@ -474,6 +487,9 @@ function tabCasa() {
 
 function tabCosas() {
   const out = [];
+  out.push(h('section', { class: 'card' }, h('h2', {}, '👼 Ángel Guardián'),
+    h('p', { class: 'muted' }, 'El botón rojo SOS avisa a papá con tu ubicación. Aquí puedes practicar sin avisar a nadie: qué hacer si alguien de casa se desmaya, si te siguen en la calle y cómo defenderte.'),
+    h('button', { type: 'button', class: 'primary', onClick: () => guardian?.practice() }, 'Practicar')));
   const input = h('input', { type: 'text', placeholder: 'Ej.: Minecraft', maxlength: '30', 'aria-label': 'Nuevo interés' });
   const form = h('form', { class: 'row' }, input, h('button', { type: 'submit', class: 'primary' }, 'Añadir'));
   form.addEventListener('submit', async (event) => {

@@ -5,7 +5,7 @@ Pieza LEGO v1.0.0 (24 nov 2026, orden del Founder). Es la **fuente única** de l
 ## Qué contiene
 | Oración | Idiomas | Para quién |
 |---|---|---|
-| Padre Nuestro | latín, **griego (original escrito, Mt 6, 9-13)**, hebreo (traducción de Delitzsch), español | Founder; Kendra en español, y en latín solo si lo pide |
+| Padre Nuestro | **hebreo** (se recita primero; versión de Delitzsch), latín, español — sin griego por orden del Founder | Founder; Kendra en español, y en latín solo si lo pide |
 | Ángel de la Guarda (*Angele Dei*) | latín (original), español | Founder |
 | Ángel de mi guarda (versión infantil) | español; latín opcional (*Angele Dei*) | Kendra |
 | San Miguel Arcángel | latín (original, León XIII), español | Founder |
@@ -14,7 +14,7 @@ Pieza LEGO v1.0.0 (24 nov 2026, orden del Founder). Es la **fuente única** de l
 Cada texto en idioma extranjero lleva su **pronunciación** y su **traducción**, y cada texto lleva su fuente.
 
 ## Verdad
-- El Padre Nuestro se escribió en **griego**. Jesús probablemente lo dijo en **arameo**. El hebreo es una **traducción** del siglo XIX, no el original.
+- Jesús hablaba **arameo**; el **hebreo** era la lengua de las Escrituras y de la oración en la sinagoga; el Evangelio se escribió después en **griego** (no se incluye por orden del Founder). El texto hebreo es la versión de Delitzsch (1901), no un manuscrito antiguo.
 - El *Angele Dei* y la oración a San Miguel se compusieron en **latín**.
 - Ningún aparato trae voz latina: se lee con voz italiana, la más parecida a la pronunciación eclesiástica.
 - La voz real en la tablet está **sin comprobar**.
