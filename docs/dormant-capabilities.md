@@ -40,3 +40,4 @@ Fuentes: hostinger.com/support/1583589 (periodos), hostinger.com/nl/vps-hosting,
 | Fecha | Servicio | Importe | Baja prevista | Uso real | Nota |
 |---|---|---|---|---|---|
 | (anterior a 2026-10) | CatCut | no registrado | — | 1–2 usos | Relato del Founder el 2026-10-23: se pagó un mes completo y casi no se usó. Origen de la norma 7 |
+| 2026-11-24 | Hyper3D Rodin, plan Creator (mensual, primer mes con descuento) | primer mes: no registrado (lo confirma el Founder); mes siguiente: 28 € según el Founder | cancelar antes de la renovación; recordatorio el 2026-12-21 10:00; fecha exacta POR CONFIRMAR | 2 figuras utilizables (Melanie y una criatura) de 4 descargas | Pagó el Founder (Norma 7). La licencia comercial de lo generado es POR CONFIRMAR. Detalle: `docs/handoffs/2026-11-24-traspaso-chatgpt-figuras-3d.md` |
