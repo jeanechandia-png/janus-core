@@ -149,7 +149,7 @@ const SALA_ACTS = {
   pSel: (a) => { UI.pSel = a; UI.draft = ''; ROUTE.sub = ''; },
   newChat: (a) => { ST.chats = ST.chats || {}; ST.chats[a] = []; UI.js = 'listo'; clearSim(); saveState(); },
   suggest: (t) => { reply(UI.pSel, t); },
-  send: () => { const t = (UI.draft || '').trim(); if (!t && !(typeof JanusAttach !== 'undefined' && JanusAttach.items().length)) return; UI.draft = ''; reply(UI.pSel, t, false, true); if (!ROUTE.v && !isPhone()) location.hash = '#trabajo/' + UI.pSel; setTimeout(scrollThread, 30); },
+  send: () => { const t = (UI.draft || '').trim(); if (!t && !(typeof JanusAttach !== 'undefined' && JanusAttach.items().length)) return; UI.draft = ''; reply(UI.pSel, t, false, true); if (!ROUTE.v && !isPhone() && !document.querySelector('[data-layout="approved-option-2"]')) location.hash = '#trabajo/' + UI.pSel; setTimeout(scrollThread, 30); },
   jsDemo: (k) => { clearSim(); UI.js = k; },
   cite: (n) => { UI.citeSel = UI.citeSel === +n ? 0 : +n; },
   apprOk: (id) => { const l = chatsOf(UI.pSel), m = l.find((x) => x.id === id); if (m) m.appr = false; l.push({ who: 'ja', t: 'Aprobado. En la app real lo ejecutaría ahora y registraría la acción en la auditoría.', at: hhmm() }); UI.js = 'ejecutando'; saveState(); later(2000, () => { UI.js = 'listo'; }); },
