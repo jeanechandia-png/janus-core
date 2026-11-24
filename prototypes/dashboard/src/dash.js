@@ -112,3 +112,42 @@ function renderDash(M, X) {
     skinSeg() + '<div class="demo mono go"' + goAttr('datos', 'Estado de datos') + '>' + (live ? '● Clima en vivo · resto ejemplo' : 'Vista previa · datos de ejemplo') + '</div></header>' +
     '<main class="mn"><section class="L">' + clima + '<div class="low"><div class="stk">' + dia + familia + '</div><div class="stk2">' + pri + jan + '</div></div></section><section class="R">' + kp + '<div class="duo">' + revenue + reach + '</div><div class="tri">' + bots + tops + cli + '</div></section></main>';
 }
+
+/* 24-nov · Opción 2 aprobada: misma portada A/B, conversación arriba, cuatro resúmenes debajo.
+ * El servidor sigue sirviendo las mismas rutas. Datos de muestra no se elevan a datos reales. */
+function renderApprovedTabletHome(M, X) {
+  const isB = skinNow() === 'b';
+  const icon = (e) => { const src = iconAsset(e); return src ? '<img class="jh-icon" src="' + src + '" alt="" aria-hidden="true">' : ''; };
+  const link = (route, label, e, cls) => '<button type="button" class="jh-cta ' + (cls || '') + '" data-go="' + esc(route) + '">' + icon(e) + '<span>' + esc(label) + '</span></button>';
+  const cards = (route, label, e, body) => '<section class="jh-card" aria-label="' + esc(label) + '"><h2>' + icon(e) + esc(label) + '</h2>' + body + '<button class="jh-cta jh-detail" type="button" data-go="' + esc(route) + '">Ver detalle</button></section>';
+  const session = (() => { try { return !!sessionStorage.getItem('janus.founder.session'); } catch (_) { return false; } })();
+  const runtime = !!document.querySelector('meta[name="janus-runtime"]');
+  const signed = runtime && session;
+  const connected = typeof JanusGateway !== 'undefined' && JanusGateway.coreConnected();
+  const status = signed && connected ? 'Núcleo conectado' : runtime ? (session ? 'Comprobando conexión' : 'Identificación necesaria') : 'Vista previa';
+  const P = projById(UI.pSel), msgs = chatsOf(P.id);
+  const typing = UI.js === 'pensando' || UI.js === 'ejecutando';
+  const thread = '<div id="thr" class="thr jh-thread" role="log" aria-label="Conversación con Janus">' +
+    (msgs.length ? msgs.map(m => m.who === 'me' ? meMsg(m) : jaMsg(m)).join('') : '<div class="jh-greeting">Hola. ¿En qué trabajamos hoy?</div>') +
+    (typing ? '<div class="jh-typing">' + (robotOn() ? '<div class="mjw">' + miniJano() + '</div>' : '') + '<span>Janus está preparando la respuesta…</span></div>' : '') + '</div>';
+  const auth = runtime && !signed ? '<a class="jh-cta" href="/?returnTo=' + encodeURIComponent(isB ? '/dashboard/b' : '/dashboard/a') + '#approvals">Identificarme</a>' : '';
+  const composer = '<div class="jh-composer">' + attBtn('s') + '<div class="jh-input">' + attChips() +
+    '<textarea data-f="msg" rows="2" maxlength="2000" aria-label="Mensaje para Janus" placeholder="Escribe o habla a Janus…">' + esc(UI.draft || '') + '</textarea></div>' +
+    '<button type="button" class="jh-mic" data-act="mic" aria-label="' + (UI.listening ? 'Detener dictado' : 'Hablar con Janus') + '"><img src="' + IMG.mic + '" alt=""></button>' +
+    '<button type="button" class="jh-cta" data-act="send">Enviar</button></div>';
+  const now = new Date();
+  const date = new Intl.DateTimeFormat('es-NL',{weekday:'long',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Amsterdam'}).format(now);
+  const wx = M.src === 'vivo' ? '<div class="jh-weather"><div><strong>' + esc(M.nowE.t) + '°</strong><p>' + esc(M.place) + '</p></div><div class="jh-gauge">' + plGauge(M.nowE.w,M.retE.w,M.retE.g) + '</div></div><p>' + [ ['Mañana',9],['Tarde',15],['Noche',21] ].map(([label,h]) => label + ' ' + esc(M.at(M.nowDay,h).t) + '°').join(' · ') + '</p>' : '<p class="jh-empty">Clima sin verificar todavía.</p>';
+  const local = (ST.localEv || []).filter(e => e.day === 0 && !ST.done[e.id]);
+  const agenda = local.length ? '<ul>' + local.slice(0,3).map(e => '<li><b>' + esc(e.h) + '</b> ' + esc(e.t) + '</li>').join('') + '</ul><p class="jh-note">Agenda local de este dispositivo</p>' : '<p class="jh-empty">Sin citas locales registradas.</p><p class="jh-note">Agenda externa pendiente de sincronización.</p>';
+  const header = '<header class="hd jh-header"><div class="jh-brand"><img src="' + IMG.medal + '" alt=""><div><img class="jh-wordmark" src="' + GOLD.wm + '" alt="JANUS"><time>' + esc(date) + '</time></div></div><div class="jh-alerts">' + link('solicitudes','Solicitudes','📥') + link('janus/aprob','Tu visto bueno','🎯') + link('prioridades','Correos','✉') + '</div></header>';
+  const nav = [['trabajo/janus','Proyectos','📁'],['prioridades','Prioridades','🎯'],['clientes','Clientes','🤝'],['chatbots','Chatbots','🤖'],['ingresos','Ingresos','💶']];
+  const more = '<details class="jh-more"><summary class="jh-cta">' + icon('⚙') + 'Más</summary><div class="jh-more-list">' +
+    TABS.filter(t => !['inicio','trabajo'].includes(t[0])).map(t => link(t[0],t[2],t[1])).join('') +
+    '<a class="jh-cta" href="/kendra">Kendra</a><a class="jh-cta" href="/?returnTo=' + encodeURIComponent(isB?'/dashboard/b':'/dashboard/a') + '#approvals">Controles</a>' +
+    '<button type="button" class="jh-cta" data-act="skin" data-arg="' + (isB?'a':'b') + '">' + (isB?'Obsidiana':'Platino') + '</button></div></details>';
+  return '<div class="jh-shell" data-layout="approved-option-2">' + header +
+    '<section class="jh-hero" aria-label="Conversación principal"><div class="jh-presence"><button class="jh-robot" type="button" data-founder-robot aria-label="Configurar Janus"><img src="' + IMG.medal + '" alt="Medallón de Janus"></button><h1>Janus</h1><p>' + esc(status) + '</p>' + auth + '</div><div class="jh-chat">' + thread + composer + (UI.micMsg ? '<p role="status">' + esc(UI.micMsg) + '</p>' : '') + '</div></section>' +
+    '<main class="jh-cards">' + cards('clima','Clima','☀',wx) + cards('prioridades','Solicitudes y prioridades','📥','<p class="jh-empty">Consulta tus prioridades.</p><p class="jh-note">Sin recuento real sincronizado.</p>') + cards('ingresos','Ingresos · 30 días','💶','<p class="jh-empty">Sin datos verificados</p><p class="jh-note">No se muestran cifras de ejemplo.</p>') + cards('dia','Mi día','🗓',agenda) + '</main>' +
+    '<nav class="jh-nav" aria-label="Navegación principal">' + nav.map(t=>link(t[0],t[1],t[2])).join('') + more + '</nav></div>';
+}
