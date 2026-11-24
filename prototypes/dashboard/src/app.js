@@ -6,7 +6,7 @@ function parseHash() { const h = decodeURIComponent((location.hash || '').replac
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
-  const skin = skinNow(), phone = isPhone(), isB = skin === 'b';
+  const skin = skinNow(), phone = isPhone() && !(innerWidth >= 780 && innerWidth > innerHeight), isB = skin === 'b';
   const tabletHome = !phone && (!ROUTE.v || ROUTE.v === 'inicio');
   $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '') + (tabletHome ? ' janus-home-layout' : '');
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
