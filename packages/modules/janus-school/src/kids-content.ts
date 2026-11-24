@@ -130,3 +130,53 @@ export const AGE_BAND_NOTES: Record<AgeBand, { focusMinutes: number; moveMinutes
   '8-10': { focusMinutes: 8, moveMinutes: 2 },
   '11-13': { focusMinutes: 12, moveMinutes: 2 },
 };
+
+
+/** Prácticas guiadas de la misma escuela offline; sin datos personales, diagnósticos ni proveedores externos. */
+export interface KidGuidedPractice {
+  id: string;
+  subject: string;
+  title: string;
+  skill: string;
+  minutes: number;
+  steps: readonly string[];
+  materials: readonly string[];
+  reading?: { text: string; lang: string };
+  check: { question: string; options: readonly string[]; answer: number; why: string };
+  source?: { name: string; url: string };
+}
+export const KID_GUIDED_PRACTICE: readonly KidGuidedPractice[] = Object.freeze([
+  { id:'mat-amigos',subject:'Matemáticas',title:'Completa el diez',skill:'Suma',minutes:3,
+    steps:['Dibuja diez círculos. Colorea siete.','Cuenta los círculos sin color.'],materials:['Papel y lápiz'],
+    check:{question:'¿Cuánto falta a 7 para llegar a 10?',options:['2','3','4'],answer:1,why:'7 + 3 = 10. Puedes comprobarlo con los círculos.'} },
+  { id:'nl-fiets',subject:'Neerlandés',title:'La bicicleta',skill:'Vocabulario',minutes:3,
+    steps:['Mira una bicicleta o dibújala.','Lee y repite la palabra neerlandesa.'],materials:['Papel opcional'],reading:{text:'de fiets',lang:'nl-NL'},
+    check:{question:'¿Qué significa «de fiets»?',options:['La bicicleta','La mesa','El libro'],answer:0,why:'De fiets significa la bicicleta.'} },
+  { id:'en-water',subject:'Inglés',title:'Un vaso de agua',skill:'Vocabulario',minutes:3,
+    steps:['Mira un vaso de agua.','Escucha y repite la palabra en inglés.'],materials:['Un vaso de agua'],reading:{text:'water',lang:'en-GB'},
+    check:{question:'¿Cómo se dice agua en inglés?',options:['Book','Water','Chair'],answer:1,why:'Water significa agua.'} },
+  { id:'fr-bonjour',subject:'Francés',title:'Saludar en francés',skill:'Vocabulario',minutes:3,
+    steps:['Imagina que saludas a una amiga.','Lee y repite el saludo.'],materials:[],reading:{text:'Bonjour',lang:'fr-FR'},
+    check:{question:'¿Qué palabra sirve para saludar de día en francés?',options:['Merci','Bonsoir','Bonjour'],answer:2,why:'Bonjour es un saludo habitual durante el día.'} },
+  { id:'zh-nihao',subject:'Chino mandarín',title:'Saludar en mandarín',skill:'Vocabulario',minutes:3,
+    steps:['Mira los dos caracteres y su pronunciación escrita: nǐ hǎo.','Escucha la frase si el aparato tiene voz en mandarín.'],materials:[],reading:{text:'你好',lang:'zh-CN'},
+    check:{question:'¿Qué significa «你好» (nǐ hǎo)?',options:['Hola','Adiós','Gracias'],answer:0,why:'你好 es una forma habitual de decir hola.'} },
+  { id:'es-ortografia',subject:'Ortografía',title:'La biblioteca',skill:'Escribir palabras',minutes:3,
+    steps:['Lee despacio: biblioteca.','Escribe la palabra y compara las letras.'],materials:['Papel y lápiz'],reading:{text:'biblioteca',lang:'es-ES'},
+    check:{question:'¿Cuál está escrita correctamente?',options:['Bivlioteca','Biblioteca','Biblioteka'],answer:1,why:'Biblioteca se escribe con b y c.'} },
+  { id:'es-lectura',subject:'Lectura y expresión',title:'Una historia corta',skill:'Comprender y contar',minutes:4,
+    steps:['Lee: Ana llevó una botella de agua al parque. Allí jugó con su amiga.','Cuenta con tus palabras qué llevó Ana.'],materials:[],reading:{text:'Ana llevó una botella de agua al parque. Allí jugó con su amiga.',lang:'es-ES'},
+    check:{question:'¿Qué llevó Ana al parque?',options:['Una pelota','Un libro','Una botella de agua'],answer:2,why:'La primera frase dice que llevó una botella de agua.'} },
+  { id:'hist-nl-1581',subject:'Historia de Países Bajos',title:'Un documento de 1581',skill:'Reconocer una fecha histórica',minutes:4,
+    steps:['El 26 de julio de 1581 se firmó el Plakkaat van Verlating.','Los territorios rebeldes dejaron de reconocer a Felipe II como su gobernante.'],materials:['Papel para una línea del tiempo'],
+    source:{name:'Canon van Nederland',url:'https://www.canonvannederland.nl/nl/kalender/07/1581-07-26'},
+    check:{question:'¿En qué año se firmó el documento?',options:['1581','1810','1945'],answer:0,why:'Se firmó el 26 de julio de 1581.'} },
+  { id:'hist-co-1810',subject:'Historia de Colombia',title:'El 20 de julio',skill:'Reconocer una fecha histórica',minutes:4,
+    steps:['El 20 de julio de 1810 hubo una revolución en Bogotá.','Se formó una junta de gobierno. Fue un paso del proceso de independencia.'],materials:['Papel para una línea del tiempo'],
+    source:{name:'Banco de la República de Colombia',url:'https://www.banrepcultural.org/multimedia/ha-leido-el-acta-de-la-revolucion-del-20-de-julio-de-1810'},
+    check:{question:'¿En qué ciudad ocurrió la revolución del 20 de julio de 1810?',options:['Medellín','Bogotá','Cartagena'],answer:1,why:'La revolución de esta lección ocurrió en Bogotá.'} },
+  { id:'hist-mundo-onu',subject:'Historia del mundo',title:'La cooperación entre países',skill:'Reconocer una organización',minutes:4,
+    steps:['Las Naciones Unidas nacieron en 1945.','Una de sus metas es ayudar a mantener la paz entre países.'],materials:[],
+    source:{name:'Naciones Unidas',url:'https://www.un.org/en/about-us'},
+    check:{question:'¿En qué año nacieron las Naciones Unidas?',options:['1581','1810','1945'],answer:2,why:'La ONU nació en 1945.'} }
+]);

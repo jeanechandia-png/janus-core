@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  FOUNDER_LESSONS, GLOSSARY, NO_DIAGNOSIS_NOTICE, ageOnDate, allEvidence, checkAnswer, completeLesson, dueCards, freshCard,
+  FOUNDER_LESSONS, GLOSSARY, KID_GUIDED_PRACTICE, NO_DIAGNOSIS_NOTICE, ageOnDate, allEvidence, checkAnswer, completeLesson, dueCards, freshCard,
   gradeCard, inferAgeBand, listTechniques, lookupTerm, newProgress, nextLesson, planKidSession, renderTechnique, reviewCard,
 } from '../packages/modules/janus-school/src/index.js';
 import { JanusSchoolToolAdapter, MemorySchoolProgressStore } from '../packages/adapters/src/janus-school-tool-adapter.js';
@@ -132,4 +132,15 @@ test('adapter: a configured birth date adapts kids sessions without asking; an e
   const explicit = await configured.execute({ ...request, input: { ...request.input, age: 6 } }, noop);
   assert.equal(explicit.ok, true);
   assert.notEqual(String(explicit.output?.reply), String(withAge.output?.reply), 'explicit age 6 changes the plan');
+});
+
+test('guided practice contains unique IDs and valid choices; history has direct sources', () => {
+  assert.equal(new Set(KID_GUIDED_PRACTICE.map(x=>x.id)).size,KID_GUIDED_PRACTICE.length);
+  assert.equal(KID_GUIDED_PRACTICE.length,10);
+  for(const lesson of KID_GUIDED_PRACTICE){
+    assert.ok(lesson.steps.length>0 && lesson.steps.length<=3);
+    assert.ok(Number.isInteger(lesson.check.answer) && lesson.check.answer>=0 && lesson.check.answer<lesson.check.options.length);
+    assert.equal(new Set(lesson.check.options).size,lesson.check.options.length);
+    if(lesson.subject.startsWith('Historia')) assert.match(lesson.source?.url??'',/^https:\/\//);
+  }
 });
