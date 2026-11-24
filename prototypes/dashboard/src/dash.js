@@ -7,7 +7,7 @@ function derived(M) {
   const r30 = sum(DATA.reach30) * 1000, rprev = sum(DATA.reach90.slice(30, 60)) * 1000;
   const pct = (a, b) => Math.round((a / b - 1) * 100);
   const nowDn = M.today;
-  const realDay = (dn) => REAL.ev.filter((e) => { const p = e.d.split('-').map(Number); return dayNum(p[0], p[1], p[2]) === dn; }).map((e, i) => Object.assign({}, e, { id: 'r' + e.d + i, where: 'Google Calendar' }));
+  const realDay = (dn) => REAL.ev.filter((e) => { const p = e.d.split('-').map(Number); return dayNum(p[0], p[1], p[2]) === dn; }).map((e, i) => Object.assign({}, e, { id: 'r' + e.d + i, where: REAL.example === true ? 'Agenda de ejemplo' : 'Instantánea de Google Calendar' }));
   const leave = DATA.agenda.filter((a) => a.auto === 'leave');
   const agenda = realDay(nowDn).concat(leave).map((a) => {
     if (a.auto === 'leave') { if (M.suggest == null) return null; return Object.assign({}, a, { h: minToHm(M.suggest), t: 'Salir (' + M.leaveWhy + ')' }); }
