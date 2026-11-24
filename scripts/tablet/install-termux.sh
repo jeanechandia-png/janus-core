@@ -87,6 +87,7 @@ if [ ! -f "$SECRETS_DIR/assistant-voices.local.json" ]; then
   done
 fi
 ( cd "$APP_DIR" && npm run dashboard:build )
+git -C "$APP_DIR" rev-parse HEAD >"$APP_DIR/.git/janus-built"   # el actualizador automático parte de aquí
 
 # JANUS Work: la piel de IBA es privada y no viaja en este repositorio. Si el archivo está en la tablet se instala
 # (el propio JANUS comprueba su huella antes de usarlo); si no, /work responde 503 y el resto funciona igual.

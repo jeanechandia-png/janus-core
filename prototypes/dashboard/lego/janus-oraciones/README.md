@@ -5,7 +5,7 @@ Pieza LEGO v1.0.0 (24 nov 2026, orden del Founder). Es la **fuente única** de l
 ## Qué contiene
 | Oración | Idiomas | Para quién |
 |---|---|---|
-| Padre Nuestro | **hebreo** (se recita primero; versión de Delitzsch), latín, español — sin griego por orden del Founder | Founder; Kendra en español, y en latín solo si lo pide |
+| Padre Nuestro | **arameo** (Peshitta; recitado línea a línea con subtítulos), **hebreo** (Delitzsch), latín, español — sin griego por orden del Founder | Founder; Kendra en español, y en latín solo si lo pide |
 | Ángel de la Guarda (*Angele Dei*) | latín (original), español | Founder |
 | Ángel de mi guarda (versión infantil) | español; latín opcional (*Angele Dei*) | Kendra |
 | San Miguel Arcángel | latín (original, León XIII), español | Founder |
@@ -25,3 +25,7 @@ JanusOraciones.forAudience('founder');                 // lista
 JanusOraciones.langsFor('pater', 'kendra', latinOptIn); // ['es'] o ['la','es']
 JanusOraciones.speak('pater', 'la', { onEnd });          // false si el aparato no puede
 ```
+
+## Arameo con subtítulos (24-nov-2026)
+
+`recite(id, lang, { fetchAudio, onLine, onEnd })` recita línea a línea los textos que traen `sub` (subtítulo alineado). Cada línea suena con la voz premium que devuelva `fetchAudio` (en el dashboard: `/api/voice/speak` con `keep: true`, que la tablet genera una vez y guarda en disco), si no con la voz del aparato, y si tampoco hay voz se muestra el subtítulo unos segundos. Verdad: la Peshitta es lo más cercano conservado a las palabras de Jesús en arameo, no una grabación de ellas.

@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 const root = resolve(import.meta.dirname, '..');
 const kit = join(root, 'scripts', 'tablet');
-const shellScripts = ['install-termux.sh', 'start-janus.sh', 'stop-janus.sh', 'status.sh', 'faceid-setup.sh'];
+const shellScripts = ['install-termux.sh', 'start-janus.sh', 'stop-janus.sh', 'status.sh', 'faceid-setup.sh', 'update-janus.sh'];
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'janus-tablet-'));
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
@@ -89,7 +89,7 @@ test('supervisor: pasa la configuración, reinicia el runtime si se cae, admite 
     const marks = join(dir, 'arranques.txt');
     // Runtime de mentira: anota con qué variables se le llama y se cae enseguida.
     writeFileSync(join(app, 'scripts', 'start-local.mjs'), `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(marks)}, [process.env.PORT, process.env.JANUS_ENV_FILE].join('|') + '\\n');\nprocess.exit(1);\n`);
-    const env = { ...process.env, HOME: dir, JANUS_APP_DIR: app, JANUS_DATA_DIR: join(dir, 'data'), JANUS_SECRETS_DIR: join(dir, 'sec'), JANUS_BACKUP_EVERY_S: '0', JANUS_RESTART_MAX_S: '1', PORT: '8799' };
+    const env = { ...process.env, HOME: dir, JANUS_APP_DIR: app, JANUS_DATA_DIR: join(dir, 'data'), JANUS_SECRETS_DIR: join(dir, 'sec'), JANUS_BACKUP_EVERY_S: '0', JANUS_UPDATE_EVERY_S: '0', JANUS_RESTART_MAX_S: '1', PORT: '8799' };
     const supervisor = spawn('sh', [join(kit, 'start-janus.sh')], { env, stdio: 'ignore' });
     await sleep(3500);
 
@@ -107,5 +107,45 @@ test('supervisor: pasa la configuración, reinicia el runtime si se cae, admite 
     await sleep(200);
     assert.equal(existsSync(join(dir, 'data', 'janus.lock')), false, 'al parar se libera el candado');
     assert.match(readFileSync(join(dir, 'data', 'logs', 'janus.log'), 'utf8'), /el runtime terminó \(código 1/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('actualización automática: solo avanza, compila, se reintenta si falla y nunca toca cambios locales ni ramas divergentes', () => {
+  const dir = tmp();
+  try {
+    const remote = join(dir, 'remote'); const app = join(dir, 'app'); const marks = join(dir, 'builds.txt');
+    const run = (cwd: string, ...args: string[]) => { const r = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); };
+    mkdirSync(remote);
+    run(remote, 'init', '-q', '-b', 'main'); run(remote, 'config', 'user.email', 't@t'); run(remote, 'config', 'user.name', 't');
+    const pkg = (ok: boolean) => JSON.stringify({ name: 'x', private: true, scripts: { 'dashboard:build': ok ? 'node build.cjs' : 'node -e "process.exit(1)"' } });
+    writeFileSync(join(remote, 'build.cjs'), `require('node:fs').appendFileSync(${JSON.stringify(marks)}, 'build\\n');\n`);
+    writeFileSync(join(remote, 'package.json'), pkg(true)); run(remote, 'add', '.'); run(remote, 'commit', '-qm', 'v1');
+    const r = spawnSync('git', ['clone', '-q', remote, app], { encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr);
+    writeFileSync(join(app, '.git', 'janus-built'), run(app, 'rev-parse', 'HEAD') + '\n');
+    const update = () => spawnSync('sh', [join(kit, 'update-janus.sh')], { encoding: 'utf8', env: { ...process.env, HOME: dir, JANUS_APP_DIR: app, JANUS_REPO_URL: remote } }).status;
+
+    assert.equal(update(), 10, 'al día: no hace nada');
+    writeFileSync(join(remote, 'nuevo.txt'), 'v2'); run(remote, 'add', '.'); run(remote, 'commit', '-qm', 'v2');
+    assert.equal(update(), 0, 'versión nueva: avanza y compila');
+    assert.equal(run(app, 'rev-parse', 'HEAD'), run(remote, 'rev-parse', 'HEAD'));
+    assert.equal(readFileSync(marks, 'utf8'), 'build\n');
+    assert.equal(update(), 10);
+
+    writeFileSync(join(remote, 'package.json'), pkg(false)); run(remote, 'commit', '-qam', 'v3 rota');
+    assert.equal(update(), 30, 'compilación rota: avisa y sigue la versión en marcha');
+    assert.equal(update(), 30, 'se reintenta en la siguiente vuelta, no se da por hecha');
+    writeFileSync(join(remote, 'package.json'), pkg(true)); run(remote, 'commit', '-qam', 'v4 arreglada');
+    assert.equal(update(), 0);
+
+    writeFileSync(join(app, 'local.txt'), 'trabajo de Jean');
+    writeFileSync(join(remote, 'otro.txt'), 'v5'); run(remote, 'add', '.'); run(remote, 'commit', '-qm', 'v5');
+    assert.equal(update(), 20, 'cambios locales: no se toca nada');
+    assert.equal(readFileSync(join(app, 'local.txt'), 'utf8'), 'trabajo de Jean');
+    rmSync(join(app, 'local.txt'));
+
+    run(remote, 'reset', '-q', '--hard', 'HEAD~2'); writeFileSync(join(remote, 'rama.txt'), 'divergente'); run(remote, 'add', '.'); run(remote, 'commit', '-qm', 'divergente');
+    const before = run(app, 'rev-parse', 'HEAD');
+    assert.equal(update(), 20, 'historia divergente: no retrocede ni fuerza');
+    assert.equal(run(app, 'rev-parse', 'HEAD'), before);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -6,7 +6,7 @@ La tablet ejecuta el núcleo local y abre las pantallas existentes: `/dashboard/
 
 ## Estado comprobado y límites
 
-- Código y módulos de Claude/Core ya reunidos en `main`; la continuación actual usa la **rama existente** `chatgpt/janus-voice-evolution-hardening-20261117` (PR #83). No instalar desde ramas históricas ni desde previews HTML como si fueran el núcleo.
+- La tablet se instala y se actualiza desde **`main`** (actualizado el 24-11-2026). La rama `chatgpt/janus-voice-evolution-hardening-20261117` (PR #83, abierta) **diverge** de `main` (62 commits propios, 137 por detrás): una tablet instalada desde ella no puede pasar a `main` por avance rápido hasta que esa PR se integre. No instalar desde ramas históricas ni desde previews HTML como si fueran el núcleo.
 - Instalador: instalación inicial, actualización fast-forward, rechazo de trabajo local sin guardar y de retrocesos; memoria y claves conservadas. Compila A/B antes de abrir la app.
 - Configuración local: clave de cifrado y VAPID generadas **en la tablet**, carpetas 700 y configuración 600. Nunca imprime valores. Repetir conserva las claves. Acceso del núcleo limitado a loopback.
 - El botón «Descargar llave pública» usa la llave P-256 ya creada por la app; la privada permanece no extraíble en el navegador. El registro local rechaza llaves privadas, algoritmos distintos y sustituciones del propietario.
@@ -24,17 +24,17 @@ Fuentes oficiales comprobadas el 17-11-2026: [instalación Termux](https://githu
 
 ## 2. Descargar y preparar Janus
 
-Ejecutar en Termux. Se usa **solo** `~/janus-core`; si ya existe, el comando no clona otra carpeta. Hasta integrar PR #83 se indica su rama existente expresamente:
+Ejecutar en Termux. Se usa **solo** `~/janus-core`; si ya existe, el comando no clona otra carpeta:
 
 ```sh
 pkg install -y git
 if [ ! -d "$HOME/janus-core" ]; then
-  git clone --branch chatgpt/janus-voice-evolution-hardening-20261117 --single-branch https://github.com/jeanechandia-png/janus-core.git "$HOME/janus-core"
+  git clone --branch main --single-branch https://github.com/jeanechandia-png/janus-core.git "$HOME/janus-core"
 fi
-JANUS_REF=chatgpt/janus-voice-evolution-hardening-20261117 sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
+JANUS_REF=main sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
 ```
 
-Tras integrar esta continuación en `main`, usar `JANUS_REF=main`. Si la instalación existente no contiene todavía este instalador, detenerla, guardar los cambios locales y actualizarla por fast-forward a la rama revisada; **nunca** `reset --hard`, `checkout -f`, borrar la carpeta ni crear otra instalación para eludir un conflicto.
+Si la instalación existente no contiene todavía este instalador, detenerla, guardar los cambios locales y actualizarla por fast-forward a la rama revisada; **nunca** `reset --hard`, `checkout -f`, borrar la carpeta ni crear otra instalación para eludir un conflicto.
 
 El instalador no activa proveedores de pago. Si hay una configuración previa, la conserva. Si se utiliza JANUS Work, poner el archivo **privado** `iba-command-center.css` en `~/janus-secrets/` antes de repetir el instalador; su huella debe coincidir con `work/skin.lock.json`. No publicarlo en este repositorio.
 
@@ -76,13 +76,28 @@ sh scripts/tablet/status.sh
 
 El diagnóstico comprueba SQLite, archivos, manifiestos y rutas reales; distingue modelo/voz pendientes de configurados. **No afirma una conversación real solo por leer configuración**. Antes de dar el producto por listo, probar acceso, crear un dato, reiniciar y comprobarlo, hablar/escuchar con los servicios elegidos y abrir A/B/Kendra sin conexión. JANUS Work y acceso desde otro equipo requieren además sus dependencias privadas y HTTPS autenticado.
 
+## Actualización automática (orden del Founder, 24-11-2026)
+
+Activada por defecto. El supervisor (`start-janus.sh`) ejecuta `scripts/tablet/update-janus.sh` 2 minutos después de arrancar y luego cada 30 minutos:
+
+1. Descarga `main`. Si hay versión nueva y **continúa** la instalada, avanza (nunca retrocede ni fuerza; con cambios locales sin guardar no toca nada).
+2. Reinstala dependencias solo si cambió `package-lock.json` y recompila los dashboards.
+3. Si todo va bien, reinicia solo el runtime (unos segundos). La memoria (`~/janus-data`) y las claves (`~/janus-secrets`) no se tocan.
+4. Si falla la red, las dependencias o la compilación, sigue la versión en marcha y lo reintenta en la vuelta siguiente. Todo queda en `~/janus-data/logs/janus.log` con la etiqueta `[actualizador]`.
+
+En la pantalla, la app instalada (Founder y Kendra) pregunta por versión nueva cada 30 minutos y al volver a ella, y se recarga sola en un momento tranquilo: con la app oculta o tras 60 segundos sin tocarla (`apps/pwa/pwa-update.js`). Así no corta a Kendra en mitad de un juego.
+
+Variables: `JANUS_UPDATE_EVERY_S` (segundos; `0` lo apaga) y `JANUS_UPDATE_REF` (por defecto `main`). El propio supervisor se renueva al siguiente arranque de la tablet.
+
+**Requisito:** la tablet debe estar instalada desde `main` o desde una versión anterior de `main`. Si se instaló desde la rama de la PR #83, el actualizador lo detecta, no fuerza nada y lo registra («no continúa esta instalación»).
+
 ## Actualizar y detener sin perder memoria
 
 ```sh
 sh "$HOME/janus-core/scripts/tablet/stop-janus.sh"
 sh "$HOME/janus-core/scripts/tablet/status.sh"
 # Cuando conste PARADO:
-JANUS_REF=chatgpt/janus-voice-evolution-hardening-20261117 sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
+JANUS_REF=main sh "$HOME/janus-core/scripts/tablet/install-termux.sh"
 sh "$HOME/janus-core/scripts/tablet/start-janus.sh" &
 ```
 

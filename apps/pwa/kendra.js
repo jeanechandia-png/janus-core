@@ -13,6 +13,7 @@ import { h, mountKidParentPanel } from './kendra-parent.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
 import { mountLanguageButtons, uiLabel } from './language-buttons.js';
 import { mountGuardianAngel } from './guardian-angel-ui.js';
+import { registerWithAutoUpdate } from './pwa-update.js';
 
 const TOKEN_KEY = 'kendra.device.v1';
 const PREF_KEY = 'kendra.prefs.v1';
@@ -588,7 +589,7 @@ async function start() {
   await load();
 }
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => { /* sin trabajador de servicio: funciona igual con conexión */ });
+registerWithAutoUpdate('/sw.js'); // se actualiza sola en un momento tranquilo (orden del Founder, 24-nov-2026)
 setInterval(heartbeat, 30_000);
 setInterval(() => { if (document.visibilityState === 'visible' && view && tab !== 'chat') load(); }, 5 * 60_000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && token) load(); });

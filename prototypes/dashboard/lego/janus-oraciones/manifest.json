@@ -2,10 +2,10 @@
   "piece": "janus-oraciones",
   "name": "Oraciones católicas en su lengua original y en español, con pronunciación y voz del aparato",
   "moduleVersion": "1.0.0",
-  "origin": "Nuevo (24 nov 2026, orden del Founder): Padre Nuestro recitado en hebreo (Delitzsch) y en latín, sin griego (orden 24-nov 13:20); Ángel de la Guarda y San Miguel Arcángel en latín; oraciones para niños.",
+  "origin": "Nuevo (24 nov 2026, orden del Founder): Padre Nuestro recitado en hebreo (Delitzsch) y en latín, sin griego (orden 24-nov 13:20); Ángel de la Guarda y San Miguel Arcángel en latín; oraciones para niños. 24-nov 14:07: Padre Nuestro en arameo (Peshitta) con transliteración, pronunciación y subtítulo en español línea a línea.",
   "dependencies": [],
   "api": "JanusOraciones.forAudience('founder'|'kendra') · byId(id) · langsOf(id) · langsFor(id, who, latinOptIn) · speak(id, lang, {rate,onEnd}) → bool · stop() · hasVoice(lang) · LANGS · PRAYERS",
-  "behaviour": "Datos puros y lectura en voz alta con speechSynthesis del aparato (sin red ni nube). Founder: el Padre Nuestro se recita primero en hebreo. Para Kendra: español por defecto; latín solo si ella lo pide; hebreo nunca; San Miguel solo para el Founder.",
+  "behaviour": "Datos puros. Lectura con speechSynthesis del aparato; recite() recita línea a línea con subtítulos y acepta una voz premium (fetchAudio). Founder: el Padre Nuestro se abre en arameo. Para Kendra: español por defecto; latín solo si ella lo pide; arameo y hebreo nunca; San Miguel solo para el Founder.",
   "mounts": [
     {
       "product": "Janus · dashboard A y B — vista Oraciones",
@@ -27,9 +27,13 @@
     "Misal Romano / Vulgata Mt 6, 9-13 (latín)",
     "Franz Delitzsch, Nuevo Testamento hebreo, 12.ª ed. (1901), dominio público",
     "Angele Dei: oración tradicional latina",
-    "Sancte Michael Archangele: León XIII (1886)"
+    "Sancte Michael Archangele: León XIII (1886)",
+    "Peshitta, Mt 6, 9-13 (edición estándar); Syriac Orthodox Resources, «Abun d-bashmayo»"
   ],
   "limits": [
-    "El hebreo solo suena si el aparato tiene voz hebrea (he-IL o iw-IL); si no, Janus no lo lee mal: muestra cómo instalarla."
+    "El hebreo solo suena si el aparato tiene voz hebrea (he-IL o iw-IL); si no, Janus no lo lee mal: muestra cómo instalarla.",
+    "Ningún aparato trae voz aramea: sin la voz de Janus configurada, la voz española lee una pronunciación aproximada.",
+    "La voz de Janus (ElevenLabs) se paga UNA vez por línea: la tablet la guarda en ~/janus-data/voice-cache y después suena gratis.",
+    "La fuente siriaca necesita Noto Sans Syriac en el aparato; si falta, la transliteración y el subtítulo se leen igual."
   ]
 }

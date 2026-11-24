@@ -51,6 +51,16 @@ test('real Core serves both authenticated voice profiles and PCM without STT; ar
     assert.equal((await post('/api/voice/speak', { profile: 'kendra', text: 'hola' }, token)).status, 400);
     assert.equal((await post('/api/voice/speak', { profile: 'melanie', text: 'x'.repeat(2001) }, token)).status, 400);
     assert.equal(calls.length, 2);
+    // Oraciones: keep genera UNA vez, la guarda en disco y la siguiente vez suena sin llamar al proveedor (sin coste).
+    const first = await post('/api/voice/speak', { profile: 'janus', text: 'Abún dbashmayá.', keep: true }, token);
+    assert.equal(first.status, 200); assert.equal(first.headers.get('x-janus-voice'), 'generated-saved');
+    assert.equal((await first.arrayBuffer()).byteLength, 1920);
+    await new Promise(done => setTimeout(done, 100));
+    const again = await post('/api/voice/speak', { profile: 'janus', text: 'Abún dbashmayá.', keep: true }, token);
+    assert.equal(again.status, 200); assert.equal(again.headers.get('x-janus-voice'), 'saved');
+    assert.equal(again.headers.get('content-type'), 'audio/pcm;rate=24000;channels=1;format=s16le');
+    assert.equal((await again.arrayBuffer()).byteLength, 1920);
+    assert.equal(calls.length, 3, 'la segunda reproducción no se paga');
     const health = await (await fetch(root + '/health')).json();
     assert.equal(health.voice.streaming.state, 'unavailable', 'STT remains unconfigured, without blocking speech output');
   } finally {

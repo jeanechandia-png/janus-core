@@ -6,6 +6,7 @@ import { sessionToken } from './founder-session.js';
 import { mountTeamPanel } from './team-panel.js';
 import { mountApprovalChip } from './approval-chip.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence } from './approved-presence.js';
+import { registerWithAutoUpdate } from './pwa-update.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
 // not a second navigation bar floating over Janus or Kendra's 3D scene.
@@ -126,4 +127,4 @@ addEventListener('janus:knowledge-applied', (event) => {
 });
 addEventListener('janus:review-error', (event) => { status.textContent = event.detail.message; });
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png' });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+registerWithAutoUpdate('/sw.js');
