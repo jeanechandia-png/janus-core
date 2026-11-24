@@ -68,10 +68,6 @@
 .jh-brand>img{width:54px;height:54px;border-radius:50%}
 .jh-brand>div{display:grid;gap:2px}.jh-wordmark{width:118px;height:auto}.jh-brand time{font-size:15px;color:var(--jh-muted)}
 .jh-alerts{display:flex;flex:1;gap:8px;flex-wrap:wrap}
-.jh-shell .jh-cta{position:relative;isolation:isolate;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:56px;min-width:0;padding:8px 12px;border-radius:14px;border:1px solid #91dfff;color:#fff;background:linear-gradient(180deg,#7ee5ff 0%,#0b9fec 22%,#0a5bdd 65%,#11277c 100%);box-shadow:inset 0 2px 1px #e8fbffad,inset 0 -4px 0 #081c69,0 5px 0 #071c52,0 8px 16px #061c5544;text-decoration:none;font:700 clamp(15px,1.35vw,20px)/1.15 system-ui,sans-serif;text-align:center;cursor:pointer}
-.jh-shell .jh-cta::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;background:linear-gradient(110deg,transparent 30%,#ffffff70 50%,transparent 70%);background-size:300% 100%;animation:jh-sheen 3.8s linear infinite}
-@keyframes jh-sheen{0%,30%{background-position:130% 0}75%,100%{background-position:-130% 0}}
-.jh-shell .jh-cta:hover{filter:brightness(1.1);transform:translateY(-1px)}.jh-shell .jh-cta:active{transform:translateY(4px)}
 .jh-icon{width:40px;height:40px;object-fit:contain;flex:none;filter:drop-shadow(0 3px 3px #0004)}
 .jh-hero,.jh-card{min-width:0;min-height:0;background:var(--jh-surface);border:1px solid var(--jh-edge);border-radius:22px;box-shadow:inset 0 1px 0 #ffffff66,0 10px 20px var(--jh-shadow);padding:14px}
 .jh-hero{display:grid;grid-template-columns:minmax(160px,19%) minmax(0,1fr);gap:18px}
@@ -108,8 +104,41 @@
 .jh-shell .jh-thread .msg small{font-size:15px;color:var(--jh-muted)}
 .jh-shell .jh-thread .msg.me .bub{background:#0c63c7;color:#fff}
 .b .jh-shell .jh-thread .msg.ja .bub{background:#e3edfb;color:#15223c;border-color:#c2d3ee}
-.jh-shell .jh-cta{background:linear-gradient(180deg,#1c9ddd 0%,#0769c1 28%,#0753be 60%,#122673 100%)}
 .jh-shell .jh-card:is(:focus-within,:hover){box-shadow:inset 0 1px 0 #fff8,0 0 15px #86c9ff55,0 10px 20px var(--jh-shadow)}
 .jh-shell .jh-typing .mjw{width:50px;height:60px;flex:none}
 .jh-shell .jh-alerts .jh-cta{min-height:48px}
 @media(max-height:650px){.jh-shell{grid-template-rows:auto minmax(240px,1fr) minmax(210px,1fr) auto;gap:10px;padding:10px}.jh-presence .jh-robot{width:100px}}
+
+/* Material CTA original, únicamente para la portada. Origen CSS d13e35eab989f710de97bb1dd9e0231d76600d91; se adapta el selector, no el relieve. */
+/* ---------- 8 · Familia CTA (ChatBox OWNER LOCK 2026-09-27) ---------- */
+.jh-shell .b3d:not(.off){
+  position:relative;isolation:isolate;overflow:hidden;transform:translateZ(0);display:inline-flex;align-items:center;justify-content:center;gap:.6rem;
+  min-height:50px;padding:0 1.4rem;border-radius:14px;border:1px solid rgba(108,225,255,.92);
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:15px;color:#fff;font-weight:900;letter-spacing:.01em;text-shadow:0 1px 2px rgba(0,0,0,.55);text-decoration:none;cursor:pointer;
+  background:radial-gradient(ellipse at 50% -12%,rgba(255,255,255,.72) 0%,rgba(179,245,255,.34) 16%,transparent 38%),
+             linear-gradient(180deg,#35dcff 0%,#0d98ff 27%,#0868f5 55%,#153bd1 79%,#061a76 100%);
+  box-shadow:inset 0 3px 2px rgba(255,255,255,.68),inset 0 -6px 10px rgba(0,11,84,.72),inset 0 -1px 0 rgba(0,0,0,.75),
+    0 2px 0 #03215e,0 5px 0 #020d31,0 8px 15px rgba(0,0,0,.58),0 0 22px rgba(0,140,255,.48);
+  transition:transform .18s cubic-bezier(.2,.8,.2,1),filter .18s ease,box-shadow .18s ease,border-color .18s ease;
+  animation:finalCtaCinematicBreath 3.4s ease-in-out infinite}
+.jh-shell .b3d:not(.off)::before{content:"";position:absolute;z-index:-1;pointer-events:none;inset:-80% -35%;opacity:.66;height:auto;left:-35%;right:-35%;top:-80%;
+  background:linear-gradient(112deg,transparent 34%,rgba(255,255,255,.08) 42%,rgba(255,255,255,.82) 49%,rgba(137,235,255,.18) 56%,transparent 65%);
+  transform:translateX(-62%) rotate(3deg);animation:finalCtaSpecularSweep 3.8s cubic-bezier(.22,.7,.2,1) infinite;transition:none}
+.jh-shell .b3d:not(.off)::after{content:"";position:absolute;inset:2px 4px auto;height:38%;border-radius:11px;pointer-events:none;z-index:-1;transform:none;transition:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.36),rgba(255,255,255,.05));opacity:.74}
+/* ChatBox OWNER LOCK «ALL LANDING CTA»: los secundarios reciben el mismo 3D cinematográfico que los primarios. */
+.jh-shell .b3d:not(.off):is(:hover,:focus-visible,[data-lit="true"]){transform:translateY(-3px) scale(1.018);filter:brightness(1.18) saturate(1.16);border-color:#c9f8ff;
+  box-shadow:inset 0 3px 2px rgba(255,255,255,.82),inset 0 -6px 10px rgba(0,13,100,.65),0 2px 0 #06429c,0 6px 0 #02194f,0 12px 22px rgba(0,0,0,.56),0 0 18px rgba(80,224,255,.95),0 0 42px rgba(0,122,255,.88),0 0 72px rgba(0,102,255,.48)}
+.jh-shell .b3d:not(.off):active{transform:translateY(4px) scale(.982);filter:brightness(1.28) saturate(1.18);
+  box-shadow:inset 0 5px 10px rgba(0,12,90,.62),inset 0 1px 2px rgba(255,255,255,.72),0 1px 0 #031b55,0 3px 8px rgba(0,0,0,.52),0 0 24px rgba(89,231,255,1),0 0 52px rgba(0,122,255,.95)}
+@keyframes finalCtaSpecularSweep{0%,58%{transform:translateX(-68%) rotate(3deg);opacity:.16}72%{opacity:.78}88%,100%{transform:translateX(68%) rotate(3deg);opacity:.12}}
+@keyframes finalCtaCinematicBreath{0%,100%{filter:brightness(1) saturate(1)}50%{filter:brightness(1.075) saturate(1.07)}}
+
+.jh-shell .b3d:not(.off){min-height:56px;padding:8px 12px;font-size:clamp(15px,1.35vw,20px);min-width:0;line-height:1.15;text-align:center}
+.jh-shell .jh-alerts .b3d:not(.off){min-height:56px}
+.jh-shell .jh-nav .b3d:not(.off){width:100%;height:100%}
+@media(max-width:1000px){.jh-shell .jh-nav .b3d:not(.off){padding:5px;font-size:15px}}
+@media(prefers-reduced-motion:reduce){.jh-shell .b3d:not(.off),.jh-shell .b3d:not(.off)::before{animation:none;transition:none}}
+.jh-card,.jh-hero{--mx:50%;--my:-20%;position:relative;isolation:isolate;transition:box-shadow .35s ease,transform .35s ease}
+.jh-card::after,.jh-hero::after{content:"";position:absolute;inset:0;z-index:3;border-radius:inherit;pointer-events:none;background:radial-gradient(520px circle at var(--mx) var(--my),rgba(150,220,255,.17),rgba(0,140,255,.06) 32%,transparent 58%),linear-gradient(112deg,transparent 40%,rgba(255,255,255,.07) 48%,rgba(255,255,255,0) 56%);opacity:.45;transition:opacity .35s ease}
+.jh-card:is(:hover,[data-lit="true"],:focus-within)::after,.jh-hero:is(:hover,[data-lit="true"],:focus-within)::after{opacity:1}
