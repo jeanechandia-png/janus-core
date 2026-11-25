@@ -13,6 +13,7 @@ const SHELL = [
   '/founder-session.js',
   '/knowledge-review.js',
   '/dashboard-access.js',
+  '/founder-home-data.js',
   '/pwa-update.js',
   '/team-panel.js',
   '/approval-chip.js',

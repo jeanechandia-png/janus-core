@@ -6198,6 +6198,32 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // Portada Founder: lectura de fuentes existentes, sin consultas de pago ni mutaciones.
+  // Nunca enviar mensajes, contactos, documentos privados ni agenda ajena a esta vista.
+  if (request.method === 'GET' && url.pathname === '/api/founder/home-summary') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const today = amsterdamToday();
+      const from = new Date(Date.parse(today + 'T00:00:00Z') - 29 * 86400000).toISOString().slice(0,10);
+      const agenda = agendaForOwner(store.listWorkAgendaItems(principal.id).map(agendaOpen), principal.id)
+        .filter(item => item.date === today && !item.done).slice(0,3)
+        .map(item => ({ time: item.time ?? null, text: item.text }));
+      const entries = loadBooksEntries().filter(entry => entry.currency === 'EUR' && entry.date >= from && entry.date <= today);
+      // A partial or unverified ledger must not appear as total business revenue.
+      const verified = entries.length > 0 && entries.every(entry => entry.verified);
+      const revenueMinor = verified ? incomeStatement(entries, booksChart(), {from,to:today,currency:'EUR'}).revenue.totalMinor : null;
+      const products = productFeedSync.snapshot().products;
+      const live = products.filter(item => item.state === 'live' && item.lastSuccess &&
+        Date.now() - Date.parse(item.lastSuccess) >= 0 && Date.now() - Date.parse(item.lastSuccess) <= 5 * 60_000);
+      json(response,200,{ok:true,generatedAt:new Date().toISOString(),today,
+        agenda:{source:'janus-work-agenda',items:agenda},
+        approvals:{pending:approvalQueue.pending().length},
+        feeds:{connected:live.length,total:products.length,newRequests:live.length ? live.reduce((sum,item)=>sum+item.newRequests,0) : null},
+        revenue:{source:'company-books',currency:'EUR',from,to:today,minor:revenueMinor,entries:entries.length,verified}});
+    } catch(error) { json(response,authErrorStatus(error),authErrorBody(error)); }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/products/feed') {
     try {
       requireFounderAuthority(request);

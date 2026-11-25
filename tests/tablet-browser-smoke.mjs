@@ -78,6 +78,19 @@ try {
   await page.locator('[data-layout="approved-option-2"]').waitFor();
   assert.ok(await page.evaluate(() => Boolean(sessionStorage.getItem('janus.founder.session'))));
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
+  stage = 'authenticated home data';
+  const summary=await page.evaluate(async()=>{
+    const denied=await fetch('/api/founder/home-summary');
+    const allowed=await fetch('/api/founder/home-summary',{headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
+    return {denied:denied.status,allowed:allowed.status,body:await allowed.json()};
+  });
+  assert.ok([401,403].includes(summary.denied));
+  assert.equal(summary.allowed,200);
+  assert.equal(summary.body.ok,true);
+  assert.equal(summary.body.revenue.minor,null,'no fabricated revenue in empty SQLite');
+  assert.equal(summary.body.agenda.source,'janus-work-agenda');
+  await page.locator('[data-home-card="dia"] .jh-card-body[data-home-signature]').waitFor();
+  ok('portada consulta fuentes privadas reales y no inventa ventas');
   stage = 'encrypted case persistence';
   const caseId = await page.evaluate(async () => {
     const response = await fetch('/api/cases', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') }, body: JSON.stringify({ id: 'tablet-smoke-case', title: 'Tablet smoke fixture', category: 'Personal / Privado', context: 'PRIVATE_TABLET_FIXTURE_1126', status: 'waiting_reply' }) });

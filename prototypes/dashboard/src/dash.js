@@ -140,7 +140,7 @@ function renderApprovedTabletHome(M, X) {
   const tr = value => nl && Object.prototype.hasOwnProperty.call(translations,value) ? translations[value] : value;
   const icon = (e) => { const src = iconAsset(e); return src ? '<img class="jh-icon" src="' + src + '" alt="" aria-hidden="true">' : ''; };
   const link = (route, label, e, cls) => '<button type="button" class="b3d jh-cta ' + (cls || '') + '" data-go="' + esc(route) + '">' + icon(e) + '<span>' + esc(tr(label)) + '</span></button>';
-  const cards = (route, label, e, body) => '<section class="jh-card" aria-label="' + esc(tr(label)) + '"><h2>' + icon(e) + esc(tr(label)) + '</h2>' + body + '<button class="b3d jh-cta jh-detail" type="button" data-go="' + esc(route) + '">' + tr("Ver detalle") + '</button></section>';
+  const cards = (route, label, e, body) => '<section class="jh-card" data-home-card="' + esc(route) + '" aria-label="' + esc(tr(label)) + '"><h2>' + icon(e) + esc(tr(label)) + '</h2>' + '<div class="jh-card-body">' + body + '</div><button class="b3d jh-cta jh-detail" type="button" data-go="' + esc(route) + '">' + tr("Ver detalle") + '</button></section>';
   const session = (() => { try { return !!sessionStorage.getItem('janus.founder.session'); } catch (_) { return false; } })();
   const runtime = !!document.querySelector('meta[name="janus-runtime"]');
   const signed = runtime && session;
