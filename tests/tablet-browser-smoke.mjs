@@ -96,6 +96,19 @@ try {
   await page.locator('.vh [data-go=""]').click();
   await page.locator('[data-layout="approved-option-2"]').waitFor();
   ok('portada consulta fuentes privadas reales y no inventa ventas');
+  stage='integration readiness with isolated credentials';
+  const readiness=await page.evaluate(async()=>{
+    const path='/api/founder/integration-readiness';
+    const denied=await fetch(path,{method:'POST',cache:'no-store'});
+    const allowed=await fetch(path,{method:'POST',cache:'no-store',headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
+    return {denied:denied.status,allowed:allowed.status,body:await allowed.json()};
+  });
+  assert.ok([401,403].includes(readiness.denied));
+  assert.equal(readiness.allowed,200);
+  assert.equal(readiness.body.results.find(x=>x.service==='gmail').state,'needs_auth');
+  assert.equal(readiness.body.results.find(x=>x.service==='calendar').state,'needs_auth');
+  assert.ok(!readiness.body.results.some(x=>x.state==='verified'));
+  ok('integraciones: sin credenciales no se simula conexión ni se permite acceso anónimo');
   stage = 'integration readiness without credentials';
   const integration=await page.evaluate(async()=>{
     const allowed=await fetch('/api/founder/integration-readiness',{method:'POST',cache:'no-store',headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});

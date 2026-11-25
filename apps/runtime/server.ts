@@ -6209,7 +6209,7 @@ const server = createServer(async (request, response) => {
       requireFounderAuthority(request);
       if (!readinessInFlight && (!readinessLast || Date.now()-readinessLast.at>=60_000)) {
         readinessInFlight=verifyReadiness({token:(service,scopes)=>credentialBroker.accessToken(service,scopes),
-          products:productFeedConfig.products,readProduct:productFeedReader()})
+          products:productFeedConfig.products,accounts:mailAccounts,readProduct:productFeedReader()})
           .then(results=>{readinessLast={at:Date.now(),results};return readinessLast;})
           .finally(()=>{readinessInFlight=undefined;});
       }

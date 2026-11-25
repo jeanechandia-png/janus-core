@@ -67,7 +67,7 @@ export function mountFounderHomeData() {
     const labels={verified:nl?'Geverifieerd':'Verificado',needs_auth:nl?'Autorisatie nodig':'Autorización necesaria',denied:nl?'Toegang geweigerd':'Acceso denegado',unavailable:nl?'Niet beschikbaar':'No disponible',invalid_response:nl?'Ongeldig antwoord':'Respuesta no válida',not_connected:nl?'Niet verbonden':'No conectado'};
     const names={'gmail':'Gmail','calendar':'Google Calendar','infinity-business-assistant':'IBA','infinity-chatbox':'Infinity ChatBox','infinityseed-group':'InfinitySeed Group'};
     const valid=readinessToken&&readinessToken===sessionToken();
-    const lines=valid&&readinessBusy?[nl?'Controleren…':'Comprobando…']:valid&&readiness?.ok?[new Date(readiness.checkedAt).toLocaleString(nl?'nl-NL':'es-NL'),...readiness.results.map(item=>(names[item.service]||item.service)+': '+(labels[item.state]||labels.unavailable))]:[nl?'Nog niet geverifieerd':'Sin comprobar'];
+    const lines=valid&&readinessBusy?[nl?'Controleren…':'Comprobando…']:valid&&readiness?.ok?[new Date(readiness.checkedAt).toLocaleString(nl?'nl-NL':'es-NL'),...readiness.results.map(item=>(names[item.service]||(names[item.service.split(':')[0]]||item.service.split(':')[0])+' · '+item.service.split(':').slice(1).join(':'))+': '+(labels[item.state]||labels.unavailable))]:[nl?'Nog niet geverifieerd':'Sin comprobar'];
     if(signatures.get(target)===JSON.stringify(lines))return;
     signatures.set(target,JSON.stringify(lines));
     target.replaceChildren(...lines.map(line=>{const p=document.createElement('p');p.textContent=line;return p;}));

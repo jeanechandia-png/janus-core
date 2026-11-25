@@ -1,3 +1,7 @@
+## AHORA — 25-nov-2026 · Comprobación por buzón registrado
+
+- Continuación directa desde 5a40fdbe. Verificador ampliado al registro local de cuentas, usa su servicio de credenciales individual; compara identidad devuelta por Gmail contra la dirección registrada sin devolverla. Calendar comprueba el permiso de lectura de eventos del token asignado; no certifica por sí solo identidad de cuenta. Añadida regresión para identidad errónea y prueba Chromium de ruta protegida con credenciales ausentes. Mismo producto, sin despliegue ni credenciales nuevas. Se conserva caché v35 (todavía no publicada). No declarar verificación de producción.
+
 ## AHORA — 25-nov-2026 · Originales recuperados y conexiones, PR #98
 
 - Continuidad desde d59ef9f8, misma rama y base 480a0b9. d010e92b corrige contratos de caché y comprueba texto autenticado en portada/detalle, no atributos privados. aa42d2df añade verificación explícita Founder de Gmail, Calendar y feeds IBA/ChatBox con credenciales del runtime, sólo lectura, validación y estados sin secretos. Core CI 45589310757 verde. Los conectores Calendar/Gmail de ChatGPT permitieron lecturas reales, NO equivalen a los tokens del runtime JANUS. Diagnóstico Google usa la credencial general; consentimientos individuales por buzón y pruebas del equipo real pendientes.

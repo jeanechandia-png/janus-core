@@ -6,14 +6,15 @@ export interface ReadinessDeps {
   token:(service:string,scopes:readonly string[])=>Promise<string|undefined>;
   readProduct:ProductFeedReader;
   products:readonly ProductFeedSource[];
+  accounts?:readonly {accountId:string; credentialService:string; address:string}[];
   fetchImpl?:typeof fetch;
 }
 // Fixed read-only endpoints, minimal fields; never return provider payloads or tokens.
 export async function verifyReadiness(deps:ReadinessDeps):Promise<ReadinessResult[]> {
-  const google=async(service:string,url:string,scope:string,field:string):Promise<ReadinessResult>=>{
+  const google=async(service:string,url:string,scope:string,field:string,credential='google-workspace',expectedAddress?:string):Promise<ReadinessResult>=>{
     let state:ReadinessState='unavailable';
     try {
-      const token=await deps.token('google-workspace',[scope]);
+      const token=await deps.token(credential,[scope]);
       if(!token?.trim())return {service,state:'needs_auth'};
       const response=await (deps.fetchImpl??fetch)(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(10000),headers:{authorization:'Bearer '+token,accept:'application/json'}});
       if(response.status===401)state='needs_auth';
@@ -21,6 +22,10 @@ export async function verifyReadiness(deps:ReadinessDeps):Promise<ReadinessResul
       else if(response.ok){
         const body:unknown=await response.json();
         state=body!==null&&typeof body==='object'&&Object.hasOwn(body,field)?'verified':'invalid_response';
+        if(state==='verified'&&expectedAddress){
+          const actual=(body as Record<string,unknown>).emailAddress;
+          if(typeof actual!=='string'||actual.toLowerCase()!==expectedAddress.toLowerCase())state='denied';
+        }
       }
     }catch{ /* no raw provider errors, URLs, identifiers or token values */ }
     return {service,state};
@@ -36,6 +41,10 @@ export async function verifyReadiness(deps:ReadinessDeps):Promise<ReadinessResul
   return Promise.all([
     google('gmail','https://gmail.googleapis.com/gmail/v1/users/me/profile?fields=messagesTotal','gmail.readonly','messagesTotal'),
     google('calendar','https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1&fields=kind','calendar.events.readonly','kind'),
+    ...(deps.accounts??[]).flatMap(account=>[
+      google('gmail:'+account.accountId,'https://gmail.googleapis.com/gmail/v1/users/me/profile?fields=messagesTotal,emailAddress','gmail.readonly','messagesTotal',account.credentialService,account.address),
+      google('calendar:'+account.accountId,'https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults=1&fields=kind','calendar.events.readonly','kind',account.credentialService)
+    ]),
     ...deps.products.map(product)
   ]);
 }
