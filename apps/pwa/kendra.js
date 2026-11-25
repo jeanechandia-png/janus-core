@@ -411,8 +411,8 @@ function buildChat() {
     attach.clear();
     send.disabled = false;
     if (result.status === 200) {
-      add('pet', result.body.reply);
-      speak(result.body.reply);
+      add('pet', kidNotice(result.body.reply));
+      speak(kidNotice(result.body.reply));
       if (result.body.blocked === 'access') showLock(result.body.reply);
     } else add('pet', result.body.error || kt('Uy, no pude responder. ¿Lo intentamos otra vez?'));
   });

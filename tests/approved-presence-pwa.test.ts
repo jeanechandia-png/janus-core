@@ -14,7 +14,7 @@ test('PWA Jean y Kendra usan módulo canónico, sin pantallas paralelas', () => 
   assert.match(kid, /createApprovedAssetControls\(\{ family: 'kendra' \}\)/);
   assert.doesNotMatch(kid, /creatureSvg\(/, 'las primitivas SVG no suplantan el diseño original');
   assert.match(kid, /document\.title = activeCreature \? `Kendra · \$\{activeCreature\.name\}` : 'Kendra'/);
-  assert.match(kid, /pet \? `¡Hola, \$\{view\.profile\.displayName\}! Soy \$\{pet\.name\}/);
+  assert.match(kid, /pet \? kt\('¡Hola, '\)\+view\.profile\.displayName\+kt\('! Soy '\)\+pet\.name/);
   assert.doesNotMatch(kid, /'Mi compañero'|tu compañero/);
   assert.match(source('apps/pwa/index.html'), /<h2 id="kendraTitle">Kendra<\/h2>/);
   assert.equal(JSON.parse(source('apps/pwa/kendra.webmanifest')).name, 'Kendra');

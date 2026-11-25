@@ -1,3 +1,4 @@
+import { localizeKidMessage } from '../../packages/modules/kid-dashboard/src/safety.js';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ModelGateway, ModelMessage } from '../../packages/gateways/src/contracts.js';
@@ -309,7 +310,8 @@ export function createKidRoutes(deps: KidRoutesDeps) {
 
   // ── Chat ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  async function chat(kid: { kidId: string }, body: Record<string, unknown>) {
+  async function chat(kid: { kidId: string }, body: Record<string, unknown>, language: 'es' | 'nl' = 'es') {
+    const say = (message:string) => localizeKidMessage(message,language);
     const at = now();
     const { state } = loadState(kid.kidId);
     const typed = typeof body.text === 'string' ? stripAttachmentMarkers(body.text).trim().slice(0, MAX_CHAT_CHARS) : '';
@@ -321,7 +323,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
     const input = screenKidText(typed, 'input');
     if (input.parentFlag) flag(kid.kidId, input.severity, input.categories, input.parentFlag.summary);
     if (!input.allowed || (input.severity === 'note' && input.kidMessage)) {
-      return { reply: input.kidMessage ?? 'Mejor hablamos de otra cosa. 😊', blocked: 'safety' as const, severity: input.severity };
+      return { reply: say(input.kidMessage ?? 'Mejor hablamos de otra cosa. 😊'), blocked: 'safety' as const, severity: input.severity };
     }
 
     // Adjuntos (perfil «kid»): solo identificadores; la descripción la construye el servidor.
@@ -336,20 +338,20 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       const screened = screenKidText(block, 'input');
       if (!screened.allowed) {
         if (screened.parentFlag) flag(kid.kidId, screened.severity, screened.categories, `Un adjunto: ${screened.parentFlag.summary}`);
-        return { reply: screened.kidMessage ?? 'Ese archivo no lo puedo usar.', blocked: 'safety' as const, severity: screened.severity };
+        return { reply: say(screened.kidMessage ?? 'Ese archivo no lo puedo usar.'), blocked: 'safety' as const, severity: screened.severity };
       }
     }
 
     if (state.settings.transcriptVisibility === 'full') store.kidAppendTranscript({ kidId: kid.kidId, at: at.toISOString(), role: 'kid', text: typed });
 
-    let reply = 'Hoy no puedo pensar muy lejos, pero puedo ayudarte con tu agenda, tus tareas o la casa. 😊';
+    let reply = say('Hoy no puedo pensar muy lejos, pero puedo ayudarte con tu agenda, tus tareas o la casa. 😊');
     const cap = deps.maxModelCallsPerDay ?? 80;
     const key = `${kid.kidId}:${localTime(at, state.settings.timeZone).ymd}`;
     if (deps.model && (modelCalls.get(key) ?? 0) < cap) {
       modelCalls.set(key, (modelCalls.get(key) ?? 0) + 1);
       const past = history.get(kid.kidId) ?? [];
       const messages: ModelMessage[] = [
-        { role: 'system', content: kidSystemPrompt({ displayName: state.profile.displayName, ...(companionNames?.[state.profile.companionId] ? { companionName: companionNames[state.profile.companionId]! } : {}) }) },
+        { role: 'system', content: kidSystemPrompt({ language, displayName: state.profile.displayName, ...(companionNames?.[state.profile.companionId] ? { companionName: companionNames[state.profile.companionId]! } : {}) }) },
         ...past.slice(-6),
         { role: 'user', content: block ? `${typed}\n\n${block}` : typed },
       ];
@@ -359,15 +361,15 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const turn: ModelMessage[] = [{ role: 'user', content: typed }, { role: 'assistant', content: reply }];
         history.set(kid.kidId, [...past, ...turn].slice(-12));
       } catch {
-        reply = 'Uy, ahora mismo no me sale la respuesta. ¿Probamos otra vez en un ratito?';
+        reply = say('Uy, ahora mismo no me sale la respuesta. ¿Probamos otra vez en un ratito?');
       }
     } else if (deps.model) {
-      reply = 'Hoy ya hablamos mucho. ¡Mañana seguimos! 🌙';
+      reply = say('Hoy ya hablamos mucho. ¡Mañana seguimos! 🌙');
     }
 
     const output = screenKidText(reply, 'output');
     if (output.parentFlag) flag(kid.kidId, output.severity, output.categories, `Respuesta filtrada: ${output.parentFlag.summary}`);
-    reply = output.allowed ? output.text : (output.kidMessage ?? reply);
+    reply = output.allowed ? output.text : say(output.kidMessage ?? 'Mejor hablamos de otra cosa. 😊');
     if (state.settings.transcriptVisibility === 'full') store.kidAppendTranscript({ kidId: kid.kidId, at: now().toISOString(), role: 'companion', text: reply });
     return { reply, blocked: null, access };
   }
@@ -540,7 +542,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
           return true;
         }
         if (method === 'POST' && path === '/api/kid/chat') {
-          json(response, 200, { ok: true, ...(await chat(kid, await deps.readJson(request))) });
+          json(response, 200, { ok: true, ...(await chat(kid, await deps.readJson(request), deps.headerValue(request,'x-janus-language')==='nl'?'nl':'es')) });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/activity') {

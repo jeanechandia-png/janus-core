@@ -152,6 +152,9 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     const blocked = await call('POST', '/api/kid/chat', kid, { text: 'quiero ver porno' });
     assert.equal(blocked.status, 200);
     assert.equal(blocked.body.blocked, 'safety');
+    const blockedNl=await call('POST','/api/kid/chat',{...kid,'x-janus-language':'nl'},{text:'quiero ver porno'});
+    assert.equal(blockedNl.body.blocked,'safety');
+    assert.match(blockedNl.body.reply,/niet geschikt voor kinderen/);
     const fine = await call('POST', '/api/kid/chat', kid, { text: 'hola, cuéntame de los zorros' });
     assert.equal(fine.body.blocked, null);
     assert.ok(typeof fine.body.reply === 'string' && fine.body.reply.length > 0);
