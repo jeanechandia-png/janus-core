@@ -124,6 +124,11 @@ try {
     headers: { authorization: 'Bearer ' + localStorage.getItem('kendra.device.v1') }
   })).status);
   assert.ok([401, 403].includes(denial));
+  const secondRowVisible = await kid.evaluate(() => {
+    const nextRow = document.querySelector('.kid-media h3').getBoundingClientRect();
+    return nextRow.bottom <= document.querySelector('nav.tabs').getBoundingClientRect().top;
+  });
+  assert.ok(secondRowVisible, 'La fila de vídeos y recordatorios debe empezar a la vista a 1280×800');
   if (process.env.SHOTS) {
     mkdirSync(process.env.SHOTS, { recursive: true });
     await kid.screenshot({ path: join(process.env.SHOTS, 'kendra-inicio-tablet.png') });

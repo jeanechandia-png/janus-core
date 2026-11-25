@@ -232,6 +232,14 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
   .top .who strong{font-size:28px}
   main{padding:12px 18px 120px}
   .kid-home-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
+  main.kid-home > .banner{margin-block:0}
+  .kid-home-grid>.card{align-content:start}
+  .kid-home-grid>.card p{margin-block:0}
+  .kid-home-grid>.kid-day{grid-template-columns:repeat(2,minmax(0,1fr));align-items:center}
+  .kid-day .kid-clock{justify-self:end}
+  .kid-day .kid-time{grid-column:1/-1;display:grid;grid-template-columns:minmax(5ch,auto) 1fr;gap:12px;align-items:baseline}
+  .kid-day .kid-time p{overflow-wrap:anywhere}
+  .kid-day button{min-width:0;white-space:normal}
   .kid-home-grid>.kid-hero{grid-column:span 2;min-height:240px}
   .kid-home-grid>.kid-media{grid-column:span 2}
   .kid-home-grid .card{min-width:0;padding:18px}
