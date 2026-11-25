@@ -102,7 +102,7 @@ test('language preferences are isolated by profile and UI chrome has translated 
 
 test('offline cache includes controls but does not store protected API responses', () => {
   const sw = text('apps/pwa/sw.js');
-  assert.match(sw, /janus-shell-v32/);
+  assert.match(sw, /janus-shell-v33/);
   assert.match(sw, /'\/language-buttons\.js'/);
   assert.match(sw, /'\/language-buttons\.css'/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);
@@ -119,7 +119,7 @@ test('Founder menu authentication anchor exists and Kendra remains independent',
   assert.match(html, /href="\/dashboard\/a"/);
   assert.match(html, /href="\/dashboard\/b"/);
   assert.match(html, /id="kendraOpenApp"[^>]*href="\/kendra"/);
-  assert.match(app, /else void refreshKendraSummary\(\)/);
+  assert.match(app, /await openKendraParentPanel\(\)/);
   assert.match(app, /const action = deviceKey \? founderSignInButton : founderLinkButton/);
 });
 
@@ -265,7 +265,8 @@ ${code}
   btn('Nederlands').props.onClick();
   assert.equal(env.state().schoolLesson,'nl');
   btn('Escuchar la palabra').props.onClick();
-  assert.deepEqual(reads[0],['fiets',.75,'nl-NL']);
+  assert.ok(reads[0]);
+  assert.deepEqual(Array.from(reads[0]), ['fiets', .75, 'nl-NL']);
   btn('Concentrarme').props.onClick();
   assert.equal(env.state().schoolFocus,true);
   btn('Terminar').props.onClick();

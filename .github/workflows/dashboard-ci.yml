@@ -11,6 +11,7 @@ on:
     paths:
       - 'prototypes/dashboard/**'
       - 'apps/pwa/**'
+      - 'tests/tablet-browser-smoke.mjs'
       - 'apps/runtime/**'
       - 'packages/voice/**'
       - 'packages/automation/**'
@@ -77,6 +78,12 @@ jobs:
           else
             npx playwright install --with-deps chromium
           fi
+      - name: Accesos Founder y Kendra en Chromium con Core y SQLite
+        env:
+          SHOTS: ${{ runner.temp }}/janus-shots
+        run: |
+          npm run dashboard:build
+          CHROMIUM_PATH="$CHROME_PATH" npm run tablet:browser
       - name: Prueba en Chromium móvil y tablet (NEXO, criaturas, GLB)
         env:
           PLAYWRIGHT_MODULE: ${{ github.workspace }}/node_modules/playwright

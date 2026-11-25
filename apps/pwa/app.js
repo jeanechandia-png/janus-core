@@ -832,6 +832,7 @@ function configureSpeechRecognition() {
 voiceButton.addEventListener('click', () => {
   if (!sessionToken() && !listening) {
     setPresence('Identificación necesaria', 'Entra como Founder antes de activar el micrófono.');
+    founderLoginIntent = 'voice';
     void focusFounderAccess();
     return;
   }
@@ -904,7 +905,13 @@ async function refreshFounderControls() {
   founderSignInButton.hidden = !deviceKey || signedIn;
   founderSignOutButton.hidden = !signedIn;
   if (signedIn) { pollApprovals(); refreshToolSync(); }
-  else { approvalsList.replaceChildren(); approvalsBadge.hidden = true; toolSyncBox.hidden = true; }
+  else {
+    approvalsList.replaceChildren(); approvalsBadge.hidden = true; toolSyncBox.hidden = true;
+    clearKendraParentPanel();
+    void refreshFounderPrivateCases();
+    kendraBadge.hidden = true;
+    kendraSummary.textContent = 'Puedes abrir la app de Kendra o identificarte para administrar sus ajustes.';
+  }
 }
 
 const toolSyncBox = document.querySelector('#toolSyncBox');
@@ -996,9 +1003,11 @@ function renderApprovals(pending) {
 
 async function pollApprovals() {
   clearTimeout(approvalsTimer);
-  if (!sessionToken()) return;
+  const token = sessionToken();
+  if (!token) return;
   try {
     const response = await fetch('/api/approvals', { headers: authHeaders(), cache: 'no-store' });
+    if (sessionToken() !== token) return;
     if (response.status === 401 || response.status === 403) {
       await signOut();
       setApprovalsStatus('Tu sesión de Founder caducó. Vuelve a entrar.');
@@ -1006,7 +1015,7 @@ async function pollApprovals() {
       return;
     }
     const data = await response.json();
-    if (response.ok) renderApprovals(data.pending ?? []);
+    if (response.ok && sessionToken() === token) renderApprovals(data.pending ?? []);
   } catch {
     setApprovalsStatus('No se pudo consultar las aprobaciones; reintento en unos segundos.');
   }
@@ -1060,8 +1069,17 @@ founderSignInButton.addEventListener('click', async () => {
     await signIn(deviceKey);
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
     const returnTo = new URLSearchParams(location.search).get('returnTo');
-    if (returnTo === '/dashboard/a' || returnTo === '/dashboard/b') location.assign(returnTo);
-    else void refreshKendraSummary().catch(() => { if (kendraSummary) kendraSummary.textContent = 'Sesión iniciada; no se pudo cargar el resumen. Puedes abrir el panel para reintentar.'; });
+    const intent = founderLoginIntent;
+    founderLoginIntent = null;
+    if (intent === 'parent') {
+      await openKendraParentPanel();
+      void refreshKendraSummary();
+    } else if (intent === 'voice') {
+      voiceButton.focus();
+      setPresence('Listo', 'Toca el micrófono para hablar.');
+    } else {
+      location.assign(returnTo === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a');
+    }
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
@@ -1108,6 +1126,24 @@ const kendraBadge = document.querySelector('#kendraBadge');
 const kendraPanel = document.querySelector('#kendraPanel');
 const kendraOpenPanel = document.querySelector('#kendraOpenPanel');
 let kendraPanelHandle = null;
+let founderLoginIntent = null;
+
+function clearKendraParentPanel() {
+  kendraPanelHandle?.destroy();
+  kendraPanelHandle = null;
+  kendraPanel.hidden = true;
+  kendraOpenPanel.textContent = 'Administrar como tutor';
+}
+
+async function openKendraParentPanel() {
+  const token = sessionToken();
+  const { mountKidParentPanel } = await import('./kendra-parent.js');
+  if (!token || sessionToken() !== token || kendraPanelHandle) return;
+  kendraPanel.hidden = false;
+  kendraOpenPanel.textContent = 'Cerrar controles del tutor';
+  kendraPanelHandle = mountKidParentPanel(kendraPanel, { mode: 'founder', kidId: 'kendra', request: kendraRequest, onClose: () => kendraOpenPanel.click() });
+  kendraOpenPanel.scrollIntoView({ block: 'start' });
+}
 
 async function kendraRequest(method, path, body) {
   try {
@@ -1126,8 +1162,10 @@ async function kendraRequest(method, path, body) {
 }
 
 async function refreshKendraSummary() {
-  if (!kendraSummary || !sessionToken()) return;
+  const token = sessionToken();
+  if (!kendraSummary || !token) return;
   const result = await kendraRequest('GET', '/api/parent/kid/overview?kidId=kendra');
+  if (sessionToken() !== token) return;
   if (result.status !== 200) {
     kendraSummary.textContent = result.status === 401 || result.status === 403 ? 'Entra como Founder para ver su actividad, sus avisos y sus ajustes.' : (result.body.error || 'No pude cargar el resumen de Kendra.');
     return;
@@ -1142,12 +1180,14 @@ async function refreshKendraSummary() {
 }
 
 kendraOpenPanel?.addEventListener('click', async () => {
-  if (kendraPanelHandle) { kendraPanelHandle.destroy(); kendraPanelHandle = null; kendraPanel.hidden = true; kendraOpenPanel.textContent = 'Abrir su panel'; refreshKendraSummary(); return; }
-  if (!sessionToken()) { kendraSummary.textContent = 'Identifícate para administrar su panel. Su app se abre por separado con su código.'; await focusFounderAccess(); return; }
-  const { mountKidParentPanel } = await import('./kendra-parent.js');
-  kendraPanel.hidden = false;
-  kendraOpenPanel.textContent = 'Cerrar su panel';
-  kendraPanelHandle = mountKidParentPanel(kendraPanel, { mode: 'founder', kidId: 'kendra', request: kendraRequest, onClose: () => kendraOpenPanel.click() });
+  if (kendraPanelHandle) { clearKendraParentPanel(); void refreshKendraSummary(); return; }
+  if (!sessionToken()) {
+    founderLoginIntent = 'parent';
+    kendraSummary.textContent = 'Identifícate para administrar la cuenta de Kendra.';
+    await focusFounderAccess();
+    return;
+  }
+  await openKendraParentPanel();
 });
 
 refreshKendraSummary();

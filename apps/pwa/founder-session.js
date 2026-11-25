@@ -98,7 +98,7 @@ export async function signIn(pair, principalId = 'founder') {
   });
   const verifyBody = await verifyResponse.json().catch(() => ({}));
   if (!verifyResponse.ok) throw new Error(explainAuthError(verifyResponse.status, verifyBody.error ?? verifyBody.code));
-  try { sessionStorage.setItem(TOKEN_KEY, verifyBody.session.token); } catch { /* memory-only fallback below */ }
+  try { sessionStorage.setItem(TOKEN_KEY, verifyBody.session.token); } catch { throw new Error('El navegador no permite guardar la sesión. Habilita el almacenamiento para este sitio y vuelve a entrar.'); }
   return verifyBody.session;
 }
 

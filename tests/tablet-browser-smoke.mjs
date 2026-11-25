@@ -2,7 +2,7 @@
 // PLAYWRIGHT_MODULE puede apuntar a una instalación de Playwright externa al producto.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import net from 'node:net';
@@ -51,7 +51,7 @@ try {
   configureLocal(env);
   await start();
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
-  const context = await browser.newContext({ viewport: { width: 800, height: 1280 }, acceptDownloads: true });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, acceptDownloads: true });
   await context.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
@@ -74,7 +74,9 @@ try {
   await stop(); configureLocal(env, publicPath); await start();
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#founderSignInButton').click();
-  await page.waitForFunction(() => Boolean(sessionStorage.getItem('janus.founder.session')));
+  await page.waitForURL(origin + '/dashboard/a');
+  await page.locator('[data-layout="approved-option-2"]').waitFor();
+  assert.ok(await page.evaluate(() => Boolean(sessionStorage.getItem('janus.founder.session'))));
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
   stage = 'encrypted case persistence';
   const caseId = await page.evaluate(async () => {
@@ -87,9 +89,10 @@ try {
   await stop();
   assert.ok(!readFileSync(join(dir, 'data/janus.db')).includes(Buffer.from('PRIVATE_TABLET_FIXTURE_1126')), 'no private case text stored in plaintext');
   await start();
-  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.goto(origin + '/?returnTo=%2Fdashboard%2Fb#approvals');
   await page.locator('#founderSignInButton').click();
-  await page.waitForFunction(() => Boolean(sessionStorage.getItem('janus.founder.session')));
+  await page.waitForURL(origin + '/dashboard/b');
+  await page.locator('[data-layout="approved-option-2"]').waitFor();
   const stored = await page.evaluate(async id => {
     const response = await fetch('/api/cases', { headers: { authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } });
     const body = await response.json();
@@ -97,11 +100,52 @@ try {
   }, caseId);
   assert.equal(stored.status, 200); assert.match(stored.text, /PRIVATE_TABLET_FIXTURE_1126/);
   ok('caso cifrado conservado en SQLite después de parada y reinicio');
+  stage = 'parent controls and child pairing';
+  await page.goto(origin + '/');
+  await page.locator('#founderSignOutButton').click();
+  await page.locator('#kendraOpenPanel').click();
+  await page.locator('#founderSignInButton').click();
+  await page.getByRole('button', { name: 'Emparejar un dispositivo nuevo' }).click();
+  await page.waitForFunction(() => document.querySelector('.kp-code')?.textContent.startsWith('Código: '));
+  const code = (await page.locator('.kp-code').textContent()).split(' ')[1];
+  const kidContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  await kidContext.route('**/*', route => route.request().url().startsWith(origin + '/') ? route.continue() : route.abort());
+  const kid = await kidContext.newPage();
+  kid.on('pageerror', error => browserErrors.push(error.message));
+  await kid.goto(origin + '/kendra');
+  await kid.getByLabel('Código de papá').fill(code);
+  await kid.getByRole('button', { name: 'Activar' }).click();
+  await kid.locator('.kid-home-grid').waitFor();
+  assert.equal(await kid.evaluate(() => sessionStorage.getItem('janus.founder.session')), null);
+  await kid.reload();
+  await kid.locator('.kid-home-grid').waitFor();
+  const denial = await kid.evaluate(async () => (await fetch('/api/parent/kid/overview?kidId=kendra', {
+    headers: { authorization: 'Bearer ' + localStorage.getItem('kendra.device.v1') }
+  })).status);
+  assert.ok([401, 403].includes(denial));
+  if (process.env.SHOTS) {
+    mkdirSync(process.env.SHOTS, { recursive: true });
+    await kid.screenshot({ path: join(process.env.SHOTS, 'kendra-inicio-tablet.png') });
+  }
+  await kid.getByRole('button', { name: 'School', exact: true }).click();
+  await kid.locator('.kid-school-subject button').first().waitFor();
+  await kid.getByRole('button', { name: 'Baile', exact: true }).click();
+  await kid.getByRole('heading', { name: 'Baile', exact: true }).waitFor();
+  await kidContext.close();
+  await page.locator('#founderSignOutButton').click();
+  await page.locator('#kendraPanel').waitFor({ state: 'hidden' });
+  assert.equal(await page.locator('#kendraPanel').textContent(), '');
+  ok('código del tutor, dispositivo infantil independiente, reentrada, School y Baile; controles privados cerrados al salir');
+
   stage = 'dashboard navigation';
   for (const route of ['/dashboard/a', '/dashboard/b', '/kendra']) {
     const response = await page.goto(origin + route, { waitUntil: 'domcontentloaded' });
     assert.equal(response.status(), 200);
     assert.ok(await page.locator('link[rel=manifest]').count());
+    if (route.startsWith('/dashboard')) {
+      await page.locator('[data-layout="approved-option-2"]').waitFor();
+      if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, 'founder-' + route.at(-1) + '-tablet.png') });
+    }
   }
   ok('dashboards A/B y Kendra servidas por el Core con sus manifests');
   stage = 'service worker installation';

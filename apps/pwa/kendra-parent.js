@@ -54,6 +54,7 @@ export function mountKidParentPanel(host, options) {
   const { request, mode = 'pin', kidId = 'kendra', onClose } = options;
   const founder = mode === 'founder';
   const kidParam = founder ? `kidId=${encodeURIComponent(kidId)}` : '';
+  let destroyed = false;
   let overview = null;
   let notice = '';
 
@@ -74,6 +75,7 @@ export function mountKidParentPanel(host, options) {
 
   async function load() {
     const result = await request('GET', founder ? `/api/parent/kid/overview?${kidParam}` : '/api/parent/kid/overview');
+    if (destroyed) return;
     if (result.status === 403 || result.status === 401) {
       host.replaceChildren(h('p', { class: 'kp-error' }, (result.body && result.body.error) || 'El área de padres está bloqueada.'));
       return;
@@ -390,7 +392,7 @@ export function mountKidParentPanel(host, options) {
   }
 
   function render() {
-    if (!overview) return;
+    if (destroyed || !overview) return;
     host.replaceChildren(...[
       h('div', { class: 'kp-head' },
         h('h2', {}, `Panel de padres · ${overview.profile.displayName}`),
@@ -406,7 +408,7 @@ export function mountKidParentPanel(host, options) {
   host.classList.add('kp-root');
   host.replaceChildren(h('p', { class: 'kp-muted' }, 'Cargando…'));
   void load();
-  return { reload: load, destroy: () => host.replaceChildren() };
+  return { reload: load, destroy: () => { destroyed = true; overview = null; host.replaceChildren(); } };
 }
 
 export const PARENT_PANEL_CSS = `

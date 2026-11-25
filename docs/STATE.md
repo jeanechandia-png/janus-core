@@ -1,3 +1,9 @@
+## AHORA — 25-nov-2026 · Accesos Founder y Kendra, PR #98
+
+Continuidad local comprobada desde d98c102b y main 480a0b9. Se reprodujo la única regresión de Core CI 45499390617: la prueba de lectura de School comparaba arrays de distintos contextos de JavaScript. Corregida sin relajar las expectativas de palabra, velocidad e idioma. El control de acceso abre Obsidiana al entrar desde la raíz y respeta el retorno a Platino. Administrar como tutor reanuda el panel solicitado tras autenticarse. La app infantil abre por separado con su código. Al cerrar o caducar la sesión se limpia la vista del tutor. Caché v33.
+
+Prueba de navegador ampliada sobre Core, SQLite y perfiles temporales independientes a 1280×800: autenticación, ambas portadas, alta y reentrada infantil, School, Baile y separación de roles. Se ejecuta también en Dashboard CI y adjunta capturas con datos de prueba. Consultar el resultado del commit en la PR. La Samsung personal, sus credenciales y la aceptación visual siguen pendientes. El estado de los activos originales e integraciones se detalla a continuación.
+
 ## AHORA — 24/25-nov-2026 · Continuidad real, PR #98 (sin intervención del Founder)
 
 - **Identidad:** jeanechandia-png/janus-core, base main 480a0b9, única rama existente chatgpt/approved-tablet-layout-20261124. Continuación del 847a7043. PR sigue en borrador; no merge, despliegue ni reinstalación. Preflight remoto parcial: DNS del entorno local no permite checkout y no hay dispositivo remoto conectado.
