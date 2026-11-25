@@ -15,7 +15,7 @@ import { mountFounderHomeData } from './founder-home-data.js';
 const back = encodeURIComponent(location.pathname === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a');
 const controls = document.createElement('div');
 controls.className = 'janus-header-tools';
-controls.setAttribute('aria-label', 'Idioma y acceso de JANUS');
+controls.setAttribute('aria-label', uiLabel('founder', 'headerTools'));
 const languageControl = document.createElement('div');
 languageControl.className = 'janus-language-switch';
 controls.append(languageControl);
@@ -49,12 +49,12 @@ const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');
 summary.textContent = '☰';
-summary.setAttribute('aria-label', 'Accesos y controles de JANUS');
-summary.title = 'Accesos JANUS';
+summary.setAttribute('aria-label', uiLabel('founder', 'accessMenu'));
+summary.title = uiLabel('founder', 'accessTitle');
 menu.append(summary);
 const accessList = document.createElement('nav');
 accessList.className = 'janus-access-links';
-accessList.setAttribute('aria-label', 'Accesos JANUS');
+accessList.setAttribute('aria-label', uiLabel('founder', 'accessTitle'));
 const links = [
   ['signIn', `/?returnTo=${back}#approvals`],
   ['controls', '/'],
@@ -82,7 +82,7 @@ robot.addEventListener('click', () => {
   menu.open = false;
   const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
   const title = document.createElement('h2'); title.textContent = 'JANUS · 02 NEXO';
-  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = uiLabel('founder', 'closeRobot');
   close.addEventListener('click', () => dialog.close());
   const choices = document.createElement('div'); choices.className = 'janus-nexo-choice';
   const stage = document.createElement('div');
@@ -118,6 +118,10 @@ controls.append(menu);
 
 function refreshLabels() {
   team.repaint();
+  controls.setAttribute('aria-label', uiLabel('founder', 'headerTools'));
+  summary.setAttribute('aria-label', uiLabel('founder', 'accessMenu'));
+  summary.title = uiLabel('founder', 'accessTitle');
+  accessList.setAttribute('aria-label', uiLabel('founder', 'accessTitle'));
   for (const [key, element] of linkNodes) element.textContent = uiLabel('founder', key);
   install.textContent = uiLabel('founder', 'install');
 }
@@ -148,7 +152,7 @@ if (app) {
 }
 
 addEventListener('janus:knowledge-applied', (event) => {
-  status.textContent = `Cambio guardado · revisión ${event.detail.revision}`;
+  status.textContent = `${uiLabel('founder', 'changeSaved')} ${event.detail.revision}`;
 });
 addEventListener('janus:review-error', (event) => { status.textContent = event.detail.message; });
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png' });

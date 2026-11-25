@@ -103,7 +103,7 @@ test('language preferences are isolated by profile and UI chrome has translated 
 
 test('offline cache includes controls but does not store protected API responses', () => {
   const sw = text('apps/pwa/sw.js');
-  assert.match(sw, /janus-shell-v38/);
+  assert.match(sw, /janus-shell-v39/);
   assert.match(sw, /'\/language-buttons\.js'/);
   assert.match(sw, /'\/language-buttons\.css'/);
   assert.match(sw, /url\.pathname\.startsWith\('\/api\/'\)/);

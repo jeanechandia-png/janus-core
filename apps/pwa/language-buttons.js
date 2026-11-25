@@ -10,6 +10,7 @@ export const LANGUAGES = Object.freeze([
 const UI = Object.freeze({
   founder: {
     es: {
+      headerTools: 'Idioma y acceso de JANUS', accessMenu: 'Accesos y controles de JANUS', accessTitle: 'Accesos JANUS', closeRobot: 'Cerrar', changeSaved: 'Cambio guardado · revisión',
       linkDevice: 'Vincular este dispositivo',
       enterFounder: 'Entrar como Founder',
       signOut: 'Salir',
@@ -21,6 +22,7 @@ const UI = Object.freeze({
       pairPrompt: 'Puedes abrir la app de Kendra o identificarte para administrar sus ajustes.',
       signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', prayers: 'Oraciones', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
     nl: {
+      headerTools: 'Taal en toegang van JANUS', accessMenu: 'Toegang en bediening van JANUS', accessTitle: 'JANUS-toegang', closeRobot: 'Sluiten', changeSaved: 'Wijziging opgeslagen · revisie',
       linkDevice: 'Dit apparaat koppelen',
       enterFounder: 'Inloggen als Founder',
       signOut: 'Uitloggen',

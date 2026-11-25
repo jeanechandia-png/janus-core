@@ -109,6 +109,16 @@ try {
   });
   assert.deepEqual(confirmed, { validFormat:true, status:200, role:'founder_director' });
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
+  stage = 'authenticated bilingual access menu';
+  await page.getByRole('button', {name:'Nederlands'}).click();
+  const menu = page.locator('.janus-access-menu');
+  await menu.locator('summary').getAttribute('aria-label').then(label => assert.equal(label, 'Toegang en bediening van JANUS'));
+  await menu.locator('summary').click();
+  await menu.getByRole('link', {name:"Kendra's app", exact:true}).waitFor();
+  await menu.locator('summary').click();
+  await page.getByRole('button', {name:'Español'}).click();
+  assert.equal(await menu.locator('summary').getAttribute('aria-label'), 'Accesos y controles de JANUS');
+  ok('menú Founder bilingüe conserva la ruta infantil independiente');
   stage = 'authenticated home data';
   const summary=await page.evaluate(async()=>{
     const allowed=await fetch('/api/founder/home-summary',{cache:'no-store',headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
@@ -218,6 +228,28 @@ try {
     await kid.screenshot({ path: join(process.env.SHOTS, 'kendra-inicio-tablet.png') });
   }
   await kid.evaluate(() => window.JanusGLTF.MeshoptDecoder.ready);
+  stage = 'child scene selection and persistence';
+  await kid.getByRole('button', {name:'Nederlands'}).click();
+  await kid.getByRole('navigation', {name:'Onderdelen'}).waitFor();
+  await kid.getByRole('button', {name:'Mijn scherm',exact:true}).click();
+  const sceneDialog = kid.getByRole('dialog', {name:'Mijn scherm'});
+  await sceneDialog.getByRole('button', {name:'Podium',exact:true}).click();
+  await sceneDialog.getByRole('checkbox').check();
+  await sceneDialog.getByRole('button', {name:'Opslaan',exact:true}).click();
+  await kid.locator('main[data-scene="c"]').waitFor();
+  await kid.reload();
+  await kid.locator('main[data-scene="c"]').waitFor();
+  await kid.getByRole('navigation', {name:'Onderdelen'}).getByRole('button',{name:'Mijn dag',exact:true}).click();
+  await kid.locator('main[data-scene="b"]').waitFor();
+  await kid.getByRole('navigation', {name:'Onderdelen'}).getByRole('button',{name:'Start',exact:true}).click();
+  await kid.locator('main[data-scene="c"]').waitFor();
+  await kid.getByRole('button',{name:'Mijn scherm',exact:true}).click();
+  await sceneDialog.getByRole('button',{name:'Wandeling',exact:true}).click();
+  await sceneDialog.getByRole('button',{name:'Annuleren',exact:true}).click();
+  await kid.locator('main[data-scene="c"]').waitFor();
+  await kid.getByRole('button',{name:'Español'}).click();
+  await kid.getByRole('navigation',{name:'Secciones'}).waitFor();
+  ok('escenas infantiles ES/NL: guardar, recargar, actividad automática, volver y cancelar');
   const setPracticeWindow = async (allowedFrom, allowedUntil) => {
     const status = await page.evaluate(async limits => (await fetch('/api/parent/kid/settings', {
       method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') },

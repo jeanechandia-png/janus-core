@@ -246,6 +246,7 @@ function rebuildTop() {
 }
 
 function rebuildNav() {
+  navEl.setAttribute('aria-label', kt('Secciones'));
   const keys = { inicio: 'home', chat: 'chat', dia: 'day', ver: 'watch', casa: 'house', cosas: 'things', rezar: 'pray', school: 'school', baile: 'dance' };
   navEl.replaceChildren(...TABS.map(([id, icon, label]) => h('button', { type: 'button', 'aria-current': id === tab ? 'page' : null, onClick: () => go(id) }, icon ? h('span', { 'aria-hidden': 'true' }, icon) : null, uiLabel('kendra', keys[id], label))));
 }
@@ -657,7 +658,7 @@ function updateKidClock() {
   if (!clock) return;
   const now = new Date();
   clock.dateTime = now.toISOString();
-  clock.textContent = new Intl.DateTimeFormat('es-NL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' }).format(now);
+  clock.textContent = new Intl.DateTimeFormat(kidLocale(), { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' }).format(now);
 }
 
 // Selección de escena persistente en el dispositivo, sin crear otra PWA ni otro perfil.
