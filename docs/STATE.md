@@ -1,3 +1,7 @@
+## Continuidad — controles privados ES/NL
+
+- Traducción de interfaz parental y cola de aprobaciones Founder mediante diccionarios locales; operaciones, nombres, motivos de aprobación, entradas del usuario, roles y permisos permanecen canónicos. La vista parental usa el idioma del perfil que la abre; no se reinicia un formulario abierto por cambio de idioma. Prueba de metadatos de aprobación ES/NL añadida. Mantener pruebas y revisión visual pendientes.
+
 ## AHORA — 25-nov-2026 · Comprobación por buzón registrado
 
 - Continuación directa desde 5a40fdbe. Verificador ampliado al registro local de cuentas, usa su servicio de credenciales individual; compara identidad devuelta por Gmail contra la dirección registrada sin devolverla. Calendar comprueba el permiso de lectura de eventos del token asignado; no certifica por sí solo identidad de cuenta. Añadida regresión para identidad errónea y prueba Chromium de ruta protegida con credenciales ausentes. Mismo producto, sin despliegue ni credenciales nuevas. Se conserva caché v35 (todavía no publicada). No declarar verificación de producción.

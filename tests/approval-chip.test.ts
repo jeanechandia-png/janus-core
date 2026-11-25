@@ -34,3 +34,8 @@ test('Founder runtime opens the same approval queue and does not show a false ze
   assert.match(views,/liveRuntime \? panel/);
   assert.match(views,/data-live-approvals/);
 });
+
+test('Dutch approval metadata preserves the real operation, reason, target and expiry',()=>{
+ const now=Date.parse('2026-11-11T10:00:00Z');
+ assert.equal(describeApproval({operation:'tienda.deleteOrder',target:'tienda.example',reason:'método DELETE',risk:'critical',reversible:false,expiresAt:'2026-11-11T10:12:00Z'},now,'nl'),'tienda.deleteOrder · bij tienda.example · método DELETE · risico kritiek · onomkeerbaar · verloopt over 12 min');
+});

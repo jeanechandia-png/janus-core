@@ -1,3 +1,4 @@
+import { currentLanguage } from './language-buttons.js';
 import { authHeaders, sessionToken } from './founder-session.js';
 
 /**
@@ -10,9 +11,11 @@ const REFRESH_MS = 15_000;
 const RISK = { low: 'bajo', medium: 'medio', high: 'alto', critical: 'crítico' };
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
 
-export function describeApproval(item, nowMs = Date.now()) {
+export function describeApproval(item, nowMs = Date.now(), language='es') {
+  const nl=language==='nl';
+  const risk=nl?{low:'laag',medium:'gemiddeld',high:'hoog',critical:'kritiek'}:RISK;
   const minutes = Math.max(0, Math.round((Date.parse(item.expiresAt) - nowMs) / 60000));
-  return [item.operation ? String(item.operation) : null, item.target ? `en ${item.target}` : null, item.reason || null, `riesgo ${RISK[item.risk] ?? item.risk ?? '—'}`, item.reversible === false ? 'irreversible' : null, `caduca en ${minutes} min`].filter(Boolean).join(' · ');
+  return [item.operation ? String(item.operation) : null, item.target ? `${nl?'bij':'en'} ${item.target}` : null, item.reason || null, `${nl?'risico':'riesgo'} ${risk[item.risk] ?? item.risk ?? '—'}`, item.reversible === false ? (nl?'onomkeerbaar':'irreversible') : null, `${nl?'verloopt over':'caduca en'} ${minutes} min`].filter(Boolean).join(' · ');
 }
 
 export function mountApprovalChip() {
@@ -26,28 +29,31 @@ export function mountApprovalChip() {
   let pending = [];
   let error = '', verified = false, forced = false, refreshId = 0;
 
+  const tr = value => currentLanguage('founder')==='nl' ? ({"Aprobar":"Goedkeuren","Denegar":"Weigeren","Acción":"Actie","Esperan tu decisión":"Wachten op jouw beslissing","No hay aprobaciones pendientes.":"Geen openstaande goedkeuringen.","Identificarme":"Inloggen","Aprobaciones sin comprobar":"Goedkeuringen niet gecontroleerd","Identifícate para comprobar las aprobaciones.":"Log in om goedkeuringen te controleren.","No pude comprobar la cola de aprobaciones.":"De wachtrij kon niet worden gecontroleerd.","Sin conexión con JANUS: la decisión no se registró.":"Geen verbinding met JANUS: de beslissing is niet opgeslagen."})[value] ?? value : value;
   function paint() {
+    const nl=currentLanguage('founder')==='nl';
+    summary.querySelector('.jap-text').textContent=tr('Aprobar');
     root.hidden = pending.length === 0 && !error && !forced;
     if (root.hidden) root.open = false;
     count.textContent = verified ? String(pending.length) : '—';
-    summary.setAttribute('aria-label', verified ? (pending.length === 1 ? '1 acción espera tu aprobación' : `${pending.length} acciones esperan tu aprobación`) : 'Aprobaciones sin comprobar');
+    summary.setAttribute('aria-label', verified ? (nl ? `${pending.length} ${pending.length===1?'actie wacht':'acties wachten'} op jouw goedkeuring` : pending.length === 1 ? '1 acción espera tu aprobación' : `${pending.length} acciones esperan tu aprobación`) : tr('Aprobaciones sin comprobar'));
     const rows = pending.map((item) => {
       const row = el('div', 'jap-row' + (item.risk === 'critical' ? ' is-critical' : ''));
       const actions = el('div', 'jap-actions');
       for (const [label, approved, cls] of [['Aprobar', true, 'jap-yes'], ['Denegar', false, 'jap-no']]) {
-        const button = el('button', cls, label);
+        const button = el('button', cls, tr(label));
         button.type = 'button';
         button.addEventListener('click', () => { void decide(item.id, approved, actions); });
         actions.append(button);
       }
-      row.append(el('strong', '', item.label || item.operation || 'Acción'), el('small', '', describeApproval(item)), actions);
+      row.append(el('strong', '', item.label || item.operation || tr('Acción')), el('small', '', describeApproval(item,Date.now(),currentLanguage('founder'))), actions);
       return row;
     });
-    panel.replaceChildren(el('div', 'jap-title', 'Esperan tu decisión'), ...rows,
-      ...(error ? [el('div', 'jap-error', error)] : []),
-      ...(verified && !pending.length ? [el('p', '', 'No hay aprobaciones pendientes.')] : []));
+    panel.replaceChildren(el('div', 'jap-title', tr('Esperan tu decisión')), ...rows,
+      ...(error ? [el('div', 'jap-error', nl && /^No se pudo registrar la decisión \(\d+\)\.$/.test(error) ? error.replace('No se pudo registrar la decisión','De beslissing kon niet worden opgeslagen') : tr(error))] : []),
+      ...(verified && !pending.length ? [el('p', '', tr('No hay aprobaciones pendientes.'))] : []));
     if (!sessionToken() && forced) {
-      const a=el('a','','Identificarme'); a.href='/?returnTo='+encodeURIComponent(location.pathname)+'#approvals'; panel.append(a);
+      const a=el('a','',tr('Identificarme')); a.href='/?returnTo='+encodeURIComponent(location.pathname)+'#approvals'; panel.append(a);
     }
   }
   async function decide(id, approved, actions) {
@@ -80,6 +86,7 @@ export function mountApprovalChip() {
   }
   paint();
   void refresh();
+  document.addEventListener('janus:language-changed', event=>{if(event.detail?.scope==='founder')paint();});
   const timer = setInterval(refresh, REFRESH_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void refresh(); });
   addEventListener('pagehide', () => clearInterval(timer));
