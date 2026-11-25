@@ -1,7 +1,8 @@
 // Nodo real + navegador: alta local, inicio de sesión, cifrado persistente y PWA sin conexión.
 // PLAYWRIGHT_MODULE puede apuntar a una instalación de Playwright externa al producto.
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -64,8 +65,18 @@ try {
   page.on('console', message => { if (message.type() === 'error') browserErrors.push(message.text()); });
   stage = 'owner key creation';
   await page.goto(origin + '/', { waitUntil: 'domcontentloaded' });
-  await page.locator('#founderLinkButton').click();
+  await page.getByRole('button', { name: 'Nederlands' }).click();
+  await page.getByRole('button', { name: 'Dit apparaat koppelen' }).waitFor();
+  await page.getByRole('link', { name: 'Kendra’s app openen' }).waitFor();
+  await page.getByRole('button', { name: 'Español' }).click();
+  const secondTab = await context.newPage();
+  await secondTab.goto(origin + '/');
+  await Promise.all([page, secondTab].map(tab => tab.locator('#founderLinkButton').click()));
+  await secondTab.locator('#founderKeyBox').waitFor({ state: 'visible' });
   await page.locator('#founderKeyBox').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('#founderKeyText').inputValue(), await secondTab.locator('#founderKeyText').inputValue());
+  await secondTab.close();
+  ok('dos pestañas de alta obtienen la misma llave del dispositivo');
   const downloadReady = page.waitForEvent('download');
   await page.locator('#founderKeyDownload').click();
   const download = await downloadReady;
@@ -74,6 +85,9 @@ try {
   const publicText = readFileSync(publicPath, 'utf8');
   assert.match(publicText, /BEGIN PUBLIC KEY/); assert.doesNotMatch(publicText, /PRIVATE/);
   ok('vinculación desde la interfaz real; descarga exclusivamente pública');
+  stage = 'local deployment check';
+  await promisify(execFile)(process.execPath, ['scripts/tablet/check-install.mjs', '--runtime'], { cwd: root, env });
+  ok('diagnóstico de entrega identifica las tres pantallas y los archivos servidos por este Core');
   stage = 'first owner sign-in';
   await stop(); configureLocal(env, publicPath); await start();
   const authorityStatus = await (await fetch(origin + '/api/auth/status', { cache:'no-store' })).json();
@@ -83,6 +97,10 @@ try {
   await page.locator('#founderSignInButton').click();
   await page.waitForURL(origin + '/dashboard/a');
   await page.locator('[data-layout="approved-option-2"]').waitFor();
+  if (process.env.SHOTS) {
+    mkdirSync(process.env.SHOTS, { recursive: true });
+    await page.screenshot({ path: join(process.env.SHOTS, 'founder-a-tablet.png') });
+  }
   const confirmed = await page.evaluate(async () => {
     const token = sessionStorage.getItem('janus.founder.session') || '';
     const response = await fetch('/api/auth/session', { cache:'no-store', headers:{authorization:'Bearer '+token} });
@@ -150,6 +168,7 @@ try {
   await page.locator('#founderSignInButton').click();
   await page.waitForURL(origin + '/dashboard/b');
   await page.locator('[data-layout="approved-option-2"]').waitFor();
+  if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, 'founder-b-tablet.png') });
   const stored = await page.evaluate(async id => {
     const response = await fetch('/api/cases', { headers: { authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } });
     const body = await response.json();
@@ -171,7 +190,15 @@ try {
   const kid = await kidContext.newPage();
   kid.on('pageerror', error => browserErrors.push(error.message));
   await kid.goto(origin + '/kendra');
-  await kid.getByLabel('Código de papá').fill(code);
+  await kid.getByRole('button', { name: 'Nederlands' }).click();
+  await kid.getByLabel("Papa's code").fill('INVALID');
+  await kid.getByRole('button', { name: 'Activeren' }).click();
+  await kid.getByRole('alert').getByText(/Deze code is ongeldig/).waitFor();
+  await kid.getByLabel("Papa's code").fill(code);
+  await kid.getByRole('button', { name: 'Español' }).click();
+  assert.equal(await kid.getByLabel('Código de papá').inputValue(), code);
+  await kid.getByRole('alert').getByText(/Ese código no sirve/).waitFor();
+  ok('alta infantil ES/NL, error de código real y cambio de idioma conservando la entrada');
   await kid.getByRole('button', { name: 'Activar' }).click();
   await kid.locator('.kid-home-grid').waitFor();
   assert.equal(await kid.evaluate(() => sessionStorage.getItem('janus.founder.session')), null);
@@ -223,7 +250,6 @@ try {
     assert.ok(await page.locator('link[rel=manifest]').count());
     if (route.startsWith('/dashboard')) {
       await page.locator('[data-layout="approved-option-2"]').waitFor();
-      if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, 'founder-' + route.at(-1) + '-tablet.png') });
     }
   }
   ok('dashboards A/B y Kendra servidas por el Core con sus manifests');

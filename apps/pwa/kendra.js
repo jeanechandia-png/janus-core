@@ -98,7 +98,7 @@ function unpair() {
   document.querySelector('[data-kid-screen]')?.remove();
   topEl = null;
   navEl = null;
-  renderPair(kt('Este dispositivo ya no está emparejado. Pídele a papá un código nuevo.'));
+  renderPair('Este dispositivo ya no está emparejado. Pídele a papá un código nuevo.');
 }
 
 function creature() { return view?.creatures?.find((item) => item.id === view.profile.companionId); }
@@ -150,23 +150,36 @@ function micButton(input) {
 // ── Emparejamiento ──────────────────────────────────────────────────────────────────────────────────────────
 function renderPair(message = '') {
   const code = h('input', { type: 'text', class: 'code', placeholder: 'XXXX-XXXX', maxlength: '9', autocomplete: 'off', autocapitalize: 'characters', 'aria-label': kt('Código de papá') });
-  const error = h('p', { class: 'err', role: 'alert' }, message);
-  const activate = h('button', { type: 'submit', class: 'primary' }, kt('Activar'));
+  const languageHost = h('div', { class: 'janus-language-switch' });
+  const heading = h('h1');
+  const instruction = h('p', { class: 'muted' });
+  const error = h('p', { class: 'err', role: 'alert' });
+  const activate = h('button', { type: 'submit', class: 'primary' });
   const form = h('form', { class: 'pair' },
+    languageHost,
     h('div', { class: 'avatar', style: 'margin-inline:auto;inline-size:84px;block-size:84px;font-size:48px' }, '🦄'),
-    h('h1', {}, kt('¡Hola! Vamos a conocernos')),
-    h('p', { class: 'muted' }, kt('Pídele a papá el código para activar Kendra en este aparato.')),
-    code, error, activate);
+    heading, instruction, code, error, activate);
+  function localize() {
+    heading.textContent = kt('¡Hola! Vamos a conocernos');
+    instruction.textContent = kt('Pídele a papá el código para activar Kendra en este aparato.');
+    code.setAttribute('aria-label', kt('Código de papá'));
+    activate.textContent = kt('Activar');
+    error.textContent = kt(message);
+  }
+  mountLanguageButtons(languageHost, 'kendra', { onChange: localize });
+  localize();
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (activate.disabled) return;
     activate.disabled = true;
+    message = '';
     error.textContent = '';
     const result = await api('POST', '/api/kid/redeem', { code: code.value, label: 'Dispositivo de la niña' });
     if (result.status === 201) { token = result.body.token; writeStorage(TOKEN_KEY, token); await start(); }
     else {
       activate.disabled = false;
-      error.textContent = result.body.error || kt('No pude activarlo. Inténtalo otra vez.');
+      message = result.status === 0 ? 'Parece que no hay internet. Inténtalo en un ratito.' : (result.body.error || 'No pude activarlo. Inténtalo otra vez.');
+      error.textContent = kt(message);
       code.focus();
     }
   });

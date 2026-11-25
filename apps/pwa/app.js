@@ -910,7 +910,7 @@ async function refreshFounderControls() {
     clearKendraParentPanel();
     void refreshFounderPrivateCases();
     kendraBadge.hidden = true;
-    kendraSummary.textContent = 'Puedes abrir la app de Kendra o identificarte para administrar sus ajustes.';
+    kendraSummary.textContent = uiLabel('founder', 'pairPrompt');
   }
 }
 
@@ -1109,12 +1109,20 @@ refreshFounderControls();
 function refreshFounderLocale() {
   const labels = {
     'h1': 'heading',
+    '#founderLinkButton': 'linkDevice',
+    '#founderSignInButton': 'enterFounder',
+    '#founderSignOutButton': 'signOut',
+    '#founderKeyCopy': 'copyKey',
+    '#founderKeyDownload': 'downloadKey',
+    '#kendraOpenApp': 'openKid',
+    '#kendraOpenPanel': document.querySelector('#kendraPanel').hidden ? 'manageKid' : 'closeParent',
     '#approvalsTitle': 'approvals',
     '#capabilityTitle': 'capabilities',
     '#sendButton': 'run',
     '#pauseButton': 'pause',
     '#stopButton': 'stop',
   };
+  if (!sessionToken()) labels['#kendraSummary'] = 'pairPrompt';
   for (const [selector, key] of Object.entries(labels)) {
     const element = document.querySelector(selector);
     if (element) element.textContent = uiLabel('founder', key);
@@ -1140,7 +1148,7 @@ function clearKendraParentPanel() {
   kendraPanelHandle?.destroy();
   kendraPanelHandle = null;
   kendraPanel.hidden = true;
-  kendraOpenPanel.textContent = 'Administrar como tutor';
+  kendraOpenPanel.textContent = uiLabel('founder', 'manageKid');
 }
 
 async function openKendraParentPanel() {
@@ -1148,7 +1156,7 @@ async function openKendraParentPanel() {
   const { mountKidParentPanel } = await import('./kendra-parent.js');
   if (!token || sessionToken() !== token || kendraPanelHandle) return;
   kendraPanel.hidden = false;
-  kendraOpenPanel.textContent = 'Cerrar controles del tutor';
+  kendraOpenPanel.textContent = uiLabel('founder', 'closeParent');
   kendraPanelHandle = mountKidParentPanel(kendraPanel, { mode: 'founder', kidId: 'kendra', request: kendraRequest, onClose: () => kendraOpenPanel.click() });
   kendraOpenPanel.scrollIntoView({ block: 'start' });
 }

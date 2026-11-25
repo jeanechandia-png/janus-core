@@ -9,8 +9,28 @@ export const LANGUAGES = Object.freeze([
 ]);
 const UI = Object.freeze({
   founder: {
-    es: { signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', prayers: 'Oraciones', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
-    nl: { signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", prayers: 'Gebeden', install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
+    es: {
+      linkDevice: 'Vincular este dispositivo',
+      enterFounder: 'Entrar como Founder',
+      signOut: 'Salir',
+      copyKey: 'Copiar llave pública',
+      downloadKey: 'Descargar llave pública',
+      openKid: 'Abrir app de Kendra',
+      manageKid: 'Administrar como tutor',
+      closeParent: 'Cerrar controles del tutor',
+      pairPrompt: 'Puedes abrir la app de Kendra o identificarte para administrar sus ajustes.',
+      signIn: 'Identificarme', controls: 'Controles y familia', kidApp: 'App de Kendra', prayers: 'Oraciones', install: 'Instalar app', heading: 'Trabajo en vivo', approvals: 'Tu visto bueno', capabilities: 'Disponibilidad real', run: 'Ejecutar', pause: 'Pausar', stop: 'Detener', team: 'Mi equipo', teamOpen: 'Toca para ver ¿Cómo va el equipo?', teamEmpty: 'Aún no hay colaboradores' },
+    nl: {
+      linkDevice: 'Dit apparaat koppelen',
+      enterFounder: 'Inloggen als Founder',
+      signOut: 'Uitloggen',
+      copyKey: 'Openbare sleutel kopiëren',
+      downloadKey: 'Openbare sleutel downloaden',
+      openKid: 'Kendra’s app openen',
+      manageKid: 'Beheren als ouder',
+      closeParent: 'Ouderinstellingen sluiten',
+      pairPrompt: 'Je kunt Kendra’s app openen of inloggen om haar instellingen te beheren.',
+      signIn: 'Inloggen', controls: 'Bediening en gezin', kidApp: "Kendra's app", prayers: 'Gebeden', install: 'App installeren', heading: 'Live aan het werk', approvals: 'Jouw goedkeuring', capabilities: 'Werkelijke beschikbaarheid', run: 'Uitvoeren', pause: 'Pauzeren', stop: 'Stoppen', team: 'Mijn team', teamOpen: 'Tik voor: Hoe gaat het met het team?', teamEmpty: 'Nog geen medewerkers' },
   },
   kendra: {
     es: { home: 'Inicio', chat: 'Charla', day: 'Mi día', watch: 'Ver', house: 'Casa', things: 'Mis cosas', pray: 'Oraciones', school: 'School', dance: 'Baile', parent: 'Zona de padres', voice: 'Leer en voz alta las respuestas' },
@@ -150,6 +170,8 @@ const KENDRA_NL=Object.freeze({
 "El control de la casa está apagado ahora mismo. Pídeselo a papá o a mamá.":"De huisbediening staat nu uit. Vraag het aan papa of mama.",
 "Eso lo controlan papá o mamá.":"Dat bedienen papa of mama.",
 
+  "Ese código no sirve o ya caducó. Pídele a papá uno nuevo.": "Deze code is ongeldig of verlopen. Vraag papa om een nieuwe code.",
+  "Demasiados intentos. Espera unos minutos.": "Te veel pogingen. Wacht even en probeer het opnieuw.",
   "Activar": "Activeren",
   "¡Hola! Vamos a conocernos": "Hallo! Laten we kennismaken",
   "Pídele a papá el código para activar Kendra en este aparato.": "Vraag papa om de code om Kendra op dit apparaat te activeren.",

@@ -4,7 +4,9 @@ import { generateKeyPairSync } from 'node:crypto';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
+import { promisify } from 'node:util';
 import { pathToFileURL } from 'node:url';
 import { configureLocal } from '../scripts/tablet/configure-local.mjs';
 import { loadEnvFile } from '../scripts/lib/env-file.mjs';
@@ -98,4 +100,33 @@ test('tablet installer: fresh install and fast-forward update preserve data; dir
     result = install(); assert.notEqual(result.status, 0); assert.match(result.stderr, /no continúa/);
     assert.equal(head(), git('rev-parse', 'HEAD'), 'no rollback');
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+test('tablet delivery check rejects an HTTP 200 landing, a different skin and stale assets', async () => {
+  const server = createServer((req, res) => {
+    if (req.url === '/health') {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ ok: true, service: 'janus-runtime', durable: true, db: 'sqlite' }));
+      return;
+    }
+    res.setHeader('content-type', 'text/html');
+    res.end(req.url === '/dashboard/b'
+      ? '<title>Janus · Obsidiana</title><link rel="manifest" href="/manifest.webmanifest"><script type="module" src="/dashboard-access.js"></script>'
+      : '<title>InfinitySeed Group</title>');
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await assert.rejects(promisify(execFile)(process.execPath, [join(kit, 'check-install.mjs'), '--runtime'], {
+      env: { ...process.env, PORT: String(server.address().port) },
+    }), error => {
+      assert.equal(error.code, 1);
+      for (const route of ['/dashboard/a', '/dashboard/b', '/kendra', 'sw.js', 'founder-session.js', 'kendra.js']) {
+        assert.ok(error.stdout.includes('FALTA · ' + route), route);
+      }
+      return true;
+    });
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
 });

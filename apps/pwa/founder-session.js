@@ -53,8 +53,8 @@ async function idb(mode, run) {
     return await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const request = run(tx.objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      tx.oncomplete = () => resolve(request.result);
+      tx.onabort = () => reject(tx.error || request.error);
     });
   } finally {
     db.close();
@@ -68,8 +68,17 @@ export async function loadDeviceKey() {
 export async function createDeviceKey() {
   if (!globalThis.isSecureContext || !crypto?.subtle) throw new Error('Este navegador necesita HTTPS para crear la llave segura del dispositivo.');
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign', 'verify']);
-  await idb('readwrite', (store) => store.put(pair, KEY_ID));
-  return pair;
+  // Multiple open tabs can both start linking before either one displays its key.
+  // Only the first transaction may create the device identity.
+  try {
+    await idb('readwrite', store => store.add(pair, KEY_ID));
+    return pair;
+  } catch (error) {
+    if (error?.name !== 'ConstraintError') throw error;
+    const existing = await idb('readonly', store => store.get(KEY_ID));
+    if (!existing) throw error;
+    return existing;
+  }
 }
 
 export async function devicePublicKeyPem(pair) {
