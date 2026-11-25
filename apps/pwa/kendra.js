@@ -72,7 +72,7 @@ async function api(method, path, body, headers = {}) {
     const response = await fetch(path, {
       method,
       cache: 'no-store',
-      headers: { ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
+      headers: { 'x-janus-language':currentLanguage('kendra'), ...(body !== undefined ? { 'content-type': 'application/json' } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}), ...headers },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     let data = {};
@@ -229,7 +229,7 @@ function rebuildTop() {
     languageHost,
     h('button', { type: 'button', class: 'iconbtn', 'aria-pressed': String(prefs.speak), 'aria-label': uiLabel('kendra', 'voice'), onClick: () => { prefs.speak = !prefs.speak; savePrefs(); if (!prefs.speak) window.speechSynthesis?.cancel(); rebuildTop(); } }, prefs.speak ? '🔊' : '🔇'),
     h('button', { type: 'button', class: 'iconbtn', 'aria-label': uiLabel('kendra', 'parent'), onClick: openParent }, '🔒')].filter(Boolean));
-  mountLanguageButtons(languageHost, 'kendra', { onChange: () => { rebuildNav(); rebuildTop(); if(tab!=='chat' && !(isMediaTab() && player)) renderMain(); } });
+  mountLanguageButtons(languageHost, 'kendra', { onChange: () => { rebuildNav(); rebuildTop(); if(tab==='school'){schoolFeedback='';schoolAnswerPending=false;void loadSchool();} else if(tab!=='chat' && !(isMediaTab() && player)) renderMain(); } });
 }
 
 function rebuildNav() {
@@ -646,7 +646,7 @@ function openScreen() {
     h('button', { type: 'button', 'aria-pressed': String(id === selected), onClick: (event) => {
       selected = id;
       sceneButtons.querySelectorAll('button').forEach(button => button.setAttribute('aria-pressed', String(button === event.currentTarget)));
-    } }, label)));
+    } }, kt(label))));
   sheet.append(h('div', {}, h('h2', {}, kt('Mi pantalla')), h('p', {}, kt('Elige tu escena.')), sceneButtons,
     h('label',{class:'kid-auto-scene'},auto,kt(' Cambiar de escena según la actividad')),
     h('p', {class:'muted'}, kt('Tu elección se guarda. El decorado 3D definitivo estará disponible cuando se incorpore el modelo aprobado.')),

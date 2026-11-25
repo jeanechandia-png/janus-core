@@ -180,3 +180,220 @@ export const KID_GUIDED_PRACTICE: readonly KidGuidedPractice[] = Object.freeze([
     source:{name:'Naciones Unidas',url:'https://www.un.org/en/about-us'},
     check:{question:'¿En qué año nacieron las Naciones Unidas?',options:['1581','1810','1945'],answer:2,why:'La ONU nació en 1945.'} }
 ]);
+
+
+// Translation only; identity, answer index, reading language and evidence remain canonical.
+export interface KidPracticeTranslation { subject:string; title:string; skill:string; steps:readonly string[]; materials:readonly string[]; question?:string; options?:readonly string[]; why?:string }
+export const KID_PRACTICE_NL: Readonly<Record<string,KidPracticeTranslation>>=Object.freeze({
+  "amigos-del-10": {
+    "subject": "Rekenen",
+    "title": "Vriendjes van 10",
+    "skill": "Optellen en aftrekken tot 10 en 20",
+    "steps": [
+      "Leg 10 fiches neer (of gebruik je vingers) en verdeel ze in twee groepen. Hoeveel zitten er in elke hand?",
+      "Zeg het paar hardop: 7 en 3 zijn vriendjes van 10.",
+      "Speel Raad mijn vriendje: iemand zegt 6 en jij antwoordt 4.",
+      "Pas toe: 8 + 5 = 8 + 2 + 3 = 10 + 3 = 13."
+    ],
+    "materials": [
+      "Fiches, knopen of vingers"
+    ]
+  },
+  "cpa-concreto-dibujo-simbolo": {
+    "subject": "Rekenen",
+    "title": "Aanraken, tekenen, schrijven",
+    "skill": "Nieuwe rekenbewerkingen begrijpen",
+    "steps": [
+      "Los het probleem op met voorwerpen, bijvoorbeeld 3 groepen van 4 koekjes.",
+      "Teken vakjes of balken die hetzelfde voorstellen.",
+      "Schrijf 3 × 4 = 12 en leg in je eigen woorden uit wat elk getal betekent.",
+      "Verander steeds één getal (van 3 × 4 naar 3 × 5). Wat blijft hetzelfde en wat verandert?"
+    ],
+    "materials": [
+      "Kleine voorwerpen",
+      "Papier en kleurpotloden"
+    ]
+  },
+  "mat-amigos": {
+    "subject": "Rekenen",
+    "title": "Maak de tien vol",
+    "skill": "Optellen",
+    "steps": [
+      "Teken tien cirkels. Kleur er zeven in.",
+      "Tel de cirkels zonder kleur."
+    ],
+    "materials": [
+      "Papier en potlood"
+    ],
+    "question": "Hoeveel moet er bij 7 om 10 te krijgen?",
+    "options": [
+      "2",
+      "3",
+      "4"
+    ],
+    "why": "7 + 3 = 10. Controleer het met je cirkels."
+  },
+  "nl-fiets": {
+    "subject": "Nederlands",
+    "title": "De fiets",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk een fiets of teken er een.",
+      "Lees en herhaal het Nederlandse woord."
+    ],
+    "materials": [
+      "Eventueel papier"
+    ],
+    "question": "Wat betekent «de fiets» in het Spaans?",
+    "options": [
+      "La bicicleta",
+      "La mesa",
+      "El libro"
+    ],
+    "why": "De fiets betekent la bicicleta."
+  },
+  "en-water": {
+    "subject": "Engels",
+    "title": "Een glas water",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk een glas water.",
+      "Luister naar het Engelse woord en zeg het na."
+    ],
+    "materials": [
+      "Een glas water"
+    ],
+    "question": "Hoe zeg je water in het Engels?",
+    "options": [
+      "Book",
+      "Water",
+      "Chair"
+    ],
+    "why": "Water betekent water."
+  },
+  "fr-bonjour": {
+    "subject": "Frans",
+    "title": "Groeten in het Frans",
+    "skill": "Woordenschat",
+    "steps": [
+      "Stel je voor dat je een vriendin begroet.",
+      "Lees de groet en zeg hem na."
+    ],
+    "materials": [],
+    "question": "Met welk woord begroet je iemand overdag in het Frans?",
+    "options": [
+      "Merci",
+      "Bonsoir",
+      "Bonjour"
+    ],
+    "why": "Bonjour is een gebruikelijke groet overdag."
+  },
+  "zh-nihao": {
+    "subject": "Mandarijn",
+    "title": "Groeten in het Mandarijn",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk de twee karakters en hun geschreven uitspraak: nǐ hǎo.",
+      "Luister naar de zin als je apparaat een Mandarijnse stem heeft."
+    ],
+    "materials": [],
+    "question": "Wat betekent «你好» (nǐ hǎo)?",
+    "options": [
+      "Hallo",
+      "Tot ziens",
+      "Dank je"
+    ],
+    "why": "你好 is een gebruikelijke manier om hallo te zeggen."
+  },
+  "es-ortografia": {
+    "subject": "Spaanse spelling",
+    "title": "De bibliotheek",
+    "skill": "Woorden schrijven",
+    "steps": [
+      "Lees langzaam: biblioteca.",
+      "Schrijf het woord op en vergelijk de letters."
+    ],
+    "materials": [
+      "Papier en potlood"
+    ],
+    "question": "Welk Spaans woord is juist gespeld?",
+    "options": [
+      "Bivlioteca",
+      "Biblioteca",
+      "Biblioteka"
+    ],
+    "why": "Biblioteca schrijf je met een b en een c."
+  },
+  "es-lectura": {
+    "subject": "Spaans lezen en spreken",
+    "title": "Een kort verhaal",
+    "skill": "Begrijpen en vertellen",
+    "steps": [
+      "Lees: Ana llevó una botella de agua al parque. Allí jugó con su amiga.",
+      "Vertel in je eigen woorden wat Ana meenam."
+    ],
+    "materials": [],
+    "question": "Wat nam Ana mee naar het park?",
+    "options": [
+      "Een bal",
+      "Een boek",
+      "Een fles water"
+    ],
+    "why": "In de eerste zin staat dat ze een fles water meenam."
+  },
+  "hist-nl-1581": {
+    "subject": "Geschiedenis van Nederland",
+    "title": "Een document uit 1581",
+    "skill": "Een historische datum herkennen",
+    "steps": [
+      "Op 26 juli 1581 werd het Plakkaat van Verlating ondertekend.",
+      "De opstandige gewesten erkenden Filips II niet langer als hun vorst."
+    ],
+    "materials": [
+      "Papier voor een tijdlijn"
+    ],
+    "question": "In welk jaar werd het document ondertekend?",
+    "options": [
+      "1581",
+      "1810",
+      "1945"
+    ],
+    "why": "Het werd op 26 juli 1581 ondertekend."
+  },
+  "hist-co-1810": {
+    "subject": "Geschiedenis van Colombia",
+    "title": "20 juli",
+    "skill": "Een historische datum herkennen",
+    "steps": [
+      "Op 20 juli 1810 vond in Bogotá een revolutie plaats.",
+      "Er werd een bestuursjunta gevormd. Dat was een stap in het onafhankelijkheidsproces."
+    ],
+    "materials": [
+      "Papier voor een tijdlijn"
+    ],
+    "question": "In welke stad vond de revolutie van 20 juli 1810 plaats?",
+    "options": [
+      "Medellín",
+      "Bogotá",
+      "Cartagena"
+    ],
+    "why": "De revolutie uit deze les vond plaats in Bogotá."
+  },
+  "hist-mundo-onu": {
+    "subject": "Wereldgeschiedenis",
+    "title": "Samenwerking tussen landen",
+    "skill": "Een organisatie herkennen",
+    "steps": [
+      "De Verenigde Naties werden in 1945 opgericht.",
+      "Een van hun doelen is helpen de vrede tussen landen te bewaren."
+    ],
+    "materials": [],
+    "question": "In welk jaar werden de Verenigde Naties opgericht?",
+    "options": [
+      "1581",
+      "1810",
+      "1945"
+    ],
+    "why": "De VN werden in 1945 opgericht."
+  }
+});

@@ -115,6 +115,11 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     assert.equal(school.status, 200);
     assert.equal(school.body.status, 'available');
     assert.equal(school.body.techniques.length,12);
+    const schoolNl=await call('GET','/api/kid/school',{...kid,'x-janus-language':'nl'});
+    assert.equal(schoolNl.body.techniques.length,12);
+    assert.deepEqual(schoolNl.body.techniques.map((x:{id:string})=>x.id),school.body.techniques.map((x:{id:string})=>x.id));
+    assert.equal(schoolNl.body.techniques.find((x:{id:string})=>x.id==='mat-amigos').title,'Maak de tien vol');
+    assert.ok(schoolNl.body.techniques.filter((x:{check?:Record<string,unknown>})=>x.check).every((x:{check:Record<string,unknown>})=>!('answer' in x.check)&&!('why' in x.check)));
     assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='amigos-del-10'));
     assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='zh-nihao'));
     assert.ok(school.body.techniques.filter((item:{check?:Record<string,unknown>})=>item.check).every((item:{check:Record<string,unknown>})=>!('answer' in item.check)));
@@ -124,8 +129,9 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     assert.equal((await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:99})).status,400);
     const wrongPractice=await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:0});
     assert.equal(wrongPractice.body.correct,false);
-    const correctPractice=await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:1});
+    const correctPractice=await call('POST','/api/kid/school/answer',{...kid,'x-janus-language':'nl'},{id:'mat-amigos',answer:1});
     assert.equal(correctPractice.body.correct,true);
+    assert.match(correctPractice.body.message,/Controleer het/);
     assert.deepEqual(correctPractice.body.progress,{attempts:2,correct:1});
     const reopenedSchool=await call('GET','/api/kid/school',kid);
     assert.deepEqual(reopenedSchool.body.techniques.find((item:{id:string})=>item.id==='mat-amigos').progress,{attempts:2,correct:1});

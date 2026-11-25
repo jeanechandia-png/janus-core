@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ModelGateway, ModelMessage } from '../../packages/gateways/src/contracts.js';
 import type { SqliteStore } from '../../packages/core/src/sqlite-store.js';
 import { OPEN_METEO_ATTRIBUTION } from '../../packages/adapters/src/open-meteo-adapter.js';
-import { KID_GUIDED_PRACTICE, listTechniques } from '../../packages/modules/janus-school/src/index.js';
+import { KID_GUIDED_PRACTICE, KID_PRACTICE_NL, listTechniques } from '../../packages/modules/janus-school/src/index.js';
 import {
   FileAttachmentStore,
   describeAttachmentsForMessage,
@@ -429,7 +429,14 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             check:{question:check.question,options:check.options}, source:source?.name,
             progress:state.schoolPractice?.[id] ?? {attempts:0,correct:0}
           }));
-          json(response, 200, { ok: true, status: 'available', techniques:[...maths,...guided] });
+          const techniques=[...maths,...guided].map(item=>{
+            if(deps.headerValue(request,'x-janus-language')!=='nl')return item;
+            const localized=KID_PRACTICE_NL[item.id];
+            if(!localized)return item;
+            const {question,options,why,...labels}=localized;
+            return {...item,...labels,...('check' in item && question && options ? {check:{question,options}}:{})};
+          });
+          json(response, 200, { ok: true, status: 'available', techniques });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/school/answer') {
@@ -445,7 +452,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             const prior = current.schoolPractice?.[lesson.id] ?? {attempts:0,correct:0};
             return {schoolPractice:{...current.schoolPractice,[lesson.id]:{attempts:Math.min(100000,prior.attempts+1),correct:Math.min(100000,prior.correct+(correct?1:0))}}};
           });
-          json(response,200,{ok:true,status:'answered',correct,message:correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.',progress:next.schoolPractice?.[lesson.id]});
+          json(response,200,{ok:true,status:'answered',correct,message:deps.headerValue(request,'x-janus-language')==='nl' ? (correct ? KID_PRACTICE_NL[lesson.id]?.why ?? lesson.check.why : 'Goed geprobeerd. Lees de oefening nog eens en probeer opnieuw.') : (correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.'),progress:next.schoolPractice?.[lesson.id]});
           return true;
         }
         // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
