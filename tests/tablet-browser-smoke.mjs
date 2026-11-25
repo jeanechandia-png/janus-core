@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import net from 'node:net';
 import { configureLocal } from '../scripts/tablet/configure-local.mjs';
+import { loadEnvFile } from '../scripts/lib/env-file.mjs';
 
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = resolve(import.meta.dirname, '..');
@@ -37,11 +38,14 @@ async function stop() {
   }
 }
 async function start() {
-  child = spawn(process.execPath, [join(root, 'scripts/start-local.mjs')], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Own the actual Core PID so restarting cannot leave an orphan listening on this port.
+  const runtimeEnv = { ...env };
+  loadEnvFile(env.JANUS_ENV_FILE, runtimeEnv);
+  child = spawn(process.execPath, ['--import', 'tsx', join(root, 'apps/runtime/server.ts')], { cwd: root, env: runtimeEnv, stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', d => { log += d; }); child.stderr.on('data', d => { log += d; });
   for (let i = 0; i < 100; i++) {
     if (child.exitCode !== null) throw new Error('Runtime exited: ' + log.slice(-1200));
-    try { const r = await fetch(origin + '/health'); if (r.ok) return; } catch { /* wait */ }
+    try { const r = await fetch(origin + '/health', { headers: { connection: 'close' }, cache: 'no-store' }); if (r.ok) return; } catch { /* wait */ }
     await new Promise(done => setTimeout(done, 100));
   }
   throw new Error('Runtime timeout');
@@ -72,11 +76,20 @@ try {
   ok('vinculación desde la interfaz real; descarga exclusivamente pública');
   stage = 'first owner sign-in';
   await stop(); configureLocal(env, publicPath); await start();
+  const authorityStatus = await (await fetch(origin + '/api/auth/status', { cache:'no-store' })).json();
+  assert.equal(authorityStatus.authority.founderConfigured, true);
+  assert.equal(authorityStatus.authority.activeSessions, 0);
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.locator('#founderSignInButton').click();
   await page.waitForURL(origin + '/dashboard/a');
   await page.locator('[data-layout="approved-option-2"]').waitFor();
-  assert.ok(await page.evaluate(() => Boolean(sessionStorage.getItem('janus.founder.session'))));
+  const confirmed = await page.evaluate(async () => {
+    const token = sessionStorage.getItem('janus.founder.session') || '';
+    const response = await fetch('/api/auth/session', { cache:'no-store', headers:{authorization:'Bearer '+token} });
+    const body = await response.json();
+    return { validFormat: /^janus_auth_[A-Za-z0-9_-]{43}$/.test(token), status: response.status, role: body.principal?.role };
+  });
+  assert.deepEqual(confirmed, { validFormat:true, status:200, role:'founder_director' });
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
   stage = 'authenticated home data';
   const summary=await page.evaluate(async()=>{

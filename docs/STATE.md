@@ -1,3 +1,8 @@
+## Continuidad — comprobación de sesión antes de abrir datos privados
+
+- d6145402: Core 45593485860 verde; Dashboard 45593485851 rojo por 401 tras reinicio (causa exacta no demostrada). Se añade GET /api/auth/session protegido por la misma autoridad, se confirma identidad/rol/token recién emitido antes de almacenarlo y se cancela login concurrente al salir. Sin relajar roles, duración o autenticación. El smoke administra el PID real del Core, comprueba configuración y ausencia de sesiones tras reinicio, y exige sesión válida desde la pantalla real. Caché v36 y contratos sincronizados; CI del nuevo HEAD pendiente de resultado.
+- Sin dispositivo conectado ni acceso a credenciales propias del runtime. No certificar conexión de producción, articulación 3D, traducción integral ni aceptación visual sin prueba específica. Misma PR, sin despliegue ni merge.
+
 ## Continuidad — verificación de fuentes reales y datos privados
 
 - Vercel: proyecto janus-core tiene despliegue READY de 77759d9, rama histórica, no HEAD de #98. IBA READY de 9fe11dc12c89ad3e8b810a2ff573d6b8f0cf0500, dominio infinitybusinessassistant.nl; la fuente desplegada incluye app/api/v1/janus/feed/route.ts, token mínimo 32 y lectura con consentimiento. ChatBox tiene sitio canónico Netlify infinity-chatbox, dominio infinitychatbox.nl, deploy 6b04bb2407a73a26f2702393 ready. Consulta de observabilidad filtrada no mostró registros del feed en ventanas consultadas: no demuestra que credenciales funcionen ni que no funcionen. No se leyó ningún secreto, no se modificó proveedor.

@@ -4354,6 +4354,17 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // Check the bearer against this running Core, not merely browser storage.
+  if (request.method === 'GET' && url.pathname === '/api/auth/session') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      json(response, 200, { ok: true, principal: { id: principal.id, role: principal.role } });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/auth/status') {
     json(response, 200, {
       ok: true,

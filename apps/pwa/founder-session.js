@@ -15,6 +15,7 @@ const DB_NAME = 'janus-founder';
 const STORE = 'keys';
 const KEY_ID = 'device-p256';
 const TOKEN_KEY = 'janus.founder.session';
+let authGeneration = 0;
 
 export function base64url(bytes) {
   let binary = '';
@@ -84,22 +85,39 @@ export function authHeaders() {
   return token ? { authorization: `Bearer ${token}` } : {};
 }
 
+export async function verifyIssuedSession(session, principalId, request = fetch) {
+  if (!session || !/^janus_auth_[A-Za-z0-9_-]{43}$/.test(session.token || '') || session.principal?.id !== principalId) {
+    throw new Error('El Core no devolvió una sesión válida.');
+  }
+  const response = await request('/api/auth/session', {
+    method: 'GET', cache: 'no-store', headers: { authorization: `Bearer ${session.token}` },
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok || body.ok !== true || body.principal?.id !== principalId || body.principal?.role !== session.principal.role) {
+    throw new Error(explainAuthError(response.status, body.error || 'El Core no confirmó la sesión. Vuelve a entrar.'));
+  }
+  return session;
+}
+
 export async function signIn(pair, principalId = 'founder') {
+  const generation = ++authGeneration;
   const challengeResponse = await fetch('/api/auth/challenge', {
-    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ principalId }),
+    method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ principalId }),
   });
   const challengeBody = await challengeResponse.json().catch(() => ({}));
   if (!challengeResponse.ok) throw new Error(explainAuthError(challengeResponse.status, challengeBody.error ?? challengeBody.code));
   const { challenge } = challengeBody;
   const signature = new Uint8Array(await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, pair.privateKey, new TextEncoder().encode(challenge.signingPayload)));
   const verifyResponse = await fetch('/api/auth/verify', {
-    method: 'POST', headers: { 'content-type': 'application/json' },
+    method: 'POST', cache: 'no-store', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ challengeId: challenge.id, principalId, signature: base64url(signature) }),
   });
   const verifyBody = await verifyResponse.json().catch(() => ({}));
   if (!verifyResponse.ok) throw new Error(explainAuthError(verifyResponse.status, verifyBody.error ?? verifyBody.code));
-  try { sessionStorage.setItem(TOKEN_KEY, verifyBody.session.token); } catch { throw new Error('El navegador no permite guardar la sesión. Habilita el almacenamiento para este sitio y vuelve a entrar.'); }
-  return verifyBody.session;
+  const session = await verifyIssuedSession(verifyBody.session, principalId);
+  if (generation !== authGeneration) throw new Error('Inicio de sesión cancelado.');
+  try { sessionStorage.setItem(TOKEN_KEY, session.token); } catch { throw new Error('El navegador no permite guardar la sesión. Habilita el almacenamiento para este sitio y vuelve a entrar.'); }
+  return session;
 }
 
 export function forgetSession(expected) {
@@ -108,6 +126,7 @@ export function forgetSession(expected) {
 }
 
 export async function signOut() {
+  ++authGeneration;
   const headers = authHeaders();
   forgetSession(sessionToken());
   if (headers.authorization) await fetch('/api/auth/logout', { method: 'POST', headers }).catch(() => {});
