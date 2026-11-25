@@ -1,3 +1,9 @@
+## Continuidad — optimización sin pérdida del original recuperado y localización Founder
+
+- d7484f68 incorpora 152 puntos estáticos ES/NL en diez módulos Founder. No certifica traducción completa de todas las cadenas dinámicas o datos externos.
+- Optimización privada ejecutada sobre Nimbo.glb con SHA-256 c2662d4b9ca6b1caae481d1a70eedc58deb46791e8e71ec2f47bf0b981dce573: 3.941.684 → 3.542.364 bytes, 68.000 triángulos, dos primitivas de índices uint16. SHA-256 derivado 3abf0245d74b41e6cb031be3c38f46d966cb5d72e71af55cfc417e27a8f228d0; huella flujo geométrico de atributos de todos los índices de41565dc2fa3c28f817ee03d3e6b319a0b7b3c8724296b10e89e19e70e3a041 idéntica; se compararon buffers de textura y clips byte por byte. Original intacto. Se añade forge:compact al mismo repositorio; archivos privados no se publican. No es rig: sin skin, morphs o nuevos clips. Inspección proyectada de la malla no permite certificar correspondencia con la hoja conceptual; no autoasignar pivotes ni aprobar. El segundo GLB excede presupuesto y su identidad no está certificada.
+- Core 45590983167 verde para a4eb87cd; dispositivo Desktop Commander sigue sin conexión y git local DNS sigue bloqueado. No equiparar pruebas de conector ChatGPT con credenciales reales de JANUS. Continuar misma PR sin copias ni gastos; gates de CI y preview permanecen.
+
 ## Continuidad — controles privados ES/NL
 
 - Traducción de interfaz parental y cola de aprobaciones Founder mediante diccionarios locales; operaciones, nombres, motivos de aprobación, entradas del usuario, roles y permisos permanecen canónicos. La vista parental usa el idioma del perfil que la abre; no se reinicia un formulario abierto por cambio de idioma. Prueba de metadatos de aprobación ES/NL añadida. Mantener pruebas y revisión visual pendientes.

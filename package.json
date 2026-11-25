@@ -31,7 +31,8 @@
     "forge:check": "python3 sidecars/janus_3d_forge_trellis2.py --check",
     "tablet:check": "node scripts/tablet/check-install.mjs",
     "tablet:test": "node --import tsx --test tests/tablet-kit.test.ts tests/tablet-install.test.mjs",
-    "tablet:browser": "node tests/tablet-browser-smoke.mjs"
+    "tablet:browser": "node tests/tablet-browser-smoke.mjs",
+    "forge:compact": "node scripts/janus-3d-compact.mjs"
   },
   "dependencies": {
     "ws": "^8.21.3"
