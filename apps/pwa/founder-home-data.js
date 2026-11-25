@@ -5,7 +5,7 @@ import { currentLanguage } from './language-buttons.js';
 export function homeCardLines(data, language='es') {
   const nl=language==='nl', t=(es,n)=>nl?n:es;
   const unavailable=t('Sin datos verificados','Geen geverifieerde gegevens');
-  if (!data?.ok) return {dia:[unavailable],prioridades:[unavailable],ingresos:[unavailable]};
+  if (!data?.ok) return {dia:[unavailable],prioridades:[unavailable],ingresos:[unavailable],clientes:[unavailable]};
   const items=Array.isArray(data.agenda?.items)?data.agenda.items:[];
   const agenda=items.map(item=>[item.time,item.text].filter(Boolean).join(' · '));
   const feeds=data.feeds, approvals=data.approvals;
@@ -18,23 +18,25 @@ export function homeCardLines(data, language='es') {
     ? [new Intl.NumberFormat(nl?'nl-NL':'es-NL',{style:'currency',currency:'EUR'}).format(rev.minor/100),
        t('Ventas registradas con justificante · ','Geboekte omzet met bewijs · ')+rev.from+' – '+rev.to]
     : [unavailable,t('Contabilidad EUR: sin asientos verificados suficientes','EUR-boekhouding: onvoldoende geverifieerde boekingen')];
-  return {dia:[...(agenda.length?agenda:[t('Sin citas pendientes en JANUS','Geen openstaande afspraken in JANUS')]),t('Agenda propia de JANUS · no incluye Calendar externo','Eigen JANUS-agenda · zonder externe Calendar')],prioridades:priorities,ingresos:revenue};
+  return {dia:[...(agenda.length?agenda:[t('Sin citas pendientes en JANUS','Geen openstaande afspraken in JANUS')]),t('Agenda propia de JANUS · no incluye Calendar externo','Eigen JANUS-agenda · zonder externe Calendar')],prioridades:priorities,ingresos:revenue,clientes:[Number.isSafeInteger(feeds?.newRequests)?t('Solicitudes nuevas: ','Nieuwe aanvragen: ')+feeds.newRequests+' ('+feeds.connected+'/'+feeds.total+')':unavailable,t('Solicitudes no equivalen a clientes confirmados','Aanvragen zijn geen bevestigde klanten')]};
 }
 export function mountFounderHomeData() {
   let data=null, token='', generation=0, pending=false, checkedAt=0;
-  const cards=['dia','prioridades','ingresos'];
+  const cards=['dia','prioridades','ingresos','clientes'];
+  const signatures=new WeakMap();
   function paint() {
     const lang=currentLanguage('founder');
     const valid=token && token===sessionToken() && Date.now()-checkedAt<90000;
     const lines=homeCardLines(valid?data:null,lang);
     for(const key of cards){
-      const node=document.querySelector('[data-home-card="'+key+'"] .jh-card-body');
-      if(!node)continue;
-      const values=lines[key], signature=JSON.stringify(values);
-      if(node.dataset.homeSignature===signature)continue;
-      node.dataset.homeSignature=signature;
-      const elements=values.map((line,i)=>{const p=document.createElement('p');p.className=i===0?'jh-empty':'jh-note';p.textContent=line;return p;});
-      node.replaceChildren(...elements);
+      const nodes=document.querySelectorAll('[data-home-card="'+key+'"] .jh-card-body,[data-founder-live="'+key+'"]');
+      for(const node of nodes){
+        const values=lines[key], signature=JSON.stringify(values);
+        if(signatures.get(node)===signature)continue;
+        signatures.set(node,signature);
+        const elements=values.map((line,i)=>{const p=document.createElement('p');p.className=i===0?'jh-empty':'jh-note';p.textContent=line;return p;});
+        node.replaceChildren(...elements);
+      }
     }
   }
   async function refresh(){
@@ -53,7 +55,9 @@ export function mountFounderHomeData() {
   if(root)new MutationObserver(paint).observe(root,{childList:true,subtree:true});
   document.addEventListener('janus:language-changed',paint);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh();});
-  const timer=setInterval(()=>void refresh(),30000);
-  addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+  let timer=setInterval(()=>void refresh(),30000);
+  addEventListener('pagehide',()=>{clearInterval(timer);generation++;pending=false;checkedAt=0;data=null;paint();});
+  addEventListener('pageshow',event=>{if(event.persisted){clearInterval(timer);timer=setInterval(()=>void refresh(),30000);void refresh();}});
+  addEventListener('online',()=>void refresh());
   void refresh();
 }

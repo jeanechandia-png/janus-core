@@ -217,7 +217,20 @@ const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div cl
 function snapshotStatus() {
   return REAL.example === true ? ft('EJEMPLO') : ft('Instantánea · ') + String(REAL.syncedAt || ft('fecha no disponible')).replace('T',' ');
 }
+function verifiedDetail(id, body) {
+  if (!document.querySelector('meta[name="janus-runtime"][content="core"]')) return body;
+  const links = {dia: [], prioridades:[['solicitudes','Solicitudes','Aanvragen'],['casos','Casos','Zaken']], ingresos:[['cuentas','Contabilidad','Boekhouding']], clientes:[['solicitudes','Solicitudes','Aanvragen'],['correo','Correo','E-mail']]};
+  if (!Object.prototype.hasOwnProperty.call(links,id)) return body;
+  const nl=localStorage.getItem('janus.language.founder')==='nl';
+  const title=nl?'Gegevens uit JANUS':'Datos del Core JANUS';
+  const wait=nl?'Nog niet geverifieerd':'Pendiente de verificar';
+  const desc=nl?'Onderstaand ontwerp bevat lokale of voorbeeldgegevens; dit zijn geen geverifieerde bedrijfsgegevens.':'El diseño inferior contiene datos locales o de ejemplo; no son datos empresariales verificados.';
+  const actions=links[id].map(([route,es,nlText])=>'<button type="button" class="btn" data-go="'+route+'">'+esc(nl?nlText:es)+'</button>').join('');
+  return panel('', '🔒', title, '', '<div data-founder-live="'+id+'" aria-live="polite"><p>'+esc(wait)+'</p></div><div class="btns">'+actions+'</div>')+
+    '<p class="note mono">'+esc(desc)+'</p>'+body;
+}
 function frame(id, sub, M, body) {
+  body=verifiedDetail(id,body);
   const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
   return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="' + esc(ft('Volver al dashboard')) + '">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(ft(t[2])) + '" data-jg-depth="10">' + esc(ft(t[2])) + '</h1>' + ((id === 'datos' || id === 'oraciones') ? '' : (id === 'casos' || id === 'cuentas' || id === 'offline') ? '<span class="src live mono">🔒 PRIVADO</span>' : id === 'radar' ? '<span class="src ' + (RADAR.src === 'vivo' ? 'live' : 'ex') + ' mono">' + (RADAR.src === 'vivo' ? '● REAL' : 'REGISTRO INICIAL') + '</span>' : (id === 'dia' || id === 'janus') ? '<span class="src ex mono">' + esc(snapshotStatus()) + '</span>' : srcBadge(live)) +
     '<nav class="tabs">' + TABS.filter((x) => !x[3] || x[0] === id).map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="'  + esc(ft(x[2])) +  '"><i>' + x[1] + '</i><em class="mono">'  + esc(ft(x[2])) +  '</em></span>').join('') + '</nav>' +
