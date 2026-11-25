@@ -259,7 +259,7 @@ test('Kendra School: selección, lectura local, concentración y respuesta confi
   const api = async (...args:any[])=>{requests.push(args);return responses.shift();};
   const env = runInNewContext(`let school={status:'available',techniques:[lesson]},schoolLesson=null,schoolStep=0,schoolFocus=false,schoolRequest=0,schoolFeedback='',schoolCorrect=false,schoolAnswerPending=false,tab='school',view={tasks:{all:[]}},prefs={speak:true};const renderMain=()=>{},go=()=>{},speak=(...a)=>reads.push(a);
 ${code}
-({tabSchool,answerSchool,state:()=>({schoolLesson,schoolStep,schoolFocus,schoolCorrect,schoolFeedback,schoolAnswerPending})});`,{h,api,reads,lesson}) as {tabSchool:()=>Node;answerSchool:(lesson:unknown,index:number)=>Promise<void>;state:()=>Record<string,any>};
+({tabSchool,answerSchool,state:()=>({schoolLesson,schoolStep,schoolFocus,schoolCorrect,schoolFeedback,schoolAnswerPending})});`,{h,api,reads,lesson,kt:(v:string)=>v}) as {tabSchool:()=>Node;answerSchool:(lesson:unknown,index:number)=>Promise<void>;state:()=>Record<string,any>};
   const walk = (n:any):Node[] => n && typeof n==='object' ? [n,...n.children.flatMap(walk)] : [];
   const btn = (label:string)=>walk(env.tabSchool()).find(n=>n.tag==='button'&&n.children.includes(label))!;
   assert.ok(walk(env.tabSchool()).some(n=>n.children.includes('Neerlandés')));
