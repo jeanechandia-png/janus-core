@@ -89,7 +89,12 @@ try {
   assert.equal(summary.body.ok,true);
   assert.equal(summary.body.revenue.minor,null,'no fabricated revenue in empty SQLite');
   assert.equal(summary.body.agenda.source,'janus-work-agenda');
-  await page.locator('[data-home-card="dia"] .jh-card-body[data-home-signature]').waitFor();
+  await page.locator('[data-home-card="dia"] .jh-card-body').getByText('Sin citas pendientes en JANUS',{exact:true}).waitFor();
+  await page.locator('[data-home-card="ingresos"] .jh-card-body').getByText('Sin datos verificados',{exact:true}).waitFor();
+  await page.locator('[data-home-card="dia"] .jh-detail').click();
+  await page.locator('[data-founder-live="dia"]').getByText('Sin citas pendientes en JANUS',{exact:true}).waitFor();
+  await page.locator('.vh [data-go=""]').click();
+  await page.locator('[data-layout="approved-option-2"]').waitFor();
   ok('portada consulta fuentes privadas reales y no inventa ventas');
   stage = 'encrypted case persistence';
   const caseId = await page.evaluate(async () => {
