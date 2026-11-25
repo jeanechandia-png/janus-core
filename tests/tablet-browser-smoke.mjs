@@ -96,6 +96,18 @@ try {
   await page.locator('.vh [data-go=""]').click();
   await page.locator('[data-layout="approved-option-2"]').waitFor();
   ok('portada consulta fuentes privadas reales y no inventa ventas');
+  stage = 'integration readiness without credentials';
+  const integration=await page.evaluate(async()=>{
+    const allowed=await fetch('/api/founder/integration-readiness',{method:'POST',cache:'no-store',headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
+    const denied=await fetch('/api/founder/integration-readiness',{method:'POST',cache:'no-store'});
+    return {denied:denied.status,allowed:allowed.status,body:await allowed.json()};
+  });
+  assert.ok([401,403].includes(integration.denied));
+  assert.equal(integration.allowed,200);
+  assert.equal(integration.body.ok,true);
+  assert.equal(integration.body.results.find(item=>item.service==='gmail').state,'needs_auth');
+  assert.equal(integration.body.results.find(item=>item.service==='calendar').state,'needs_auth');
+  ok('verificador real protege acceso y no presenta cuentas de prueba como conectadas');
   stage = 'encrypted case persistence';
   const caseId = await page.evaluate(async () => {
     const response = await fetch('/api/cases', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') }, body: JSON.stringify({ id: 'tablet-smoke-case', title: 'Tablet smoke fixture', category: 'Personal / Privado', context: 'PRIVATE_TABLET_FIXTURE_1126', status: 'waiting_reply' }) });
