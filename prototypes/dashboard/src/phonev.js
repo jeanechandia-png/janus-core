@@ -46,7 +46,7 @@ function renderPhoneB(M, X) {
   const D = pvData(M, X);
   const clima = sec('clima', '🚴', 'Clima · bici', srcBadge(M.src === 'vivo'), '<div class="pvb-wx"><div class="l"><img class="wi" src="' + wxImg(M.nowE.k) + '" alt=""><b class="serif gld big">' + M.nowE.t + '°</b></div><div class="pvv">' + pvVerd(M) + '</div></div><div class="pvhrs">' + pvWx(M, 6) + '</div>', 'full');
   const dia = sec('dia', '🗓', 'Mi día', '● real', X.agenda.slice(0, 3).map((a) => '<div class="pvl2"><span class="mono tm">' + a.h + '</span><span class="tx">' + esc(a.t) + '</span></div>').join(''));
-  const fam = sec('familia', '🌟', '__HIJA__', '', D.kToday.map((k) => '<div class="pvl2"><span class="mono tm">' + k.h + '</span><span class="tx">' + k.e + ' ' + k.t + '</span></div>').join('') + (D.cita ? '<div class="pvl2 warn"><span class="mono tm">' + D.cita.days + ' d</span><span class="tx">🩺 cita</span></div>' : ''));
+  const fam = sec('familia', '🌟', '__HIJA__', '', D.kToday.map((k) => '<div class="pvl2"><span class="mono tm">' + k.h + '</span><span class="tx">' + k.e + ' ' + k.t + '</span></div>').join('') + (D.cita ? '<div class="pvl2 warn"><span class="mono tm">' + D.cita.days + ' d</span><span class="tx">' + esc(ft("🩺 cita")) + '</span></div>' : ''));
   const pri = sec('prioridades', '🎯', 'Correo', X.mailsOpen.length, DATA.mails.slice(0, 3).map((m) => '<div class="pvl2"><span class="tx"><b>' + esc(m.who) + '</b></span>' + sevBars(m.sev) + '</div>').join(''));
   const fol = sec('prioridades', '✅', 'Compromisos', X.follow.filter((f) => !f.done).length, X.follow.slice(0, 3).map((f) => '<div class="pvl2"><span class="tx">' + esc(f.x) + '</span><i class="pbar"><b style="width:' + f.p + '%"></b></i></div>').join(''));
   const ing = sec('ingresos', '💶', 'Ingresos', '▲' + X.revDelta + '%', '<b class="serif gld mid">€' + fmt(X.total) + '</b>' + svgSpark(D.kpis[0][4], 120, 30));
@@ -70,11 +70,11 @@ function renderPhoneC(M, X) {
   const TLH = 470;
   const lane = (items, cls) => { let last = -99; return items.slice().sort((a, b) => hmToMin(a.h) - hmToMin(b.h)).map((a) => { const h = Math.max(H0, Math.min(H1 - .5, hmToMin(a.h) / 60)); const top = Math.max((h - H0) / span * TLH, last + 26); last = top; return '<div class="pce ' + cls + ' go" style="top:' + top.toFixed(0) + 'px"' + goAttr(cls === 'k' ? 'familia' : 'dia', a.t) + '><span class="mono">' + a.h + '</span> ' + (a.e || '') + ' ' + esc(a.t) + '</div>'; }).join(''); };
   const nowY = y(Math.max(H0, Math.min(H1, M.nowMin / 60)));
-  const tl = '<section class="cd pv pvC-tl"><div class="pvt go"' + goAttr('clima', 'Clima') + '><span class="bb s">🗓</span><span class="mono">Hoy · clima y agenda</span><span class="mt">' + pvVerd(M) + '</span></div>' +
+  const tl = '<section class="cd pv pvC-tl"><div class="pvt go"' + goAttr('clima', 'Clima') + '><span class="bb s">🗓</span><span class="mono">' + esc(ft("Hoy · clima y agenda")) + '</span><span class="mt">' + pvVerd(M) + '</span></div>' +
     '<div class="pct"><div class="pcgut">' + gutter + '<div class="pcrain">' + rain + '</div></div>' +
-    '<div class="pcl"><small class="mono lh">🏠 personal</small>' + lane(X.agenda.filter((a) => a.amb !== 'e'), 'p') + '</div>' +
+    '<div class="pcl"><small class="mono lh">' + esc(ft("🏠 personal")) + '</small>' + lane(X.agenda.filter((a) => a.amb !== 'e'), 'p') + '</div>' +
     '<div class="pcl"><small class="mono lh">🌟 __HIJA__</small>' + lane(D.kToday.map((k) => ({ h: k.h, e: k.e, t: k.t })), 'k') + '</div>' +
-    '<div class="pcl"><small class="mono lh">🏢 empresa</small>' + lane(X.agenda.filter((a) => a.amb === 'e'), 'e') + '</div>' +
+    '<div class="pcl"><small class="mono lh">' + esc(ft("🏢 empresa")) + '</small>' + lane(X.agenda.filter((a) => a.amb === 'e'), 'e') + '</div>' +
     '<div class="pcnow" style="top:' + nowY + '"><span class="mono">' + M.nowLabel + '</span></div></div></section>';
   const kp = '<section class="cd pv pvk">' + D.kpis.map((k) => '<div class="go"' + goAttr(k[5], k[1]) + '><span class="mono kl">' + k[1] + '</span><b class="serif gld">' + k[2] + '</b><span class="mono up">' + k[3] + '</span>' + svgSpark(k[4], 80, 18) + '</div>').join('') + '</section>';
   const st = '<section class="cd pv pvst">' + [

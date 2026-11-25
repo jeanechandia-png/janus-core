@@ -39,8 +39,8 @@ function vOraciones(M, X, sub) {
         (t.translit ? '<div class="mono" style="opacity:.7">' + esc(t.translit[i]) + '</div>' : '') +
         '<div style="font-style:italic;margin-top:2px">' + esc(t.sub[i]) + '</div></div>').join('') + '</div>'
     : '<div class="ora-text" lang="' + ORA.lang + '" dir="' + L.dir + '" style="font-size:1.35em;line-height:1.55;font-weight:600;' + (L.dir === 'rtl' ? 'text-align:right;font-size:1.6em;' : '') + '">' + t.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>';
-  const say = t.say && !t.sub ? '<div class="note" style="margin-top:12px"><b>Cómo se pronuncia</b>' + t.say.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
-  const es = ORA.lang !== 'es' && !t.sub && p.texts.es ? '<div class="note" style="margin-top:12px"><b>En español</b>' + p.texts.es.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
+  const say = t.say && !t.sub ? '<div class="note" style="margin-top:12px"><b>' + esc(ft("Cómo se pronuncia")) + '</b>' + t.say.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
+  const es = ORA.lang !== 'es' && !t.sub && p.texts.es ? '<div class="note" style="margin-top:12px"><b>' + esc(ft("En español")) + '</b>' + p.texts.es.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
   const voice = JanusOraciones.hasVoice(ORA.lang);
   const play = '<div class="rdb"><span class="btn"' + act(ORA.playing ? 'oraStop' : (t.sub ? 'oraRecite' : 'oraSpeak'), ORA.lang, ORA.playing ? 'Parar' : 'Escuchar') + '>' + (ORA.playing ? '■ Parar' : (t.sub ? '▶ Recitar con subtítulos' : '▶ Escuchar')) + '</span></div>' +
     (t.sub ? '<div class="note mono">' + (ORA.premium === true ? 'Voz: Janus (ElevenLabs).' : ORA.premium === false ? 'La voz de Janus aún no está configurada en este equipo: recita la voz del aparato con pronunciación aproximada.' : 'Recita la voz de Janus si está configurada; si no, la del aparato con pronunciación aproximada.') + '</div>' + (t.notes || []).map((n) => '<div class="note">' + esc(n) + '</div>').join('')

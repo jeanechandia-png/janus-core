@@ -291,3 +291,13 @@ test('Kendra dynamic notices localize without rewriting arbitrary private text',
  assert.equal(kidNotice('Mijn eigen bericht','nl'),'Mijn eigen bericht');
  assert.equal(kidNotice('Ahora toca descansar. Puedes volver a las 08:30. 🌙','es'),'Ahora toca descansar. Puedes volver a las 08:30. 🌙');
 });
+
+test('Founder static localizations preserve route identifiers and private values',()=>{
+ const src=text('prototypes/dashboard/src/views.js');
+ const start=src.indexOf('const FOUNDER_NL'); const end=src.indexOf('const UI =',start);
+ const ft=runInNewContext(src.slice(start,end)+'\nft;', {localStorage:{getItem:()=> 'nl'}}) as (v:string)=>string;
+ assert.equal(ft('DATOS DE EJEMPLO · ingresos reales sin verificar en esta vista'),'VOORBEELDGEGEVENS · werkelijke omzet in deze weergave niet geverifieerd');
+ assert.equal(ft('Sin eventos'),'Geen afspraken');
+ assert.equal(ft('mi texto privado sin traducción'),'mi texto privado sin traducción');
+ assert.equal(ft('ingresos'),'ingresos');
+});

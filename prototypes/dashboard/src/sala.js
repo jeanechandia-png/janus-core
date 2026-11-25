@@ -16,7 +16,7 @@ function stateBlock(big) {
 }
 
 const meMsg = (m) => '<div class="msg me"><div class="bub">' + attMsg(m) + esc(m.t) + '</div><small class="mono">' + m.at + (m.v ? ' · 🎙' : '') + '</small></div>';
-const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + (citedOk(m.cited) ? citedBlock(m.cited) : esc(m.t)) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>✔ Aprobar</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>✕ Rechazar</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · ' + esc(m.via || 'simulado') + '</small></div>';
+const jaMsg = (m) => '<div class="msg ja"><div class="bub">' + (citedOk(m.cited) ? citedBlock(m.cited) : esc(m.t)) + (m.appr ? '<div class="apb"><span class="btn mono"' + act('apprOk', m.id) + '>' + esc(ft("✔ Aprobar")) + '</span><span class="btn mono ghost"' + act('apprNo', m.id) + '>' + esc(ft("✕ Rechazar")) + '</span></div>' : '') + '</div><small class="mono">' + m.at + ' · Janus · ' + esc(m.via || 'simulado') + '</small></div>';
 
 /* ---- Respuesta con fuentes citadas (EJEMPLO) ----
  * El verificador es el REAL del núcleo (packages/orchestrator/src/cited-answer.ts, empaquetado en vendor/cited-answer.js):
@@ -47,8 +47,8 @@ function citedBlock(a) {
   const body = esc(a.text).replace(/\[(\d{1,3})\]/g, (w, n) => a.sources.some((x) => x.n === +n) ? '<span class="cm' + (UI.citeSel === +n ? ' on' : '') + '"' + act('cite', String(n), 'Fuente ' + n) + '>' + n + '</span>' : '<span class="cm bad" title="Cita a una fuente que no existe">' + n + '?</span>');
   const flags = [...new Set(a.claims.flatMap((c) => c.flags))];
   const srcs = a.sources.map((s) => '<div class="csr' + (UI.citeSel === s.n ? ' on' : '') + '"' + act('cite', String(s.n), 'Fuente ' + s.n) + '><b class="mono">' + s.n + '</b><div><span>' + esc(s.title) + '</span><small class="mono">' + esc(s.domain) + ' · nivel ' + esc(s.tier) + ' · ' + esc(s.tierReason) + ' · ' + (s.basis === 'pagina' ? 'página completa' : 'solo fragmento') + '</small></div></div>').join('');
-  return '<div class="cit"><div class="cit-tag mono">EJEMPLO · fuentes simuladas (aún no hay buscador real conectado)</div><div class="cit-txt">' + body + '</div>' +
-    '<div class="cit-sb mono">Fuentes</div>' + srcs +
+  return '<div class="cit"><div class="cit-tag mono">' + esc(ft("EJEMPLO · fuentes simuladas (aún no hay buscador real conectado)")) + '</div><div class="cit-txt">' + body + '</div>' +
+    '<div class="cit-sb mono">' + esc(ft("Fuentes")) + '</div>' + srcs +
     '<div class="cit-v"><span class="vchip ' + (VERDICT_CLS[a.verdict] || 'v-wa') + ' mono">' + esc(a.verdict) + '</span><span class="dim">Cobertura de citas ' + Math.round(a.coverage * 100) + ' %' + (a.invalidMarkers.length ? ' · citas a fuentes inexistentes: ' + a.invalidMarkers.join(', ') : ' · todas las citas apuntan a una fuente') + (flags.length ? ' · ' + esc(flags.join('; ')) : '') + '</span></div>' +
     '<div class="cit-n dim">La verificación la hace código (compara la cita literal con la fuente); no depende de lo que diga el modelo. Con fuentes sin catalogar, el veredicto no pasa de «por confirmar».</div></div>';
 }
@@ -60,14 +60,14 @@ function vTrabajo(M, X, sub) {
   const P = projById(UI.pSel), list = PROJECTS.filter((p) => UI.pFilter === 'todos' || p.grp === UI.pFilter);
   const left = panel('pj', '📁', ft('Proyectos'), PROJECTS.length, seg('pFilter', UI.pFilter, PGRP) +
     '<div class="pjl">' + list.map((p) => '<div class="pjr' + (p.id === P.id ? ' on' : '') + '"' + act('pSel', p.id, p.n) + '><span class="bb s">' + p.e + '</span><div class="mid"><b>' + esc(p.n) + '</b><small class="mono">' + (p.amb === 'p' ? 'personal' : 'empresa') + ' · ' + PGRP_TXT[p.grp] + '</small></div><span class="ct mono">' + (chatsOf(p.id).length || '') + '</span></div>').join('') + '</div>' +
-    '<div class="btn2 mono"' + act('newChat', P.id, 'Nueva conversación') + '>＋ Nueva conversación</div>');
+    '<div class="btn2 mono"' + act('newChat', P.id, 'Nueva conversación') + '>' + esc(ft("＋ Nueva conversación")) + '</div>');
   const msgs = chatsOf(P.id);
   const working = UI.js === 'pensando' || UI.js === 'ejecutando';
   const typing = working ? '<div class="msg ja gen">' + (robotOn() ? '<div class="mjw">' + miniJano() + '</div>' : '') + '<div class="bub mono"><span class="tdots"><i></i><i></i><i></i></span>' + (UI.js === 'pensando' ? 'Janus está pensando la respuesta…' : 'Janus está trabajando en ' + esc(P.n) + '…') + '</div></div>' : '';
   const lastAppr = msgs.length && msgs[msgs.length - 1].appr ? msgs.length - 1 : -1;
   const thread = '<div class="thr" id="thr">' + (msgs.length
     ? msgs.map((m, k) => k === lastAppr && robotOn() ? '<div class="msg ja gen appr"><div class="mjw">' + miniJano() + '</div>' + jaMsg(m) + '</div>' : m.who === 'me' ? meMsg(m) : jaMsg(m)).join('') + typing
-    : (typing || '<div class="empty"><div class="j3mic" data-3d="mic" data-id="mic-hero" data-tapact="mic" role="button" aria-label="Hablar con Janus"><img class="j3d-fb" src="' + IMG.mic + '" alt=""></div><b class="serif gld">' + esc(P.n) + '</b><div class="dim">Toca el micrófono y habla (te transcribo al instante), o escribe. Gíralo con el dedo.</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso', 'Investiga con fuentes: ¿cómo verificas una respuesta?'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>')) + '</div>';
+    : (typing || '<div class="empty"><div class="j3mic" data-3d="mic" data-id="mic-hero" data-tapact="mic" role="button" aria-label="Hablar con Janus"><img class="j3d-fb" src="' + IMG.mic + '" alt=""></div><b class="serif gld">' + esc(P.n) + '</b><div class="dim">' + esc(ft("Toca el micrófono y habla (te transcribo al instante), o escribe. Gíralo con el dedo.")) + '</div><div class="sugs">' + ['Resume el estado del proyecto', 'Qué está pendiente hoy', 'Prepara el siguiente paso', 'Investiga con fuentes: ¿cómo verificas una respuesta?'].map((t) => '<span class="sg2"' + act('suggest', t) + '>' + t + '</span>').join('') + '</div></div>')) + '</div>';
   const composer = '<div class="cmp">' + attBtn('s') +
     '<div class="inp">' + attChips() + '<textarea data-f="msg" rows="2" maxlength="2000" placeholder="Escribe a Janus sobre ' + esc(P.n) + '…" aria-label="Mensaje para Janus">' + esc(UI.draft) + '</textarea>' +
     (UI.micMsg ? '<div class="mmsg mono">' + esc(UI.micMsg) + '</div>' : '') + '</div>' +
@@ -75,10 +75,10 @@ function vTrabajo(M, X, sub) {
     '<span class="gsend"' + act('send', '', 'Enviar') + '><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12 5 5l4 7-4 7Z" fill="#1c1003" stroke="#FFF3C4" stroke-width=".6" stroke-linejoin="round"/></svg></span></div>';
   const center = '<section class="cd chat"><div class="chd"><span class="bb m">' + P.e + '</span><div><b class="serif gld">' + esc(P.n) + '</b><div class="mono dim">' + (P.amb === 'p' ? '🏠 personal' : '🏢 empresa') + ' · ' + PGRP_TXT[P.grp] + '</div></div>' + stateBlock(false) + '</div>' + thread + composer +
     '<div class="note mono">' + (typeof JanusGateway !== 'undefined' && JanusGateway.coreConnected() ? 'Conectado a JANUS CORE local. Las órdenes se validan y auditan en el núcleo; operaciones sensibles requieren la aprobación y autenticación correspondientes. El acceso a datos depende de los adaptadores configurados.' : modelLive() ? 'Vista previa con proveedor de lenguaje externo; JANUS CORE no está conectado. No se ejecutan acciones administrativas.' : 'Vista previa sin núcleo: los resultados simulados se indican como tales. Para operar, abre el dashboard junto al servidor local JANUS CORE.') + '</div></section>';
-  const prs = P.real === 'prs' ? '<div class="sb mono">PR abiertos · real</div>' + REAL.prs.slice(0, 4).map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') : '';
+  const prs = P.real === 'prs' ? '<div class="sb mono">' + esc(ft("PR abiertos · real")) + '</div>' + REAL.prs.slice(0, 4).map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') : '';
   const right = '<div class="col3">' + panel('jsp', '⚙', ft('Estado de Janus'), 'gíralo con el dedo', '<div class="j3bot" data-3d="bot" data-id="bot-sala" role="img" aria-label="Robot de Janus"><img class="j3d-fb" src="' + GOLD.o.bot + '" alt="">' + (typeof avatarGear === 'function' ? avatarGear() : '') + '</div>' + stateBlock(true) + (typeof avatarPanel === 'function' ? avatarPanel() : '') +
     '<div class="sts">' + Object.keys(JSTATE).map((k) => '<span class="stt' + (k === UI.js ? ' on' : '') + '" data-k="' + k + '"' + act('jsDemo', k, JSTATE[k][0]) + '><i></i>' + JSTATE[k][0] + '</span>').join('') + '</div>' +
-    '<label class="tgl mono"><input type="checkbox" data-set="robot"' + (robotOn() ? ' checked' : '') + '> Mini-Jano al generar la respuesta</label>') +
+    '<label class="tgl mono"><input type="checkbox" data-set="robot"' + (robotOn() ? ' checked' : '') + '>' + esc(ft(" Mini-Jano al generar la respuesta")) + '</label>') +
     panel('pjc', P.e, ft('Proyecto'), PGRP_TXT[P.grp], '<div class="kv">' + [['🏷', 'Estado declarado', P.decl ? P.decl + ' · Jean 13-oct' : 'Por confirmar'], ['📌', 'Grupo', PGRP_TXT[P.grp] + ' · propuesta'], ['⏭', 'Siguiente paso', P.next], ['🐙', 'Repositorio', P.repo || '—']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + esc(r[2]) + '</b></div>').join('') + '</div>' + prs) + '</div>';
   return frame('trabajo', sub, M, '<div class="sala" data-js="' + UI.js + '">' + left + center + right + '</div>');
 }
@@ -86,10 +86,10 @@ function vTrabajo(M, X, sub) {
 function vInicio(M, X) {
   const act3 = PROJECTS.filter((p) => p.grp === 'activo');
   return '<div class="ini" data-js="' + UI.js + '">' +
-    '<div class="ini-top"><span class="back mono" data-go="" role="link" tabindex="0">← Dashboard</span><div class="ini-brand">' + medallion('logo') + '<div><div class="wm" data-jg="JANUS" data-jg-refl>JANUS</div><div class="dt mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div></div><span class="mono dim">Vista previa</span></div>' +
+    '<div class="ini-top"><span class="back mono" data-go="" role="link" tabindex="0">← Dashboard</span><div class="ini-brand">' + medallion('logo') + '<div><div class="wm" data-jg="JANUS" data-jg-refl>JANUS</div><div class="dt mono">' + M.dateLabel + ' · ' + M.nowLabel + '</div></div></div><span class="mono dim">' + esc(ft("Vista previa")) + '</span></div>' +
     '<div class="ini-mid"><div class="ini-mic go" style="--micmask:url(' + IMG.mic + ')" data-go="trabajo/voz" role="button" tabindex="0" aria-label="Hablar con Janus"><img src="' + IMG.mic + '" alt=""><span class="sweep"></span></div>' +
-    '<div class="ini-say"><div><b class="serif gld">Hola, Patrón.</b><div class="dim">Toca el micrófono y habla, o escribe. Elige un proyecto para trabajar.</div></div></div>' +
-    '<div class="ini-btns"><span class="ibtn gold go" data-go="trabajo/voz" role="button" tabindex="0">🎙 Hablar</span><span class="ibtn go" data-go="trabajo" role="button" tabindex="0">⌨ Escribir</span><span class="ibtn go" data-go="trabajo/' + UI.pSel + '" role="button" tabindex="0">📁 Proyectos</span><span class="ibtn go" data-go="" role="button" tabindex="0">📊 Dashboard</span></div>' +
+    '<div class="ini-say"><div><b class="serif gld">' + esc(ft("Hola, Patrón.")) + '</b><div class="dim">' + esc(ft("Toca el micrófono y habla, o escribe. Elige un proyecto para trabajar.")) + '</div></div></div>' +
+    '<div class="ini-btns"><span class="ibtn gold go" data-go="trabajo/voz" role="button" tabindex="0">' + esc(ft("🎙 Hablar")) + '</span><span class="ibtn go" data-go="trabajo" role="button" tabindex="0">' + esc(ft("⌨ Escribir")) + '</span><span class="ibtn go" data-go="trabajo/' + UI.pSel + '" role="button" tabindex="0">' + esc(ft("📁 Proyectos")) + '</span><span class="ibtn go" data-go="" role="button" tabindex="0">📊 Dashboard</span></div>' +
     '<div class="ini-pj">' + act3.map((p) => '<span class="ipj go" data-go="trabajo/' + p.id + '" role="link" tabindex="0"><span class="bb s">' + p.e + '</span>' + esc(p.n) + '</span>').join('') + '</div></div></div>';
 }
 VIEWS.trabajo = vTrabajo;

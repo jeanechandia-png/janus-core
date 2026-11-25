@@ -35,14 +35,14 @@ const casoOpen = () => CASOS.list.filter((c) => c.status !== 'closed');
 function casosStrip() {
   void casosLoad(false);
   const open = casoOpen(); if (!open.length) return '';
-  return '<div class="cspb go"' + goAttr('casos', 'Casos prioritarios') + '><div class="csph mono"><i class="cspd"></i>CASOS PRIORITARIOS<span>' + open.length + '</span></div>' +
+  return '<div class="cspb go"' + goAttr('casos', 'Casos prioritarios') + '><div class="csph mono"><i class="cspd"></i>' + esc(ft("CASOS PRIORITARIOS")) + '<span>' + open.length + '</span></div>' +
     open.slice(0, 2).map((c) => '<div class="cspr' + (c.pendingAlerts ? ' new' : '') + '"><span class="cspt">' + (c.priority === 'high' ? 'ALTA' : 'NORMAL') + '</span><b>' + esc(c.title) + '</b><em>' + esc(c.pendingAlerts ? c.pendingAlerts + ' novedad' + (c.pendingAlerts > 1 ? 'es' : '') : c.statusLabel) + '</em></div>').join('') + '</div>';
 }
 /** Tarjeta para el teléfono. */
 function casosPhoneCard() {
   void casosLoad(false);
   const open = casoOpen(); if (!open.length) return '';
-  return '<section class="a2c cspa2 go"' + goAttr('casos', 'Casos prioritarios') + '><div class="csph mono"><i class="cspd"></i>CASOS PRIORITARIOS<span>' + open.length + '</span></div>' +
+  return '<section class="a2c cspa2 go"' + goAttr('casos', 'Casos prioritarios') + '><div class="csph mono"><i class="cspd"></i>' + esc(ft("CASOS PRIORITARIOS")) + '<span>' + open.length + '</span></div>' +
     open.slice(0, 3).map((c) => '<div class="cspr' + (c.pendingAlerts ? ' new' : '') + '"><span class="cspt">' + (c.priority === 'high' ? 'ALTA' : 'NORMAL') + '</span><b>' + esc(c.title) + '</b><em>' + esc(c.pendingAlerts ? c.pendingAlerts + ' novedad' + (c.pendingAlerts > 1 ? 'es' : '') : c.statusLabel) + '</em></div>').join('') + '</section>';
 }
 function vCasos(M, X, sub) {
@@ -59,17 +59,17 @@ function vCasos(M, X, sub) {
     '<div class="rdh"><b class="serif big2">' + esc(sel.title) + '</b></div>' +
     '<div class="kv">' + [['🚦', 'Estado', esc(sel.statusLabel)], ['🕒', 'Última actualización', casosWhen(sel.updatedAt)], ['📡', 'Vigilancia de Gmail', mon[0] + (sel.monitoring.lastCheckedAt ? ' · ' + casosWhen(sel.monitoring.lastCheckedAt) : '')], sel.thread ? ['👤', 'Destinataria', esc(sel.thread.counterpart.name || sel.thread.counterpart.email)] : null, sel.thread ? ['✉', 'Enviado', casosWhen(sel.thread.sentAt)] : null].filter(Boolean).map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>' +
     (sel.monitoring.state !== 'active' && sel.monitoring.detail ? '<div class="note mono rdw">' + esc(sel.monitoring.detail) + '</div>' : '') +
-    (sel.thread ? '<div class="sb mono">Asunto</div><div class="rdt">' + esc(sel.thread.subject) + '</div>' : '') +
-    (sel.context ? '<div class="sb mono">Contexto</div><div class="rdt">' + esc(sel.context) + '</div>' : '') +
-    (alerts.length ? '<div class="sb mono">Alertas</div>' + alerts.map((a) => '<div class="rdi"><span class="bb s">⚠</span><span>' + esc(a.text) + ' · ' + casosWhen(a.at) + '</span><span class="btn"' + act('casoAck', sel.id + '|' + a.key, 'Marcar vista') + '>Visto</span></div>').join('') : '') +
-    (na ? '<div class="sb mono">Próxima acción recomendada</div><div class="rdt">' + esc(na.text) + '</div><div class="rdb">' + (na.state === 'pending_approval' ? '<span class="btn"' + act('casoNext', sel.id + '|approved', 'Aprobar') + '>✔ Aprobar</span><span class="btn"' + act('casoNext', sel.id + '|dismissed', 'Descartar') + '>Descartar</span>' : na.state === 'approved' ? pill('aprobada por ti', 'g') + '<span class="btn"' + act('casoNext', sel.id + '|done', 'Marcar hecha') + '>Marcar hecha</span>' : pill(na.state === 'done' ? 'hecha' : 'descartada', '')) + '</div>' : '') +
-    (sel.interpreter && sel.interpreter.ready ? '<div class="sb mono">Llamada con intérprete</div><div class="rdb"><span class="btn"' + act('casoInterp', sel.id, 'Abrir modo intérprete') + '>🎧 Modo intérprete ES ↔ NL</span></div><div class="note mono">JANUS ha estudiado el expediente (' + sel.interpreter.briefChars + ' caracteres' + (sel.interpreter.glossaryTerms ? ', ' + sel.interpreter.glossaryTerms + ' términos propios' : '') + '). Piloto de Infinity Connect.</div>' : '') +
-    '<div class="rdb">' + (sel.gmailUrl ? '<a class="btn" href="' + esc(sel.gmailUrl) + '" target="_blank" rel="noopener noreferrer">✉ Abrir el correo en Gmail</a>' : '') + '<span class="btn"' + act('casoCheck', sel.id, 'Comprobar Gmail ahora') + '>↻ Comprobar ahora</span></div>' +
-    '<div class="note mono">JANUS solo lee: no responde ni envía correos por ti.</div>' + (CASOS.err ? '<div class="note mono rdw">' + esc(CASOS.err) + '</div>' : ''));
+    (sel.thread ? '<div class="sb mono">' + esc(ft("Asunto")) + '</div><div class="rdt">' + esc(sel.thread.subject) + '</div>' : '') +
+    (sel.context ? '<div class="sb mono">' + esc(ft("Contexto")) + '</div><div class="rdt">' + esc(sel.context) + '</div>' : '') +
+    (alerts.length ? '<div class="sb mono">' + esc(ft("Alertas")) + '</div>' + alerts.map((a) => '<div class="rdi"><span class="bb s">⚠</span><span>' + esc(a.text) + ' · ' + casosWhen(a.at) + '</span><span class="btn"' + act('casoAck', sel.id + '|' + a.key, 'Marcar vista') + '>' + esc(ft("Visto")) + '</span></div>').join('') : '') +
+    (na ? '<div class="sb mono">' + esc(ft("Próxima acción recomendada")) + '</div><div class="rdt">' + esc(na.text) + '</div><div class="rdb">' + (na.state === 'pending_approval' ? '<span class="btn"' + act('casoNext', sel.id + '|approved', 'Aprobar') + '>' + esc(ft("✔ Aprobar")) + '</span><span class="btn"' + act('casoNext', sel.id + '|dismissed', 'Descartar') + '>' + esc(ft("Descartar")) + '</span>' : na.state === 'approved' ? pill('aprobada por ti', 'g') + '<span class="btn"' + act('casoNext', sel.id + '|done', 'Marcar hecha') + '>' + esc(ft("Marcar hecha")) + '</span>' : pill(na.state === 'done' ? 'hecha' : 'descartada', '')) + '</div>' : '') +
+    (sel.interpreter && sel.interpreter.ready ? '<div class="sb mono">' + esc(ft("Llamada con intérprete")) + '</div><div class="rdb"><span class="btn"' + act('casoInterp', sel.id, 'Abrir modo intérprete') + '>' + esc(ft("🎧 Modo intérprete ES ↔ NL")) + '</span></div><div class="note mono">JANUS ha estudiado el expediente (' + sel.interpreter.briefChars + ' caracteres' + (sel.interpreter.glossaryTerms ? ', ' + sel.interpreter.glossaryTerms + ' términos propios' : '') + '). Piloto de Infinity Connect.</div>' : '') +
+    '<div class="rdb">' + (sel.gmailUrl ? '<a class="btn" href="' + esc(sel.gmailUrl) + '" target="_blank" rel="noopener noreferrer">' + esc(ft("✉ Abrir el correo en Gmail")) + '</a>' : '') + '<span class="btn"' + act('casoCheck', sel.id, 'Comprobar Gmail ahora') + '>' + esc(ft("↻ Comprobar ahora")) + '</span></div>' +
+    '<div class="note mono">' + esc(ft("JANUS solo lee: no responde ni envía correos por ti.")) + '</div>' + (CASOS.err ? '<div class="note mono rdw">' + esc(CASOS.err) + '</div>' : ''));
   const right = panel('', '🧾', ft('Historial'), (sel.timeline || []).length + ' entradas',
     (sel.timeline || []).map((e) => '<div class="rdf"><div class="rdf1"><b class="mono">' + casosWhen(e.at) + '</b>' + (e.signals || []).filter((s) => s !== 'reply').map((s) => pill(CASO_SIG[s] || s, 'r')).join('') + '</div><div class="rdt">' + esc(e.summary) + (e.from ? ' · ' + esc(e.from) : '') + '</div>' +
-      (e.original ? '<div class="rdt dim">«' + esc(e.original) + '»</div>' + (e.translation ? '<div class="rdt">ES: ' + esc(e.translation) + '</div>' : '<div class="rdb"><span class="btn"' + act('casoTr', sel.id + '|' + e.id, 'Traducir al español') + '>Traducir al español</span></div>') : '') + '</div>').join('') +
-    '<div class="rdb"><input class="csin" id="caso-note" type="text" maxlength="500" placeholder="Añadir una nota al historial" aria-label="Nota"><span class="btn"' + act('casoNote', sel.id, 'Guardar nota') + '>Guardar</span></div>');
+      (e.original ? '<div class="rdt dim">«' + esc(e.original) + '»</div>' + (e.translation ? '<div class="rdt">ES: ' + esc(e.translation) + '</div>' : '<div class="rdb"><span class="btn"' + act('casoTr', sel.id + '|' + e.id, 'Traducir al español') + '>' + esc(ft("Traducir al español")) + '</span></div>') : '') + '</div>').join('') +
+    '<div class="rdb"><input class="csin" id="caso-note" type="text" maxlength="500" placeholder="Añadir una nota al historial" aria-label="Nota"><span class="btn"' + act('casoNote', sel.id, 'Guardar nota') + '>' + esc(ft("Guardar")) + '</span></div>');
   return frame('casos', sub, M, '<div class="col3">' + left + '</div><div class="col3">' + center + '</div><div class="col3">' + right + '</div>');
 }
 VIEWS.casos = vCasos;

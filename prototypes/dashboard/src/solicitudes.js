@@ -29,13 +29,13 @@ const soliRow = (r) => '<div class="cspr new"><span class="cspt">' + esc(r.produ
 function soliStrip() {
   void soliLoad(false);
   const fresh = soliNew(); if (!fresh.length) return '';
-  return '<div class="cspb go"' + goAttr('solicitudes', 'Solicitudes') + '><div class="csph mono"><i class="cspd"></i>SOLICITUDES NUEVAS<span>' + fresh.length + '</span></div>' + fresh.slice(0, 2).map(soliRow).join('') + '</div>';
+  return '<div class="cspb go"' + goAttr('solicitudes', 'Solicitudes') + '><div class="csph mono"><i class="cspd"></i>' + esc(ft("SOLICITUDES NUEVAS")) + '<span>' + fresh.length + '</span></div>' + fresh.slice(0, 2).map(soliRow).join('') + '</div>';
 }
 /** Tarjeta para el teléfono. */
 function soliPhoneCard() {
   void soliLoad(false);
   const fresh = soliNew(); if (!fresh.length) return '';
-  return '<section class="a2c cspa2 go"' + goAttr('solicitudes', 'Solicitudes') + '><div class="csph mono"><i class="cspd"></i>SOLICITUDES NUEVAS<span>' + fresh.length + '</span></div>' + fresh.slice(0, 3).map(soliRow).join('') + '</section>';
+  return '<section class="a2c cspa2 go"' + goAttr('solicitudes', 'Solicitudes') + '><div class="csph mono"><i class="cspd"></i>' + esc(ft("SOLICITUDES NUEVAS")) + '<span>' + fresh.length + '</span></div>' + fresh.slice(0, 3).map(soliRow).join('') + '</section>';
 }
 function vSolicitudes(M, X, sub) {
   void soliLoad(false);
@@ -48,9 +48,9 @@ function vSolicitudes(M, X, sub) {
   const st = SOLI_STATE[sel.state] || [sel.state, ''];
   const center = panel('', '📨', ft('Solicitudes'), esc(sel.name),
     '<div class="kv">' + [['🚦', 'Conexión', st[0]], ['🕒', 'Última lectura', soliWhen(sel.lastSuccess)], ['👥', 'Clientes', sel.customers ? String(sel.customers.total) : '—']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>' +
-    (sel.requests.length ? sel.requests.map((r) => '<div class="rdf"><div class="rdf1"><b class="mono">' + soliWhen(r.createdAt) + '</b>' + (r.status === 'new' ? pill('nueva', 'r') : pill(r.status === 'read' ? 'leída' : r.status === 'handled' ? 'atendida' : 'cerrada', '')) + '</div><div class="rdt"><b>' + esc(r.name || 'Sin nombre') + '</b>' + (r.contact ? ' · <a href="' + esc(soliContactHref(r.contact)) + '">' + esc(r.contact) + '</a>' : '') + '</div><div class="rdt">' + esc(r.message) + '</div></div>').join('') : '<div class="dim">No hay solicitudes en este producto.</div>') +
-    '<div class="rdb"><span class="btn"' + act('soliRefresh', sel.productId, 'Comprobar ahora') + '>↻ Comprobar ahora</span>' + (sel.openUrl ? '<a class="btn" href="' + esc(sel.openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ' + esc(sel.name) + '</a>' : '') + '</div>' +
-    '<div class="note mono">JANUS solo lee: no responde ni cambia nada en el producto.</div>' + (SOLI.err ? '<div class="note mono rdw">' + esc(SOLI.err) + '</div>' : ''));
+    (sel.requests.length ? sel.requests.map((r) => '<div class="rdf"><div class="rdf1"><b class="mono">' + soliWhen(r.createdAt) + '</b>' + (r.status === 'new' ? pill('nueva', 'r') : pill(r.status === 'read' ? 'leída' : r.status === 'handled' ? 'atendida' : 'cerrada', '')) + '</div><div class="rdt"><b>' + esc(r.name || 'Sin nombre') + '</b>' + (r.contact ? ' · <a href="' + esc(soliContactHref(r.contact)) + '">' + esc(r.contact) + '</a>' : '') + '</div><div class="rdt">' + esc(r.message) + '</div></div>').join('') : '<div class="dim">' + esc(ft("No hay solicitudes en este producto.")) + '</div>') +
+    '<div class="rdb"><span class="btn"' + act('soliRefresh', sel.productId, 'Comprobar ahora') + '>' + esc(ft("↻ Comprobar ahora")) + '</span>' + (sel.openUrl ? '<a class="btn" href="' + esc(sel.openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ' + esc(sel.name) + '</a>' : '') + '</div>' +
+    '<div class="note mono">' + esc(ft("JANUS solo lee: no responde ni cambia nada en el producto.")) + '</div>' + (SOLI.err ? '<div class="note mono rdw">' + esc(SOLI.err) + '</div>' : ''));
   return frame('solicitudes', sub, M, '<div class="col3">' + left + '</div><div class="col3">' + center + '</div>');
 }
 VIEWS.solicitudes = vSolicitudes;
