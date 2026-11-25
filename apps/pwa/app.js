@@ -1,6 +1,6 @@
 import { mountAppInstall } from './app-install.js';
 import { mountGlowEmblem } from './glow-emblem.js';
-import { authHeaders, createDeviceKey, devicePublicKeyPem, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
+import { authHeaders, createDeviceKey, devicePublicKeyPem, forgetSession, loadDeviceKey, sessionToken, signIn, signOut } from './founder-session.js';
 import { PcmTtsPlayer } from './pcm-tts-player.js';
 import { mountAssistantVoiceControls, selectedAssistantVoice } from './assistant-voice.js';
 import { mountAttachMenu } from './attach.js';
@@ -1009,7 +1009,7 @@ async function pollApprovals() {
     const response = await fetch('/api/approvals', { headers: authHeaders(), cache: 'no-store' });
     if (sessionToken() !== token) return;
     if (response.status === 401 || response.status === 403) {
-      await signOut();
+      forgetSession(token);
       setApprovalsStatus('Tu sesión de Founder caducó. Vuelve a entrar.');
       await refreshFounderControls();
       return;
@@ -1065,6 +1065,7 @@ founderKeyDownload.addEventListener('click', () => {
 });
 founderSignInButton.addEventListener('click', async () => {
   founderSignInButton.disabled = true;
+  let navigating = false;
   try {
     await signIn(deviceKey);
     setApprovalsStatus('Sesión de Founder iniciada en este dispositivo.');
@@ -1083,13 +1084,16 @@ founderSignInButton.addEventListener('click', async () => {
       setPresence('Listo', 'Toca el micrófono para hablar.');
     } else {
       location.assign(returnTo === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a');
+      navigating = true;
     }
   } catch (error) {
     setApprovalsStatus(error?.message ?? String(error));
     if (deviceKey) { founderKeyText.value = await devicePublicKeyPem(deviceKey); founderKeyBox.hidden = false; }
   } finally {
-    founderSignInButton.disabled = false;
-    refreshFounderControls();
+    if (!navigating) {
+      founderSignInButton.disabled = false;
+      await refreshFounderControls();
+    }
   }
 });
 founderSignOutButton.addEventListener('click', async () => {

@@ -90,15 +90,16 @@ try {
   assert.ok(!readFileSync(join(dir, 'data/janus.db')).includes(Buffer.from('PRIVATE_TABLET_FIXTURE_1126')), 'no private case text stored in plaintext');
   await start();
   await page.goto(origin + '/?returnTo=%2Fdashboard%2Fb#approvals');
+  await page.waitForFunction(() => !sessionStorage.getItem('janus.founder.session'));
   await page.locator('#founderSignInButton').click();
   await page.waitForURL(origin + '/dashboard/b');
   await page.locator('[data-layout="approved-option-2"]').waitFor();
   const stored = await page.evaluate(async id => {
     const response = await fetch('/api/cases', { headers: { authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') } });
     const body = await response.json();
-    return { status: response.status, text: JSON.stringify(body.cases?.find(item => item.id === id)) };
+    return { status: response.status, sessionPresent: Boolean(sessionStorage.getItem('janus.founder.session')), error: body.error, text: JSON.stringify(body.cases?.find(item => item.id === id)) };
   }, caseId);
-  assert.equal(stored.status, 200); assert.match(stored.text, /PRIVATE_TABLET_FIXTURE_1126/);
+  assert.equal(stored.status, 200, 'sesión presente: ' + stored.sessionPresent + ', Core: ' + (stored.error || stored.status)); assert.match(stored.text, /PRIVATE_TABLET_FIXTURE_1126/);
   ok('caso cifrado conservado en SQLite después de parada y reinicio');
   stage = 'parent controls and child pairing';
   await page.goto(origin + '/');

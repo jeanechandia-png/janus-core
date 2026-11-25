@@ -102,8 +102,13 @@ export async function signIn(pair, principalId = 'founder') {
   return verifyBody.session;
 }
 
+export function forgetSession(expected) {
+  if (!expected || sessionToken() !== expected) return;
+  try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* storage unavailable */ }
+}
+
 export async function signOut() {
   const headers = authHeaders();
-  try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+  forgetSession(sessionToken());
   if (headers.authorization) await fetch('/api/auth/logout', { method: 'POST', headers }).catch(() => {});
 }
