@@ -6232,7 +6232,8 @@ const server = createServer(async (request, response) => {
       const revenueMinor = verified ? incomeStatement(entries, booksChart(), {from,to:today,currency:'EUR'}).revenue.totalMinor : null;
       const products = productFeedSync.snapshot().products;
       const live = products.filter(item => item.state === 'live' && item.lastSuccess &&
-        Date.now() - Date.parse(item.lastSuccess) >= 0 && Date.now() - Date.parse(item.lastSuccess) <= 5 * 60_000);
+        Date.now() - Date.parse(item.lastSuccess) >= 0 && Date.now() - Date.parse(item.lastSuccess) <= 5 * 60_000 && item.generatedAt &&
+        Date.now() - Date.parse(item.generatedAt) >= -60_000 && Date.now() - Date.parse(item.generatedAt) <= 5 * 60_000);
       json(response,200,{ok:true,generatedAt:new Date().toISOString(),today,
         agenda:{source:'janus-work-agenda',items:agenda},
         approvals:{pending:approvalQueue.pending().length},

@@ -24,3 +24,9 @@ test('per-account verification refuses mismatched Gmail identity and never retur
  assert.deepEqual(result,[{service:'gmail',state:'needs_auth'},{service:'calendar',state:'needs_auth'},{service:'gmail:business',state:'denied'},{service:'calendar:business',state:'verified'}]);
  assert.doesNotMatch(JSON.stringify(result),/example.com|token/);
 });
+
+test('integration readiness refuses old product data, malformed Google payloads and unauthorized product access',async()=>{
+ const now=Date.parse('2026-11-25T10:00:00Z');
+ const result=await verifyReadiness({now:()=>now,token:async()=> 'token',products:[{productId:'iba',name:'IBA',url:'https://example.com/feed'},{productId:'chatbox',name:'ChatBox',url:'https://example.com/feed'}],readProduct:async source=>{if(source.productId==='chatbox')throw new Error('denied');return {schemaVersion:1,productId:'iba',generatedAt:'2026-11-25T09:00:00Z',customers:{active:1,trial:0},requests:[]};},fetchImpl:async input=>String(input).includes('gmail')?new Response(JSON.stringify({messagesTotal:null})):new Response(JSON.stringify({kind:'wrong'}))});
+ assert.deepEqual(result.map(x=>x.state),['invalid_response','invalid_response','stale_response','denied']);
+});

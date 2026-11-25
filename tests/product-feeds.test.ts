@@ -69,6 +69,7 @@ test('the reader sends the bearer token from the environment, only over https, a
   assert.equal(calls.length,1);
   const status=(code:number)=>productFeedReader({env:{JANUS_FEED_TOKEN_IBA:TOKEN},fetchImpl:(async()=>new Response('{}',{status:code})) as unknown as typeof fetch})(iba);
   await assert.rejects(status(401),/needs_auth/);
+  await assert.rejects(status(403),/denied/);
   await assert.rejects(status(503),/not_configured/);
   await assert.rejects(status(500),/source_unavailable/);
 });

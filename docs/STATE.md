@@ -1,3 +1,8 @@
+## Continuidad — verificación de fuentes reales y datos privados
+
+- Vercel: proyecto janus-core tiene despliegue READY de 77759d9, rama histórica, no HEAD de #98. IBA READY de 9fe11dc12c89ad3e8b810a2ff573d6b8f0cf0500, dominio infinitybusinessassistant.nl; la fuente desplegada incluye app/api/v1/janus/feed/route.ts, token mínimo 32 y lectura con consentimiento. ChatBox tiene sitio canónico Netlify infinity-chatbox, dominio infinitychatbox.nl, deploy 6b04bb2407a73a26f2702393 ready. Consulta de observabilidad filtrada no mostró registros del feed en ventanas consultadas: no demuestra que credenciales funcionen ni que no funcionen. No se leyó ningún secreto, no se modificó proveedor.
+- Verificador distingue 403, 503, JSON con estructura incorrecta y feed de más de cinco minutos. Portada y solicitudes excluyen recuentos no actuales, no muestran cero falso, descartan datos de sesiones anteriores o fallos de consulta. Textos dinámicos de solicitudes localizados ES/NL. Las credenciales propias del runtime actual siguen inaccesibles sin equipo conectado; no usar credenciales del conector ChatGPT.
+
 ## Continuidad — optimización sin pérdida del original recuperado y localización Founder
 
 - d7484f68 incorpora 152 puntos estáticos ES/NL en diez módulos Founder. No certifica traducción completa de todas las cadenas dinámicas o datos externos.

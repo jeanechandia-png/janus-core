@@ -19,7 +19,8 @@ export function productFeedReader(options:{
       method:'GET',redirect:'error',signal:AbortSignal.timeout(10_000),
       headers:{authorization:'Bearer '+token,accept:'application/json'},
     });
-    if(response.status===401||response.status===403)throw new Error('needs_auth');
+    if(response.status===401)throw new Error('needs_auth');
+    if(response.status===403)throw new Error('denied');
     if(response.status===503)throw new Error('not_configured');
     if(!response.ok)throw new Error('source_unavailable');
     const chunks:Uint8Array[]=[];let size=0;
