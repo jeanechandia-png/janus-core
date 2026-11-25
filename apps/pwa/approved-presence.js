@@ -189,7 +189,7 @@ function mountModel(target, id) {
   target.dataset.media = 'glb-3d-preview';
   target.dataset.visualApproval = 'pending';
   // Modelo de la biblioteca que el Founder ya aprobó: sin aviso de «pendiente». Todo lo demás conserva el aviso.
-  if (window.JanusCharacterSync?.meta?.(id)?.review === 'approved') {
+  if ((window.JanusCharacterSync?.meta?.(id)?.review === 'approved' || window.JanusCharacterSync?.audience === 'kid') && window.JanusCharacterSync?.canDisplay?.(id)) {
     target.dataset.visualApproval = 'approved';
   } else {
     const label = document.createElement('span');
@@ -255,10 +255,12 @@ async function refreshViewer(viewer) {
   viewer.__janusDispose?.();
   viewer.__janusDispose = null;
   target.replaceChildren();
+  delete target.dataset.visualApproval;
+  delete target.dataset.media;
   await initApprovedPresence();
   if (version !== viewer.__janusVersion || !viewer.isConnected) return;
   // Miniaturas: conservar la referencia exacta sin abrir múltiples contextos WebGL en iPhone.
-  if (!viewer.classList.contains('is-compact') && window.JanusCreatureSlot?.has?.(id) && mountModel(target, id)) {
+  if (!viewer.classList.contains('is-compact') && window.JanusCreatureSlot?.has?.(id) && (window.JanusCharacterSync?.audience !== 'kid' || window.JanusCharacterSync.canDisplay?.(id)) && mountModel(target, id)) {
     viewer.__janusDispose = target.__janusDispose;
     return;
   }

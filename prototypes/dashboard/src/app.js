@@ -6,12 +6,13 @@ function parseHash() { const h = decodeURIComponent((location.hash || '').replac
 function render() {
   const M = model(), X = derived(M);
   const dash = document.getElementById('dash'), view = document.getElementById('view');
-  const skin = skinNow(), phone = isPhone(), isB = skin === 'b';
-  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '');
+  const skin = skinNow(), phone = isPhone() && !(innerWidth >= 780 && innerWidth > innerHeight), isB = skin === 'b';
+  const tabletHome = !phone && (!ROUTE.v || ROUTE.v === 'inicio');
+  $root.className = 'stage ' + skin + (isB && phone ? ' pl-flow' : '') + (tabletHome ? ' janus-home-layout' : '');
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
-  dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : isB ? renderDashB(M, X) : renderDash(M, X);
-  if (ROUTE.v && VIEWS[ROUTE.v]) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
+  dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : tabletHome ? renderApprovedTabletHome(M, X) : '';
+  if (ROUTE.v && VIEWS[ROUTE.v] && !tabletHome) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + ft(TABS.find((t) => t[0] === ROUTE.v)[2]); centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
   if (typeof avatarSync === 'function') avatarSync();
@@ -36,6 +37,8 @@ function go(r) {
 }
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
+// La bandera existente actualiza la portada, sin crear otra sesión ni perder el borrador.
+document.addEventListener('janus:language-changed', event => { if (event.detail?.scope === 'founder') render(); });
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
 window.addEventListener('popstate', onRoute);
 
@@ -121,7 +124,7 @@ loadState();
 ROUTE = parseHash(); if (!VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' };
 render();
 if (ST.settings.mode === 'vivo') refreshWeather();
-setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus')) rerender(); } }, 60000);
+setInterval(() => { if (ST.settings.mode === 'vivo' && WX.live) { WX.live.nowMin += 1; if (WX.live.nowMin >= 1440) { WX.live.nowMin -= 1440; } WX.live.nowIdx = clamp(Math.floor(WX.live.nowIdx / 24) * 24 + Math.floor(WX.live.nowMin / 60), 0, WX.live.hourly.length - 1); if (!document.querySelector('#view input:focus,#view select:focus,#dash textarea:focus')) rerender(); } }, 60000);
 setInterval(() => { if (ST.settings.mode === 'vivo') refreshWeather(); }, 15 * 60000);
 
 /* Inclinación 3D de paneles de detalle: sigue al puntero (ratón/lápiz) o al dedo mientras se toca. */

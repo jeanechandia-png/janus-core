@@ -108,6 +108,48 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     });
     assert.equal(open.status, 200);
 
+    // School: la ruta reutiliza el módulo educativo, solo para el dispositivo infantil autenticado.
+    assert.equal((await call('GET', '/api/kid/school')).status, 401);
+    assert.ok([401, 403].includes((await call('GET', '/api/kid/school', founder)).status));
+    const school = await call('GET', '/api/kid/school', kid);
+    assert.equal(school.status, 200);
+    assert.equal(school.body.status, 'available');
+    assert.equal(school.body.techniques.length,12);
+    const schoolNl=await call('GET','/api/kid/school',{...kid,'x-janus-language':'nl'});
+    assert.equal(schoolNl.body.techniques.length,12);
+    assert.deepEqual(schoolNl.body.techniques.map((x:{id:string})=>x.id),school.body.techniques.map((x:{id:string})=>x.id));
+    assert.equal(schoolNl.body.techniques.find((x:{id:string})=>x.id==='mat-amigos').title,'Maak de tien vol');
+    assert.ok(schoolNl.body.techniques.filter((x:{check?:Record<string,unknown>})=>x.check).every((x:{check:Record<string,unknown>})=>!('answer' in x.check)&&!('why' in x.check)));
+    assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='amigos-del-10'));
+    assert.ok(school.body.techniques.some((item:{id:string})=>item.id==='zh-nihao'));
+    assert.ok(school.body.techniques.filter((item:{check?:Record<string,unknown>})=>item.check).every((item:{check:Record<string,unknown>})=>!('answer' in item.check)));
+    assert.equal((await call('POST','/api/kid/school/answer',{}, {id:'mat-amigos',answer:1})).status,401);
+    assert.ok([401,403].includes((await call('POST','/api/kid/school/answer',founder,{id:'mat-amigos',answer:1})).status));
+    assert.equal((await call('POST','/api/kid/school/answer',kid,{id:'no-existe',answer:0})).status,400);
+    assert.equal((await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:99})).status,400);
+    const goalRoute = '/api/parent/kid/school-goal';
+    assert.ok([401,403].includes((await call('PUT', goalRoute, kid, {lessonId:'mat-amigos'})).status));
+    assert.equal((await call('PUT', goalRoute, founder, {lessonId:'unknown'})).status, 400);
+    assert.equal((await call('PUT', goalRoute, founder, {lessonId:'mat-amigos'})).body.goal.completed, false);
+    const wrongPractice=await call('POST','/api/kid/school/answer',kid,{id:'mat-amigos',answer:0});
+    assert.equal(wrongPractice.body.correct,false);
+    assert.equal(wrongPractice.body.goal.completed, false);
+    const correctPractice=await call('POST','/api/kid/school/answer',{...kid,'x-janus-language':'nl'},{id:'mat-amigos',answer:1});
+    assert.equal(correctPractice.body.correct,true);
+    assert.equal(correctPractice.body.goal.completed, true);
+    assert.equal((await call('PUT', goalRoute, founder, {lessonId:'mat-amigos'})).body.goal.completed, true);
+    assert.equal((await call('GET', '/api/parent/kid/overview', founder)).body.schoolGoal.completed, true);
+    assert.equal((await call('PUT', goalRoute, founder, {lessonId:'nl-fiets'})).body.goal.completed, false);
+    assert.equal((await call('PUT', goalRoute, founder, {lessonId:null})).body.goal, null);
+    assert.equal((await call('GET', '/api/kid/school', kid)).body.goal, null);
+    assert.match(correctPractice.body.message,/Controleer het/);
+    assert.deepEqual(correctPractice.body.progress,{attempts:2,correct:1});
+    const reopenedSchool=await call('GET','/api/kid/school',kid);
+    assert.deepEqual(reopenedSchool.body.techniques.find((item:{id:string})=>item.id==='mat-amigos').progress,{attempts:2,correct:1});
+    assert.ok(school.body.techniques.every((item: { steps: unknown[]; materials: unknown[] }) => item.steps.length > 0 && Array.isArray(item.materials)));
+    assert.ok(school.body.techniques.every((item: Record<string, unknown>) => !('caution' in item) && !('evidenceIds' in item)));
+
+
     // 5) Personalización por la propia niña (listas cerradas).
     const state = await call('GET', '/api/kid/state', kid);
     assert.equal(state.status, 200);
@@ -121,6 +163,9 @@ test('dashboard de la niña: emparejamiento, PIN parental, filtros, casa latente
     const blocked = await call('POST', '/api/kid/chat', kid, { text: 'quiero ver porno' });
     assert.equal(blocked.status, 200);
     assert.equal(blocked.body.blocked, 'safety');
+    const blockedNl=await call('POST','/api/kid/chat',{...kid,'x-janus-language':'nl'},{text:'quiero ver porno'});
+    assert.equal(blockedNl.body.blocked,'safety');
+    assert.match(blockedNl.body.reply,/niet geschikt voor kinderen/);
     const fine = await call('POST', '/api/kid/chat', kid, { text: 'hola, cuéntame de los zorros' });
     assert.equal(fine.body.blocked, null);
     assert.ok(typeof fine.body.reply === 'string' && fine.body.reply.length > 0);

@@ -37,7 +37,7 @@ function renderPhoneA(M, X) {
   const bots = sec('chatbots', '🤖', 'Chatbots', 'en vivo', D.bots.map((b) => '<div class="pvl"><i class="dot ' + (b.warn ? 'w' : 'g') + '"></i><span class="tx">' + esc(b.n) + '</span><b class="mono">' + b.c + '</b>' + svgSpark(b.days, 50, 14, '#86B6FF') + '</div>').join(''));
   const cont = sec('contenido', '🎬', 'Reels', 'top 3', D.reels.map((r, i) => '<div class="pvl"><span class="mono tm">' + (i + 1) + '</span><span class="tx">' + esc(r.t) + '</span><b class="mono">' + r.views + 'K</b><span class="mono dim">€' + r.eur + '</span></div>').join(''));
   const cli = sec('clientes', '🤝', 'Embudo', '30 d', '<div class="pvfun">' + D.F.map((f, i) => '<span style="--w:' + (100 - i * 24) + '%"><b class="serif">' + f.n + '</b><small class="mono">' + f.t + '</small></span>').join('') + '</div>');
-  const pro = sec('trabajo', '📁', 'Proyectos', '⚙ CI ' + REAL.ci.length + ' · PR ' + REAL.prs.length, '<div class="pvp">' + D.proj.map((p) => '<span class="go"' + goAttr('trabajo/' + p.id, p.n) + '><span class="bb s">' + p.e + '</span>' + esc(p.s || p.n) + '<i></i></span>').join('') + '</div>');
+  const pro = sec('trabajo', '📁', 'Proyectos', snapshotStatus() + ' · CI ' + REAL.ci.length + ' · PR ' + REAL.prs.length, '<div class="pvp">' + D.proj.map((p) => '<span class="go"' + goAttr('trabajo/' + p.id, p.n) + '><span class="bb s">' + p.e + '</span>' + esc(p.s || p.n) + '<i></i></span>').join('') + '</div>');
   return pvHead(M, X) + '<main class="pvA">' + clima + dia + fam + pri + kp + '<div class="pv2">' + bots + cont + '</div><div class="pv2">' + cli + pro + '</div></main>';
 }
 
@@ -46,7 +46,7 @@ function renderPhoneB(M, X) {
   const D = pvData(M, X);
   const clima = sec('clima', '🚴', 'Clima · bici', srcBadge(M.src === 'vivo'), '<div class="pvb-wx"><div class="l"><img class="wi" src="' + wxImg(M.nowE.k) + '" alt=""><b class="serif gld big">' + M.nowE.t + '°</b></div><div class="pvv">' + pvVerd(M) + '</div></div><div class="pvhrs">' + pvWx(M, 6) + '</div>', 'full');
   const dia = sec('dia', '🗓', 'Mi día', '● real', X.agenda.slice(0, 3).map((a) => '<div class="pvl2"><span class="mono tm">' + a.h + '</span><span class="tx">' + esc(a.t) + '</span></div>').join(''));
-  const fam = sec('familia', '🌟', '__HIJA__', '', D.kToday.map((k) => '<div class="pvl2"><span class="mono tm">' + k.h + '</span><span class="tx">' + k.e + ' ' + k.t + '</span></div>').join('') + (D.cita ? '<div class="pvl2 warn"><span class="mono tm">' + D.cita.days + ' d</span><span class="tx">🩺 cita</span></div>' : ''));
+  const fam = sec('familia', '🌟', '__HIJA__', '', D.kToday.map((k) => '<div class="pvl2"><span class="mono tm">' + k.h + '</span><span class="tx">' + k.e + ' ' + k.t + '</span></div>').join('') + (D.cita ? '<div class="pvl2 warn"><span class="mono tm">' + D.cita.days + ' d</span><span class="tx">' + esc(ft("🩺 cita")) + '</span></div>' : ''));
   const pri = sec('prioridades', '🎯', 'Correo', X.mailsOpen.length, DATA.mails.slice(0, 3).map((m) => '<div class="pvl2"><span class="tx"><b>' + esc(m.who) + '</b></span>' + sevBars(m.sev) + '</div>').join(''));
   const fol = sec('prioridades', '✅', 'Compromisos', X.follow.filter((f) => !f.done).length, X.follow.slice(0, 3).map((f) => '<div class="pvl2"><span class="tx">' + esc(f.x) + '</span><i class="pbar"><b style="width:' + f.p + '%"></b></i></div>').join(''));
   const ing = sec('ingresos', '💶', 'Ingresos', '▲' + X.revDelta + '%', '<b class="serif gld mid">€' + fmt(X.total) + '</b>' + svgSpark(D.kpis[0][4], 120, 30));
@@ -54,8 +54,8 @@ function renderPhoneB(M, X) {
   const bots = sec('chatbots', '🤖', 'Chatbots', '', D.bots.map((b) => '<div class="pvl2"><span class="tx">' + esc(b.n.split(' · ')[0]) + '</span><b class="mono">' + b.c + '</b>' + (b.warn ? '<i class="dot w"></i>' : '<i class="dot g"></i>') + '</div>').join('') + svgSpark(D.bots[0].days.map((v, i) => v + D.bots[1].days[i]), 120, 22, '#86B6FF'));
   const cont = sec('contenido', '🎬', 'Reels', '', D.reels.map((r) => '<div class="pvl2"><span class="tx">' + esc(r.t) + '</span><b class="mono">' + r.views + 'K</b></div>').join(''));
   const cli = sec('clientes', '🤝', 'Clientes', '', '<div class="pvfun sm">' + D.F.map((f, i) => '<span style="--w:' + (100 - i * 24) + '%"><b class="serif">' + f.n + '</b><small class="mono">' + f.t + '</small></span>').join('') + '</div>');
-  const pro = sec('trabajo', '📁', 'Proyectos', 'PR ' + REAL.prs.length, D.proj.map((p) => '<div class="pvl2"><span class="tx">' + p.e + ' ' + esc(p.s || p.n) + '</span><i class="dot g"></i></div>').join(''));
-  const jan = '<section class="cd pv full pvjr"><div class="pvt go"' + goAttr('janus', 'Janus') + '><span class="bb s">⚙</span><span class="mono">Janus</span><span class="mt mono">● real · ' + REAL.syncedAt.slice(11) + '</span></div><div class="pvjn">' + [['✅', 'CI', REAL.ci.length + '/' + REAL.ci.length], ['🧩', 'PR', REAL.prs.length], ['🔐', 'Aprobar', X.apprOpen.length], ['🌦', 'Clima', M.src === 'vivo' ? 'vivo' : 'ejemplo']].map((r) => '<span><span class="bb s">' + r[0] + '</span><small class="mono">' + r[1] + '</small><b class="mono">' + r[2] + '</b></span>').join('') + '</div></section>';
+  const pro = sec('trabajo', '📁', 'Proyectos', snapshotStatus() + ' · PR ' + REAL.prs.length, D.proj.map((p) => '<div class="pvl2"><span class="tx">' + p.e + ' ' + esc(p.s || p.n) + '</span><i class="dot g"></i></div>').join(''));
+  const jan = '<section class="cd pv full pvjr"><div class="pvt go"' + goAttr('janus', 'Janus') + '><span class="bb s">⚙</span><span class="mono">Janus</span><span class="mt mono">' + esc(snapshotStatus()) + '</span></div><div class="pvjn">' + [['✅', 'CI', REAL.ci.length + '/' + REAL.ci.length], ['🧩', 'PR', REAL.prs.length], ['🔐', 'Aprobar', X.apprOpen.length], ['🌦', 'Clima', M.src === 'vivo' ? 'vivo' : 'ejemplo']].map((r) => '<span><span class="bb s">' + r[0] + '</span><small class="mono">' + r[1] + '</small><b class="mono">' + r[2] + '</b></span>').join('') + '</div></section>';
   return pvHead(M, X) + '<main class="pvB">' + clima + dia + fam + pri + fol + ing + alc + bots + cont + cli + pro + jan + '</main>';
 }
 
@@ -70,11 +70,11 @@ function renderPhoneC(M, X) {
   const TLH = 470;
   const lane = (items, cls) => { let last = -99; return items.slice().sort((a, b) => hmToMin(a.h) - hmToMin(b.h)).map((a) => { const h = Math.max(H0, Math.min(H1 - .5, hmToMin(a.h) / 60)); const top = Math.max((h - H0) / span * TLH, last + 26); last = top; return '<div class="pce ' + cls + ' go" style="top:' + top.toFixed(0) + 'px"' + goAttr(cls === 'k' ? 'familia' : 'dia', a.t) + '><span class="mono">' + a.h + '</span> ' + (a.e || '') + ' ' + esc(a.t) + '</div>'; }).join(''); };
   const nowY = y(Math.max(H0, Math.min(H1, M.nowMin / 60)));
-  const tl = '<section class="cd pv pvC-tl"><div class="pvt go"' + goAttr('clima', 'Clima') + '><span class="bb s">🗓</span><span class="mono">Hoy · clima y agenda</span><span class="mt">' + pvVerd(M) + '</span></div>' +
+  const tl = '<section class="cd pv pvC-tl"><div class="pvt go"' + goAttr('clima', 'Clima') + '><span class="bb s">🗓</span><span class="mono">' + esc(ft("Hoy · clima y agenda")) + '</span><span class="mt">' + pvVerd(M) + '</span></div>' +
     '<div class="pct"><div class="pcgut">' + gutter + '<div class="pcrain">' + rain + '</div></div>' +
-    '<div class="pcl"><small class="mono lh">🏠 personal</small>' + lane(X.agenda.filter((a) => a.amb !== 'e'), 'p') + '</div>' +
+    '<div class="pcl"><small class="mono lh">' + esc(ft("🏠 personal")) + '</small>' + lane(X.agenda.filter((a) => a.amb !== 'e'), 'p') + '</div>' +
     '<div class="pcl"><small class="mono lh">🌟 __HIJA__</small>' + lane(D.kToday.map((k) => ({ h: k.h, e: k.e, t: k.t })), 'k') + '</div>' +
-    '<div class="pcl"><small class="mono lh">🏢 empresa</small>' + lane(X.agenda.filter((a) => a.amb === 'e'), 'e') + '</div>' +
+    '<div class="pcl"><small class="mono lh">' + esc(ft("🏢 empresa")) + '</small>' + lane(X.agenda.filter((a) => a.amb === 'e'), 'e') + '</div>' +
     '<div class="pcnow" style="top:' + nowY + '"><span class="mono">' + M.nowLabel + '</span></div></div></section>';
   const kp = '<section class="cd pv pvk">' + D.kpis.map((k) => '<div class="go"' + goAttr(k[5], k[1]) + '><span class="mono kl">' + k[1] + '</span><b class="serif gld">' + k[2] + '</b><span class="mono up">' + k[3] + '</span>' + svgSpark(k[4], 80, 18) + '</div>').join('') + '</section>';
   const st = '<section class="cd pv pvst">' + [
@@ -82,7 +82,7 @@ function renderPhoneC(M, X) {
     ['chatbots', '🤖', 'Chatbots', D.bots.reduce((a, b) => a + b.c, 0) + ' conv. 7 d', D.bots.map((b) => b.n.split(' · ')[0] + ' ' + b.c).join(' · ')],
     ['contenido', '🎬', 'Reels', D.reels[0].views + 'K top', D.reels.map((r) => r.t.split(' ')[0] + ' ' + r.views + 'K').join(' · ')],
     ['clientes', '🤝', 'Embudo', D.F.map((f) => f.n).join(' → '), D.F.map((f) => f.t).join(' → ')],
-    ['trabajo', '📁', 'Proyectos', D.proj.length + ' activos · PR ' + REAL.prs.length, D.proj.map((p) => p.s || p.n).join(' · ')]
+    ['trabajo', '📁', 'Proyectos', D.proj.length + ' · ' + snapshotStatus() + ' · PR ' + REAL.prs.length, D.proj.map((p) => p.s || p.n).join(' · ')]
   ].map((r) => '<div class="pvr go"' + goAttr(r[0], r[2]) + '><span class="bb s">' + r[1] + '</span><div><b>' + r[2] + ' <span class="mono gold">' + esc(String(r[3])) + '</span></b><small>' + esc(r[4]) + '</small></div></div>').join('') + '</section>';
   return pvHead(M, X) + '<main class="pvCm">' + tl + kp + st + '</main>';
 }

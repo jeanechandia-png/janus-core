@@ -8,6 +8,7 @@
  * Este módulo no genera personajes ni sustituye imágenes: solo descarga, verifica la huella SHA-256 y carga.
  */
 const SLOT_IDS = Object.freeze(['lumi', 'bombo', 'musgo', 'nimbo', 'nexo-masculino', 'nexo-femenino']);
+const KID_IDS = Object.freeze(SLOT_IDS.slice(0, 4));
 const SLOT_LABELS = Object.freeze({
   lumi: 'Lumi', bombo: 'Bombo', musgo: 'Musgo', nimbo: 'Nimbo',
   'nexo-masculino': 'Nexo · Janus', 'nexo-femenino': 'Nexo · Melanie',
@@ -27,6 +28,9 @@ export function configureCharacterSync({ audience, headers }) {
   if (audience !== 'founder' && audience !== 'kid') throw new Error('Audiencia de personajes no válida');
   config = { audience, headers: typeof headers === 'function' ? headers : () => ({}) };
   window.JanusCharacterSync = Object.freeze({
+    audience,
+    canDisplay: canDisplayApproved,
+    clearKidApprovals: () => { if (config?.audience === 'kid') { writeSynced({}); meta.clear(); announce(); } },
     meta: (id) => meta.get(id) || null,
     start: startCharacterSync,
     sync: syncCharacters,
@@ -35,6 +39,19 @@ export function configureCharacterSync({ audience, headers }) {
 
 export function characterMeta(id) { return meta.get(id) || null; }
 
+// Never equate a slot name with approved bytes. An imported or replaced GLB
+// with the same slot name must not inherit the old approval.
+export function canDisplayApproved(id) {
+  if (!config || !authHeaders()) return false;
+  const actual = window.JanusCreatureSlot?.info?.(id)?.sha256;
+  if (!actual || !/^[a-f0-9]{64}$/.test(actual)) return false;
+  if (config.audience === 'kid') {
+    if (!KID_IDS.includes(id)) return false;
+    return readSynced()[id] === actual;
+  }
+  const record = meta.get(id);
+  return record?.review === 'approved' && record.sha256 === actual;
+}
 function readSynced() {
   try { return JSON.parse(localStorage.getItem(STORE_PREFIX + config.audience) || '{}') || {}; } catch { return {}; }
 }
@@ -77,12 +94,16 @@ async function run() {
   const slot = window.JanusCreatureSlot;
   if (!slot?.supported?.()) return { skipped: 'sin-motor-3d' };
   const kid = config.audience === 'kid';
+  const token = authHeaders()?.authorization;
+  const sameSession = () => token === authHeaders()?.authorization;
   const listing = await request(kid ? '/api/kid/characters' : '/api/characters', { cache: 'no-store' });
+  if (!sameSession()) return { skipped: 'sesion-cambiada' };
   if (listing.status !== 200 || !listing.body?.ok || !Array.isArray(listing.body.characters)) {
+    if (kid && (listing.status === 401 || listing.status === 403)) { writeSynced({}); meta.clear(); announce(); }
     return { skipped: listing.reason || (listing.status === 0 ? 'sin-conexion' : 'sin-acceso') };
   }
   const wanted = kid
-    ? listing.body.characters.map((item) => ({ slot: item.slot, sha256: item.sha256, tier: item.tier, review: 'approved' }))
+    ? listing.body.characters.filter(item => KID_IDS.includes(item.slot) && /^[a-f0-9]{64}$/.test(item.sha256)).map((item) => ({ slot: item.slot, sha256: item.sha256, tier: item.tier, review: 'approved' }))
     : listing.body.characters
       .map((item) => item.active || item.servable)
       .filter(Boolean)
@@ -92,19 +113,34 @@ async function run() {
   const before = JSON.stringify([...meta.entries()]);
   let loaded = 0; let removed = 0; const errors = [];
 
+  // Revoke changed/withdrawn approvals before any download can fail.
+  if (kid) {
+    for (const id of Object.keys(synced)) {
+      if (wanted.some(want => want.slot === id && want.sha256 === synced[id])) continue;
+      const old = synced[id];
+      delete synced[id]; meta.delete(id);
+      if (slot.info?.(id)?.sha256 === old && slot.remove(id)) removed++;
+    }
+    writeSynced(synced); if (removed || JSON.stringify([...meta.entries()]) !== before) announce();
+  }
+
   for (const want of wanted) {
     if (!SLOT_IDS.includes(want.slot) || !/^[a-f0-9]{64}$/.test(want.sha256)) continue;
     // El estado visible (aprobado/pendiente) se fija antes de cargar para que la primera pintura ya sea correcta.
     meta.set(want.slot, { sha256: want.sha256, tier: want.tier, review: want.review });
-    if (synced[want.slot] === want.sha256 && slot.has(want.slot)) continue;
+    if (!sameSession()) return { skipped: 'sesion-cambiada' };
+    if (synced[want.slot] === want.sha256 && slot.info?.(want.slot)?.sha256 === want.sha256) continue;
     const path = (kid ? '/api/kid/characters/' : '/api/characters/') + want.slot + '/' + want.sha256 + '.glb';
     const download = await request(path, { cache: 'force-cache' }, true);
     if (!download.bytes) { errors.push(want.slot + ': ' + (download.reason || 'HTTP ' + download.status)); meta.delete(want.slot); continue; }
     try {
       if (download.bytes.byteLength > MAX_GLB_BYTES) throw new Error('supera 15 MB');
       if ((await sha256Hex(download.bytes)) !== want.sha256) throw new Error('la huella no coincide');
+      if (!sameSession()) return { skipped: 'sesion-cambiada' };
       const report = await slot.load(want.slot, download.bytes, { name: want.slot + '-' + want.sha256.slice(0, 8) + '.glb' });
       if (report.level === 'error') throw new Error(report.summary || 'modelo no utilizable');
+      if (!sameSession()) return { skipped: 'sesion-cambiada' };
+      if (slot.info?.(want.slot)?.sha256 !== want.sha256) throw new Error('la huella cargada no coincide');
       synced[want.slot] = want.sha256;
       loaded++;
     } catch (error) {
@@ -116,7 +152,7 @@ async function run() {
   for (const id of Object.keys(synced)) {
     if (wanted.some((want) => want.slot === id)) continue;
     // Retirada: solo en la tablet de la niña y solo de lo que ESTA sincronización instaló.
-    if (kid && slot.remove(id)) removed++;
+    if (kid && slot.info?.(id)?.sha256 === synced[id] && slot.remove(id)) removed++;
     if (kid) { delete synced[id]; meta.delete(id); }
   }
   if (!kid) for (const id of [...meta.keys()]) if (!wanted.some((want) => want.slot === id)) meta.delete(id);
@@ -131,6 +167,7 @@ export function startCharacterSync() {
   started = true;
   void syncCharacters();
   window.addEventListener('online', () => void syncCharacters());
+  if (config.audience === 'kid') setInterval(() => { if (document.visibilityState === 'visible' && authHeaders()) void syncCharacters(); }, RESYNC_MS);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && Date.now() - lastRun > RESYNC_MS) void syncCharacters();
   });

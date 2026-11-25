@@ -25,10 +25,22 @@ if (process.argv.includes('--runtime')) {
     check('runtime Janus auténtico', health.ok === true && health.service === 'janus-runtime');
     check('memoria en SQLite persistente', health.durable === true && health.db === 'sqlite');
     console.log(`Acceso del propietario: ${health.authority?.founderConfigured ? 'registrado' : 'PENDIENTE de vincular este dispositivo'}`);
-    for (const route of ['/dashboard/a', '/dashboard/b', '/kendra']) {
-      const response = await fetch(origin + route, { signal: AbortSignal.timeout(10000), redirect: 'error' });
-      check(route, response.ok && /text\/html/.test(response.headers.get('content-type') || ''));
-      await response.body?.cancel();
+    const screens = [
+      ['/dashboard/a', 'Janus · Obsidiana', '/manifest.webmanifest', '/dashboard-access.js'],
+      ['/dashboard/b', 'Janus · Platino', '/manifest.webmanifest', '/dashboard-access.js'],
+      ['/kendra', 'Kendra', '/kendra.webmanifest', '/kendra.js'],
+    ];
+    for (const [route, title, manifest, module] of screens) {
+      const response = await fetch(origin + route, { signal: AbortSignal.timeout(10000), redirect: 'manual' });
+      const html = await response.text();
+      check(route, response.status === 200 && /text\/html/i.test(response.headers.get('content-type') || '') &&
+        html.includes(`<title>${title}</title>`) && html.includes(`rel="manifest" href="${manifest}"`) &&
+        html.includes(`type="module" src="${module}"`));
+    }
+    for (const file of ['sw.js', 'app.js', 'founder-session.js', 'dashboard-access.js', 'kendra.js', 'kendra-parent.js', 'language-buttons.js']) {
+      const response = await fetch(origin + '/' + file, { signal: AbortSignal.timeout(10000), redirect: 'manual' });
+      const bytes = Buffer.from(await response.arrayBuffer());
+      check(file + ' coincide con la instalación', response.status === 200 && bytes.equals(readFileSync(join(root, 'apps/pwa', file))));
     }
     console.log(`IA conversacional: ${health.planner?.includes('+model') ? 'configurada; verificar respuesta real' : 'PENDIENTE de conectar modelo'}`);
     console.log(`Voz del núcleo: ${health.voice?.streaming?.state === 'available' ? 'configurada; verificar micrófono y audio reales' : 'PENDIENTE de conectar STT/TTS'}`);

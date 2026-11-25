@@ -33,7 +33,7 @@ function parseArgs(argv: string[]): { command: string; flags: Map<string, string
     if (flags.has(name)) throw new Error('Duplicate argument: --' + name);
     flags.set(name, raw[i + 1]!);
   }
-  const allowed = new Set(['input', 'slot', 'origin', 'reference-sha256', 'pilot-use-until', 'rights-evidence', 'private-dir']);
+  const allowed = new Set(['input', 'slot', 'origin', 'reference-sha256', 'pilot-use-until', 'rights-evidence', 'private-dir', 'expected-sha256']);
   for (const key of flags.keys()) if (!allowed.has(key)) throw new Error('Unknown flag: --' + key);
   if (!flags.get('input')) throw new Error('Missing --input');
   return { command, flags };
@@ -44,6 +44,10 @@ async function main(): Promise<void> {
   const filepath = resolve(flags.get('input')!);
   if (extname(filepath).toLowerCase() !== '.glb') throw new Error('Only .glb files are supported');
   const bytes = await fs.readFile(filepath);
+  const expected = flags.get('expected-sha256');
+  if (expected !== undefined && (!/^[a-f0-9]{64}$/i.test(expected) || createHash('sha256').update(bytes).digest('hex') !== expected.toLowerCase())) {
+    throw new Error('Original GLB SHA-256 mismatch; no model staged');
+  }
   const inspected = inspectForgeGlb(bytes);
   if (command === 'inspect') {
     process.stdout.write(JSON.stringify(inspected, null, 2) + '\n');

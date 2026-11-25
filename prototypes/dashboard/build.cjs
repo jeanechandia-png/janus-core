@@ -42,7 +42,10 @@ const FONTS = [['Cinzel', 700, 'cinzel-latin-700'], ['Cinzel', 900, 'cinzel-lati
   ['Sora', 600, 'sora-latin-600'], ['Sora', 700, 'sora-latin-700'], ['Manrope', 400, 'manrope-latin-400'], ['Manrope', 500, 'manrope-latin-500'], ['Manrope', 600, 'manrope-latin-600'], ['Manrope', 700, 'manrope-latin-700'], ['DM Mono', 400, 'dm-mono-latin-400'], ['DM Mono', 500, 'dm-mono-latin-500']];
 // Tipografías incrustadas (OFL): nítidas y idénticas en cualquier dispositivo, también sin conexión.
 const fontCss = FONTS.map(([f, w, file]) => "@font-face{font-family:'" + f + "';font-style:normal;font-weight:" + w + ";font-display:block;src:url(data:font/woff2;base64," + b64('assets/fonts/' + file + '-normal.woff2') + ") format('woff2')}").join('\n');
-let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css') + rd('src/phone.css') + rd('src/phonev.css') + rd('src/companero.css') + rd('src/companero-stage.css') + rd('src/phonea2.css') + rd('lego/janus-3d/janus-3d.css') + rd('src/adjuntos.css') + rd('lego/janus-attach/janus-attach.css') + rd('lego/janus-interpreter/janus-interpreter.css');
+const stageCss = rd('src/companero-stage.css').split('/* Portada Founder aprobada');
+const originalStageCss = stageCss[0];
+const tabletCss = stageCss.length > 1 ? '/* Portada Founder aprobada' + stageCss.slice(1).join('/* Portada Founder aprobada') : '';
+let css = rd('src/base.css') + rd('src/views.css') + rd('src/depth.css') + rd('lego/janus-activity/janus-activity.css') + rd('src/sala.css') + rd('lego/janus-gold/janus-gold.css') + rd('src/premium.css') + rd('src/phone.css') + rd('src/phonev.css') + rd('src/companero.css') + originalStageCss + rd('src/phonea2.css') + rd('lego/janus-3d/janus-3d.css') + rd('src/adjuntos.css') + rd('lego/janus-attach/janus-attach.css') + rd('lego/janus-interpreter/janus-interpreter.css');
 // Piel B · Platino: el CSS de A se traduce de paleta (misma fuente de verdad) y se añade el diseño propio del dashboard B.
 const SkinMap = require('./tools/skin-map.cjs');
 const A_FILES = ['src/base.css', 'src/views.css', 'src/depth.css', 'lego/janus-activity/janus-activity.css', 'src/sala.css', 'lego/janus-gold/janus-gold.css', 'src/premium.css', 'src/phone.css', 'src/phonev.css', 'src/companero.css', 'src/phonea2.css', 'lego/janus-3d/janus-3d.css', 'src/adjuntos.css'];
@@ -52,7 +55,7 @@ css += rd('src/skin.css');
 const legibleFonts = (src) => src.replace(/font-size:\s*(\d*\.?\d+)px/g, (m, n) => { const v = parseFloat(n); if (v >= 12) return m; const up = Math.max(v * 1.28, v + 2); return 'font-size:' + (Math.round(Math.min(up, 13) * 2) / 2) + 'px'; });
 css = legibleFonts(css) + rd('src/legible.css');
 const cssB = A_FILES.map((f) => SkinMap.mapCss(rd(f))).join('\n');
-css = ':root{--marble:' + MARBLE + '}\n' + css + '\n' + cssB + '\n' + rd('src/dash-b.css') + '\n' + rd('src/companero-stage.css');
+css = ':root{--marble:' + MARBLE + '}\n' + css + '\n' + cssB + '\n' + rd('src/dash-b.css') + '\n' + originalStageCss;
 for (const [k, v] of Object.entries(NAMES)) { js = js.split(k).join(v); css = css.split(k).join(v); }
 
 const head = '';
@@ -65,7 +68,7 @@ const html = '<!doctype html>\n<html lang="es">\n<head>\n<meta charset="utf-8">\
   'html,body{margin:0;height:100%;overflow:hidden;background:#07070a}\n*{box-sizing:border-box}\n' +
   '.stage{width:100vw;height:100vh;height:100dvh;overflow:hidden;position:relative}\n' +
   '@media (max-aspect-ratio:1/1){.stage{height:69.85vw;top:calc((100dvh - 69.85vw) / 2)}}\n' +
-  px2rem(css) + '\n</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n';
+  px2rem(css) + '\n' + tabletCss + '\n</style>\n</head>\n<body>\n' + body + '\n</body>\n</html>\n';
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html);
 console.log('ok', OUT, (html.length / 1024).toFixed(0) + ' KB', '· datos:', realFile, '· nombres:', PUBLIC_SAFE ? 'genéricos-seguros' : (has('local/names.json') ? 'local' : 'genéricos'));

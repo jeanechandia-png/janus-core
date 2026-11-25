@@ -71,13 +71,13 @@ async function contrast(page, size) {
   { const { ctx, page, errs } = await open(br, FA, '', TABLET);
     check('A por defecto: raíz .stage.a y título «Obsidiana»', await page.evaluate(() => !!document.querySelector('.stage.a') && /Obsidiana/.test(document.title)));
     check('A: no hay elementos de B (clases pl-)', await page.evaluate(() => !document.querySelector('[class*="pl-"]')));
-    check('A: el selector está en la cabecera', await page.evaluate(() => !!document.querySelector('.hd [data-act=skin][data-arg=b]')));
-    await page.click('.hd [data-act=skin][data-arg=b]'); await page.waitForTimeout(400);
+    check('A: opción 2 y selector en Más', await page.evaluate(() => !!document.querySelector('[data-layout="approved-option-2"] .jh-more [data-act=skin][data-arg=b]')));
+    await page.click('.jh-more summary'); await page.click('.jh-more [data-act=skin][data-arg=b]'); await page.waitForTimeout(400);
     check('pulsar B cambia a .stage.b y título «Platino»', await page.evaluate(() => !!document.querySelector('.stage.b') && /Platino/.test(document.title)));
-    check('B: dashboard propio (pl-) con selector', await page.evaluate(() => !!document.querySelector('.pl-hd [data-act=skin][data-arg=a]') && !!document.querySelector('.pl-b3')));
+    check('B: opción 2, cuatro tarjetas y selector', await page.evaluate(() => !!document.querySelector('.stage.b .jh-more [data-act=skin][data-arg=a]') && document.querySelectorAll('.jh-cards > .jh-card').length === 4));
     await page.reload(); await page.waitForTimeout(600);
     check('la piel B persiste tras recargar', await page.evaluate(() => !!document.querySelector('.stage.b')));
-    await page.click('.pl-hd [data-act=skin][data-arg=a]'); await page.waitForTimeout(400);
+    await page.click('.jh-more summary'); await page.click('.jh-more [data-act=skin][data-arg=a]'); await page.waitForTimeout(400);
     check('volver a A funciona', await page.evaluate(() => !!document.querySelector('.stage.a') && !document.querySelector('[class*="pl-"]')));
     await page.goto('file://' + FA + '?skin=b'); await page.waitForTimeout(500);
     check('?skin=b fuerza B', await page.evaluate(() => !!document.querySelector('.stage.b')));
@@ -88,7 +88,7 @@ async function contrast(page, size) {
   console.log('\n[2] Fichero B (build --skin b)');
   { const { ctx, page, errs, reqs } = await open(br, FB, '', TABLET);
     check('arranca en B sin parámetro', await page.evaluate(() => !!document.querySelector('.stage.b') && /Platino/.test(document.title)));
-    check('puede pasar a A desde su selector', await (async () => { await page.click('.pl-hd [data-act=skin][data-arg=a]'); await page.waitForTimeout(300); return page.evaluate(() => !!document.querySelector('.stage.a')); })());
+    check('puede pasar a A desde su selector', await (async () => { await page.click('.jh-more summary'); await page.click('.jh-more [data-act=skin][data-arg=a]'); await page.waitForTimeout(300); return page.evaluate(() => !!document.querySelector('.stage.a')); })());
     check('sin peticiones de red salvo Open-Meteo (clima en vivo)', reqs.length === 0, reqs.slice(0, 2).join(' '));
     check('sin errores JS', errs.length === 0, errs.slice(0, 2).join(' | ')); await ctx.close(); }
 
@@ -96,10 +96,10 @@ async function contrast(page, size) {
   { const { ctx, page, errs } = await open(br, FA, '?skin=b', TABLET);
     const m = await page.evaluate(() => ({ sh: document.documentElement.scrollHeight, ih: innerHeight, sw: document.documentElement.scrollWidth, iw: innerWidth }));
     check('sin scroll vertical ni horizontal', m.sh <= m.ih + 1 && m.sw <= m.iw + 1, JSON.stringify(m));
-    const clipped = await page.evaluate(() => [...document.querySelectorAll('.pl-cd')].filter((c) => c.scrollWidth > c.clientWidth + 2 || c.scrollHeight > c.clientHeight + 2).map((c) => (c.querySelector('.pl-lb') || {}).textContent));
+    const clipped = await page.evaluate(() => [...document.querySelectorAll('.jh-card')].filter((c) => c.scrollWidth > c.clientWidth + 2 || c.scrollHeight > c.clientHeight + 2).map((c) => (c.querySelector('h2') || {}).textContent));
     check('ninguna tarjeta con contenido recortado', clipped.length === 0, clipped.join(', '));
     const routes = await page.evaluate(() => [...new Set([...document.querySelectorAll('.stage [data-go]')].map((e) => e.getAttribute('data-go')))]);
-    check('el dashboard B expone ≥ 14 rutas distintas', routes.length >= 14, String(routes.length));
+    check('la portada B y Más conservan ≥ 14 rutas distintas', routes.length >= 14, String(routes.length));
     const rutasKo = [];
     for (const r of routes) {
       await page.goto('file://' + FA + '?skin=b'); await page.waitForTimeout(250);

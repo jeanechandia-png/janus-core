@@ -68,6 +68,7 @@ import {
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { ProductIncidentSync, type IncidentSource } from '../../packages/core/src/product-incidents.js';
 import { productIncidentReader } from '../../packages/adapters/src/product-incident-reader.js';
+import { verifyReadiness, type ReadinessResult } from '../../packages/adapters/src/integration-readiness.js';
 import { ProductFeedSync, type ProductFeedSource } from '../../packages/core/src/product-feeds.js';
 import { productFeedReader } from '../../packages/adapters/src/product-feed-reader.js';
 import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
@@ -1113,6 +1114,8 @@ productIncidentSync.seed(incidentBootstrap.feed.productId,incidentBootstrap.feed
 const productFeedConfig = JSON.parse(readFileSync(
   fileURLToPath(new URL('../../config/product-feeds.json',import.meta.url)),'utf8'
 )) as {products:ProductFeedSource[];intervalMs:number};
+let readinessLast:{at:number;results:ReadinessResult[]}|undefined;
+let readinessInFlight:Promise<{at:number;results:ReadinessResult[]}>|undefined;
 const productFeedSync = new ProductFeedSync({
   sources:productFeedConfig.products,intervalMs:productFeedConfig.intervalMs,read:productFeedReader(),
   onNew:(notices)=>{
@@ -4351,6 +4354,17 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // Check the bearer against this running Core, not merely browser storage.
+  if (request.method === 'GET' && url.pathname === '/api/auth/session') {
+    try {
+      const { principal } = requireAuthoritySession(request);
+      json(response, 200, { ok: true, principal: { id: principal.id, role: principal.role } });
+    } catch (error) {
+      json(response, authErrorStatus(error), authErrorBody(error));
+    }
+    return;
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/auth/status') {
     json(response, 200, {
       ok: true,
@@ -6195,6 +6209,48 @@ const server = createServer(async (request, response) => {
         : 400;
       json(response, status, authErrorBody(error));
     }
+    return;
+  }
+
+  // Portada Founder: lectura de fuentes existentes, sin consultas de pago ni mutaciones.
+  // Nunca enviar mensajes, contactos, documentos privados ni agenda ajena a esta vista.
+  // Explicit Founder-only check; no business data leaves the runtime.
+  if (request.method === 'POST' && url.pathname === '/api/founder/integration-readiness') {
+    try {
+      requireFounderAuthority(request);
+      if (!readinessInFlight && (!readinessLast || Date.now()-readinessLast.at>=60_000)) {
+        readinessInFlight=verifyReadiness({token:(service,scopes)=>credentialBroker.accessToken(service,scopes),
+          products:productFeedConfig.products,accounts:mailAccounts,readProduct:productFeedReader()})
+          .then(results=>{readinessLast={at:Date.now(),results};return readinessLast;})
+          .finally(()=>{readinessInFlight=undefined;});
+      }
+      const result=readinessInFlight?await readinessInFlight:readinessLast!;
+      json(response,200,{ok:true,checkedAt:new Date(result.at).toISOString(),results:result.results});
+    } catch(error) { json(response,authErrorStatus(error),authErrorBody(error)); }
+    return;
+  }
+  if (request.method === 'GET' && url.pathname === '/api/founder/home-summary') {
+    try {
+      const { principal } = requireFounderAuthority(request);
+      const today = amsterdamToday();
+      const from = new Date(Date.parse(today + 'T00:00:00Z') - 29 * 86400000).toISOString().slice(0,10);
+      const agenda = agendaForOwner(store.listWorkAgendaItems(principal.id).map(agendaOpen), principal.id)
+        .filter(item => item.date === today && !item.done).slice(0,3)
+        .map(item => ({ time: item.time ?? null, text: item.text }));
+      const entries = loadBooksEntries().filter(entry => entry.currency === 'EUR' && entry.date >= from && entry.date <= today);
+      // A partial or unverified ledger must not appear as total business revenue.
+      const verified = entries.length > 0 && entries.every(entry => entry.verified);
+      const revenueMinor = verified ? incomeStatement(entries, booksChart(), {from,to:today,currency:'EUR'}).revenue.totalMinor : null;
+      const products = productFeedSync.snapshot().products;
+      const live = products.filter(item => item.state === 'live' && item.lastSuccess &&
+        Date.now() - Date.parse(item.lastSuccess) >= 0 && Date.now() - Date.parse(item.lastSuccess) <= 5 * 60_000 && item.generatedAt &&
+        Date.now() - Date.parse(item.generatedAt) >= -60_000 && Date.now() - Date.parse(item.generatedAt) <= 5 * 60_000);
+      json(response,200,{ok:true,generatedAt:new Date().toISOString(),today,
+        agenda:{source:'janus-work-agenda',items:agenda},
+        approvals:{pending:approvalQueue.pending().length},
+        feeds:{connected:live.length,total:products.length,newRequests:live.length ? live.reduce((sum,item)=>sum+item.newRequests,0) : null},
+        revenue:{source:'company-books',currency:'EUR',from,to:today,minor:revenueMinor,entries:entries.length,verified}});
+    } catch(error) { json(response,authErrorStatus(error),authErrorBody(error)); }
     return;
   }
 

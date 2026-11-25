@@ -130,3 +130,270 @@ export const AGE_BAND_NOTES: Record<AgeBand, { focusMinutes: number; moveMinutes
   '8-10': { focusMinutes: 8, moveMinutes: 2 },
   '11-13': { focusMinutes: 12, moveMinutes: 2 },
 };
+
+
+/** Prácticas guiadas de la misma escuela offline; sin datos personales, diagnósticos ni proveedores externos. */
+export interface KidGuidedPractice {
+  id: string;
+  subject: string;
+  title: string;
+  skill: string;
+  minutes: number;
+  steps: readonly string[];
+  materials: readonly string[];
+  reading?: { text: string; lang: string };
+  check: { question: string; options: readonly string[]; answer: number; why: string };
+  source?: { name: string; url: string };
+}
+export const KID_GUIDED_PRACTICE: readonly KidGuidedPractice[] = Object.freeze([
+  { id:'mat-amigos',subject:'Matemáticas',title:'Completa el diez',skill:'Suma',minutes:3,
+    steps:['Dibuja diez círculos. Colorea siete.','Cuenta los círculos sin color.'],materials:['Papel y lápiz'],
+    check:{question:'¿Cuánto falta a 7 para llegar a 10?',options:['2','3','4'],answer:1,why:'7 + 3 = 10. Puedes comprobarlo con los círculos.'} },
+  { id:'nl-fiets',subject:'Neerlandés',title:'La bicicleta',skill:'Vocabulario',minutes:3,
+    steps:['Mira una bicicleta o dibújala.','Lee y repite la palabra neerlandesa.'],materials:['Papel opcional'],reading:{text:'de fiets',lang:'nl-NL'},
+    check:{question:'¿Qué significa «de fiets»?',options:['La bicicleta','La mesa','El libro'],answer:0,why:'De fiets significa la bicicleta.'} },
+  { id:'en-water',subject:'Inglés',title:'Un vaso de agua',skill:'Vocabulario',minutes:3,
+    steps:['Mira un vaso de agua.','Escucha y repite la palabra en inglés.'],materials:['Un vaso de agua'],reading:{text:'water',lang:'en-GB'},
+    check:{question:'¿Cómo se dice agua en inglés?',options:['Book','Water','Chair'],answer:1,why:'Water significa agua.'} },
+  { id:'fr-bonjour',subject:'Francés',title:'Saludar en francés',skill:'Vocabulario',minutes:3,
+    steps:['Imagina que saludas a una amiga.','Lee y repite el saludo.'],materials:[],reading:{text:'Bonjour',lang:'fr-FR'},
+    check:{question:'¿Qué palabra sirve para saludar de día en francés?',options:['Merci','Bonsoir','Bonjour'],answer:2,why:'Bonjour es un saludo habitual durante el día.'} },
+  { id:'zh-nihao',subject:'Chino mandarín',title:'Saludar en mandarín',skill:'Vocabulario',minutes:3,
+    steps:['Mira los dos caracteres y su pronunciación escrita: nǐ hǎo.','Escucha la frase si el aparato tiene voz en mandarín.'],materials:[],reading:{text:'你好',lang:'zh-CN'},
+    check:{question:'¿Qué significa «你好» (nǐ hǎo)?',options:['Hola','Adiós','Gracias'],answer:0,why:'你好 es una forma habitual de decir hola.'} },
+  { id:'es-ortografia',subject:'Ortografía',title:'La biblioteca',skill:'Escribir palabras',minutes:3,
+    steps:['Lee despacio: biblioteca.','Escribe la palabra y compara las letras.'],materials:['Papel y lápiz'],reading:{text:'biblioteca',lang:'es-ES'},
+    check:{question:'¿Cuál está escrita correctamente?',options:['Bivlioteca','Biblioteca','Biblioteka'],answer:1,why:'Biblioteca se escribe con b y c.'} },
+  { id:'es-lectura',subject:'Lectura y expresión',title:'Una historia corta',skill:'Comprender y contar',minutes:4,
+    steps:['Lee: Ana llevó una botella de agua al parque. Allí jugó con su amiga.','Cuenta con tus palabras qué llevó Ana.'],materials:[],reading:{text:'Ana llevó una botella de agua al parque. Allí jugó con su amiga.',lang:'es-ES'},
+    check:{question:'¿Qué llevó Ana al parque?',options:['Una pelota','Un libro','Una botella de agua'],answer:2,why:'La primera frase dice que llevó una botella de agua.'} },
+  { id:'hist-nl-1581',subject:'Historia de Países Bajos',title:'Un documento de 1581',skill:'Reconocer una fecha histórica',minutes:4,
+    steps:['El 26 de julio de 1581 se firmó el Plakkaat van Verlating.','Los territorios rebeldes dejaron de reconocer a Felipe II como su gobernante.'],materials:['Papel para una línea del tiempo'],
+    source:{name:'Canon van Nederland',url:'https://www.canonvannederland.nl/nl/kalender/07/1581-07-26'},
+    check:{question:'¿En qué año se firmó el documento?',options:['1581','1810','1945'],answer:0,why:'Se firmó el 26 de julio de 1581.'} },
+  { id:'hist-co-1810',subject:'Historia de Colombia',title:'El 20 de julio',skill:'Reconocer una fecha histórica',minutes:4,
+    steps:['El 20 de julio de 1810 hubo una revolución en Bogotá.','Se formó una junta de gobierno. Fue un paso del proceso de independencia.'],materials:['Papel para una línea del tiempo'],
+    source:{name:'Banco de la República de Colombia',url:'https://www.banrepcultural.org/multimedia/ha-leido-el-acta-de-la-revolucion-del-20-de-julio-de-1810'},
+    check:{question:'¿En qué ciudad ocurrió la revolución del 20 de julio de 1810?',options:['Medellín','Bogotá','Cartagena'],answer:1,why:'La revolución de esta lección ocurrió en Bogotá.'} },
+  { id:'hist-mundo-onu',subject:'Historia del mundo',title:'La cooperación entre países',skill:'Reconocer una organización',minutes:4,
+    steps:['Las Naciones Unidas nacieron en 1945.','Una de sus metas es ayudar a mantener la paz entre países.'],materials:[],
+    source:{name:'Naciones Unidas',url:'https://www.un.org/en/about-us'},
+    check:{question:'¿En qué año nacieron las Naciones Unidas?',options:['1581','1810','1945'],answer:2,why:'La ONU nació en 1945.'} }
+]);
+
+
+// Translation only; identity, answer index, reading language and evidence remain canonical.
+export interface KidPracticeTranslation { subject:string; title:string; skill:string; steps:readonly string[]; materials:readonly string[]; question?:string; options?:readonly string[]; why?:string }
+export const KID_PRACTICE_NL: Readonly<Record<string,KidPracticeTranslation>>=Object.freeze({
+  "amigos-del-10": {
+    "subject": "Rekenen",
+    "title": "Vriendjes van 10",
+    "skill": "Optellen en aftrekken tot 10 en 20",
+    "steps": [
+      "Leg 10 fiches neer (of gebruik je vingers) en verdeel ze in twee groepen. Hoeveel zitten er in elke hand?",
+      "Zeg het paar hardop: 7 en 3 zijn vriendjes van 10.",
+      "Speel Raad mijn vriendje: iemand zegt 6 en jij antwoordt 4.",
+      "Pas toe: 8 + 5 = 8 + 2 + 3 = 10 + 3 = 13."
+    ],
+    "materials": [
+      "Fiches, knopen of vingers"
+    ]
+  },
+  "cpa-concreto-dibujo-simbolo": {
+    "subject": "Rekenen",
+    "title": "Aanraken, tekenen, schrijven",
+    "skill": "Nieuwe rekenbewerkingen begrijpen",
+    "steps": [
+      "Los het probleem op met voorwerpen, bijvoorbeeld 3 groepen van 4 koekjes.",
+      "Teken vakjes of balken die hetzelfde voorstellen.",
+      "Schrijf 3 × 4 = 12 en leg in je eigen woorden uit wat elk getal betekent.",
+      "Verander steeds één getal (van 3 × 4 naar 3 × 5). Wat blijft hetzelfde en wat verandert?"
+    ],
+    "materials": [
+      "Kleine voorwerpen",
+      "Papier en kleurpotloden"
+    ]
+  },
+  "mat-amigos": {
+    "subject": "Rekenen",
+    "title": "Maak de tien vol",
+    "skill": "Optellen",
+    "steps": [
+      "Teken tien cirkels. Kleur er zeven in.",
+      "Tel de cirkels zonder kleur."
+    ],
+    "materials": [
+      "Papier en potlood"
+    ],
+    "question": "Hoeveel moet er bij 7 om 10 te krijgen?",
+    "options": [
+      "2",
+      "3",
+      "4"
+    ],
+    "why": "7 + 3 = 10. Controleer het met je cirkels."
+  },
+  "nl-fiets": {
+    "subject": "Nederlands",
+    "title": "De fiets",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk een fiets of teken er een.",
+      "Lees en herhaal het Nederlandse woord."
+    ],
+    "materials": [
+      "Eventueel papier"
+    ],
+    "question": "Wat betekent «de fiets» in het Spaans?",
+    "options": [
+      "La bicicleta",
+      "La mesa",
+      "El libro"
+    ],
+    "why": "De fiets betekent la bicicleta."
+  },
+  "en-water": {
+    "subject": "Engels",
+    "title": "Een glas water",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk een glas water.",
+      "Luister naar het Engelse woord en zeg het na."
+    ],
+    "materials": [
+      "Een glas water"
+    ],
+    "question": "Hoe zeg je water in het Engels?",
+    "options": [
+      "Book",
+      "Water",
+      "Chair"
+    ],
+    "why": "Water betekent water."
+  },
+  "fr-bonjour": {
+    "subject": "Frans",
+    "title": "Groeten in het Frans",
+    "skill": "Woordenschat",
+    "steps": [
+      "Stel je voor dat je een vriendin begroet.",
+      "Lees de groet en zeg hem na."
+    ],
+    "materials": [],
+    "question": "Met welk woord begroet je iemand overdag in het Frans?",
+    "options": [
+      "Merci",
+      "Bonsoir",
+      "Bonjour"
+    ],
+    "why": "Bonjour is een gebruikelijke groet overdag."
+  },
+  "zh-nihao": {
+    "subject": "Mandarijn",
+    "title": "Groeten in het Mandarijn",
+    "skill": "Woordenschat",
+    "steps": [
+      "Bekijk de twee karakters en hun geschreven uitspraak: nǐ hǎo.",
+      "Luister naar de zin als je apparaat een Mandarijnse stem heeft."
+    ],
+    "materials": [],
+    "question": "Wat betekent «你好» (nǐ hǎo)?",
+    "options": [
+      "Hallo",
+      "Tot ziens",
+      "Dank je"
+    ],
+    "why": "你好 is een gebruikelijke manier om hallo te zeggen."
+  },
+  "es-ortografia": {
+    "subject": "Spaanse spelling",
+    "title": "De bibliotheek",
+    "skill": "Woorden schrijven",
+    "steps": [
+      "Lees langzaam: biblioteca.",
+      "Schrijf het woord op en vergelijk de letters."
+    ],
+    "materials": [
+      "Papier en potlood"
+    ],
+    "question": "Welk Spaans woord is juist gespeld?",
+    "options": [
+      "Bivlioteca",
+      "Biblioteca",
+      "Biblioteka"
+    ],
+    "why": "Biblioteca schrijf je met een b en een c."
+  },
+  "es-lectura": {
+    "subject": "Spaans lezen en spreken",
+    "title": "Een kort verhaal",
+    "skill": "Begrijpen en vertellen",
+    "steps": [
+      "Lees: Ana llevó una botella de agua al parque. Allí jugó con su amiga.",
+      "Vertel in je eigen woorden wat Ana meenam."
+    ],
+    "materials": [],
+    "question": "Wat nam Ana mee naar het park?",
+    "options": [
+      "Een bal",
+      "Een boek",
+      "Een fles water"
+    ],
+    "why": "In de eerste zin staat dat ze een fles water meenam."
+  },
+  "hist-nl-1581": {
+    "subject": "Geschiedenis van Nederland",
+    "title": "Een document uit 1581",
+    "skill": "Een historische datum herkennen",
+    "steps": [
+      "Op 26 juli 1581 werd het Plakkaat van Verlating ondertekend.",
+      "De opstandige gewesten erkenden Filips II niet langer als hun vorst."
+    ],
+    "materials": [
+      "Papier voor een tijdlijn"
+    ],
+    "question": "In welk jaar werd het document ondertekend?",
+    "options": [
+      "1581",
+      "1810",
+      "1945"
+    ],
+    "why": "Het werd op 26 juli 1581 ondertekend."
+  },
+  "hist-co-1810": {
+    "subject": "Geschiedenis van Colombia",
+    "title": "20 juli",
+    "skill": "Een historische datum herkennen",
+    "steps": [
+      "Op 20 juli 1810 vond in Bogotá een revolutie plaats.",
+      "Er werd een bestuursjunta gevormd. Dat was een stap in het onafhankelijkheidsproces."
+    ],
+    "materials": [
+      "Papier voor een tijdlijn"
+    ],
+    "question": "In welke stad vond de revolutie van 20 juli 1810 plaats?",
+    "options": [
+      "Medellín",
+      "Bogotá",
+      "Cartagena"
+    ],
+    "why": "De revolutie uit deze les vond plaats in Bogotá."
+  },
+  "hist-mundo-onu": {
+    "subject": "Wereldgeschiedenis",
+    "title": "Samenwerking tussen landen",
+    "skill": "Een organisatie herkennen",
+    "steps": [
+      "De Verenigde Naties werden in 1945 opgericht.",
+      "Een van hun doelen is helpen de vrede tussen landen te bewaren."
+    ],
+    "materials": [],
+    "question": "In welk jaar werden de Verenigde Naties opgericht?",
+    "options": [
+      "1581",
+      "1810",
+      "1945"
+    ],
+    "why": "De VN werden in 1945 opgericht."
+  }
+});

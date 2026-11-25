@@ -1,8 +1,10 @@
+import { localizeKidMessage } from '../../packages/modules/kid-dashboard/src/safety.js';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { ModelGateway, ModelMessage } from '../../packages/gateways/src/contracts.js';
 import type { SqliteStore } from '../../packages/core/src/sqlite-store.js';
 import { OPEN_METEO_ATTRIBUTION } from '../../packages/adapters/src/open-meteo-adapter.js';
+import { KID_GUIDED_PRACTICE, KID_PRACTICE_NL, listTechniques } from '../../packages/modules/janus-school/src/index.js';
 import {
   FileAttachmentStore,
   describeAttachmentsForMessage,
@@ -256,6 +258,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       profile: state.profile,
       today,
       access: accessFor(state, 'chat', at),
+      mediaAccess: accessFor(state, 'youtube', at),
       limits: { allowedFrom: state.settings.limits.allowedFrom, allowedUntil: state.settings.limits.allowedUntil },
       usage: usageToday(state, at),
       agenda: upcomingAgenda(state.agenda, at, tz, 21).map((item) => {
@@ -287,6 +290,8 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       kidId: state.kidId,
       profile: state.profile,
       settings: state.settings,
+      schoolGoal: state.schoolGoal ?? null,
+      schoolChoices: KID_GUIDED_PRACTICE.map(({ id, title }) => ({ id, es: title, nl: KID_PRACTICE_NL[id]?.title ?? title })),
       pinSet: Boolean(store.kidGetPin(state.kidId)),
       today: days[0],
       week: days,
@@ -307,7 +312,8 @@ export function createKidRoutes(deps: KidRoutesDeps) {
 
   // ── Chat ─────────────────────────────────────────────────────────────────────────────────────────────────
 
-  async function chat(kid: { kidId: string }, body: Record<string, unknown>) {
+  async function chat(kid: { kidId: string }, body: Record<string, unknown>, language: 'es' | 'nl' = 'es') {
+    const say = (message:string) => localizeKidMessage(message,language);
     const at = now();
     const { state } = loadState(kid.kidId);
     const typed = typeof body.text === 'string' ? stripAttachmentMarkers(body.text).trim().slice(0, MAX_CHAT_CHARS) : '';
@@ -319,7 +325,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
     const input = screenKidText(typed, 'input');
     if (input.parentFlag) flag(kid.kidId, input.severity, input.categories, input.parentFlag.summary);
     if (!input.allowed || (input.severity === 'note' && input.kidMessage)) {
-      return { reply: input.kidMessage ?? 'Mejor hablamos de otra cosa. 😊', blocked: 'safety' as const, severity: input.severity };
+      return { reply: say(input.kidMessage ?? 'Mejor hablamos de otra cosa. 😊'), blocked: 'safety' as const, severity: input.severity };
     }
 
     // Adjuntos (perfil «kid»): solo identificadores; la descripción la construye el servidor.
@@ -334,20 +340,20 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       const screened = screenKidText(block, 'input');
       if (!screened.allowed) {
         if (screened.parentFlag) flag(kid.kidId, screened.severity, screened.categories, `Un adjunto: ${screened.parentFlag.summary}`);
-        return { reply: screened.kidMessage ?? 'Ese archivo no lo puedo usar.', blocked: 'safety' as const, severity: screened.severity };
+        return { reply: say(screened.kidMessage ?? 'Ese archivo no lo puedo usar.'), blocked: 'safety' as const, severity: screened.severity };
       }
     }
 
     if (state.settings.transcriptVisibility === 'full') store.kidAppendTranscript({ kidId: kid.kidId, at: at.toISOString(), role: 'kid', text: typed });
 
-    let reply = 'Hoy no puedo pensar muy lejos, pero puedo ayudarte con tu agenda, tus tareas o la casa. 😊';
+    let reply = say('Hoy no puedo pensar muy lejos, pero puedo ayudarte con tu agenda, tus tareas o la casa. 😊');
     const cap = deps.maxModelCallsPerDay ?? 80;
     const key = `${kid.kidId}:${localTime(at, state.settings.timeZone).ymd}`;
     if (deps.model && (modelCalls.get(key) ?? 0) < cap) {
       modelCalls.set(key, (modelCalls.get(key) ?? 0) + 1);
       const past = history.get(kid.kidId) ?? [];
       const messages: ModelMessage[] = [
-        { role: 'system', content: kidSystemPrompt({ displayName: state.profile.displayName, ...(companionNames?.[state.profile.companionId] ? { companionName: companionNames[state.profile.companionId]! } : {}) }) },
+        { role: 'system', content: kidSystemPrompt({ language, displayName: state.profile.displayName, ...(companionNames?.[state.profile.companionId] ? { companionName: companionNames[state.profile.companionId]! } : {}) }) },
         ...past.slice(-6),
         { role: 'user', content: block ? `${typed}\n\n${block}` : typed },
       ];
@@ -357,15 +363,15 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const turn: ModelMessage[] = [{ role: 'user', content: typed }, { role: 'assistant', content: reply }];
         history.set(kid.kidId, [...past, ...turn].slice(-12));
       } catch {
-        reply = 'Uy, ahora mismo no me sale la respuesta. ¿Probamos otra vez en un ratito?';
+        reply = say('Uy, ahora mismo no me sale la respuesta. ¿Probamos otra vez en un ratito?');
       }
     } else if (deps.model) {
-      reply = 'Hoy ya hablamos mucho. ¡Mañana seguimos! 🌙';
+      reply = say('Hoy ya hablamos mucho. ¡Mañana seguimos! 🌙');
     }
 
     const output = screenKidText(reply, 'output');
     if (output.parentFlag) flag(kid.kidId, output.severity, output.categories, `Respuesta filtrada: ${output.parentFlag.summary}`);
-    reply = output.allowed ? output.text : (output.kidMessage ?? reply);
+    reply = output.allowed ? output.text : say(output.kidMessage ?? 'Mejor hablamos de otra cosa. 😊');
     if (state.settings.transcriptVisibility === 'full') store.kidAppendTranscript({ kidId: kid.kidId, at: now().toISOString(), role: 'companion', text: reply });
     return { reply, blocked: null, access };
   }
@@ -413,6 +419,51 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         if (method === 'GET' && path === '/api/kid/state') {
           const { state } = loadState(kid.kidId);
           json(response, 200, { ok: true, ...(await kidView(state, at)) });
+          return true;
+        }
+        // Janus School: usa las técnicas del módulo canónico, no un modelo de pago.
+        if (method === 'GET' && path === '/api/kid/school') {
+          const { state } = loadState(kid.kidId);
+          const access = accessFor(state, 'school', at);
+          if (!access.allowed) { json(response, 200, { ok: true, status: 'blocked', message: access.message }); return true; }
+          const ids = new Set(['amigos-del-10', 'cpa-concreto-dibujo-simbolo']);
+          const maths = listTechniques('8-10').filter(item => ids.has(item.id)).map(({ id, title, skill, minutes, steps, materials }) => ({ id, title, skill, minutes, steps, materials, subject:'Matemáticas' }));
+          const guided = KID_GUIDED_PRACTICE.map(({ id,title,skill,minutes,steps,materials,subject,reading,check,source }) => ({
+            id,title,skill,minutes,steps,materials,subject,reading,
+            check:{question:check.question,options:check.options}, source:source?.name,
+            progress:state.schoolPractice?.[id] ?? {attempts:0,correct:0}
+          }));
+          const techniques=[...maths,...guided].map(item=>{
+            if(deps.headerValue(request,'x-janus-language')!=='nl')return item;
+            const localized=KID_PRACTICE_NL[item.id];
+            if(!localized)return item;
+            const {question,options,why,...labels}=localized;
+            return {...item,...labels,...('check' in item && question && options ? {check:{question,options}}:{})};
+          });
+          json(response, 200, { ok: true, status: 'available', techniques, goal: state.schoolGoal ?? null });
+          return true;
+        }
+        if (method === 'POST' && path === '/api/kid/school/answer') {
+          const { state } = loadState(kid.kidId);
+          const access = accessFor(state, 'school', at);
+          if (!access.allowed) { json(response, 200, {ok:true,status:'blocked',message:access.message}); return true; }
+          const body = await deps.readJson(request);
+          const lesson = KID_GUIDED_PRACTICE.find(item => item.id === body.id);
+          const answer = body.answer;
+          if (!lesson || typeof answer !== 'number' || !Number.isInteger(answer) || answer < 0 || answer >= lesson.check.options.length) throw new KidHttpError(400,'Respuesta no válida.');
+          const correct = answer === lesson.check.answer;
+          const next = mutate(kid.kidId, current => {
+            const prior = current.schoolPractice?.[lesson.id] ?? {attempts:0,correct:0};
+            return {
+              schoolPractice: { ...current.schoolPractice, [lesson.id]: {
+                attempts: Math.min(100000, prior.attempts + 1),
+                correct: Math.min(100000, prior.correct + Number(correct)),
+              } },
+              ...(correct && current.schoolGoal?.lessonId === lesson.id
+                ? { schoolGoal: { lessonId: lesson.id, completed: true } } : {}),
+            };
+          });
+          json(response,200,{ok:true,status:'answered',correct,message:deps.headerValue(request,'x-janus-language')==='nl' ? (correct ? KID_PRACTICE_NL[lesson.id]?.why ?? lesson.check.why : 'Goed geprobeerd. Lees de oefening nog eens en probeer opnieuw.') : (correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.'),goal:next.schoolGoal ?? null,progress:next.schoolPractice?.[lesson.id]});
           return true;
         }
         // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
@@ -500,7 +551,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
           return true;
         }
         if (method === 'POST' && path === '/api/kid/chat') {
-          json(response, 200, { ok: true, ...(await chat(kid, await deps.readJson(request))) });
+          json(response, 200, { ok: true, ...(await chat(kid, await deps.readJson(request), deps.headerValue(request,'x-janus-language')==='nl'?'nl':'es')) });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/activity') {
@@ -514,7 +565,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             store.kidAppendActivity({ kidId: kid.kidId, at: at.toISOString(), category, seconds });
           }
           const { state } = loadState(kid.kidId);
-          json(response, 200, { ok: true, access: accessFor(state, category, at) });
+          json(response, 200, { ok: true, access: accessFor(state, category, at), usage:usageToday(state,at) });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/reminders/ack') {
@@ -672,6 +723,20 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const { kidId } = parentAuth(request, url.searchParams.get('kidId'));
         const { state } = loadState(kidId);
         json(response, 200, { ok: true, ...parentView(state, at) });
+        return true;
+      }
+      if (method === 'PUT' && path === '/api/parent/kid/school-goal') {
+        const body = await deps.readJson(request);
+        const { kidId } = parentAuth(request, body.kidId);
+        const lessonId = body.lessonId;
+        if (lessonId !== null && (typeof lessonId !== 'string' || !KID_GUIDED_PRACTICE.some(item => item.id === lessonId))) {
+          throw new KidHttpError(400, 'Elige un ejercicio de Janus School.');
+        }
+        const next = mutate(kidId, current => ({
+          schoolGoal: lessonId === null ? undefined : current.schoolGoal?.lessonId === lessonId
+            ? current.schoolGoal : { lessonId, completed: false },
+        }));
+        json(response, 200, { ok: true, goal: next.schoolGoal ?? null });
         return true;
       }
       if (method === 'PUT' && path === '/api/parent/kid/settings') {

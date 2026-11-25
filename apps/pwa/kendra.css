@@ -93,7 +93,7 @@ main{padding:6px 14px 100px;display:grid;gap:14px;align-content:start}
 .petrow .mini{flex:none;inline-size:42px;block-size:42px}
 
 /* Navegación inferior */
-nav.tabs{position:fixed;inset-inline:0;inset-block-end:0;z-index:6;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;max-inline-size:760px;margin-inline:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-block-start:2px solid var(--border)}
+nav.tabs{position:fixed;inset-inline:0;inset-block-end:0;z-index:6;display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:2px;max-inline-size:760px;margin-inline:auto;padding:6px 6px calc(6px + env(safe-area-inset-bottom));background:var(--surface);border-block-start:2px solid var(--border)}
 nav.tabs button{min-block-size:56px;padding:4px 2px;border:0;border-radius:14px;background:transparent;display:grid;gap:0;justify-items:center;font-size:.72rem;line-height:1.1}
 nav.tabs button span{font-size:1.4rem;line-height:1.2}
 nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;color:var(--accent)}
@@ -213,3 +213,74 @@ nav.tabs button[aria-current="page"]{background:var(--soft);font-weight:700;colo
     animation:none!important;transition:none!important}
   .app nav.tabs button span{transform:none!important}
 }
+
+/* 24-nov: la app infantil canónica aprovecha la pantalla Samsung, sin cambiar su token ni sus datos. */
+.kid-home-grid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+.kid-home-grid>.card{--kid-ring:linear-gradient(115deg,#15cda2,#f7c844,#f568a8,#8c66ee,#15cda2);border:3px solid transparent!important;background:linear-gradient(150deg,#fff,#f2ecfc) padding-box,var(--kid-ring) border-box!important;box-shadow:inset 0 1px 1px #fff,0 8px 16px #7353a226!important}
+.kid-home-grid>.card:nth-child(3n+2){--kid-ring:linear-gradient(115deg,#f76bad,#b675ff,#49c4e8,#f76bad)}
+.kid-home-grid>.card:nth-child(3n+3){--kid-ring:linear-gradient(115deg,#20cfbe,#ffd25d,#ff7a63,#20cfbe)}
+.kid-home-grid .card h2{font-size:clamp(24px,2.5vw,34px)}
+.kid-home-grid .card h3{font-size:clamp(21px,2vw,26px);font-weight:800}
+.kid-count{font-size:52px;line-height:1.1;color:#8c3fde;font-weight:900}
+.kid-home-grid .kid-hero{gap:18px}
+.kid-home-grid .kid-hero .primary{margin-top:12px}
+.kid-home-grid .card button.primary{min-height:56px;border:1px solid #e5d5ff;background:linear-gradient(#ca99ff,#9146df 45%,#55269f);box-shadow:inset 0 2px 1px #fff8,inset 0 -4px 0 #41217b,0 5px 0 #422079;transform:translateY(0);font-weight:800}
+@media(min-width:780px) and (orientation:landscape){
+  html,body{font-size:20px}
+  .app{max-inline-size:none}
+  .top{padding:12px 18px;flex-wrap:wrap}
+  .top .who strong{font-size:28px}
+  main{padding:12px 18px 120px}
+  .kid-home-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:16px}
+  main.kid-home > .banner{margin-block:0}
+  .kid-home-grid>.card{align-content:start}
+  .kid-home-grid>.card p{margin-block:0}
+  .kid-home-grid>.kid-day{grid-template-columns:repeat(2,minmax(0,1fr));align-items:center}
+  .kid-day .kid-clock{justify-self:end}
+  .kid-day .kid-time{grid-column:1/-1;display:grid;grid-template-columns:minmax(5ch,auto) 1fr;gap:12px;align-items:baseline}
+  .kid-day .kid-time p{overflow-wrap:anywhere}
+  .kid-day button{min-width:0;white-space:normal}
+  .kid-home-grid>.kid-hero{grid-column:span 2;min-height:240px}
+  .kid-home-grid>.kid-media{grid-column:span 2}
+  .kid-home-grid .card{min-width:0;padding:18px}
+  .kid-home-grid .hero .creature-btn,.kid-home-grid .hero .creature-btn .janus-approved-stage{height:230px!important;min-height:230px!important}
+  .kid-home-grid .hero .creature-btn{width:100%!important}
+  nav.tabs{max-inline-size:none;padding:8px 18px calc(10px + env(safe-area-inset-bottom));gap:10px;background:#f7f1ffef}
+  .app nav.tabs button{border:1px solid #fff;color:white;background:linear-gradient(#c69cff,#9149dc 48%,#54239f);box-shadow:inset 0 2px 1px #fffc,inset 0 -4px 0 #37196c,0 5px 0 #47247b;min-height:68px;font-size:16px;font-weight:800}
+  .app nav.tabs button:nth-child(2n){background:linear-gradient(#ffb4d8,#ec4d9c 48%,#ac2465)}
+  .app nav.tabs button:nth-child(3n){background:linear-gradient(#8fe7ff,#22aecb 48%,#087b9d)}
+  .app nav.tabs button:nth-child(4n){background:linear-gradient(#9ccaff,#327de2 48%,#1b469f)}
+  .app nav.tabs button:nth-child(5n){background:linear-gradient(#ffc38d,#f68a32 48%,#af4616)}
+  .app nav.tabs button[aria-current="page"]{color:white;outline:3px solid #8754e8;outline-offset:2px}
+}
+
+/* Selección de escenas: color temporal de la superficie, no un decorado 3D sustitutivo. */
+.kid-home[data-scene="a"]{background-color:#e8faf6}
+.kid-home[data-scene="b"]{background-color:#f6ecff}
+.kid-home[data-scene="c"]{background-color:#fff0f7}
+.kid-scene-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px;font-weight:800}
+.kid-clock{font-size:clamp(30px,4vw,52px);font-weight:900;line-height:1.05;font-variant-numeric:tabular-nums;color:#55269f}
+.kid-scene-options>button{flex:1 1 120px;min-height:56px}
+.kid-school-card{max-inline-size:760px;margin-inline:auto;inline-size:100%;gap:18px}
+.kid-school-instruction{font-size:clamp(22px,2.6vw,32px);line-height:1.5;margin:0;overflow-wrap:anywhere}
+.app.kid-school-focus{grid-template-rows:1fr}
+.app.kid-school-focus>.top,.app.kid-school-focus>nav.tabs{display:none}
+.app.kid-school-focus>main{padding-bottom:24px}
+.kid-home-grid>.card{background-size:100% 100%,200% 200%!important;animation:kidRingFlow 8s ease-in-out infinite}
+@keyframes kidRingFlow{0%,100%{background-position:0 0,0 0}50%{background-position:0 0,100% 100%}}
+@media(max-width:779px){
+ nav.tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+ main{padding-bottom:calc(154px + env(safe-area-inset-bottom))}
+ .composer{inset-block-end:calc(135px + env(safe-area-inset-bottom))}
+}
+@media(prefers-reduced-motion:reduce){.kid-home-grid>.card{animation:none}}
+
+/* Escuela: materias y respuestas táctiles en el layout existente. */
+.kid-school-subject,.kid-school-reading,.kid-school-options{display:grid;gap:12px;min-width:0}
+.kid-school-subject{padding-block:12px;border-block-end:1px solid #b9a9d84d}
+.kid-school-reading strong{font-size:clamp(28px,4vw,46px);overflow-wrap:anywhere}
+.kid-school-subject button,.kid-school-options button,.kid-school-reading button{min-height:52px;white-space:normal;overflow-wrap:anywhere}
+.kid-auto-scene{display:flex;align-items:center;gap:8px;min-height:44px}
+.kid-auto-scene input{width:24px;height:24px;flex:0 0 24px}
+/* Color provisional solamente; los escenarios artísticos aprobados aún no están instalados. */
+main[data-scene="a"]{background-color:#e8faf6}main[data-scene="b"]{background-color:#f6ecff}main[data-scene="c"]{background-color:#fff0f7}

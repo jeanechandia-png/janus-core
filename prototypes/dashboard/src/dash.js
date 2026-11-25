@@ -7,7 +7,7 @@ function derived(M) {
   const r30 = sum(DATA.reach30) * 1000, rprev = sum(DATA.reach90.slice(30, 60)) * 1000;
   const pct = (a, b) => Math.round((a / b - 1) * 100);
   const nowDn = M.today;
-  const realDay = (dn) => REAL.ev.filter((e) => { const p = e.d.split('-').map(Number); return dayNum(p[0], p[1], p[2]) === dn; }).map((e, i) => Object.assign({}, e, { id: 'r' + e.d + i, where: 'Google Calendar' }));
+  const realDay = (dn) => REAL.ev.filter((e) => { const p = e.d.split('-').map(Number); return dayNum(p[0], p[1], p[2]) === dn; }).map((e, i) => Object.assign({}, e, { id: 'r' + e.d + i, where: REAL.example === true ? 'Agenda de ejemplo' : 'Instantánea de Google Calendar' }));
   const leave = DATA.agenda.filter((a) => a.auto === 'leave');
   const agenda = realDay(nowDn).concat(leave).map((a) => {
     if (a.auto === 'leave') { if (M.suggest == null) return null; return Object.assign({}, a, { h: minToHm(M.suggest), t: 'Salir (' + M.leaveWhy + ')' }); }
@@ -111,4 +111,64 @@ function renderDash(M, X) {
     '<div class="chips mono"><span class="chip ' + (M.ida.verdict === 'g' ? 'good' : M.ida.verdict === 'r' ? 'bad' : 'warn') + ' go"' + goAttr('clima/ida', 'Ida') + '>🚴 ' + (M.ida.verdict === 'g' ? '✔' : '!') + ' <b>IDA</b></span>' + rainChip + '<span class="chip go"' + goAttr('correo', 'Correo') + '>✉ <b>' + X.mailsOpen.length + '</b></span><span class="chip good go"' + goAttr('ofertas', 'Ofertas') + '>🏷 <b>' + OF.digest.alerts.length + '</b></span><span class="chip go"' + goAttr('janus/aprob', 'Aprobaciones') + '>🔐 <b>' + X.apprOpen.length + '</b></span><span class="chip' + (flags ? ' bad' : '') + ' go"' + goAttr('prioridades/m0', 'Alertas') + '>⚑ <b>' + flags + '</b></span>' + (typeof radarChip === 'function' ? radarChip() : '') + '</div>' +
     skinSeg() + '<div class="demo mono go"' + goAttr('datos', 'Estado de datos') + '>' + (live ? '● Clima en vivo · resto ejemplo' : 'Vista previa · datos de ejemplo') + '</div></header>' +
     '<main class="mn"><section class="L">' + clima + '<div class="low"><div class="stk">' + dia + familia + '</div><div class="stk2">' + pri + jan + '</div></div></section><section class="R">' + kp + '<div class="duo">' + revenue + reach + '</div><div class="tri">' + bots + tops + cli + '</div></section></main>';
+}
+
+/* 24-nov · Opción 2 aprobada: misma portada A/B, conversación arriba, cuatro resúmenes debajo.
+ * El servidor sigue sirviendo las mismas rutas. Datos de muestra no se elevan a datos reales. */
+function renderApprovedTabletHome(M, X) {
+  const isB = skinNow() === 'b';
+  const nl = (() => { try { return localStorage.getItem('janus.language.founder') === 'nl'; } catch (_) { return false; } })();
+  const translations = {
+    'Ver detalle':'Details bekijken', 'Núcleo conectado':'Core verbonden', 'Comprobando conexión':'Verbinding controleren',
+    'Identificación necesaria':'Inloggen vereist', 'Vista previa':'Voorbeeld', 'Conversación con Janus':'Gesprek met Janus',
+    'Hola. ¿En qué trabajamos hoy?':'Hallo. Waar werken we vandaag aan?', 'Janus está preparando la respuesta…':'Janus bereidt het antwoord voor…',
+    'Identificarme':'Inloggen', 'Mensaje para Janus':'Bericht voor Janus', 'Escribe o habla a Janus…':'Schrijf of spreek met Janus…',
+    'Detener dictado':'Dicteren stoppen', 'Hablar con Janus':'Met Janus spreken', 'Enviar':'Versturen',
+    'Mañana':'Ochtend', 'Tarde':'Middag', 'Noche':'Avond', 'Clima sin verificar todavía.':'Weer nog niet geverifieerd.',
+    'Agenda local de este dispositivo':'Lokale agenda van dit apparaat', 'Sin citas locales registradas.':'Geen lokale afspraken geregistreerd.',
+    'Agenda externa pendiente de sincronización.':'Externe agenda nog niet gesynchroniseerd.',
+    'Solicitudes':'Aanvragen', 'Tu visto bueno':'Jouw goedkeuring', 'Correos':'E-mail', 'Proyectos':'Projecten', 'Prioridades':'Prioriteiten',
+    'Clientes':'Klanten', 'Ingresos':'Inkomsten', 'Más':'Meer', 'Controles':'Bediening', 'Obsidiana':'Obsidiaan', 'Platino':'Platina',
+    'Conversación principal':'Hoofdgesprek', 'Configurar Janus':'Janus instellen', 'Medallón de Janus':'Janus-medaillon',
+    'Clima':'Weer', 'Solicitudes y prioridades':'Aanvragen en prioriteiten', 'Consulta tus prioridades.':'Bekijk je prioriteiten.',
+    'Sin recuento real sincronizado.':'Geen geverifieerd aantal gesynchroniseerd.', 'Ingresos · 30 días':'Inkomsten · 30 dagen',
+    'Sin datos verificados':'Geen geverifieerde gegevens', 'No se muestran cifras de ejemplo.':'Er worden geen voorbeeldcijfers getoond.',
+    'Mi día':'Mijn dag', 'Navegación principal':'Hoofdnavigatie', 'Familia':'Gezin', 'Alcance':'Bereik', 'Contenido':'Inhoud',
+    'Datos':'Gegevens', 'Compañero':'Compagnon', 'Casa':'Thuis', 'Ofertas':'Aanbiedingen', 'Correo':'E-mail', 'Cuentas':'Accounts',
+    'Oraciones':'Gebeden', 'Sin red':'Offline'
+  };
+  const tr = value => nl && Object.prototype.hasOwnProperty.call(translations,value) ? translations[value] : value;
+  const icon = (e) => { const src = iconAsset(e); return src ? '<img class="jh-icon" src="' + src + '" alt="" aria-hidden="true">' : ''; };
+  const link = (route, label, e, cls) => '<button type="button" class="b3d jh-cta ' + (cls || '') + '" data-go="' + esc(route) + '">' + icon(e) + '<span>' + esc(tr(label)) + '</span></button>';
+  const cards = (route, label, e, body) => '<section class="jh-card" data-home-card="' + esc(route) + '" aria-label="' + esc(tr(label)) + '"><h2>' + icon(e) + esc(tr(label)) + '</h2>' + '<div class="jh-card-body">' + body + '</div><button class="b3d jh-cta jh-detail" type="button" data-go="' + esc(route) + '">' + tr("Ver detalle") + '</button></section>';
+  const session = (() => { try { return !!sessionStorage.getItem('janus.founder.session'); } catch (_) { return false; } })();
+  const runtime = !!document.querySelector('meta[name="janus-runtime"]');
+  const signed = runtime && session;
+  const connected = typeof JanusGateway !== 'undefined' && JanusGateway.coreConnected();
+  const status = signed && connected ? 'Núcleo conectado' : runtime ? (session ? 'Comprobando conexión' : 'Identificación necesaria') : 'Vista previa';
+  const P = projById(UI.pSel), msgs = chatsOf(P.id);
+  const typing = UI.js === 'pensando' || UI.js === 'ejecutando';
+  const thread = '<div id="thr" class="thr jh-thread" role="log" aria-label="' + tr("Conversación con Janus") + '">' +
+    (msgs.length ? msgs.map(m => m.who === 'me' ? meMsg(m) : jaMsg(m)).join('') : '<div class="jh-greeting">' + tr("Hola. ¿En qué trabajamos hoy?") + '</div>') +
+    (typing ? '<div class="jh-typing">' + (robotOn() ? '<div class="mjw">' + miniJano() + '</div>' : '') + '<span>' + tr("Janus está preparando la respuesta…") + '</span></div>' : '') + '</div>';
+  const auth = runtime && !signed ? '<a class="b3d jh-cta" href="/?returnTo=' + encodeURIComponent(isB ? '/dashboard/b' : '/dashboard/a') + '#approvals">' + tr("Identificarme") + '</a>' : '';
+  const composer = '<div class="jh-composer">' + attBtn('s') + '<div class="jh-input">' + attChips() +
+    '<textarea data-f="msg" rows="2" maxlength="2000" aria-label="' + tr("Mensaje para Janus") + '" placeholder="' + tr("Escribe o habla a Janus…") + '">' + esc(UI.draft || '') + '</textarea></div>' +
+    '<button type="button" class="jh-mic" data-act="mic" aria-label="' + tr(UI.listening ? 'Detener dictado' : 'Hablar con Janus') + '"><img src="' + IMG.mic + '" alt=""></button>' +
+    '<button type="button" class="b3d jh-cta" data-act="send">' + tr("Enviar") + '</button></div>';
+  const now = new Date();
+  const date = new Intl.DateTimeFormat(nl ? 'nl-NL' : 'es-NL',{weekday:'long',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',timeZone:'Europe/Amsterdam'}).format(now);
+  const wx = M.src === 'vivo' ? '<div class="jh-weather"><div><strong>' + esc(M.nowE.t) + '°</strong><p>' + esc(M.place) + '</p></div><div class="jh-gauge">' + plGauge(M.nowE.w,M.retE.w,M.retE.g) + '</div></div><p>' + [ ['Mañana',9],['Tarde',15],['Noche',21] ].map(([label,h]) => tr(label) + ' ' + esc(M.at(M.nowDay,h).t) + '°').join(' · ') + '</p>' : '<p class="jh-empty">' + tr("Clima sin verificar todavía.") + '</p>';
+  const local = (ST.localEv || []).filter(e => e.day === 0 && !ST.done[e.id]);
+  const agenda = local.length ? '<ul>' + local.slice(0,3).map(e => '<li><b>' + esc(e.h) + '</b> ' + esc(e.t) + '</li>').join('') + '</ul><p class="jh-note">' + tr("Agenda local de este dispositivo") + '</p>' : '<p class="jh-empty">' + tr("Sin citas locales registradas.") + '</p><p class="jh-note">' + tr("Agenda externa pendiente de sincronización.") + '</p>';
+  const header = '<header class="hd jh-header"><div class="jh-brand"><img src="' + IMG.medal + '" alt=""><div><img class="jh-wordmark" src="' + GOLD.wm + '" alt="JANUS"><time>' + esc(date) + '</time></div></div><div class="jh-alerts">' + link('solicitudes','Solicitudes','📥') + link('janus/aprob','Tu visto bueno','🎯') + link('correo','Correos','✉') + '</div></header>';
+  const nav = [['trabajo/janus','Proyectos','📁'],['prioridades','Prioridades','🎯'],['clientes','Clientes','🤝'],['chatbots','Chatbots','🤖'],['ingresos','Ingresos','💶']];
+  const more = '<details class="jh-more"><summary class="b3d jh-cta">' + icon('⚙') + tr('Más') + '</summary><div class="jh-more-list">' +
+    TABS.filter(t => !['inicio','trabajo'].includes(t[0])).map(t => link(t[0],t[2],t[1])).join('') +
+    '<a class="b3d jh-cta" href="/kendra">Kendra</a><a class="b3d jh-cta" href="/?returnTo=' + encodeURIComponent(isB?'/dashboard/b':'/dashboard/a') + '#approvals">' + tr("Controles") + '</a>' +
+    '<button type="button" class="b3d jh-cta" data-act="skin" data-arg="' + (isB?'a':'b') + '">' + tr(isB?'Obsidiana':'Platino') + '</button></div></details>';
+  return '<div class="jh-shell" data-layout="approved-option-2">' + header +
+    '<section class="jh-hero" aria-label="' + tr("Conversación principal") + '"><div class="jh-presence"><button class="jh-robot" type="button" data-founder-robot aria-label="' + tr("Configurar Janus") + '"><img src="' + IMG.medal + '" alt="' + tr("Medallón de Janus") + '"></button><h1>Janus</h1><p>' + esc(tr(status)) + '</p>' + auth + '</div><div class="jh-chat">' + thread + composer + (UI.micMsg ? '<p role="status">' + esc(UI.micMsg) + '</p>' : '') + '</div></section>' +
+    '<main class="jh-cards">' + cards('clima','Clima','☀',wx) + cards('prioridades','Solicitudes y prioridades','📥','<p class="jh-empty">' + tr("Consulta tus prioridades.") + '</p><p class="jh-note">' + tr("Sin recuento real sincronizado.") + '</p>') + cards('ingresos','Ingresos · 30 días','💶','<p class="jh-empty">' + tr("Sin datos verificados") + '</p><p class="jh-note">' + tr("No se muestran cifras de ejemplo.") + '</p>') + cards('dia','Mi día','🗓',agenda) + '</main>' +
+    '<nav class="jh-nav" aria-label="' + tr("Navegación principal") + '">' + nav.map(t=>link(t[0],t[1],t[2])).join('') + more + '</nav></div>';
 }

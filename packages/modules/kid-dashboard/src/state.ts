@@ -51,6 +51,9 @@ export interface KidState {
   agenda: AgendaItem[];
   tasks: SchoolTask[];
   projects: SchoolProject[];
+  /** Contadores mínimos de práctica, sin respuestas libres ni grabaciones. */
+  schoolGoal?: { lessonId: string; completed: boolean };
+  schoolPractice?: Record<string, { attempts: number; correct: number }>;
   feed: FeedItem[];
   mediaRequests: MediaRequest[];
   /** Especialistas que la tratan (lo escribe solo el tutor; privado, en el aparato). */
@@ -96,8 +99,14 @@ export function sanitizeKidState(value: unknown, kidId: string): KidState {
   if (!value || typeof value !== 'object') return base;
   const raw = value as Partial<KidState>;
   const arr = <T>(candidate: unknown, cap: number, fallback: T[]): T[] => (Array.isArray(candidate) ? (candidate.slice(-cap) as T[]) : fallback);
+  const practice = Object.fromEntries(Object.entries(raw.schoolPractice ?? {}).filter(([id,item]) =>
+    /^[a-z][a-z0-9-]{1,47}$/.test(id) && !!item && Number.isInteger(item.attempts) && Number.isInteger(item.correct) &&
+    item.attempts >= 0 && item.attempts <= 100000 && item.correct >= 0 && item.correct <= item.attempts).slice(0,40));
   return {
     ...base,
+    ...(typeof raw.schoolGoal?.lessonId === 'string' && /^[a-z][a-z0-9-]{1,47}$/.test(raw.schoolGoal.lessonId)
+      && typeof raw.schoolGoal.completed === 'boolean' ? { schoolGoal: { lessonId: raw.schoolGoal.lessonId, completed: raw.schoolGoal.completed } } : {}),
+    ...(raw.schoolPractice ? {schoolPractice:practice} : {}),
     revision: Number.isInteger(raw.revision) ? Number(raw.revision) : 0,
     profile: { ...base.profile, ...(raw.profile ?? {}) },
     settings: {

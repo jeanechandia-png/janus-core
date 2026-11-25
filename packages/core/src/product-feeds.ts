@@ -131,6 +131,7 @@ export class ProductFeedSync {
         productId: source.productId, name: source.name, openUrl: source.openUrl ?? null,
         state: !source.url ? 'not_connected' : feed ? (state.error ? 'stale' : 'live') : (state.error ?? 'pending'),
         lastSuccess: state.lastSuccess ?? null, lastAttempt: state.lastAttempt ?? null,
+        generatedAt: feed?.generatedAt || null,
         customers: feed?.customers ?? null,
         requests: feed?.requests ?? [],
         newRequests: feed ? feed.requests.filter((r) => r.status === 'new').length : 0,

@@ -8,13 +8,14 @@ import { mountApprovalChip } from './approval-chip.js';
 import { createApprovedStage, createApprovedAssetControls, initApprovedPresence, openApprovedStageDialog } from './approved-presence.js';
 import { configureCharacterSync, createCharacterLibraryPanel } from './character-sync.js';
 import { registerWithAutoUpdate } from './pwa-update.js';
+import { mountFounderHomeData } from './founder-home-data.js';
 
 // Core owns the session. This adds approved medallions to the ACTUAL A/B header,
 // not a second navigation bar floating over Janus or Kendra's 3D scene.
 const back = encodeURIComponent(location.pathname === '/dashboard/b' ? '/dashboard/b' : '/dashboard/a');
 const controls = document.createElement('div');
 controls.className = 'janus-header-tools';
-controls.setAttribute('aria-label', 'Idioma y acceso de JANUS');
+controls.setAttribute('aria-label', uiLabel('founder', 'headerTools'));
 const languageControl = document.createElement('div');
 languageControl.className = 'janus-language-switch';
 controls.append(languageControl);
@@ -39,16 +40,21 @@ controls.prepend(team.compact);
 // «Aprobar»: visible solo si hay acciones en pausa esperando la decisión del CEO (cola de aprobaciones existente).
 const approvals = mountApprovalChip();
 controls.prepend(approvals.element);
+// El CTA de la portada real abre esta misma cola, nunca las decisiones ficticias del preview.
+document.addEventListener('click', event => {
+  if(!event.target.closest?.('[data-live-approvals], .jh-shell [data-go="janus/aprob"]'))return;
+  event.preventDefault(); event.stopPropagation(); approvals.open();
+},true);
 const menu = document.createElement('details');
 menu.className = 'janus-access-menu';
 const summary = document.createElement('summary');
 summary.textContent = '☰';
-summary.setAttribute('aria-label', 'Accesos y controles de JANUS');
-summary.title = 'Accesos JANUS';
+summary.setAttribute('aria-label', uiLabel('founder', 'accessMenu'));
+summary.title = uiLabel('founder', 'accessTitle');
 menu.append(summary);
 const accessList = document.createElement('nav');
 accessList.className = 'janus-access-links';
-accessList.setAttribute('aria-label', 'Accesos JANUS');
+accessList.setAttribute('aria-label', uiLabel('founder', 'accessTitle'));
 const links = [
   ['signIn', `/?returnTo=${back}#approvals`],
   ['controls', '/'],
@@ -68,15 +74,30 @@ install.type = 'button';
 install.textContent = uiLabel('founder', 'install');
 install.setAttribute('data-app-install', '');
 accessList.append(install);
+const NEXO_PREF = 'janus.founder.nexo';
+const nexoChoice = () => { try { return localStorage.getItem(NEXO_PREF) === 'nexo-femenino' ? 'nexo-femenino' : 'nexo-masculino'; } catch { return 'nexo-masculino'; } };
 const robot = document.createElement('button');
 robot.type = 'button'; robot.textContent = 'JANUS 02 NEXO · 3D';
 robot.addEventListener('click', () => {
   menu.open = false;
   const dialog = document.createElement('dialog'); dialog.className = 'janus-3d-dialog';
   const title = document.createElement('h2'); title.textContent = 'JANUS · 02 NEXO';
-  const close = document.createElement('button'); close.type = 'button'; close.textContent = 'Cerrar';
+  const close = document.createElement('button'); close.type = 'button'; close.textContent = uiLabel('founder', 'closeRobot');
   close.addEventListener('click', () => dialog.close());
-  dialog.append(title, createApprovedStage('nexo-masculino'));
+  const choices = document.createElement('div'); choices.className = 'janus-nexo-choice';
+  const stage = document.createElement('div');
+  let selected = nexoChoice();
+  const paint = () => {
+    title.textContent = selected === 'nexo-femenino' ? 'MELANIE · NEXO' : 'JANUS · 02 NEXO';
+    choices.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.nexo === selected)));
+    stage.replaceChildren(createApprovedStage(selected));
+  };
+  for (const [id,label] of [['nexo-masculino','Janus NEXO'],['nexo-femenino','Melanie NEXO']]) {
+    const button = document.createElement('button'); button.type = 'button'; button.dataset.nexo = id; button.textContent = label;
+    button.addEventListener('click', () => { selected=id; try { localStorage.setItem(NEXO_PREF,id); } catch {} paint(); });
+    choices.append(button);
+  }
+  dialog.append(title, choices, stage); paint();
   if (sessionToken()) dialog.append(createApprovedAssetControls({ family: 'janus' }), createCharacterLibraryPanel({ openStage: openApprovedStageDialog }));
   dialog.append(close);
   dialog.addEventListener('close', () => dialog.remove());
@@ -84,6 +105,8 @@ robot.addEventListener('click', () => {
   void initApprovedPresence();
 });
 accessList.append(robot);
+// El rostro de la portada aprobada abre la configuración original, sin duplicar el panel.
+document.addEventListener('click', (event) => { if (event.target.closest?.('[data-founder-robot]')) robot.click(); });
 configureCharacterSync({ audience: 'founder', headers: authHeaders });
 const status = document.createElement('span');
 status.setAttribute('role', 'status');
@@ -95,6 +118,10 @@ controls.append(menu);
 
 function refreshLabels() {
   team.repaint();
+  controls.setAttribute('aria-label', uiLabel('founder', 'headerTools'));
+  summary.setAttribute('aria-label', uiLabel('founder', 'accessMenu'));
+  summary.title = uiLabel('founder', 'accessTitle');
+  accessList.setAttribute('aria-label', uiLabel('founder', 'accessTitle'));
   for (const [key, element] of linkNodes) element.textContent = uiLabel('founder', key);
   install.textContent = uiLabel('founder', 'install');
 }
@@ -125,8 +152,9 @@ if (app) {
 }
 
 addEventListener('janus:knowledge-applied', (event) => {
-  status.textContent = `Cambio guardado · revisión ${event.detail.revision}`;
+  status.textContent = `${uiLabel('founder', 'changeSaved')} ${event.detail.revision}`;
 });
 addEventListener('janus:review-error', (event) => { status.textContent = event.detail.message; });
 mountAppInstall({ appName: 'JANUS', iconSrc: '/icons/janus-icon-180.png' });
+mountFounderHomeData();
 registerWithAutoUpdate('/sw.js');

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 // @ts-expect-error -- plain browser ES module without type declarations
-import { base64url, explainAuthError, spkiToPem } from '../apps/pwa/founder-session.js';
+import { base64url, explainAuthError, forgetSession, spkiToPem } from '../apps/pwa/founder-session.js';
 
 test('founder session helpers: base64url, PEM wrapping and Spanish error explanations', () => {
   assert.equal(base64url(new Uint8Array([251, 255, 0])), '-_8A');
@@ -36,4 +36,22 @@ test('tool sync panel: two explicit taps, Founder-authenticated POST with expect
   assert.match(app, /if \(!toolSyncArmed\) \{\n    toolSyncArmed = true;/);
   const block = app.slice(app.indexOf('async function refreshToolSync'), app.indexOf('function renderApprovals'));
   assert.equal(block.includes('innerHTML'), false);
+});
+
+
+test('una respuesta tardía de una sesión anterior conserva la nueva sesión del Founder', (t) => {
+  let stored: string | null = 'current';
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+  Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: {
+    getItem: () => stored,
+    removeItem: () => { stored = null; },
+  } });
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, 'sessionStorage', original);
+    else Reflect.deleteProperty(globalThis, 'sessionStorage');
+  });
+  forgetSession('expired');
+  assert.equal(stored, 'current');
+  forgetSession('current');
+  assert.equal(stored, null);
 });

@@ -28,7 +28,7 @@ function vOraciones(M, X, sub) {
   const langs = oraLangs(p.id);
   if (!langs.includes(ORA.lang)) ORA.lang = langs[0];
   const L = JanusOraciones.LANGS[ORA.lang], t = p.texts[ORA.lang];
-  const left = panel('', '✝', 'Oraciones', list.length + '',
+  const left = panel('', '✝', ft('Oraciones'), list.length + '',
     '<div class="rdl">' + list.map((q) => '<div class="rdo' + (q.id === p.id ? ' on' : '') + '"' + act('oraSel', q.id, q.title) + '><div class="rdo2"><b>' + esc(q.title) + '</b></div><div class="rdo3 mono">' + (q.latinTitle ? esc(q.latinTitle) + ' · ' : '') + oraLangs(q.id).map((l) => JanusOraciones.LANGS[l].name).join(' · ') + '</div></div>').join('') + '</div>');
   const tabs = '<div class="rdb">' + langs.map((l) => '<span class="btn" aria-pressed="' + (l === ORA.lang) + '" style="' + (l === ORA.lang ? 'background:var(--gold,#c9a227);color:#fff;font-weight:700' : '') + '"' + act('oraLang', l, JanusOraciones.LANGS[l].name) + '>' + esc(JanusOraciones.LANGS[l].name) + (JanusOraciones.LANGS[l].tag ? ' · ' + esc(JanusOraciones.LANGS[l].tag) : l === p.original ? ' · original' : '') + '</span>').join('') + '</div>';
   const text = t.sub
@@ -39,8 +39,8 @@ function vOraciones(M, X, sub) {
         (t.translit ? '<div class="mono" style="opacity:.7">' + esc(t.translit[i]) + '</div>' : '') +
         '<div style="font-style:italic;margin-top:2px">' + esc(t.sub[i]) + '</div></div>').join('') + '</div>'
     : '<div class="ora-text" lang="' + ORA.lang + '" dir="' + L.dir + '" style="font-size:1.35em;line-height:1.55;font-weight:600;' + (L.dir === 'rtl' ? 'text-align:right;font-size:1.6em;' : '') + '">' + t.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>';
-  const say = t.say && !t.sub ? '<div class="note" style="margin-top:12px"><b>Cómo se pronuncia</b>' + t.say.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
-  const es = ORA.lang !== 'es' && !t.sub && p.texts.es ? '<div class="note" style="margin-top:12px"><b>En español</b>' + p.texts.es.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
+  const say = t.say && !t.sub ? '<div class="note" style="margin-top:12px"><b>' + esc(ft("Cómo se pronuncia")) + '</b>' + t.say.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
+  const es = ORA.lang !== 'es' && !t.sub && p.texts.es ? '<div class="note" style="margin-top:12px"><b>' + esc(ft("En español")) + '</b>' + p.texts.es.lines.map((x) => '<div>' + esc(x) + '</div>').join('') + '</div>' : '';
   const voice = JanusOraciones.hasVoice(ORA.lang);
   const play = '<div class="rdb"><span class="btn"' + act(ORA.playing ? 'oraStop' : (t.sub ? 'oraRecite' : 'oraSpeak'), ORA.lang, ORA.playing ? 'Parar' : 'Escuchar') + '>' + (ORA.playing ? '■ Parar' : (t.sub ? '▶ Recitar con subtítulos' : '▶ Escuchar')) + '</span></div>' +
     (t.sub ? '<div class="note mono">' + (ORA.premium === true ? 'Voz: Janus (ElevenLabs).' : ORA.premium === false ? 'La voz de Janus aún no está configurada en este equipo: recita la voz del aparato con pronunciación aproximada.' : 'Recita la voz de Janus si está configurada; si no, la del aparato con pronunciación aproximada.') + '</div>' + (t.notes || []).map((n) => '<div class="note">' + esc(n) + '</div>').join('')

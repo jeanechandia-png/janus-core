@@ -69,34 +69,34 @@ function vRadar(M, X, sub) {
   void radarLoad(false);
   const D = RADAR.data, list = D.opportunities || [], sel = list.find((o) => o.id === RADAR.sel) || list[0];
   const badge = RADAR.src === 'vivo' ? '● REAL' : 'REGISTRO INICIAL';
-  const ops = panel('', '📡', 'Oportunidades', D.counts.open + ' abiertas · ' + D.counts.pending + ' por verificar · ' + D.counts.expired + ' caducadas',
-    (list.length ? '<div class="rdl">' + list.map((o) => '<div class="rdo' + (sel && o.id === sel.id ? ' on' : '') + (o.status === 'expired' ? ' past' : '') + '"' + act('radarSel', o.id, o.title) + '><div class="rdo1"><b>' + esc(o.provider) + '</b>' + pill(RADAR_ST[o.status][0], RADAR_ST[o.status][1]) + pill('prioridad ' + RADAR_PRI[o.score.priority][0], RADAR_PRI[o.score.priority][1]) + '</div><div class="rdo2">' + esc(o.title) + '</div><div class="rdo3 mono">' + esc(radarLeft(o.hoursLeft)) + ' · ' + RADAR_STAGE[o.stage] + '</div></div>').join('') + '</div>' : '<div class="dim">Sin oportunidades registradas.</div>') +
+  const ops = panel('', '📡', ft('Oportunidades'), D.counts.open + ' abiertas · ' + D.counts.pending + ' por verificar · ' + D.counts.expired + ' caducadas',
+    (list.length ? '<div class="rdl">' + list.map((o) => '<div class="rdo' + (sel && o.id === sel.id ? ' on' : '') + (o.status === 'expired' ? ' past' : '') + '"' + act('radarSel', o.id, o.title) + '><div class="rdo1"><b>' + esc(o.provider) + '</b>' + pill(RADAR_ST[o.status][0], RADAR_ST[o.status][1]) + pill('prioridad ' + RADAR_PRI[o.score.priority][0], RADAR_PRI[o.score.priority][1]) + '</div><div class="rdo2">' + esc(o.title) + '</div><div class="rdo3 mono">' + esc(radarLeft(o.hoursLeft)) + ' · ' + RADAR_STAGE[o.stage] + '</div></div>').join('') + '</div>' : '<div class="dim">' + esc(ft("Sin oportunidades registradas.")) + '</div>') +
     '<div class="note mono">' + badge + (RADAR.src === 'vivo' ? '' : ' · sin conexión al Núcleo, nada se guarda') + '</div>');
   const kv = (rows) => '<div class="kv">' + rows.filter((r) => r[2]).map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>';
-  const det = sel ? panel('', '🔎', 'Detalle', RADAR_STAGE[sel.stage],
+  const det = sel ? panel('', '🔎', ft('Detalle'), RADAR_STAGE[sel.stage],
     '<div class="rdh"><b class="serif big2">' + esc(sel.title) + '</b></div>' +
     kv([['🏢', 'Proveedor', esc(sel.provider)], ['📅', 'Publicada', radarWhen(sel.publishedAt)], ['▶', 'Empieza', radarWhen(sel.startsAt)], ['⏳', 'Termina (hora NL)', radarWhen(sel.expiresAt)], ['🧩', 'Beneficia a', esc((sel.projects || []).join(' · '))], ['💶', 'Coste', { none: 'sin coste adicional', low: 'bajo', medium: 'medio', high: 'alto' }[sel.cost]], ['👁', 'Detectada por', { owner: 'el propietario', monitor: 'el monitor', agent: 'un agente' }[sel.detectedBy] + ' · ' + radarWhen(sel.detectedAt, false)]]) +
-    (sel.conditions ? '<div class="sb mono">Condiciones</div><div class="rdt">' + esc(sel.conditions) + '</div>' : '') +
-    (sel.eligibility ? '<div class="sb mono">Quién puede usarla</div><div class="rdt">' + esc(sel.eligibility) + '</div>' : '') +
-    '<div class="sb mono">Por qué esta prioridad</div><div class="rdt">' + esc((sel.score.reasons || []).join(' · ')) + '</div>' +
+    (sel.conditions ? '<div class="sb mono">' + esc(ft("Condiciones")) + '</div><div class="rdt">' + esc(sel.conditions) + '</div>' : '') +
+    (sel.eligibility ? '<div class="sb mono">' + esc(ft("Quién puede usarla")) + '</div><div class="rdt">' + esc(sel.eligibility) + '</div>' : '') +
+    '<div class="sb mono">' + esc(ft("Por qué esta prioridad")) + '</div><div class="rdt">' + esc((sel.score.reasons || []).join(' · ')) + '</div>' +
     (sel.late && sel.late.late ? '<div class="note mono rdw">⚠ Detección tardía: ' + esc(sel.late.reason) + '</div>' : '') +
-    (sel.sourceUrl ? '<div class="sb mono">Fuente</div><a class="rdi lnk" href="' + esc(sel.sourceUrl) + '" target="_blank" rel="noopener"><span>' + esc(sel.sourceLabel || sel.sourceUrl) + '</span>' + pill(sel.verification === 'verified' ? 'oficial leída' : 'sin leer por JANUS', sel.verification === 'verified' ? 'g' : '') + '</a>' : '') +
-    '<div class="rdb">' + (sel.status !== 'expired' && RADAR_NEXT[sel.stage] ? '<span class="btn"' + act('radarStage', sel.id + '|' + RADAR_NEXT[sel.stage][0], RADAR_NEXT[sel.stage][1]) + '>' + RADAR_NEXT[sel.stage][1] + '</span>' : '') + (sel.verification !== 'verified' && sel.sourceUrl ? '<span class="btn"' + act('radarVerify', sel.id, 'He leído la fuente oficial') + '>✔ He leído la fuente oficial</span>' : '') + '</div>' +
-    (RADAR.err ? '<div class="note mono rdw">' + esc(RADAR.err) + '</div>' : '')) : panel('', '🔎', 'Detalle', '', '<div class="dim">Elige una oportunidad.</div>');
+    (sel.sourceUrl ? '<div class="sb mono">' + esc(ft("Fuente")) + '</div><a class="rdi lnk" href="' + esc(sel.sourceUrl) + '" target="_blank" rel="noopener"><span>' + esc(sel.sourceLabel || sel.sourceUrl) + '</span>' + pill(sel.verification === 'verified' ? 'oficial leída' : 'sin leer por JANUS', sel.verification === 'verified' ? 'g' : '') + '</a>' : '') +
+    '<div class="rdb">' + (sel.status !== 'expired' && RADAR_NEXT[sel.stage] ? '<span class="btn"' + act('radarStage', sel.id + '|' + RADAR_NEXT[sel.stage][0], RADAR_NEXT[sel.stage][1]) + '>' + RADAR_NEXT[sel.stage][1] + '</span>' : '') + (sel.verification !== 'verified' && sel.sourceUrl ? '<span class="btn"' + act('radarVerify', sel.id, 'He leído la fuente oficial') + '>' + esc(ft("✔ He leído la fuente oficial")) + '</span>' : '') + '</div>' +
+    (RADAR.err ? '<div class="note mono rdw">' + esc(RADAR.err) + '</div>' : '')) : panel('', '🔎', ft('Detalle'), '', '<div class="dim">' + esc(ft("Elige una oportunidad.")) + '</div>');
   const P = D.plan;
-  const quota = panel('', '⏱', 'Cupo y ventanas', P && P.nextResetAt ? 'restablece ' + radarWhen(P.nextResetAt) : 'sin restablecimiento conocido',
+  const quota = panel('', '⏱', ft('Cupo y ventanas'), P && P.nextResetAt ? 'restablece ' + radarWhen(P.nextResetAt) : 'sin restablecimiento conocido',
     (D.quotas || []).map((q) => '<div class="rdi"><span class="bb s">' + (q.kind === 'short' ? '⚡' : '📆') + '</span><span>' + esc(q.label) + (q.usedPercent != null ? ' · usado ' + q.usedPercent + ' %' : ' · consumo sin anotar') + '</span>' + pill(q.verified ? 'verificado' : 'declarado', q.verified ? 'g' : '') + '</div>').join('') +
     (P && P.phases.length ? P.phases.map((f) => '<div class="rdf"><div class="rdf1"><b class="serif">Fase ' + f.id + '</b><span class="mono">' + radarWhen(f.from) + ' → ' + radarWhen(f.to) + ' · ' + Math.round(f.hours) + ' h de calendario</span></div><div class="rdt">' + esc(f.focus) + '</div><div class="rdt dim">' + esc(f.capacity) + '</div></div>').join('') : '') +
     (P ? (P.warnings || []).map((w) => '<div class="note mono rdw">⚠ ' + esc(w) + '</div>').join('') : '') +
-    '<div class="note mono">La fecha de fin de una promoción no es el tiempo efectivo de trabajo: manda el cupo. JANUS no lee los contadores de la cuenta.</div>');
+    '<div class="note mono">' + esc(ft("La fecha de fin de una promoción no es el tiempo efectivo de trabajo: manda el cupo. JANUS no lee los contadores de la cuenta.")) + '</div>');
   const Mo = D.monitor || { sources: [] };
-  const mon = panel('', '🛰', 'Vigilancia de fuentes oficiales', Mo.enabled ? 'monitor activo' : 'monitor apagado',
+  const mon = panel('', '🛰', ft('Vigilancia de fuentes oficiales'), Mo.enabled ? 'monitor activo' : 'monitor apagado',
     (Mo.sources || []).map((s) => '<div class="rdi"><span class="bb s">🌐</span><span>' + esc(s.label) + '</span>' + pill(s.state ? (s.state.ok ? 'leída ' + radarWhen(s.state.checkedAt) : 'sin acceso · ' + esc(s.state.detail)) : 'nunca leída', s.state ? (s.state.ok ? 'g' : 'r') : '') + '</div>').join('') +
     (Mo.reason ? '<div class="note mono rdw">' + esc(Mo.reason) + '</div>' : '') +
-    '<div class="rdb"><span class="btn"' + act('radarRun', '', 'Revisar fuentes ahora') + '>↻ Revisar fuentes ahora</span></div>' +
+    '<div class="rdb"><span class="btn"' + act('radarRun', '', 'Revisar fuentes ahora') + '>' + esc(ft("↻ Revisar fuentes ahora")) + '</span></div>' +
     '<div class="note mono">El monitor propone candidatas por palabras clave; siempre nacen «por verificar». Avisos al teléfono: ' + (Mo.pushConfigured ? 'configurados' : 'sin configurar') + '.</div>');
-  const inc = panel('', '🧾', 'Incidencias y lecciones', (D.incidents || []).length + '',
-    (D.incidents || []).map((i) => '<div class="rdf"><div class="rdf1"><b class="mono">' + esc(i.id) + '</b>' + pill(i.verified ? 'medida verificada' : 'medida por verificar', i.verified ? 'g' : '') + '</div><div class="rdt">' + esc(i.error) + '</div><div class="rdt dim">Causa: ' + esc(i.cause) + '</div><div class="rdt dim">Regla: ' + esc(i.preventiveRule) + '</div></div>').join('') || '<div class="dim">Sin incidencias.</div>');
+  const inc = panel('', '🧾', ft('Incidencias y lecciones'), (D.incidents || []).length + '',
+    (D.incidents || []).map((i) => '<div class="rdf"><div class="rdf1"><b class="mono">' + esc(i.id) + '</b>' + pill(i.verified ? 'medida verificada' : 'medida por verificar', i.verified ? 'g' : '') + '</div><div class="rdt">' + esc(i.error) + '</div><div class="rdt dim">Causa: ' + esc(i.cause) + '</div><div class="rdt dim">Regla: ' + esc(i.preventiveRule) + '</div></div>').join('') || '<div class="dim">' + esc(ft("Sin incidencias.")) + '</div>');
   return frame('radar', sub, M, '<div class="col3">' + ops + inc + '</div><div class="col3">' + det + '</div><div class="col3">' + quota + mon + '</div>');
 }
 VIEWS.radar = vRadar;

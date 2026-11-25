@@ -21,3 +21,21 @@ test('el botón vive en la capa de acceso, usa la cola existente y no escribe HT
   assert.ok(text('apps/pwa/sw.js').includes("'/approval-chip.js'"));
   for (const file of ['Janus-Core-A-public-safe.html', 'Janus-Core-B-public-safe.html']) assert.ok(!text('prototypes/dashboard/dist/' + file).includes('janus-approvals'));
 });
+
+test('Founder runtime opens the same approval queue and does not show a false zero', () => {
+  const chip = text('apps/pwa/approval-chip.js');
+  assert.match(chip,/verified \? String\(pending.length\) : '—'/);
+  assert.match(chip,/function open\(\)/);
+  assert.match(chip,/token!==sessionToken\(\)/);
+  const access=text('apps/pwa/dashboard-access.js');
+  assert.match(access,/data-live-approvals/);
+  assert.match(access,/approvals.open\(\)/);
+  const views=text('prototypes/dashboard/src/views.js');
+  assert.match(views,/liveRuntime \? panel/);
+  assert.match(views,/data-live-approvals/);
+});
+
+test('Dutch approval metadata preserves the real operation, reason, target and expiry',()=>{
+ const now=Date.parse('2026-11-11T10:00:00Z');
+ assert.equal(describeApproval({operation:'tienda.deleteOrder',target:'tienda.example',reason:'método DELETE',risk:'critical',reversible:false,expiresAt:'2026-11-11T10:12:00Z'},now,'nl'),'tienda.deleteOrder · bij tienda.example · método DELETE · risico kritiek · onomkeerbaar · verloopt over 12 min');
+});

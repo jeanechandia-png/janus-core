@@ -4,6 +4,7 @@ import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync, statSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 
 function syntheticGlb() {
   const json = Buffer.from(JSON.stringify({
@@ -52,7 +53,11 @@ test('Forge CLI stages local preview reproducibly without publishing or modifyin
     const preflight = cli('inspect', ['--input', img]);
     assert.equal(preflight.status, 0, preflight.stderr);
     assert.equal(JSON.parse(preflight.stdout).valid, true);
-    const staged = cli('prepare', args);
+    const rejected = cli('prepare', [...args, '--expected-sha256', '0'.repeat(64)]);
+    assert.equal(rejected.status, 1);
+    assert.match(rejected.stderr, /Original GLB SHA-256 mismatch/);
+    assert.equal(existsSync(privateDir), false);
+    const staged = cli('prepare', [...args, '--expected-sha256', createHash('sha256').update(original).digest('hex')]);
     assert.equal(staged.status, 0, staged.stderr);
     const report = JSON.parse(staged.stdout);
     assert.equal(report.status, 'preview_only');

@@ -46,23 +46,23 @@ function vOffline(M, X, sub) {
   const reach = !D ? 'none' : OFFL.savedAt ? 'cache' : 'live';
   const top = '<div class="cutop">' + (OFFL.savedAt ? '<div class="note mono rdw">⚠ No se llega a JANUS ahora mismo. Se muestra lo último guardado en este aparato (' + offlHM(OFFL.savedAt) + ').</div>' : '') +
     (OFFL.err && !D ? '<div class="note mono rdw">⚠ ' + esc(OFFL.err) + '</div>' : '') + '</div>';
-  if (!D) return frame('offline', sub, M, top + '<div class="col3">' + panel('', '🔌', 'Sin internet', '', '<div class="rdt">' + (offlCore() ? 'Consultando a JANUS…' : 'JANUS no está encendido. Esta pantalla enseña, con datos reales, qué funciona sin internet y qué queda pendiente de enviar.') + '</div>') + '</div>');
+  if (!D) return frame('offline', sub, M, top + '<div class="col3">' + panel('', '🔌', ft('Sin internet'), '', '<div class="rdt">' + (offlCore() ? 'Consultando a JANUS…' : 'JANUS no está encendido. Esta pantalla enseña, con datos reales, qué funciona sin internet y qué queda pendiente de enviar.') + '</div>') + '</div>');
   const C = D.connectivity, W = D.withoutInternet;
   const state = reach === 'cache' ? ['Sin conexión con JANUS', 'r'] : C.state === 'offline' ? ['JANUS sin internet', 'r'] : C.state === 'online' ? ['Con internet', 'g'] : [C.probing ? 'Comprobando…' : 'No usa servicios externos', ''];
-  const now = panel('', '🔌', 'Ahora mismo', '', '<div class="rdi"><span class="bb s">📡</span><span><b>' + state[0] + '</b>' + (C.lastProbeAt ? '<br><span class="dim">Última comprobación: ' + offlHM(C.lastProbeAt) + '</span>' : '') + '</span>' + pill(state[0], state[1]) + '</div>' +
-    '<div class="sb mono">Recursos propios en el aparato</div>' +
+  const now = panel('', '🔌', ft('Ahora mismo'), '', '<div class="rdi"><span class="bb s">📡</span><span><b>' + state[0] + '</b>' + (C.lastProbeAt ? '<br><span class="dim">Última comprobación: ' + offlHM(C.lastProbeAt) + '</span>' : '') + '</span>' + pill(state[0], state[1]) + '</div>' +
+    '<div class="sb mono">' + esc(ft("Recursos propios en el aparato")) + '</div>' +
     [['local_model', 'Modelo de IA propio'], ['local_stt', 'Reconocimiento de voz propio'], ['local_tts', 'Voz propia']].map((r) => '<div class="rdi"><span class="bb s ofl-' + (D.resources[r[0]] ? 'works' : 'unavailable') + '">' + (D.resources[r[0]] ? '✔' : '✗') + '</span><span>' + r[1] + '</span>' + pill(D.resources[r[0]] ? 'instalado' : 'no instalado', D.resources[r[0]] ? 'g' : '') + '</div>').join('') +
     '<div class="note mono">Con un modelo de IA propio en el aparato, JANUS conversa y hace de intérprete sin internet. Hoy ' + (D.resources.local_model ? 'está instalado.' : 'no está instalado: sin internet responde sin IA.') + '</div>' +
-    '<div class="rdb"><span class="btn"' + act('offlProbe', '', 'Comprobar ahora') + '>Comprobar ahora</span></div>');
-  const list = panel('', '📋', 'Si se va internet', W.works.length + ' ✔ · ' + W.degraded.length + ' ◐ · ' + W.unavailable.length + ' ✗',
-    '<div class="sb mono">Sigue funcionando</div>' + W.works.map(offlRow).join('') + (W.degraded.length ? '<div class="sb mono">Funciona a medias</div>' + W.degraded.map(offlRow).join('') : '') + (W.unavailable.length ? '<div class="sb mono">Necesita internet</div>' + W.unavailable.map(offlRow).join('') : ''));
+    '<div class="rdb"><span class="btn"' + act('offlProbe', '', 'Comprobar ahora') + '>' + esc(ft("Comprobar ahora")) + '</span></div>');
+  const list = panel('', '📋', ft('Si se va internet'), W.works.length + ' ✔ · ' + W.degraded.length + ' ◐ · ' + W.unavailable.length + ' ✗',
+    '<div class="sb mono">' + esc(ft("Sigue funcionando")) + '</div>' + W.works.map(offlRow).join('') + (W.degraded.length ? '<div class="sb mono">' + esc(ft("Funciona a medias")) + '</div>' + W.degraded.map(offlRow).join('') : '') + (W.unavailable.length ? '<div class="sb mono">' + esc(ft("Necesita internet")) + '</div>' + W.unavailable.map(offlRow).join('') : ''));
   const srv = D.outbox.review || [];
   const item = (i, where) => '<div class="rdf"><div class="rdf1"><b>' + esc(i.summary) + '</b>' + pill(i.state === 'queued' ? 'en espera' : 'decide tú', i.state === 'queued' ? '' : 'r') + '</div><div class="rdt dim mono">' + offlHM(i.createdAt) + (i.lastError ? ' · ' + esc(i.lastError) : '') + '</div>' +
-    (i.state !== 'queued' ? '<div class="rdb"><span class="btn sm"' + act('offlSend', where + ':' + i.id, 'Enviar ahora') + '>Enviar ahora</span><span class="btn sm"' + act('offlDrop', where + ':' + i.id, 'Descartar') + '>Descartar</span></div>' : '') + '</div>';
-  const box = panel('', '📤', 'Pendiente de enviar', String(OFFL.local.length + srv.length),
-    '<div class="sb mono">Desde este aparato</div>' + (OFFL.local.length ? OFFL.local.map((i) => item({ ...i, state: i.state === 'review' ? 'needs_review' : 'queued' }, 'b')).join('') : '<div class="dim">Nada pendiente.</div>') +
-    '<div class="sb mono">En JANUS</div>' + (srv.length ? srv.map((i) => item(i, 's')).join('') : '<div class="dim">Nada pendiente.</div>') +
-    '<div class="note mono">Lo que anotas sin conexión se guarda aquí y sale solo al volver. Lo delicado, o lo que lleva más de un día esperando, te pide confirmación antes.</div>' +
+    (i.state !== 'queued' ? '<div class="rdb"><span class="btn sm"' + act('offlSend', where + ':' + i.id, 'Enviar ahora') + '>' + esc(ft("Enviar ahora")) + '</span><span class="btn sm"' + act('offlDrop', where + ':' + i.id, 'Descartar') + '>' + esc(ft("Descartar")) + '</span></div>' : '') + '</div>';
+  const box = panel('', '📤', ft('Pendiente de enviar'), String(OFFL.local.length + srv.length),
+    '<div class="sb mono">' + esc(ft("Desde este aparato")) + '</div>' + (OFFL.local.length ? OFFL.local.map((i) => item({ ...i, state: i.state === 'review' ? 'needs_review' : 'queued' }, 'b')).join('') : '<div class="dim">' + esc(ft("Nada pendiente.")) + '</div>') +
+    '<div class="sb mono">' + esc(ft("En JANUS")) + '</div>' + (srv.length ? srv.map((i) => item(i, 's')).join('') : '<div class="dim">' + esc(ft("Nada pendiente.")) + '</div>') +
+    '<div class="note mono">' + esc(ft("Lo que anotas sin conexión se guarda aquí y sale solo al volver. Lo delicado, o lo que lleva más de un día esperando, te pide confirmación antes.")) + '</div>' +
     (B.lastSavedAt ? '<div class="note mono">Última copia guardada en este aparato: ' + offlHM(B.lastSavedAt) + '</div>' : ''));
   return frame('offline', sub, M, top + '<div class="col3">' + now + '</div><div class="col3">' + list + '</div><div class="col3">' + box + '</div>');
 }
