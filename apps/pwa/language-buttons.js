@@ -86,6 +86,70 @@ export function mountLanguageButtons(container, scope, { storage = globalThis.lo
 }
 
 const KENDRA_NL=Object.freeze({
+"Aviso":"Melding",
+"Tiempo de ocio: ":"Vrije tijd: ",
+"Tiempo disponible para vídeos: ":"Beschikbare videotijd: ",
+" de ":" van ",
+" días":" dagen",
+"Nochebuena":"Kerstavond",
+"Fin de año":"Oudjaar",
+"Tienes ":"Je hebt ",
+" tareas próximas o pendientes":" komende of openstaande taken",
+"Saludar a ":"Groet ",
+"Personalizar a ":"Aanpassen: ",
+"🌤️ Hoy en ":"🌤️ Vandaag in ",
+" · Lleva: ":" · Neem mee: ",
+"Mañana: ":"Morgen: ",
+"¡Hola, ":"Hallo, ",
+"! Soy ":"! Ik ben ",
+". ¿De qué hablamos?":". Waar praten we over?",
+"! Tu criatura aún no está disponible. ¿De qué hablamos?":"! Je vriendje is nog niet beschikbaar. Waar praten we over?",
+"Ej.: el sábado tengo el cumple de mi prima":"Bijv.: zaterdag is mijn nichtje jarig",
+"Apuntar en mi agenda":"In mijn agenda zetten",
+"¡Apuntado! Te lo recordaré. ✨":"Genoteerd! Ik zal je eraan herinneren. ✨",
+"Ej.: terminar el dibujo":"Bijv.: de tekening afmaken",
+"Nueva tarea":"Nieuwe taak",
+"Tarea añadida.":"Taak toegevoegd.",
+"No pude añadirla.":"Toevoegen is niet gelukt.",
+" (¡ya pasó!)":" (al voorbij!)",
+"Ej.: maqueta del sistema solar":"Bijv.: model van het zonnestelsel",
+"Nuevo proyecto":"Nieuw project",
+"Proyecto creado.":"Project gemaakt.",
+" tareas":" taken",
+"Este vídeo ya no está en la lista aprobada.":"Deze video staat niet meer op de goedgekeurde lijst.",
+"Ahora no se puede.":"Dat kan nu niet.",
+"No pude comprobar la lista de papá. Inténtalo de nuevo.":"Ik kon papa's lijst niet controleren. Probeer het opnieuw.",
+"No pude comprobar el permiso del vídeo.":"Ik kon de toestemming voor de video niet controleren.",
+"Acción confirmada.":"Actie bevestigd.",
+"No pude confirmar la acción.":"Ik kon de actie niet bevestigen.",
+"Ej.: apaga la luz de la cama":"Bijv.: doe het licht uit",
+"Qué quieres hacer en la casa":"Wat wil je thuis doen?",
+"💡 Prende la luz":"💡 Licht aan",
+"🌙 Apaga la luz":"🌙 Licht uit",
+"🌀 Enciende el ventilador":"🌀 Ventilator aan",
+"🥵 Hace calor: apaga la calefacción":"🥵 Verwarming uit",
+"Puedo ayudarte con: ":"Ik kan je helpen met: ",
+"El botón rojo SOS avisa a papá con tu ubicación. Aquí puedes practicar sin avisar a nadie: qué hacer si alguien de casa se desmaya, si te siguen en la calle y cómo defenderte.":"De rode SOS-knop waarschuwt papa met je locatie. Hier kun je oefenen zonder iemand te waarschuwen: wat te doen als iemand thuis flauwvalt, als iemand je volgt of als je jezelf moet beschermen.",
+"Ej.: Minecraft":"Bijv.: Minecraft",
+"Nuevo interés":"Nieuwe interesse",
+"¡Anotado! ⭐":"Genoteerd! ⭐",
+"🏷️ Oferta":"🏷️ Aanbieding",
+"🎪 Evento":"🎪 Evenement",
+"🎬 Peli":"🎬 Film",
+"🛍️ Producto":"🛍️ Product",
+"🗺️ Plan":"🗺️ Uitje",
+"desde ":"vanaf ",
+"hasta ":"tot ",
+"Icono ":"Icoon ",
+"Color ":"Kleur ",
+"¡Listo! Ahora es todo tuyo. 🌈":"Klaar! Nu is het helemaal van jou. 🌈",
+"Uy, no pude responder. ¿Lo intentamos otra vez?":"Oeps, ik kon niet antwoorden. Proberen we het nog eens?",
+"🏛️ ¿Sabías esto del latín?":"🏛️ Wist je dit over Latijn?",
+"Adelante.":"Ga je gang.",
+"Hoy ya usaste tu tiempo de pantalla. ¡Buen trabajo! Mañana hay más. 🌟":"Je schermtijd voor vandaag is op. Goed gedaan! Morgen kan het weer. 🌟",
+"El control de la casa está apagado ahora mismo. Pídeselo a papá o a mamá.":"De huisbediening staat nu uit. Vraag het aan papa of mama.",
+"Eso lo controlan papá o mamá.":"Dat bedienen papa of mama.",
+
   "Activar": "Activeren",
   "¡Hola! Vamos a conocernos": "Hallo! Laten we kennismaken",
   "Pídele a papá el código para activar Kendra en este aparato.": "Vraag papa om de code om Kendra op dit apparaat te activeren.",
@@ -208,3 +272,16 @@ const KENDRA_NL=Object.freeze({
   "No pude cargar. Inténtalo en un ratito.": "Laden is niet gelukt. Probeer het zo nog eens."
 });
 export function kidText(value,language=currentLanguage('kendra')){return language==='nl'&&Object.hasOwn(KENDRA_NL,value)?KENDRA_NL[value]:value;}
+
+// Only application-owned notices, never arbitrary user or provider content.
+export function kidNotice(value,language=currentLanguage('kendra')){
+ if(language!=='nl'||typeof value!=='string')return value;
+ const exact=kidText(value,language);if(exact!==value)return exact;
+ let m=/^Ahora toca descansar\. Puedes volver a las (\d{2}:\d{2})\. 🌙$/u.exec(value);
+ if(m)return 'Nu is het tijd om te rusten. Je kunt om '+m[1]+' terugkomen. 🌙';
+ m=/^Te quedan (\d+) minutos\. Ve terminando lo que haces, ¿vale\? ⏰$/u.exec(value);
+ if(m)return 'Je hebt nog '+m[1]+' minuten. Rond rustig af, oké? ⏰';
+ m=/^Ya viste todo lo de hoy en (.+)\. Puedes hacer otra cosa divertida\. 🎈$/u.exec(value);
+ if(m)return 'Je tijd voor deze activiteit is op. Je kunt iets anders leuks doen. 🎈';
+ return value;
+}

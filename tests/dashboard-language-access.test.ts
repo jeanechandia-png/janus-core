@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 // @ts-expect-error Browser ESM component without a declaration file.
-import { LANGUAGES, currentLanguage, uiLabel } from '../apps/pwa/language-buttons.js';
+import { LANGUAGES, currentLanguage, uiLabel, kidText, kidNotice } from '../apps/pwa/language-buttons.js';
 
 const text = (path: string) => readFileSync(path, 'utf8');
 
@@ -155,7 +155,7 @@ test('Kendra: sin buscador, cada acceso abre solo un vídeo aún aprobado por Co
   const context = {
     tab: 'ver', player: null as typeof video | null,
     api: async () => response,
-    renderMain: () => {}, flash: (message: string) => messages.push(message), showLock: () => {},
+    kt:(v:string)=>v, renderMain: () => {}, flash: (message: string) => messages.push(message), showLock: () => {},
   };
   const open = runInNewContext(kid.slice(start, end) + '\nopenApprovedVideo;', context) as (id: string) => Promise<void>;
   await open(video.id);
@@ -259,7 +259,7 @@ test('Kendra School: selección, lectura local, concentración y respuesta confi
   const api = async (...args:any[])=>{requests.push(args);return responses.shift();};
   const env = runInNewContext(`let school={status:'available',techniques:[lesson]},schoolLesson=null,schoolStep=0,schoolFocus=false,schoolRequest=0,schoolFeedback='',schoolCorrect=false,schoolAnswerPending=false,tab='school',view={tasks:{all:[]}},prefs={speak:true};const renderMain=()=>{},go=()=>{},speak=(...a)=>reads.push(a);
 ${code}
-({tabSchool,answerSchool,state:()=>({schoolLesson,schoolStep,schoolFocus,schoolCorrect,schoolFeedback,schoolAnswerPending})});`,{h,api,reads,lesson,kt:(v:string)=>v}) as {tabSchool:()=>Node;answerSchool:(lesson:unknown,index:number)=>Promise<void>;state:()=>Record<string,any>};
+({tabSchool,answerSchool,state:()=>({schoolLesson,schoolStep,schoolFocus,schoolCorrect,schoolFeedback,schoolAnswerPending})});`,{h,api,reads,lesson,kt:(v:string)=>v,kidNotice:(v:string)=>v}) as {tabSchool:()=>Node;answerSchool:(lesson:unknown,index:number)=>Promise<void>;state:()=>Record<string,any>};
   const walk = (n:any):Node[] => n && typeof n==='object' ? [n,...n.children.flatMap(walk)] : [];
   const btn = (label:string)=>walk(env.tabSchool()).find(n=>n.tag==='button'&&n.children.includes(label))!;
   assert.ok(walk(env.tabSchool()).some(n=>n.children.includes('Neerlandés')));
@@ -282,4 +282,12 @@ ${code}
   assert.equal(lesson.progress.correct,1);
   assert.equal(env.state().schoolCorrect,true);
   assert.equal(btn('B').props.disabled,true);
+});
+
+test('Kendra dynamic notices localize without rewriting arbitrary private text',()=>{
+ assert.equal(kidText('Tiempo de ocio: ','nl'),'Vrije tijd: ');
+ assert.equal(kidNotice('Ahora toca descansar. Puedes volver a las 08:30. 🌙','nl'),'Nu is het tijd om te rusten. Je kunt om 08:30 terugkomen. 🌙');
+ assert.equal(kidNotice('Te quedan 5 minutos. Ve terminando lo que haces, ¿vale? ⏰','nl'),'Je hebt nog 5 minuten. Rond rustig af, oké? ⏰');
+ assert.equal(kidNotice('Mijn eigen bericht','nl'),'Mijn eigen bericht');
+ assert.equal(kidNotice('Ahora toca descansar. Puedes volver a las 08:30. 🌙','es'),'Ahora toca descansar. Puedes volver a las 08:30. 🌙');
 });
