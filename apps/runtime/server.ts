@@ -68,6 +68,7 @@ import {
 import { ErrorLedger, reconstructContinuity } from '../../packages/core/src/continuity.js';
 import { ProductIncidentSync, type IncidentSource } from '../../packages/core/src/product-incidents.js';
 import { productIncidentReader } from '../../packages/adapters/src/product-incident-reader.js';
+import { verifyReadiness, type ReadinessResult } from '../../packages/adapters/src/integration-readiness.js';
 import { ProductFeedSync, type ProductFeedSource } from '../../packages/core/src/product-feeds.js';
 import { productFeedReader } from '../../packages/adapters/src/product-feed-reader.js';
 import { EVOLUTION_CHECKS, premortem, postmortem, type EvolutionObservation, type EvolutionCheckId } from '../../packages/modules/janus-evolution-guard/src/index.js';
@@ -1113,6 +1114,8 @@ productIncidentSync.seed(incidentBootstrap.feed.productId,incidentBootstrap.feed
 const productFeedConfig = JSON.parse(readFileSync(
   fileURLToPath(new URL('../../config/product-feeds.json',import.meta.url)),'utf8'
 )) as {products:ProductFeedSource[];intervalMs:number};
+let readinessLast:{at:number;results:ReadinessResult[]}|undefined;
+let readinessInFlight:Promise<{at:number;results:ReadinessResult[]}>|undefined;
 const productFeedSync = new ProductFeedSync({
   sources:productFeedConfig.products,intervalMs:productFeedConfig.intervalMs,read:productFeedReader(),
   onNew:(notices)=>{
@@ -6200,6 +6203,21 @@ const server = createServer(async (request, response) => {
 
   // Portada Founder: lectura de fuentes existentes, sin consultas de pago ni mutaciones.
   // Nunca enviar mensajes, contactos, documentos privados ni agenda ajena a esta vista.
+  // Explicit Founder-only check; no business data leaves the runtime.
+  if (request.method === 'POST' && url.pathname === '/api/founder/integration-readiness') {
+    try {
+      requireFounderAuthority(request);
+      if (!readinessInFlight && (!readinessLast || Date.now()-readinessLast.at>=60_000)) {
+        readinessInFlight=verifyReadiness({token:(service,scopes)=>credentialBroker.accessToken(service,scopes),
+          products:productFeedConfig.products,readProduct:productFeedReader()})
+          .then(results=>{readinessLast={at:Date.now(),results};return readinessLast;})
+          .finally(()=>{readinessInFlight=undefined;});
+      }
+      const result=readinessInFlight?await readinessInFlight:readinessLast!;
+      json(response,200,{ok:true,checkedAt:new Date(result.at).toISOString(),results:result.results});
+    } catch(error) { json(response,authErrorStatus(error),authErrorBody(error)); }
+    return;
+  }
   if (request.method === 'GET' && url.pathname === '/api/founder/home-summary') {
     try {
       const { principal } = requireFounderAuthority(request);

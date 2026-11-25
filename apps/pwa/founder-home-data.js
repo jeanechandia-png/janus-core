@@ -59,5 +59,31 @@ export function mountFounderHomeData() {
   addEventListener('pagehide',()=>{clearInterval(timer);generation++;pending=false;checkedAt=0;data=null;paint();});
   addEventListener('pageshow',event=>{if(event.persisted){clearInterval(timer);timer=setInterval(()=>void refresh(),30000);void refresh();}});
   addEventListener('online',()=>void refresh());
+  let readiness=null, readinessToken='', readinessBusy=false;
+  function paintReadiness(){
+    const target=document.querySelector('[data-integration-readiness]');
+    if(!target)return;
+    const nl=currentLanguage('founder')==='nl';
+    const labels={verified:nl?'Geverifieerd':'Verificado',needs_auth:nl?'Autorisatie nodig':'Autorización necesaria',denied:nl?'Toegang geweigerd':'Acceso denegado',unavailable:nl?'Niet beschikbaar':'No disponible',invalid_response:nl?'Ongeldig antwoord':'Respuesta no válida',not_connected:nl?'Niet verbonden':'No conectado'};
+    const names={'gmail':'Gmail','calendar':'Google Calendar','infinity-business-assistant':'IBA','infinity-chatbox':'Infinity ChatBox','infinityseed-group':'InfinitySeed Group'};
+    const valid=readinessToken&&readinessToken===sessionToken();
+    const lines=valid&&readinessBusy?[nl?'Controleren…':'Comprobando…']:valid&&readiness?.ok?[new Date(readiness.checkedAt).toLocaleString(nl?'nl-NL':'es-NL'),...readiness.results.map(item=>(names[item.service]||item.service)+': '+(labels[item.state]||labels.unavailable))]:[nl?'Nog niet geverifieerd':'Sin comprobar'];
+    if(signatures.get(target)===JSON.stringify(lines))return;
+    signatures.set(target,JSON.stringify(lines));
+    target.replaceChildren(...lines.map(line=>{const p=document.createElement('p');p.textContent=line;return p;}));
+  }
+  document.addEventListener('click',async event=>{
+    if(!event.target.closest?.('[data-check-integrations]')||readinessBusy)return;
+    readinessToken=sessionToken()||'';readiness=null;
+    if(!readinessToken){paintReadiness();return;}
+    readinessBusy=true;paintReadiness();
+    try{const response=await fetch('/api/founder/integration-readiness',{method:'POST',headers:authHeaders(),cache:'no-store',signal:AbortSignal.timeout(20000)});
+      if(response.ok&&readinessToken===sessionToken())readiness=await response.json();
+    }catch{/* leave unverified */}
+    finally{readinessBusy=false;paintReadiness();}
+  });
+  if(root)new MutationObserver(paintReadiness).observe(root,{childList:true,subtree:true});
+  document.addEventListener('janus:language-changed',paintReadiness);
+  addEventListener('pagehide',()=>{readiness=null;readinessToken='';paintReadiness();});
   void refresh();
 }
