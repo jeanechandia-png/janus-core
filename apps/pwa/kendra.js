@@ -543,7 +543,7 @@ async function answerSchool(lesson,index) {
   const result=await api('POST','/api/kid/school/answer',{id:lesson.id,answer:index});
   if(request!==schoolRequest || tab!=='school' || schoolLesson!==lesson.id || !view)return;
   schoolAnswerPending=false;
-  if(result.status===200 && result.body.status==='answered') { schoolCorrect=result.body.correct===true;schoolFeedback=result.body.message;lesson.progress=result.body.progress; }
+  if(result.status===200 && result.body.status==='answered') { schoolCorrect=result.body.correct===true;schoolFeedback=result.body.message;lesson.progress=result.body.progress;school.goal=result.body.goal; }
   else { schoolFeedback=result.body.message || result.body.error || kt('No pude comprobar la respuesta. Inténtalo otra vez.'); }
   renderMain();
 }
@@ -565,13 +565,25 @@ function tabSchool() {
   const lesson = school.techniques.find(item => item.id === schoolLesson);
   if (!lesson) {
     const subjects = [...new Set(school.techniques.map(item => item.subject || 'Matemáticas'))];
+    const openExercise = item => {
+      schoolLesson = item.id;
+      schoolStep = 0;
+      schoolFeedback = '';
+      schoolCorrect = false;
+      schoolAnswerPending = false;
+      renderMain();
+    };
+    const goalLesson = school.techniques.find(item => item.id === school.goal?.lessonId);
+    const review = school.techniques.filter(item => item.progress?.attempts > 0 && item.progress.correct === 0);
+    const lessonButton = item => h('button', { type: 'button', class: 'primary', onClick: () => openExercise(item) },
+      item.title, item.progress?.correct > 0 ? kt(' · Practicado') : '');
     const assigned = (view.tasks?.all || []).filter(item => item.createdBy === 'parent');
     return h('section',{class:'card'},header,h('p',{},kt('Elige una materia y practica a tu ritmo.')),
+      goalLesson ? h('section', {}, h('h3', {}, kt(school.goal.completed ? 'Objetivo completado' : 'Mi objetivo')), lessonButton(goalLesson)) : null,
+      review.length ? h('section', {}, h('h3', {}, kt('Para volver a practicar')), ...review.map(lessonButton)) : null,
       assigned.length ? h('div',{},h('h3',{},kt('Mis ejercicios de casa')), ...assigned.map(item=>h('button',{type:'button',onClick:()=>go('dia')},item.title))) : null,
       ...subjects.map(subject => h('section',{class:'kid-school-subject'},h('h3',{},subject),
-        ...school.techniques.filter(item => (item.subject || 'Matemáticas') === subject).map(item =>
-          h('button',{type:'button',class:'primary',onClick:()=>{schoolLesson=item.id;schoolStep=0;schoolFeedback='';schoolCorrect=false;schoolAnswerPending=false;renderMain();}},item.title,
-          item.progress?.correct > 0 ? kt(' · Practicado') : '')))));
+        ...school.techniques.filter(item => (item.subject || 'Matemáticas') === subject).map(lessonButton))));
   }
   const done = schoolStep >= lesson.steps.length;
   const instruction = done ? (lesson.check ? lesson.check.question : kt('Has llegado al final. Gracias por practicar.')) : lesson.steps[schoolStep];

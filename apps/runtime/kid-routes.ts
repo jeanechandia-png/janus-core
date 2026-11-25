@@ -290,6 +290,8 @@ export function createKidRoutes(deps: KidRoutesDeps) {
       kidId: state.kidId,
       profile: state.profile,
       settings: state.settings,
+      schoolGoal: state.schoolGoal ?? null,
+      schoolChoices: KID_GUIDED_PRACTICE.map(({ id, title }) => ({ id, es: title, nl: KID_PRACTICE_NL[id]?.title ?? title })),
       pinSet: Boolean(store.kidGetPin(state.kidId)),
       today: days[0],
       week: days,
@@ -438,7 +440,7 @@ export function createKidRoutes(deps: KidRoutesDeps) {
             const {question,options,why,...labels}=localized;
             return {...item,...labels,...('check' in item && question && options ? {check:{question,options}}:{})};
           });
-          json(response, 200, { ok: true, status: 'available', techniques });
+          json(response, 200, { ok: true, status: 'available', techniques, goal: state.schoolGoal ?? null });
           return true;
         }
         if (method === 'POST' && path === '/api/kid/school/answer') {
@@ -452,9 +454,16 @@ export function createKidRoutes(deps: KidRoutesDeps) {
           const correct = answer === lesson.check.answer;
           const next = mutate(kid.kidId, current => {
             const prior = current.schoolPractice?.[lesson.id] ?? {attempts:0,correct:0};
-            return {schoolPractice:{...current.schoolPractice,[lesson.id]:{attempts:Math.min(100000,prior.attempts+1),correct:Math.min(100000,prior.correct+(correct?1:0))}}};
+            return {
+              schoolPractice: { ...current.schoolPractice, [lesson.id]: {
+                attempts: Math.min(100000, prior.attempts + 1),
+                correct: Math.min(100000, prior.correct + Number(correct)),
+              } },
+              ...(correct && current.schoolGoal?.lessonId === lesson.id
+                ? { schoolGoal: { lessonId: lesson.id, completed: true } } : {}),
+            };
           });
-          json(response,200,{ok:true,status:'answered',correct,message:deps.headerValue(request,'x-janus-language')==='nl' ? (correct ? KID_PRACTICE_NL[lesson.id]?.why ?? lesson.check.why : 'Goed geprobeerd. Lees de oefening nog eens en probeer opnieuw.') : (correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.'),progress:next.schoolPractice?.[lesson.id]});
+          json(response,200,{ok:true,status:'answered',correct,message:deps.headerValue(request,'x-janus-language')==='nl' ? (correct ? KID_PRACTICE_NL[lesson.id]?.why ?? lesson.check.why : 'Goed geprobeerd. Lees de oefening nog eens en probeer opnieuw.') : (correct ? lesson.check.why : 'Buen intento. Vuelve a leer el ejercicio y prueba otra vez.'),goal:next.schoolGoal ?? null,progress:next.schoolPractice?.[lesson.id]});
           return true;
         }
         // Personajes 3D aprobados por el Founder (solo lectura; nunca una versión pendiente).
@@ -714,6 +723,20 @@ export function createKidRoutes(deps: KidRoutesDeps) {
         const { kidId } = parentAuth(request, url.searchParams.get('kidId'));
         const { state } = loadState(kidId);
         json(response, 200, { ok: true, ...parentView(state, at) });
+        return true;
+      }
+      if (method === 'PUT' && path === '/api/parent/kid/school-goal') {
+        const body = await deps.readJson(request);
+        const { kidId } = parentAuth(request, body.kidId);
+        const lessonId = body.lessonId;
+        if (lessonId !== null && (typeof lessonId !== 'string' || !KID_GUIDED_PRACTICE.some(item => item.id === lessonId))) {
+          throw new KidHttpError(400, 'Elige un ejercicio de Janus School.');
+        }
+        const next = mutate(kidId, current => ({
+          schoolGoal: lessonId === null ? undefined : current.schoolGoal?.lessonId === lessonId
+            ? current.schoolGoal : { lessonId, completed: false },
+        }));
+        json(response, 200, { ok: true, goal: next.schoolGoal ?? null });
         return true;
       }
       if (method === 'PUT' && path === '/api/parent/kid/settings') {

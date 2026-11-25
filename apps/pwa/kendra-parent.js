@@ -233,6 +233,43 @@ const PARENT_NL=Object.freeze({
   " (10 min, un solo uso). Escríbelo en el dispositivo de ella.": " (10 min, eenmalig). Voer deze in op haar apparaat.",
   " · visto ": " · gezien ",
   " — propuesto por ": " — voorgesteld door ",
+  "Charla con su compañero": "Gesprek met haar maatje",
+  "Vídeos (YouTube)": "Video’s (YouTube)",
+  "Tele": "Televisie",
+  "Sus intereses y planes": "Haar interesses en plannen",
+  "Cole y tareas": "School en huiswerk",
+  "Agenda": "Agenda",
+  "Cámara y escáner": "Camera en scanner",
+  "cita": "afspraak",
+  "logopedia": "logopedie",
+  "medico": "arts",
+  "turno": "dienst",
+  "escuela": "school",
+  "cumple": "verjaardag",
+  "actividad": "activiteit",
+  "recordatorio": "herinnering",
+  "Médico de cabecera (huisarts)": "Huisarts",
+  "Pediatría": "Kindergeneeskunde",
+  "Logopedia": "Logopedie",
+  "Lenguaje · TOS": "Taal · TOS",
+  "Salud mental juvenil (jeugd-ggz)": "Jeugd-ggz",
+  "Psicología": "Psychologie",
+  "Dentista": "Tandarts",
+  "Ortodoncia": "Orthodontie",
+  "Oftalmología": "Oogheelkunde",
+  "Fisioterapia": "Fysiotherapie",
+  "Colegio (apoyo)": "Schoolondersteuning",
+  "ayuda": "hulp",
+  "peligro": "gevaar",
+  "herida": "gewond",
+  "perdida": "verdwaald",
+  "cama, sala, cocina": "slaapkamer, woonkamer, keuken",
+  "Objetivo de práctica": "Oefendoel",
+  "Sin objetivo": "Geen oefendoel",
+  "Guardar objetivo": "Oefendoel opslaan",
+  "Objetivo guardado.": "Oefendoel opgeslagen.",
+  "Objetivo completado": "Oefendoel behaald",
+  "Objetivo en curso": "Oefendoel in uitvoering",
   "Ver en el mapa": "Op de kaart bekijken"
 });
 export function mountKidParentPanel(host, options) {
@@ -286,7 +323,7 @@ export function mountKidParentPanel(host, options) {
       h('h3', {}, pt('Hoy')),
       entries.length === 0
         ? h('p', { class: 'kp-muted' }, pt('Todavía no hay actividad hoy.'))
-        : h('ul', { class: 'kp-list' }, entries.map(([key, value]) => h('li', {}, h('span', {}, labels[key] ?? key), h('strong', {}, minutes(value))))),
+        : h('ul', { class: 'kp-list' }, entries.map(([key, value]) => h('li', {}, h('span', {}, pt(labels[key] ?? key)), h('strong', {}, minutes(value))))),
       h('p', { class: 'kp-muted' }, pt('Tiempo de ocio hoy: ')+minutes(overview.today.limitedMinutes)+pt(' · total: ')+minutes(overview.today.totalMinutes)),
       h('h4', {}, pt('Última semana')),
       h('div', { class: 'kp-bars', role: 'img', 'aria-label': pt('Minutos por día de la última semana') },
@@ -405,7 +442,7 @@ export function mountKidParentPanel(host, options) {
 
   function sectionHome() {
     const home = overview.settings.home;
-    const rooms = h('input', { type: 'text', value: home.allowedRooms.join(', '), placeholder: 'cama, sala, cocina', 'aria-label': pt('Habitaciones permitidas') });
+    const rooms = h('input', { type: 'text', value: home.allowedRooms.join(', '), placeholder: pt('cama, sala, cocina'), 'aria-label': pt('Habitaciones permitidas') });
     const boxes = Object.entries(HOME_KINDS).map(([kind, text]) => ({ kind, input: h('input', { type: 'checkbox', checked: home.allowedKinds.includes(kind) }), text }));
     const allowOn = h('input', { type: 'checkbox', checked: home.heating.allowOn });
     const allowOff = h('input', { type: 'checkbox', checked: home.heating.allowOff });
@@ -449,11 +486,32 @@ export function mountKidParentPanel(host, options) {
     );
   }
 
+  function sectionSchool() {
+    const goal = overview.schoolGoal;
+    const choices = overview.schoolChoices ?? [];
+    const active = choices.find(choice => choice.id === goal?.lessonId);
+    const title = choice => locale() === 'nl' ? choice.nl : choice.es;
+    const select = h('select', { 'aria-label': pt('Objetivo de práctica') },
+      h('option', { value: '' }, pt('Sin objetivo')),
+      ...choices.map(choice => h('option', { value: choice.id }, title(choice))));
+    select.value = active?.id ?? '';
+    return h('section', { class: 'kp-card' }, h('h3', {}, 'Janus School'),
+      active ? h('p', {}, pt(goal.completed ? 'Objetivo completado' : 'Objetivo en curso'), ' · ', title(active)) : null,
+      h('form', { class: 'kp-form', onSubmit: async event => {
+        event.preventDefault();
+        const submit = event.currentTarget.querySelector('button');
+        submit.disabled = true;
+        try {
+          await act('PUT', '/api/parent/kid/school-goal', { lessonId: select.value || null }, pt('Objetivo guardado.'));
+        } finally { submit.disabled = false; }
+      } }, h('label', {}, pt('Objetivo de práctica'), select), h('button', { type: 'submit' }, pt('Guardar objetivo'))));
+  }
+
   function sectionAgenda() {
     const title = h('input', { type: 'text', placeholder: pt('Qué (p. ej. dentista)'), 'aria-label': pt('Título'), maxlength: '80' });
     const date = h('input', { type: 'date', 'aria-label': pt('Fecha') });
     const time = h('input', { type: 'time', 'aria-label': pt('Hora') });
-    const kind = h('select', { 'aria-label': pt('Tipo') }, AGENDA_KINDS.map((value) => h('option', { value }, value)));
+    const kind = h('select', { 'aria-label': pt('Tipo') }, AGENDA_KINDS.map((value) => h('option', { value }, pt(value))));
     const team = overview.careTeam ?? [];
     const who = h('select', { 'aria-label': pt('Con qué especialista') }, h('option', { value: '' }, pt('Sin especialista')), ...team.map((provider) => h('option', { value: provider.id }, `${provider.name} · ${labelOf(provider.specialty)}`)));
     const byId = new Map(team.map((provider) => [provider.id, provider]));
@@ -476,13 +534,13 @@ export function mountKidParentPanel(host, options) {
     );
   }
 
-  function labelOf(specialty) { return (overview.careSpecialties ?? []).find((item) => item.id === specialty)?.label ?? specialty; }
+  function labelOf(specialty) { return pt((overview.careSpecialties ?? []).find((item) => item.id === specialty)?.label ?? specialty); }
 
   // Equipo que cuida a la niña: nombre, especialidad, centro y contacto. Privado: la niña solo ve nombre, etiqueta y centro.
   function sectionCareTeam() {
     const team = overview.careTeam ?? [];
     const name = h('input', { type: 'text', placeholder: pt('Nombre (p. ej. Dra. …)'), 'aria-label': pt('Nombre'), maxlength: '80' });
-    const specialty = h('select', { 'aria-label': pt('Especialidad') }, (overview.careSpecialties ?? []).map((item) => h('option', { value: item.id }, item.label)));
+    const specialty = h('select', { 'aria-label': pt('Especialidad') }, (overview.careSpecialties ?? []).map((item) => h('option', { value: item.id }, pt(item.label))));
     const org = h('input', { type: 'text', placeholder: pt('Centro (p. ej. Kentalis, Youz, huisartspraktijk)'), 'aria-label': pt('Centro'), maxlength: '80' });
     const phone = h('input', { type: 'tel', placeholder: pt('Teléfono'), 'aria-label': pt('Teléfono'), maxlength: '30' });
     const email = h('input', { type: 'email', placeholder: pt('Correo'), 'aria-label': pt('Correo'), maxlength: '120' });
@@ -512,7 +570,8 @@ export function mountKidParentPanel(host, options) {
     const current = overview.guardianAngel;
     const roles = [['padre', pt('Padre')], ['madre', pt('Madre')], ['tutor_legal', pt('Tutor legal')], ['familiar', pt('Familiar')], ['otro', pt('Otro')]];
     const countries = [['NL', 'Países Bajos · 112'], ['BE', 'Bélgica · 112'], ['DE', 'Alemania · 112'], ['ES', 'España · 112'], ['FR', 'Francia · 112'], ['IT', 'Italia · 112'], ['PT', 'Portugal · 112'], ['GB', 'Reino Unido · 999'], ['US', 'EE. UU. · 911'], ['MX', 'México · 911'], ['CO', 'Colombia · 123']];
-    const country = h('select', { 'aria-label': pt('País') }, countries.map(([value, label]) => h('option', { value, selected: (current?.country ?? 'NL') === value }, label)));
+    const regionNames = new Intl.DisplayNames([locale()], { type: 'region' });
+    const country = h('select', { 'aria-label': pt('País') }, countries.map(([value, label]) => h('option', { value, selected: (current?.country ?? 'NL') === value }, locale() === 'nl' ? regionNames.of(value) + label.slice(label.indexOf(' · ')) : label)));
     const rows = Array.from({ length: 5 }, (_, index) => {
       const g = current?.guardians?.[index];
       return {
@@ -530,7 +589,7 @@ export function mountKidParentPanel(host, options) {
     return h('section', { class: 'kp-card' },
       h('h3', {}, pt('👼 Ángel Guardián (SOS)')),
       h('p', { class: 'kp-muted' }, pt('Con el botón rojo SOS (pulsación larga) ella puede llamaros, mandaros un WhatsApp o un SMS con su ubicación exacta, o llamar a emergencias. El SOS intenta notificarte; comprueba la recepción. Las direcciones familiares son privadas y sirven para organizar una recogida por un adulto de confianza.')),
-      events.length ? h('ul', { class: 'kp-list' }, events.map((e) => { const last = e.locations[e.locations.length - 1]; return h('li', {}, h('strong', {}, e.status === 'activo' ? pt('🚨 ACTIVO') : pt('✅ Resuelto')), ` · ${e.kind} · ${e.startedAt.slice(0, 16).replace('T', ' ')}`, last ? h('div', {}, h('a', { href: `https://maps.google.com/?q=${last.lat},${last.lon}`, target: '_blank', rel: 'noopener' }, pt('Ver en el mapa')+(last.accuracy !== undefined ? ` (±${last.accuracy} m)` : ''))) : h('div', { class: 'kp-muted' }, pt('Sin ubicación'))); })) : null,
+      events.length ? h('ul', { class: 'kp-list' }, events.map((e) => { const last = e.locations[e.locations.length - 1]; return h('li', {}, h('strong', {}, e.status === 'activo' ? pt('🚨 ACTIVO') : pt('✅ Resuelto')), ` · ${pt(e.kind)} · ${e.startedAt.slice(0, 16).replace('T', ' ')}`, last ? h('div', {}, h('a', { href: `https://maps.google.com/?q=${last.lat},${last.lon}`, target: '_blank', rel: 'noopener' }, pt('Ver en el mapa')+(last.accuracy !== undefined ? ` (±${last.accuracy} m)` : ''))) : h('div', { class: 'kp-muted' }, pt('Sin ubicación'))); })) : null,
       h('form', { class: 'kp-form', onSubmit: (event) => {
         event.preventDefault();
         const guardians = rows.filter((r) => r.name.value.trim() && r.phone.value.trim()).map((r) => ({ role: r.role.value, name: r.name.value.trim(), phone: r.phone.value.trim(), address: r.address.value.trim(), whatsapp: r.wa.checked, primary: r.primary.checked }));
@@ -588,7 +647,7 @@ export function mountKidParentPanel(host, options) {
           h('button', { type: 'button', class: 'kp-small', onClick: load }, pt('Actualizar')),
           onClose ? h('button', { type: 'button', class: 'kp-small', onClick: onClose }, pt('Cerrar')) : null)),
       notice ? h('p', { class: 'kp-notice', role: 'status' }, notice) : null,
-      sectionToday(), sectionFlags(), sectionVideo(), sectionFeed(), sectionLimits(), sectionHome(), sectionGuardianAngel(), sectionPlace(), sectionCareTeam(), sectionAgenda(), sectionPrivacy(), sectionDevices(),
+      sectionToday(), sectionFlags(), sectionVideo(), sectionFeed(), sectionLimits(), sectionHome(), sectionGuardianAngel(), sectionPlace(), sectionCareTeam(), sectionAgenda(), sectionSchool(), sectionPrivacy(), sectionDevices(),
     ].filter(Boolean));
     notice = '';
   }

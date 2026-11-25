@@ -121,7 +121,7 @@ test('tablet delivery check rejects an HTTP 200 landing, a different skin and st
       env: { ...process.env, PORT: String(server.address().port) },
     }), error => {
       assert.equal(error.code, 1);
-      for (const route of ['/dashboard/a', '/dashboard/b', '/kendra', 'sw.js', 'founder-session.js', 'kendra.js']) {
+      for (const route of ['/dashboard/a', '/dashboard/b', '/kendra', 'sw.js', 'app.js', 'dashboard-access.js', 'founder-session.js', 'kendra.js', 'kendra-parent.js', 'language-buttons.js']) {
         assert.ok(error.stdout.includes('FALTA · ' + route), route);
       }
       return true;

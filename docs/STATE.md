@@ -1,3 +1,11 @@
+## 25-nov-2026 · Objetivo de School, accesos y recuperación de originales · PR #98
+
+Continuación en la rama existente desde `6f1922b`. En School el tutor puede escoger uno de los diez ejercicios con corrección, cambiarlo o retirarlo. El Core conserva el objetivo en el mismo estado SQLite del menor. Una respuesta correcta posterior a la asignación completa el objetivo. El repaso lista ejercicios intentados sin ningún acierto. Se muestran el resultado al tutor y la selección en ES/NL. Se amplían etiquetas parentales de actividad, agenda, especialidades y países. Caché de PWA v38 y verificación de siete archivos de acceso/idioma de la versión servida.
+
+Prueba local con SQLite y sesiones distintas de tutor y menor en Chromium, 13 bloques superados, incluidos error, repaso, acierto, cambio de idioma, verificación por el tutor y apertura offline. Suite de instalación 9/9. Pruebas de panel 38 superadas y 3 omitidas. El nodo personal no figura entre los dispositivos conectados. Falta probar voz, credenciales del nodo personal, diseño y personajes definitivos en Samsung/iPhone. No hay aprobación de entrega física.
+
+Se recuperaron los bytes de los cinco GLB de la carga previa y se comprobó el CRC del USDZ de 237.311.529 bytes. Inspección de las mallas y vistas frontal y posterior: `92383203` criatura de piedra con musgo y textura, `91d8eb77` ajolote con gafas sin textura, `a5516753` nube sin textura, `81d0e21d` robot humanoide con textura. Los cuatro tienen un millón de triángulos, cero skins y cero clips. `042a1bbf` corresponde al modelo ya descartado de 912 triángulos. Esta comprobación corrige la suposición anterior sobre `91d8eb77`. Las identidades definitivas de las ranuras requieren revisión del Founder. Ningún binario privado en Git ni activación de figuras.
+
 ## AHORA — 25-nov-2026 · Entrega de accesos, misma PR #98
 
 Continuación desde `adc88e5f`, base `main 480a0b9`. Preflight local con historial suficiente, `continuity:guard` READY. Se mantiene el Core, SQLite y los permisos originales. La vinculación Founder espera a que IndexedDB confirme la transacción y reutiliza la misma llave cuando dos pestañas intentan registrarla. Los controles de acceso y tutor admiten ES/NL. Kendra puede elegir idioma antes de emparejarse y corregir un código rechazado sin perder lo escrito al cambiar el idioma. Caché PWA v37.

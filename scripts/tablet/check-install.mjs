@@ -37,7 +37,7 @@ if (process.argv.includes('--runtime')) {
         html.includes(`<title>${title}</title>`) && html.includes(`rel="manifest" href="${manifest}"`) &&
         html.includes(`type="module" src="${module}"`));
     }
-    for (const file of ['sw.js', 'founder-session.js', 'kendra.js']) {
+    for (const file of ['sw.js', 'app.js', 'founder-session.js', 'dashboard-access.js', 'kendra.js', 'kendra-parent.js', 'language-buttons.js']) {
       const response = await fetch(origin + '/' + file, { signal: AbortSignal.timeout(10000), redirect: 'manual' });
       const bytes = Buffer.from(await response.arrayBuffer());
       check(file + ' coincide con la instalación', response.status === 200 && bytes.equals(readFileSync(join(root, 'apps/pwa', file))));
