@@ -28,7 +28,7 @@ function vOraciones(M, X, sub) {
   const langs = oraLangs(p.id);
   if (!langs.includes(ORA.lang)) ORA.lang = langs[0];
   const L = JanusOraciones.LANGS[ORA.lang], t = p.texts[ORA.lang];
-  const left = panel('', '✝', 'Oraciones', list.length + '',
+  const left = panel('', '✝', ft('Oraciones'), list.length + '',
     '<div class="rdl">' + list.map((q) => '<div class="rdo' + (q.id === p.id ? ' on' : '') + '"' + act('oraSel', q.id, q.title) + '><div class="rdo2"><b>' + esc(q.title) + '</b></div><div class="rdo3 mono">' + (q.latinTitle ? esc(q.latinTitle) + ' · ' : '') + oraLangs(q.id).map((l) => JanusOraciones.LANGS[l].name).join(' · ') + '</div></div>').join('') + '</div>');
   const tabs = '<div class="rdb">' + langs.map((l) => '<span class="btn" aria-pressed="' + (l === ORA.lang) + '" style="' + (l === ORA.lang ? 'background:var(--gold,#c9a227);color:#fff;font-weight:700' : '') + '"' + act('oraLang', l, JanusOraciones.LANGS[l].name) + '>' + esc(JanusOraciones.LANGS[l].name) + (JanusOraciones.LANGS[l].tag ? ' · ' + esc(JanusOraciones.LANGS[l].tag) : l === p.original ? ' · original' : '') + '</span>').join('') + '</div>';
   const text = t.sub

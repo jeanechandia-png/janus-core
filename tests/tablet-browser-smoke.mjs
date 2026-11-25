@@ -80,12 +80,12 @@ try {
   ok('llave del navegador conservada; autenticación real tras reiniciar el nodo');
   stage = 'authenticated home data';
   const summary=await page.evaluate(async()=>{
-    const denied=await fetch('/api/founder/home-summary');
-    const allowed=await fetch('/api/founder/home-summary',{headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
+    const allowed=await fetch('/api/founder/home-summary',{cache:'no-store',headers:{authorization:'Bearer '+sessionStorage.getItem('janus.founder.session')}});
+    const denied=await fetch('/api/founder/home-summary',{cache:'no-store'});
     return {denied:denied.status,allowed:allowed.status,body:await allowed.json()};
   });
   assert.ok([401,403].includes(summary.denied));
-  assert.equal(summary.allowed,200);
+  assert.equal(summary.allowed,200, 'Core: '+(summary.body.error || summary.allowed));
   assert.equal(summary.body.ok,true);
   assert.equal(summary.body.revenue.minor,null,'no fabricated revenue in empty SQLite');
   assert.equal(summary.body.agenda.source,'janus-work-agenda');

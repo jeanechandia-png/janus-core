@@ -1,9 +1,181 @@
 'use strict';
 /* ===== Pestañas de detalle ===== */
+const FOUNDER_NL = Object.freeze({
+  "Clima": "Weer",
+  "Mi día": "Mijn dag",
+  "Prioridades": "Prioriteiten",
+  "Ingresos": "Inkomsten",
+  "Alcance": "Bereik",
+  "Contenido": "Inhoud",
+  "Clientes": "Klanten",
+  "Datos": "Gegevens",
+  "Proyectos": "Projecten",
+  "Inicio": "Start",
+  "Trabajo": "Werk",
+  "Solicitudes": "Aanvragen",
+  "Ofertas": "Aanbiedingen",
+  "Correo": "E-mail",
+  "Casos": "Dossiers",
+  "Cuentas": "Boekhouding",
+  "Sin red": "Offline",
+  "Oraciones": "Gebeden",
+  "Compañero": "Compagnon",
+  "Casa": "Thuis",
+  "Hora seleccionada": "Geselecteerd uur",
+  "Hora anterior": "Vorig uur",
+  "Hora siguiente": "Volgend uur",
+  "24 horas · ": "24 uur · ",
+  " días": " dagen",
+  "toca un día": "Tik op een dag",
+  "Plan de bici": "Fietsplan",
+  "IDA": "HEEN",
+  "VUELTA": "TERUG",
+  "Mis umbrales": "Mijn grenswaarden",
+  "se guardan aquí": "Hier opgeslagen",
+  "Personal y familia": "Persoonlijk en gezin",
+  "Empresa": "Bedrijf",
+  "Detalle": "Details",
+  "Añadir rápido": "Snel toevoegen",
+  "solo en este dispositivo": "Alleen op dit apparaat",
+  "Avisos y próximo": "Meldingen en volgende afspraak",
+  " eventos": " afspraken",
+  " avisos": " meldingen",
+  "Hoy": "Vandaag",
+  "Mañana": "Morgen",
+  "Semana": "Week",
+  "Citas médicas": "Medische afspraken",
+  "Escuela": "School",
+  "próximas": "Komende",
+  "Gimnasio y clases": "Sport en lessen",
+  "semanal": "Wekelijks",
+  "Vacaciones": "Vakantie",
+  "Correos prioritarios": "Prioritaire e-mails",
+  " abiertos": " open",
+  "Todos": "Alle",
+  "Lo que dije que haría": "Mijn toezeggingen",
+  "Bandeja": "Postvak",
+  "abiertos por prioridad": "Open per prioriteit",
+  "Más antiguo": "Oudste",
+  "Delegados a Janus": "Toegewezen aan Janus",
+  "Aprobaciones": "Goedkeuringen",
+  "Cola del Core": "Wachtrij van de Core",
+  "Integraciones": "Integraties",
+  "estado actual sin comprobar": "Huidige status niet gecontroleerd",
+  "por confirmar": "Te bevestigen",
+  "Seguridad y memoria": "Beveiliging en geheugen",
+  "Memoria": "Geheugen",
+  "Respaldo": "Back-up",
+  "Secretos": "Geheimen",
+  "Acciones externas": "Externe acties",
+  "Auditoría": "Audit",
+  "Agentes": "Agenten",
+  "Pull requests abiertos": "Open pull requests",
+  " borradores": " concepten",
+  " en verde": " geslaagd",
+  "Por semana y fuente": "Per week en bron",
+  "Reparto": "Verdeling",
+  "4 semanas": "4 weken",
+  "Fuentes": "Bronnen",
+  "toca para resaltar": "Tik om te markeren",
+  "Nota": "Notitie",
+  "Alcance diario": "Dagelijks bereik",
+  "Por plataforma": "Per platform",
+  "Audiencia": "Publiek",
+  "edad · ciudad": "Leeftijd · stad",
+  "Mejores horas para publicar": "Beste publicatietijden",
+  "Vistas por día": "Weergaven per dag",
+  "primeros 7 días": "Eerste 7 dagen",
+  "Retención": "Kijkersbehoud",
+  "Origen de vistas": "Herkomst van weergaven",
+  "Camino a monetizar": "Op weg naar inkomsten",
+  "seguidores": "Volgers",
+  "Embudo comercial": "Verkoopfunnel",
+  "30 días": "30 dagen",
+  "Correo de empresa": "Zakelijke e-mail",
+  " nuevos": " nieuw",
+  "Clientes nuevos": "Nieuwe klanten",
+  "Estado de datos": "Gegevensstatus",
+  "Protocolo de la Verdad": "Waarheidsprotocol",
+  "Clima: modo y ubicación": "Weer: modus en locatie",
+  "Este dispositivo": "Dit apparaat",
+  "guardado activo": "Opslag actief",
+  "sin almacenamiento": "Geen opslag",
+  "Solicitudes de los productos": "Productaanvragen",
+  "privado": "Privé",
+  "Productos": "Producten",
+  "Resumen semanal": "Weekoverzicht",
+  "Tu cesta": "Je winkelmand",
+  " productos vigilados": " gevolgde producten",
+  "Marcas, Apple y niños": "Merken, Apple en kinderen",
+  "umbral 20 %": "Drempel 20 %",
+  "Plataformas y herramientas": "Platforms en hulpmiddelen",
+  "sin permanencia": "Zonder looptijd",
+  "Vacaciones de __HIJA__ y viajes": "Vakanties van __HIJA__ en reizen",
+  "Nueva cuenta · ": "Nieuw account · ",
+  "integración": "Integratie",
+  "Oportunidades": "Kansen",
+  "Cupo y ventanas": "Quota en tijdvensters",
+  "sin restablecimiento conocido": "Geen bekend resetmoment",
+  "Vigilancia de fuentes oficiales": "Toezicht op officiële bronnen",
+  "monitor activo": "Monitor actief",
+  "monitor apagado": "Monitor uitgeschakeld",
+  "Incidencias y lecciones": "Incidenten en lessen",
+  "Casos prioritarios": "Prioritaire dossiers",
+  "Estado": "Status",
+  "Historial": "Geschiedenis",
+  " entradas": " vermeldingen",
+  "Cuentas de la empresa": "Bedrijfsboekhouding",
+  "Estado de resultados": "Winst-en-verliesrekening",
+  "Balance": "Balans",
+  "Cómo leerlo": "Hoe lees je dit?",
+  "Anotar un movimiento": "Boeking toevoegen",
+  "Últimos asientos": "Laatste boekingen",
+  "Forma jurídica": "Rechtsvorm",
+  "confirmada": "Bevestigd",
+  "POR CONFIRMAR": "TE BEVESTIGEN",
+  "Hoja de trabajo": "Werkblad",
+  "Hoja de trabajo ": "Werkblad ",
+  "año completo": "Volledig jaar",
+  "IVA (btw) por trimestre": "Btw per kwartaal",
+  "Plazos y preparación": "Termijnen en voorbereiding",
+  "Sin internet": "Geen internet",
+  "Ahora mismo": "Op dit moment",
+  "Si se va internet": "Als internet wegvalt",
+  "Pendiente de enviar": "Nog te verzenden",
+  "Estado de Janus": "Janus-status",
+  "gíralo con el dedo": "Draai met je vinger",
+  "Proyecto": "Project",
+  "EJEMPLO": "VOORBEELD",
+  "Instantánea · ": "Momentopname · ",
+  "fecha no disponible": "Datum niet beschikbaar",
+  "Volver al dashboard": "Terug naar dashboard",
+  "Abrir en pestaña nueva": "Openen in nieuw tabblad",
+  "🔒 PRIVADO": "🔒 PRIVÉ",
+  "REGISTRO INICIAL": "EERSTE REGISTRATIE",
+  "Sin verificación actual": "Geen actuele verificatie",
+  "Ejemplo · local": "Voorbeeld · lokaal",
+  "Ejemplo · conexión por verificar": "Voorbeeld · verbinding te controleren",
+  "4 sem": "4 wk",
+  "8 sem": "8 wk",
+  "12 sem": "12 wk",
+  "🌡 Temp.": "🌡 Temp.",
+  "💧 Lluvia": "💧 Regen",
+  "💨 Viento": "💨 Wind",
+  "👁 Vistas": "👁 Weergaven",
+  "€ Ingresos": "€ Inkomsten",
+  "❤ Interacción": "❤ Interactie",
+  "● En vivo": "● Live",
+  "Ejemplo 07:45": "Voorbeeld 07:45",
+  "A · Obsidiana (oro)": "A · Obsidiaan (goud)",
+  "B · Platino (claro)": "B · Platina (licht)",
+  "Sin datos.": "Geen gegevens.",
+  "Sin datos verificados": "Geen geverifieerde gegevens"
+});
+function ft(value) { try { return localStorage.getItem('janus.language.founder')==='nl' && Object.prototype.hasOwnProperty.call(FOUNDER_NL,value) ? FOUNDER_NL[value] : value; } catch (_) { return value; } }
 const UI = { clDay: null, clH: null, clMetric: 't', dDay: 0, dSel: null, kDay: 0, mFilter: 0, mSel: 'm0', fSel: null, iPer: 12, iSel: null, aPer: 30, bSel: null, cSort: 'views', cSel: 'r1', clCat: 'leads', clSel: 0, geo: [], geoMsg: '' };
 const TABS = [['clima', '🚴', 'Clima'], ['dia', '🗓', 'Mi día'], ['familia', '🌟', '__HIJA__'], ['prioridades', '🎯', 'Prioridades'], ['janus', '⚙', 'Janus'], ['ingresos', '💶', 'Ingresos'], ['alcance', '👁', 'Alcance'], ['chatbots', '🤖', 'Chatbots'], ['contenido', '🎬', 'Contenido'], ['clientes', '🤝', 'Clientes'], ['datos', '🛈', 'Datos']];
-const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(label) + '"' : '');
-const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], o[1]) + '>' + o[1] + '</span>').join('') + '</div>';
+const act = (a, arg, label) => ' data-act="' + a + '"' + (arg !== undefined ? ' data-arg="' + esc(arg) + '"' : '') + ' role="button" tabindex="0"' + (label ? ' aria-label="' + esc(ft(label)) + '"' : '');
+const seg = (a, cur, opts) => '<div class="seg mono">' + opts.map((o) => '<span class="sg' + (String(o[0]) === String(cur) ? ' on' : '') + '"' + act(a, o[0], ft(o[1])) + '>' + ft(o[1]) + '</span>').join('') + '</div>';
 const panel = (cls, e, title, mt, body, extra) => '<section class="cd ' + (cls || '') + '"' + (extra || '') + '><div class="lb mono"><span class="bb">' + e + '</span>' + title + '<span class="mt">' + (mt || '') + '</span></div><div class="pb">' + body + '</div></section>';
 const ring = (p, col, txt, size) => '<span class="rg2" style="--sz:' + rem(size || 46) + ';background:conic-gradient(' + col + ' ' + clamp(p, 0, 100) * 3.6 + 'deg,rgba(255,255,255,.09) 0)"><span class="mono">' + (txt != null ? txt : p + '%') + '</span></span>';
 const pill = (txt, cls) => '<span class="pill2 mono ' + (cls || '') + '">' + txt + '</span>';
@@ -43,13 +215,13 @@ const hbars = (rows, max, fmtv) => '<div class="hb">' + rows.map((r) => '<div cl
 
 // A public fixture is never live. Local snapshots also carry their real timestamp.
 function snapshotStatus() {
-  return REAL.example === true ? 'EJEMPLO' : 'Instantánea · ' + String(REAL.syncedAt || 'fecha no disponible').replace('T',' ');
+  return REAL.example === true ? ft('EJEMPLO') : ft('Instantánea · ') + String(REAL.syncedAt || ft('fecha no disponible')).replace('T',' ');
 }
 function frame(id, sub, M, body) {
   const t = TABS.find((x) => x[0] === id), live = id === 'clima' ? M.src === 'vivo' : (id === 'dia' || id === 'janus');
-  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="Volver al dashboard">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(t[2]) + '" data-jg-depth="10">' + esc(t[2]) + '</h1>' + ((id === 'datos' || id === 'oraciones') ? '' : (id === 'casos' || id === 'cuentas' || id === 'offline') ? '<span class="src live mono">🔒 PRIVADO</span>' : id === 'radar' ? '<span class="src ' + (RADAR.src === 'vivo' ? 'live' : 'ex') + ' mono">' + (RADAR.src === 'vivo' ? '● REAL' : 'REGISTRO INICIAL') + '</span>' : (id === 'dia' || id === 'janus') ? '<span class="src ex mono">' + esc(snapshotStatus()) + '</span>' : srcBadge(live)) +
-    '<nav class="tabs">' + TABS.filter((x) => !x[3] || x[0] === id).map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="' + x[2] + '"><i>' + x[1] + '</i><em class="mono">' + x[2] + '</em></span>').join('') + '</nav>' +
-    '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="Abrir en pestaña nueva">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
+  return '<div class="vh"' + (id === 'trabajo' ? ' data-js="' + UI.js + '"' : '') + '><span class="back mono" data-go="" role="link" tabindex="0" aria-label="' + esc(ft('Volver al dashboard')) + '">← Dashboard</span>' + (id === 'trabajo' ? medallion('logo') : '<span class="bb m">' + t[1] + '</span>') + '<h1 class="vt" data-jg="' + esc(ft(t[2])) + '" data-jg-depth="10">' + esc(ft(t[2])) + '</h1>' + ((id === 'datos' || id === 'oraciones') ? '' : (id === 'casos' || id === 'cuentas' || id === 'offline') ? '<span class="src live mono">🔒 PRIVADO</span>' : id === 'radar' ? '<span class="src ' + (RADAR.src === 'vivo' ? 'live' : 'ex') + ' mono">' + (RADAR.src === 'vivo' ? '● REAL' : 'REGISTRO INICIAL') + '</span>' : (id === 'dia' || id === 'janus') ? '<span class="src ex mono">' + esc(snapshotStatus()) + '</span>' : srcBadge(live)) +
+    '<nav class="tabs">' + TABS.filter((x) => !x[3] || x[0] === id).map((x) => '<span class="tb2' + (x[0] === id ? ' on' : '') + '" data-go="' + x[0] + '" role="link" tabindex="0" title="'  + esc(ft(x[2])) +  '"><i>' + x[1] + '</i><em class="mono">'  + esc(ft(x[2])) +  '</em></span>').join('') + '</nav>' +
+    '<a class="nt mono" href="#' + id + (sub ? '/' + esc(sub) : '') + '" target="_blank" rel="noopener" title="' + esc(ft('Abrir en pestaña nueva')) + '">↗</a></div><div class="vb vb-' + id + '">' + body + '</div>';
 }
 
 /* ---------- CLIMA ---------- */
@@ -63,7 +235,7 @@ function vClima(M, X, sub) {
   if (sub && sub !== 'kit') UI.clDay = Math.floor(UI.clH / 24);
   if (UI.clDay == null) UI.clDay = M.nowDay;
   const e = Object.assign({}, H[UI.clH], UI.clH === M.raw.nowIdx ? M.nowE : {}), rk = hourRisk(e), dn = M.raw.today + Math.floor(UI.clH / 24);
-  const hero = panel('wxh', '🕐', 'Hora seleccionada', '<span class="mini mono"' + act('clH', -1, 'Hora anterior') + '>◀</span> <span class="mini mono"' + act('clH', 1, 'Hora siguiente') + '>▶</span>',
+  const hero = panel('wxh', '🕐', ft('Hora seleccionada'), '<span class="mini mono"' + act('clH', -1, 'Hora anterior') + '>◀</span> <span class="mini mono"' + act('clH', 1, 'Hora siguiente') + '>▶</span>',
     '<div class="hero"><img src="' + wxImg(e.k) + '" alt=""><div><div class="tp serif gld">' + e.t + '°</div><div class="mono dim">' + dateLabel(dn) + ' · ' + (UI.clH === M.raw.nowIdx ? M.nowLabel : pad2(e.h) + ':00') + '</div><div class="dim">' + WX_TXT[e.k] + '</div></div></div>' +
     '<div class="rk2 ' + LVC[rk.lv] + ' mono">' + ['✔ Bien para bici', '! Precaución', '✕ Evitar'][rk.lv] + (rk.why.length ? ' · ' + rk.why.join(' ') : '') + '</div>' +
     '<div class="kv">' + [['🌡', 'Sensación', e.feel + '°'], ['💨', 'Viento', arrowSvg(e.d) + ' ' + compassTxt(e.d) + ' · ' + e.w + ' km/h'], ['⚡', 'Ráfagas', e.g + ' km/h'], ['💧', 'Lluvia', e.r + '% · ' + dec(e.mm) + ' mm'], ['💦', 'Humedad', e.rh + '%'], ['☀', 'UV', dec(e.uv)], ['👁', 'Visibilidad', e.vis + ' km'], ['☁', 'Nubes', e.cl + '%']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>' +
@@ -75,14 +247,14 @@ function vClima(M, X, sub) {
     bands: [{ a: Math.floor(dep), b: Math.floor(dep) + 1, t: '🚴 ida' }, { a: Math.floor(ret), b: Math.floor(ret) + 1, t: '🚴 vuelta' }].concat(UI.clDay === M.nowDay ? [{ a: M.raw.nowIdx % 24, b: M.raw.nowIdx % 24 + .15, t: 'ahora', cls: 'nowb' }] : []),
     ro: (i) => pad2(i) + ':00 · ' + (met === 't' ? hs[i].t + '° / sens. ' + hs[i].feel + '°' : met === 'w' ? hs[i].w + ' km/h · ráf. ' + hs[i].g : hs[i].r + '% · ' + dec(hs[i].mm) + ' mm'), act: 'clH', actArg: (i) => 'a' + (d0 + i), xl: ['00', '03', '06', '09', '12', '15', '18', '21', '24'] });
   const icons = '<div class="icrow">' + hs.map((x, i) => '<i class="' + LVC[hourRisk(x).lv] + (d0 + i === UI.clH ? ' on' : '') + '"' + act('clH', 'a' + (d0 + i), pad2(i) + ':00') + '><img src="' + wxImg(x.k) + '" alt=""></i>').join('') + '</div>';
-  const chartP = panel('wxc', '📈', '24 horas · ' + dateLabel(M.raw.today + UI.clDay), seg('clMetric', met, [['t', '🌡 Temp.'], ['r', '💧 Lluvia'], ['w', '💨 Viento']]), roBox() + chart + icons);
+  const chartP = panel('wxc', '📈', ft('24 horas · ') + dateLabel(M.raw.today + UI.clDay), seg('clMetric', met, [['t', '🌡 Temp.'], ['r', '💧 Lluvia'], ['w', '💨 Viento']]), roBox() + chart + icons);
   const days = panel('wxd', '📅', M.raw.daily.length + ' días', (typeof wxAlerts === 'function' && wxAlerts(M).length ? '<span class="wal">' + wxAlerts(M).slice(0, 3).join(' · ') + '</span>' : 'toca un día'), '<div class="d7">' + M.raw.daily.map((d, i) => '<div class="d7c' + (i === UI.clDay ? ' on' : '') + '"' + act('clDay', i, dateLabel(d.dn)) + '><span class="mono dim">' + dateShort(d.dn) + '</span><img src="' + wxImg(d.k) + '" alt=""><b class="serif">' + d.tmax + '°</b><span class="mono dim">' + d.tmin + '°</span><span class="mono p">💧' + d.rmax + '%</span><span class="mono">💨' + d.wmax + '</span></div>').join('') + '</div>');
   const leg = (name, L2, lab) => '<div class="leg">' + orb(L2.verdict, name) + '<div><b class="mono">' + lab + '</b><div class="dim">' + (L2.why.length ? L2.why.join(' ') : 'Sin riesgos en la franja') + '</div></div></div>';
-  const plan = panel('wxp', '🚴', 'Plan de bici', '', leg('IDA', M.ida, M.depLabel) + leg('VUELTA', M.vuelta, M.retLabel) +
+  const plan = panel('wxp', '🚴', ft('Plan de bici'), '', leg('IDA', M.ida, M.depLabel) + leg('VUELTA', M.vuelta, M.retLabel) +
     '<div class="sug mono">' + (M.suggest != null ? '⏱ Sal antes de <b>' + minToHm(M.suggest) + '</b> · ' + M.leaveWhy + ' desde las ' + pad2(M.firstBad) + ':00' : '✔ Sin ventana de riesgo por la tarde') + '</div>' +
     '<div class="sb mono">Equipo recomendado</div><div class="kit2">' + M.kit.map((k) => '<div class="kr2' + (k.on ? ' on' : '') + '"><span class="bb s' + (k.on ? '' : ' off') + '">' + k.e + '</span><div><b>' + k.n + '</b><div class="dim">' + k.why + '</div></div><span class="mono">' + (k.on ? 'SÍ' : 'no') + '</span></div>').join('') + '</div>');
   const sl = (key, label, min, max, step, unit) => '<label class="sl"><span>' + label + '</span><input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + s[key] + '" data-set="' + key + '"><b class="mono" data-out="' + key + '">' + s[key] + unit + '</b></label>';
-  const thr = panel('wxt', '🎚', 'Mis umbrales', 'se guardan aquí', '<div class="tms"><label>🚴 Ida <input type="time" value="' + s.ida + '" data-set="ida"></label><label>🏠 Vuelta <input type="time" value="' + s.vuelta + '" data-set="vuelta"></label></div>' + sl('rainBad', '💧 Lluvia evitar', 20, 90, 5, '%') + sl('windBad', '💨 Viento evitar', 15, 50, 1, ' km/h') + sl('feelCold', '🧥 Chaqueta bajo', 5, 22, 1, '°') + sl('feelGlove', '🧤 Guantes bajo', 0, 15, 1, '°'));
+  const thr = panel('wxt', '🎚', ft('Mis umbrales'), 'se guardan aquí', '<div class="tms"><label>🚴 Ida <input type="time" value="' + s.ida + '" data-set="ida"></label><label>🏠 Vuelta <input type="time" value="' + s.vuelta + '" data-set="vuelta"></label></div>' + sl('rainBad', '💧 Lluvia evitar', 20, 90, 5, '%') + sl('windBad', '💨 Viento evitar', 15, 50, 1, ' km/h') + sl('feelCold', '🧥 Chaqueta bajo', 5, 22, 1, '°') + sl('feelGlove', '🧤 Guantes bajo', 0, 15, 1, '°'));
   return frame('clima', sub, M, hero + chartP + days + '<div class="col3">' + plan + (typeof dronePanel === 'function' ? dronePanel(M) : '') + thr + '</div>');
 }
 
@@ -109,8 +281,8 @@ function vDia(M, X, sub) {
   list.filter((a) => /🚴|🤸|🏃/.test(a.e)).forEach((a) => { const wx = M.at(M.nowDay + UI.dDay, Math.floor(a.m / 60)); if (hourRisk(wx).lv === 2) conf.push('☔ ' + a.h + ' ' + esc(a.t) + ': ' + hourRisk(wx).why.join(' ')); });
   const add = '<div class="addf"><input type="time" value="18:00" data-f="evH"><input type="text" placeholder="Nuevo evento" maxlength="40" data-f="evT"><select data-f="evA"><option value="p">🏠</option><option value="f">👧</option><option value="e">🏢</option></select><span class="btn"' + act('evAdd') + '>＋</span></div>';
   return frame('dia', sub, M, '<div class="topbar">' + seg('dDay', UI.dDay, [[0, 'Hoy · ' + dateShort(M.today)], [1, 'Mañana · ' + dateShort(M.today + 1)]]) + '<span class="mono dim">Ámbitos separados: 🏠 personal y 👧 familia · 🏢 empresa</span></div>' +
-    panel('', '🏠', 'Personal y familia', P.length + ' eventos', tl(P)) + panel('', '🏢', 'Empresa', E.length + ' eventos', tl(E)) +
-    '<div class="col3">' + panel('', '🔎', 'Detalle', '', det) + panel('', '＋', 'Añadir rápido', 'solo en este dispositivo', add) + panel('', '🚦', 'Avisos y próximo', conf.length + ' avisos', (conf.length ? '<div class="alst">' + conf.map((c) => '<div>' + c + '</div>').join('') + '</div>' : '<div class="dim">✔ Sin choques ni riesgos</div>') + '<div class="sb mono">' + (UI.dDay === 0 ? 'Mañana' : 'Hoy') + '</div>' + (UI.dDay === 0 ? X.agendaTomorrow : X.agenda).map((a) => '<div class="li2"><span class="bb s">' + a.e + '</span><span>' + esc(a.t) + '</span><b class="mono">' + a.h + ' · ' + (a.amb === 'e' ? '🏢' : a.amb === 'f' ? '👧' : '🏠') + '</b></div>').join('')) + '</div>');
+    panel('', '🏠', ft('Personal y familia'), P.length + ' eventos', tl(P)) + panel('', '🏢', ft('Empresa'), E.length + ' eventos', tl(E)) +
+    '<div class="col3">' + panel('', '🔎', ft('Detalle'), '', det) + panel('', '＋', ft('Añadir rápido'), 'solo en este dispositivo', add) + panel('', '🚦', ft('Avisos y próximo'), conf.length + ' avisos', (conf.length ? '<div class="alst">' + conf.map((c) => '<div>' + c + '</div>').join('') + '</div>' : '<div class="dim">✔ Sin choques ni riesgos</div>') + '<div class="sb mono">' + (UI.dDay === 0 ? 'Mañana' : 'Hoy') + '</div>' + (UI.dDay === 0 ? X.agendaTomorrow : X.agenda).map((a) => '<div class="li2"><span class="bb s">' + a.e + '</span><span>' + esc(a.t) + '</span><b class="mono">' + a.h + ' · ' + (a.amb === 'e' ? '🏢' : a.amb === 'f' ? '👧' : '🏠') + '</b></div>').join('')) + '</div>');
 }
 
 /* ---------- KENDRA ---------- */
@@ -121,12 +293,12 @@ function vFamilia(M, X, sub) {
   const lleva = K.lleva.map((l) => '<div class="cl2' + (ST.lleva[l.id] ? ' ok' : '') + '"' + act('lleva', l.id, l.t) + '><span class="chk' + (ST.lleva[l.id] ? ' ok' : '') + '">✔</span><span class="bb s">' + l.e + '</span><span>' + l.t + '</span></div>').join('');
   const tras = UI.kDay === 0 ? X.agenda.filter((a) => a.amb === 'f').concat(day.it.includes('🤸') ? [{ h: '17:30', e: '🏠', t: 'Recoger del gimnasio', m: 1050 }] : []).map((a) => { const w = M.at(M.nowDay, Math.floor(a.m / 60)), r = hourRisk(w); return '<div class="li2"><span class="bb s">' + a.e + '</span><span>' + a.h + ' · ' + esc(a.t) + '</span><b class="mono ' + (r.lv === 2 ? 'badc' : r.lv ? '' : 'okc') + '">' + w.t + '° 💧' + w.r + '%</b></div>'; }).join('') : '';
   const hoy = panel('', '📍', UI.kDay === 0 ? 'Hoy' : dateLabel(day.dn), dateShort(day.dn), items + '<div class="sb mono">Qué lleva</div>' + lleva + (tras ? '<div class="sb mono">Traslados y clima</div>' + tras : ''));
-  const wk = panel('', '🗓', 'Semana', 'toca un día', '<div class="wk2"><div class="wkax mono">' + ['08', '11', '14', '17', '20'].map((h) => '<span style="top:' + ((+h - 7) / 14 * 100).toFixed(1) + '%">' + h + '</span>').join('') + '</div>' + X.kweek.map((d, i) => '<div class="wkc' + (i === UI.kDay ? ' on' : '') + (i === 0 ? ' td' : '') + '"' + act('kDay', i, d.l + ' ' + d.n) + '><span class="mono dim">' + d.l + '</span><b class="serif">' + d.n + '</b><div class="wkt">' + d.it.map((e) => { const h = I[e] ? hmToMin(I[e].h) / 60 : 12; return '<span class="kit3" style="top:' + clamp((h - 7) / 14 * 100, 0, 88).toFixed(1) + '%">' + e + '<small class="mono">' + (I[e] ? I[e].h : '') + '</small></span>'; }).join('') + '</div></div>').join('') + '</div>');
-  const cit = panel('', '🩺', 'Citas médicas', '', X.citas.map((c) => '<div class="ci">' + ring(clamp(100 - c.days * 3, 5, 100), c.days <= 7 ? '#FF6B5E' : '#E8C37A', c.days + 'd', 48) + '<div><b>' + I[c.e].t + '</b><div class="mono dim">' + dateLabel(c.dn) + ' · ' + I[c.e].h + '</div><div class="dim">📝 ' + c.note + '</div></div></div>').join('') || '<div class="dim">Sin citas</div>');
+  const wk = panel('', '🗓', ft('Semana'), 'toca un día', '<div class="wk2"><div class="wkax mono">' + ['08', '11', '14', '17', '20'].map((h) => '<span style="top:' + ((+h - 7) / 14 * 100).toFixed(1) + '%">' + h + '</span>').join('') + '</div>' + X.kweek.map((d, i) => '<div class="wkc' + (i === UI.kDay ? ' on' : '') + (i === 0 ? ' td' : '') + '"' + act('kDay', i, d.l + ' ' + d.n) + '><span class="mono dim">' + d.l + '</span><b class="serif">' + d.n + '</b><div class="wkt">' + d.it.map((e) => { const h = I[e] ? hmToMin(I[e].h) / 60 : 12; return '<span class="kit3" style="top:' + clamp((h - 7) / 14 * 100, 0, 88).toFixed(1) + '%">' + e + '<small class="mono">' + (I[e] ? I[e].h : '') + '</small></span>'; }).join('') + '</div></div>').join('') + '</div>');
+  const cit = panel('', '🩺', ft('Citas médicas'), '', X.citas.map((c) => '<div class="ci">' + ring(clamp(100 - c.days * 3, 5, 100), c.days <= 7 ? '#FF6B5E' : '#E8C37A', c.days + 'd', 48) + '<div><b>' + I[c.e].t + '</b><div class="mono dim">' + dateLabel(c.dn) + ' · ' + I[c.e].h + '</div><div class="dim">📝 ' + c.note + '</div></div></div>').join('') || '<div class="dim">Sin citas</div>');
   const dl = (x) => { const dn = dayNum(x.y, x.m, x.d); return { dn, days: dn - M.today }; };
-  const esc2 = panel('', '🏫', 'Escuela', 'próximas', K.escuela.map((x) => { const q = dl(x); return '<div class="li2' + (q.days < 0 ? ' past' : '') + '"><span class="bb s">' + x.e + '</span><span>' + x.t + '</span><b class="mono">' + dateShort(q.dn) + ' · ' + (q.days < 0 ? 'hecho' : q.days === 0 ? 'hoy' : q.days + ' d') + '</b></div>'; }).join(''));
-  const sem = panel('', '🤸', 'Gimnasio y clases', 'semanal', K.semanal.map((x) => '<div class="li2"><span class="bb s">' + x[0] + '</span><span>' + x[1] + '</span><b class="mono">' + x[2] + ' · ' + x[3] + '</b></div>').join(''));
-  const vac = panel('', '🏖', 'Vacaciones', '', K.vacaciones.map((x) => { const q = dl(x); return '<div class="ci">' + ring(clamp(100 - q.days / 1.2, 3, 100), '#86B6FF', q.days + 'd', 48) + '<div><b>' + x.e + ' ' + x.t + '</b><div class="mono dim">' + dateShort(q.dn) + ' → ' + x.to + '</div></div></div>'; }).join(''));
+  const esc2 = panel('', '🏫', ft('Escuela'), 'próximas', K.escuela.map((x) => { const q = dl(x); return '<div class="li2' + (q.days < 0 ? ' past' : '') + '"><span class="bb s">' + x.e + '</span><span>' + x.t + '</span><b class="mono">' + dateShort(q.dn) + ' · ' + (q.days < 0 ? 'hecho' : q.days === 0 ? 'hoy' : q.days + ' d') + '</b></div>'; }).join(''));
+  const sem = panel('', '🤸', ft('Gimnasio y clases'), 'semanal', K.semanal.map((x) => '<div class="li2"><span class="bb s">' + x[0] + '</span><span>' + x[1] + '</span><b class="mono">'  + esc(ft(x[2])) +  ' · ' + x[3] + '</b></div>').join(''));
+  const vac = panel('', '🏖', ft('Vacaciones'), '', K.vacaciones.map((x) => { const q = dl(x); return '<div class="ci">' + ring(clamp(100 - q.days / 1.2, 3, 100), '#86B6FF', q.days + 'd', 48) + '<div><b>' + x.e + ' ' + x.t + '</b><div class="mono dim">' + dateShort(q.dn) + ' → ' + x.to + '</div></div></div>'; }).join(''));
   return frame('familia', sub, M, hoy + wk + cit + esc2 + sem + vac);
 }
 
@@ -135,15 +307,15 @@ function vPrioridades(M, X, sub) {
   if (sub && sub[0] === 'm') UI.mSel = sub;
   if (sub && sub[0] === 'f') UI.fSel = sub;
   const ms = DATA.mails.filter((m) => !UI.mFilter || m.sev === UI.mFilter);
-  const list = panel('', '✉', 'Correos prioritarios', X.mailsOpen.length + ' abiertos', seg('mFilter', UI.mFilter, [[0, 'Todos'], [3, '🔴'], [2, '🟠'], [1, '🔵']]) + '<div class="mls">' + ms.map((m) => { const st = ST.mail[m.id] || {}; return '<div class="ml2' + (m.id === UI.mSel ? ' on' : '') + (st.done ? ' past' : '') + '"' + act('mSel', m.id, m.who) + '><span class="av mono">' + m.ini + '</span><div class="mid"><div class="who">' + esc(m.who) + (st.pin ? ' 📌' : '') + '</div><div class="sj">' + esc(m.sj) + '</div></div><div class="mono dim r2">' + m.age + '<br>' + pill(m.tag) + '</div><span class="sig s' + m.sev + '"><i></i><i></i><i></i></span></div>'; }).join('') + '</div>');
+  const list = panel('', '✉', ft('Correos prioritarios'), X.mailsOpen.length + ' abiertos', seg('mFilter', UI.mFilter, [[0, 'Todos'], [3, '🔴'], [2, '🟠'], [1, '🔵']]) + '<div class="mls">' + ms.map((m) => { const st = ST.mail[m.id] || {}; return '<div class="ml2' + (m.id === UI.mSel ? ' on' : '') + (st.done ? ' past' : '') + '"' + act('mSel', m.id, m.who) + '><span class="av mono">' + m.ini + '</span><div class="mid"><div class="who">' + esc(m.who) + (st.pin ? ' 📌' : '') + '</div><div class="sj">' + esc(m.sj) + '</div></div><div class="mono dim r2">' + m.age + '<br>' + pill(m.tag) + '</div><span class="sig s' + m.sev + '"><i></i><i></i><i></i></span></div>'; }).join('') + '</div>');
   const m = DATA.mails.find((x) => x.id === UI.mSel) || DATA.mails[0], st = ST.mail[m.id] || {};
   const rd = panel('', '📖', esc(m.who), m.age + ' · ' + ['', '🔵 baja', '🟠 media', '🔴 alta'][m.sev], '<div class="rdh"><span class="av mono big3">' + m.ini + '</span><div><b class="serif big2">' + esc(m.sj) + '</b><div class="mono dim">🏢 Empresa · ' + m.tag + '</div></div></div>' +
     '<div class="sumb"><span class="bb s">🧠</span><div><b>Resumen Janus</b><div>' + esc(m.sum) + '</div></div></div><div class="sumb"><span class="bb s">➡</span><div><b>Acción sugerida</b><div>' + esc(m.act) + '</div></div></div>' +
     '<div class="btns"><span class="btn"' + act('mail', m.id + '|done') + '>' + (st.done ? '↺ Reabrir' : '✔ Atendido') + '</span><span class="btn"' + act('mail', m.id + '|pin') + '>' + (st.pin ? '📌 Fijado' : '📌 Fijar') + '</span><span class="btn"' + act('mail', m.id + '|janus') + '>' + (st.janus ? '🤖 Delegado' : '🤖 Delegar a Janus') + '</span></div><div class="note mono">Vista previa: las acciones se guardan solo en este dispositivo; no envían correos.</div>');
   const F = X.follow;
-  const fol = panel('', '🎯', 'Lo que dije que haría', F.filter((f) => !f.done).length + ' abiertos', '<div class="fls">' + F.map((f) => '<div class="fl2' + (f.id === UI.fSel ? ' on' : '') + (f.done ? ' past' : '') + '">' + ring(f.done ? 100 : f.p, f.done ? '#5FD39A' : '#E8C37A', f.done ? '✔' : f.p + '%', 40) + '<div class="tx"><b>' + esc(f.x) + '</b><div class="stp">' + (f.steps || []).map((s2, i) => '<span class="' + ((i + 1) / (f.steps.length) * 100 <= f.p || f.done ? 'ok' : '') + '">' + esc(s2) + '</span>').join('') + '</div></div><span class="due mono' + (f.due === 'hoy' && !f.done ? ' hot' : '') + '">' + f.due + '</span><span class="mini mono"' + act('fp', f.id + '|-10', 'Menos') + '>−</span><span class="mini mono"' + act('fp', f.id + '|10', 'Más') + '>＋</span><span class="chk' + (f.done ? ' ok' : '') + '"' + act('fdone', f.id, 'Hecho') + '>✔</span></div>').join('') + '</div><div class="addf"><input type="text" placeholder="Nuevo compromiso" maxlength="40" data-f="fT"><select data-f="fD"><option>hoy</option><option>mañ</option><option>vie</option><option>lun</option></select><span class="btn"' + act('fAdd') + '>＋</span></div>');
+  const fol = panel('', '🎯', ft('Lo que dije que haría'), F.filter((f) => !f.done).length + ' abiertos', '<div class="fls">' + F.map((f) => '<div class="fl2' + (f.id === UI.fSel ? ' on' : '') + (f.done ? ' past' : '') + '">' + ring(f.done ? 100 : f.p, f.done ? '#5FD39A' : '#E8C37A', f.done ? '✔' : f.p + '%', 40) + '<div class="tx"><b>' + esc(f.x) + '</b><div class="stp">' + (f.steps || []).map((s2, i) => '<span class="' + ((i + 1) / (f.steps.length) * 100 <= f.p || f.done ? 'ok' : '') + '">' + esc(s2) + '</span>').join('') + '</div></div><span class="due mono' + (f.due === 'hoy' && !f.done ? ' hot' : '') + '">' + f.due + '</span><span class="mini mono"' + act('fp', f.id + '|-10', 'Menos') + '>−</span><span class="mini mono"' + act('fp', f.id + '|10', 'Más') + '>＋</span><span class="chk' + (f.done ? ' ok' : '') + '"' + act('fdone', f.id, 'Hecho') + '>✔</span></div>').join('') + '</div><div class="addf"><input type="text" placeholder="Nuevo compromiso" maxlength="40" data-f="fT"><select data-f="fD"><option>hoy</option><option>mañ</option><option>vie</option><option>lun</option></select><span class="btn"' + act('fAdd') + '>＋</span></div>');
   const sv = [3, 2, 1].map((k) => [['', '🔵 Baja', '🟠 Media', '🔴 Alta'][k], DATA.mails.filter((x) => x.sev === k && !(ST.mail[x.id] || {}).done).length, ['', '#86B6FF', '#FFB454', '#FF6B5E'][k]]);
-  const stats = panel('', '📊', 'Bandeja', 'abiertos por prioridad', hbars(sv, Math.max(1, ...sv.map((x) => x[1])), (v) => v) + '<div class="kv">' + [['⏳', 'Más antiguo', '3 d · Hosting'], ['🤖', 'Delegados a Janus', DATA.mails.filter((x) => (ST.mail[x.id] || {}).janus).length], ['📌', 'Fijados', DATA.mails.filter((x) => (ST.mail[x.id] || {}).pin).length]].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>');
+  const stats = panel('', '📊', ft('Bandeja'), 'abiertos por prioridad', hbars(sv, Math.max(1, ...sv.map((x) => x[1])), (v) => v) + '<div class="kv">' + [['⏳', 'Más antiguo', '3 d · Hosting'], ['🤖', 'Delegados a Janus', DATA.mails.filter((x) => (ST.mail[x.id] || {}).janus).length], ['📌', 'Fijados', DATA.mails.filter((x) => (ST.mail[x.id] || {}).pin).length]].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>');
   return frame('prioridades', sub, M, '<div class="col3">' + list + stats + '</div><div class="col3">' + rd + fol + '</div>');
 }
 
@@ -152,11 +324,11 @@ function vJanus(M, X, sub) {
   const J = DATA.janus;
   const log = panel(sub === 'log' ? 'hl' : '', '✅', 'CI de janus-core', REAL.ciOk + '/' + REAL.ci.length + ' en verde', '<div class="lg2">' + REAL.ci.map((l) => '<div class="li2"><span class="mono dim">' + l[0].slice(5) + '</span><span class="bb s">🧪</span><span>' + esc(l[1]) + '</span><b class="mono okc">✔</b></div>').join('') + '</div><div class="note mono">' + esc(snapshotStatus()) + ' · GitHub Actions · fecha: ' + esc(REAL.syncedAt.replace('T', ' ')) + '</div>');
   const liveRuntime = !!document.querySelector('meta[name="janus-runtime"][content="core"]');
-  const ap = liveRuntime ? panel(sub === 'aprob' ? 'hl' : '', '🔐', 'Aprobaciones', 'Cola del Core', '<p>Consulta y decide sobre las solicitudes reales.</p><button type="button" class="btn" data-live-approvals>Abrir aprobaciones</button>') : panel(sub === 'aprob' ? 'hl' : '', '🔐', 'Aprobaciones', X.apprOpen.length + ' pendientes · ejemplo', J.appr.map((a) => { const v = ST.appr[a.id]; return '<div class="apc"><span class="bb m">' + a.e + '</span><div><b>' + a.t + '</b><div class="dim mono">' + a.d + '</div></div>' + (v ? pill(v === 'ok' ? '✔ aprobada' : '✕ rechazada', v === 'ok' ? 'g' : 'r') + '<span class="mini mono"' + act('appr', a.id + '|', 'Deshacer') + '>↺</span>' : '<span class="btn"' + act('appr', a.id + '|ok') + '>✔</span><span class="btn r"' + act('appr', a.id + '|no') + '>✕</span>') + '</div>'; }).join('') + '<div class="note mono">Vista previa: aprobar aquí no ejecuta acciones reales.</div>');
-  const pr = panel(sub === 'prs' ? 'hl' : '', '🧩', 'Pull requests abiertos', REAL.prs.length + ' · ' + REAL.prs.filter((p) => p[2]).length + ' borradores', '<div class="lg2">' + REAL.prs.map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') + '</div><div class="note mono">' + esc(snapshotStatus()) + ' · GitHub · toca para abrir el PR</div>');
-  const ig = panel('', '🔌', 'Integraciones', 'estado actual sin comprobar', '<div class="igr">' + J.integ.map((i) => { const st = ['por confirmar', '']; return '<div class="igc"><span class="bb s">' + i[1] + '</span><span>' + i[0] + '</span>' + pill(st[0], st[1]) + '</div>'; }).join('') + '</div>');
-  const sec = panel('', '🛡', 'Seguridad y memoria', '', '<div class="kv">' + [['💾', 'Memoria', 'SQLite local'], ['☁', 'Respaldo', 'Drive (sync)'], ['🔐', 'Secretos', 'fuera de código'], ['✋', 'Acciones externas', 'requieren aprobación'], ['📜', 'Auditoría', 'activa']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>');
-  const ag = panel('', '🐝', 'Agentes', 'esfuerzo AUTO · ejemplo', [['🧭', 'Orquestador', 'activo', 'g'], ['🔎', 'Investigador', 'en espera', ''], ['💻', 'Programador', 'PR #42', ''], ['✅', 'Verificador', 'pruebas OK', 'g'], ['📝', 'Documentador', 'handoff listo', '']].map((a) => '<div class="li2"><span class="bb s">' + a[0] + '</span><span>' + a[1] + '</span>' + pill(a[2], a[3]) + '</div>').join(''));
+  const ap = liveRuntime ? panel(sub === 'aprob' ? 'hl' : '', '🔐', ft('Aprobaciones'), 'Cola del Core', '<p>Consulta y decide sobre las solicitudes reales.</p><button type="button" class="btn" data-live-approvals>Abrir aprobaciones</button>') : panel(sub === 'aprob' ? 'hl' : '', '🔐', ft('Aprobaciones'), X.apprOpen.length + ' pendientes · ejemplo', J.appr.map((a) => { const v = ST.appr[a.id]; return '<div class="apc"><span class="bb m">' + a.e + '</span><div><b>' + a.t + '</b><div class="dim mono">' + a.d + '</div></div>' + (v ? pill(v === 'ok' ? '✔ aprobada' : '✕ rechazada', v === 'ok' ? 'g' : 'r') + '<span class="mini mono"' + act('appr', a.id + '|', 'Deshacer') + '>↺</span>' : '<span class="btn"' + act('appr', a.id + '|ok') + '>✔</span><span class="btn r"' + act('appr', a.id + '|no') + '>✕</span>') + '</div>'; }).join('') + '<div class="note mono">Vista previa: aprobar aquí no ejecuta acciones reales.</div>');
+  const pr = panel(sub === 'prs' ? 'hl' : '', '🧩', ft('Pull requests abiertos'), REAL.prs.length + ' · ' + REAL.prs.filter((p) => p[2]).length + ' borradores', '<div class="lg2">' + REAL.prs.map((p) => '<a class="li2 lnk" href="https://github.com/jeanechandia-png/janus-core/pull/' + p[0] + '" target="_blank" rel="noopener"><b class="mono">#' + p[0] + '</b><span>' + esc(p[1]) + '</span>' + pill(p[2] ? 'borrador' : 'listo', p[2] ? '' : 'g') + '</a>').join('') + '</div><div class="note mono">' + esc(snapshotStatus()) + ' · GitHub · toca para abrir el PR</div>');
+  const ig = panel('', '🔌', ft('Integraciones'), 'estado actual sin comprobar', '<div class="igr">' + J.integ.map((i) => { const st = ['por confirmar', '']; return '<div class="igc"><span class="bb s">' + i[1] + '</span><span>' + i[0] + '</span>' + pill(st[0], st[1]) + '</div>'; }).join('') + '</div>');
+  const sec = panel('', '🛡', ft('Seguridad y memoria'), '', '<div class="kv">' + [['💾', 'Memoria', 'SQLite local'], ['☁', 'Respaldo', 'Drive (sync)'], ['🔐', 'Secretos', 'fuera de código'], ['✋', 'Acciones externas', 'requieren aprobación'], ['📜', 'Auditoría', 'activa']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>');
+  const ag = panel('', '🐝', ft('Agentes'), 'esfuerzo AUTO · ejemplo', [['🧭', 'Orquestador', 'activo', 'g'], ['🔎', 'Investigador', 'en espera', ''], ['💻', 'Programador', 'PR #42', ''], ['✅', 'Verificador', 'pruebas OK', 'g'], ['📝', 'Documentador', 'handoff listo', '']].map((a) => '<div class="li2"><span class="bb s">' + a[0] + '</span><span>' + a[1] + '</span>' + pill(a[2], a[3]) + '</div>').join(''));
   return frame('janus', sub, M, '<div class="col3">' + log + ag + '</div><div class="col3">' + pr + ap + '</div><div class="col3">' + ig + sec + '</div>');
 }
 
@@ -170,11 +342,11 @@ function vIngresos(M, X, sub) {
   const wt = []; for (let w = from; w < 12; w++) wt.push(S.reduce((a, s) => a + s.w[w], 0));
   const wm = Math.max(1, ...wt);
   const cols = '<div class="scol">' + wt.map((t, k) => { const w = from + k; return '<div class="sc" data-ro="' + esc('Semana ' + (w - 11 <= 0 ? w - 11 : '') + ' · €' + fmt(t) + ' · ' + S.map((s) => s.e + ' ' + s.w[w]).join(' ')) + '"><b class="mono" style="font-size:12px;white-space:nowrap" aria-label="Total semanal">€' + fmt(t) + '</b><div class="stk2c" style="width:22px;max-width:22px;height:' + Math.round(t / wm * 72) + '%">' + (() => { const seg2 = S.map((s) => '<i style="height:' + (t > 0 ? s.w[w] / t * 100 : 0).toFixed(1) + '%;background:' + s.c + ';opacity:' + (!UI.iSel || UI.iSel === s.id ? 1 : .25) + '"></i>').join(''); return seg2 + '<span class="sd3">' + seg2 + '</span><span class="cap3" style="background:' + S[S.length - 1].c + '"></span>'; })() + '</div><small class="mono">' + (w === 11 ? 'esta' : 'S' + (w - 11)) + '</small></div>'; }).join('') + '</div>';
-  const ch = panel('', '📊', 'Por semana y fuente', seg('iPer', n, [[4, '4 sem'], [8, '8 sem'], [12, '12 sem']]), roBox() + cols);
+  const ch = panel('', '📊', ft('Por semana y fuente'), seg('iPer', n, [[4, '4 sem'], [8, '8 sem'], [12, '12 sem']]), roBox() + cols);
   let acc = 0; const cg = S.map((s, i) => { const a0 = acc; acc += X.last[i] / X.total * 360; return s.c + ' ' + a0 + 'deg ' + acc + 'deg'; }).join(',');
-  const dn = panel('', '🥧', 'Reparto', '4 semanas', '<div class="dn2"><div class="donut big" style="background:conic-gradient(from -90deg,' + cg + ')"><b class="serif">€' + fmt(X.total) + '</b></div><div class="lgd2">' + S.map((s, i) => '<div class="' + (UI.iSel === s.id ? 'on' : '') + '"' + act('iSel', s.id, s.n) + '><i style="background:' + s.c + '"></i>' + s.e + ' ' + esc(s.n) + '<b class="mono">' + Math.round(X.last[i] / X.total * 100) + '%</b></div>').join('') + '</div></div>');
-  const tb = panel('', '🧾', 'Fuentes', 'toca para resaltar', '<div class="tbl"><div class="th2 mono"><span>Fuente</span><span>4 sem</span><span>Anterior</span><span>Δ</span><span>Tendencia</span></div>' + S.map((s, i) => { const d = Math.round((X.last[i] / X.prev[i] - 1) * 100); return '<div class="tr' + (UI.iSel === s.id ? ' on' : '') + '"' + act('iSel', s.id, s.n) + '><span>' + s.e + ' ' + esc(s.n) + '</span><b class="mono">€' + fmt(X.last[i]) + '</b><span class="mono dim">€' + fmt(X.prev[i]) + '</span><span class="mono ' + (d >= 0 ? 'okc' : 'badc') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(d) + '%</span><svg viewBox="0 0 100 22" preserveAspectRatio="none"><path d="' + spk(s.w, 100, 22) + '" fill="none" stroke="' + s.c + '" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg></div>'; }).join('') + '</div>');
-  const nt = panel('', '⚖', 'Nota', '', '<div class="dim">Estas cifras son de ejemplo. Las ventas reales requieren una fuente de facturación conectada y verificada.</div>');
+  const dn = panel('', '🥧', ft('Reparto'), '4 semanas', '<div class="dn2"><div class="donut big" style="background:conic-gradient(from -90deg,' + cg + ')"><b class="serif">€' + fmt(X.total) + '</b></div><div class="lgd2">' + S.map((s, i) => '<div class="' + (UI.iSel === s.id ? 'on' : '') + '"' + act('iSel', s.id, s.n) + '><i style="background:' + s.c + '"></i>' + s.e + ' ' + esc(s.n) + '<b class="mono">' + Math.round(X.last[i] / X.total * 100) + '%</b></div>').join('') + '</div></div>');
+  const tb = panel('', '🧾', ft('Fuentes'), 'toca para resaltar', '<div class="tbl"><div class="th2 mono"><span>Fuente</span><span>4 sem</span><span>Anterior</span><span>Δ</span><span>Tendencia</span></div>' + S.map((s, i) => { const d = Math.round((X.last[i] / X.prev[i] - 1) * 100); return '<div class="tr' + (UI.iSel === s.id ? ' on' : '') + '"' + act('iSel', s.id, s.n) + '><span>' + s.e + ' ' + esc(s.n) + '</span><b class="mono">€' + fmt(X.last[i]) + '</b><span class="mono dim">€' + fmt(X.prev[i]) + '</span><span class="mono ' + (d >= 0 ? 'okc' : 'badc') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(d) + '%</span><svg viewBox="0 0 100 22" preserveAspectRatio="none"><path d="' + spk(s.w, 100, 22) + '" fill="none" stroke="' + s.c + '" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg></div>'; }).join('') + '</div>');
+  const nt = panel('', '⚖', ft('Nota'), '', '<div class="dim">Estas cifras son de ejemplo. Las ventas reales requieren una fuente de facturación conectada y verificada.</div>');
   return frame('ingresos', sub, M, '<div class="note mono" role="status">DATOS DE EJEMPLO · ingresos reales sin verificar en esta vista</div>' + kp + ch + dn + tb + nt);
 }
 
@@ -185,11 +357,11 @@ function vAlcance(M, X, sub) {
   const kp = '<div class="kp2">' + [['👁', 'Alcance ' + n + ' d', fmt(sum * 1000)], ['📈', 'Media diaria', fmt(sum / n * 1000)], ['🏆', 'Mejor día', lab(best) + ' · ' + dec(vals[best]) + 'K'], ['➕', 'Seguidores nuevos', '+' + fmt(DATA.followers.now - DATA.followers.wk[Math.max(0, 8 - Math.ceil(n / 7) - 1)])], ['❤', 'Interacción', '6,8%']].map((k) => '<div class="kpi"><div class="top"><span class="bb s">' + k[0] + '</span><span class="k mono">' + k[1] + '</span></div><div class="v serif gld">' + k[2] + '</div></div>').join('') + '</div>';
   const step = Math.max(1, Math.floor(n / 5));
   const xl = []; for (let i = 0; i < n; i += step) xl.push(lab(i)); xl.push(lab(n - 1));
-  const ch = panel('', '📈', 'Alcance diario', seg('aPer', n, [[7, '7 d'], [30, '30 d'], [90, '90 d']]), roBox() + lineChart({ series: [{ vals, c: '#FFE9B0', fill: true, w: 2.4 }], yf: (v) => dec(v, 0) + 'K', ro: (i) => lab(i) + ' · ' + fmt(vals[i] * 1000), xl: xl.slice(0, 7) }));
-  const pl = panel('', '📱', 'Por plataforma', '', hbars(DATA.platforms.map((p, i) => [p[0], p[1], ['#E8C37A', '#86B6FF', '#5FD39A'][i]]), 100, (v) => v + '%'));
-  const au = panel('', '👥', 'Audiencia', 'edad · ciudad', '<div class="two">' + hbars(DATA.ages.map((a) => [a[0], a[1]]), 40, (v) => v + '%') + hbars(DATA.cities.map((c) => [c[0], c[1], '#86B6FF']), 35, (v) => v + '%') + '</div>');
+  const ch = panel('', '📈', ft('Alcance diario'), seg('aPer', n, [[7, '7 d'], [30, '30 d'], [90, '90 d']]), roBox() + lineChart({ series: [{ vals, c: '#FFE9B0', fill: true, w: 2.4 }], yf: (v) => dec(v, 0) + 'K', ro: (i) => lab(i) + ' · ' + fmt(vals[i] * 1000), xl: xl.slice(0, 7) }));
+  const pl = panel('', '📱', ft('Por plataforma'), '', hbars(DATA.platforms.map((p, i) => [p[0], p[1], ['#E8C37A', '#86B6FF', '#5FD39A'][i]]), 100, (v) => v + '%'));
+  const au = panel('', '👥', ft('Audiencia'), 'edad · ciudad', '<div class="two">' + hbars(DATA.ages.map((a) => [a[0], a[1]]), 40, (v) => v + '%') + hbars(DATA.cities.map((c) => [c[0], c[1], '#86B6FF']), 35, (v) => v + '%') + '</div>');
   const dd = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-  const hm = panel('', '🕐', 'Mejores horas para publicar', '08–20 h', '<div class="hm">' + DATA.heat.map((r, d) => '<span class="mono dim">' + dd[d] + '</span>' + r.map((v, h) => '<i style="background:rgba(232,195,122,' + (v / 100).toFixed(2) + ')" data-ro="' + dd[d] + ' ' + (8 + h) + ':00 · ' + v + '"></i>').join('')).join('') + '<span></span>' + Array.from({ length: 12 }, (_, h) => '<span class="mono dim">' + (h % 3 === 0 ? 8 + h : '') + '</span>').join('') + '</div>' + roBox('☝ toca una celda'));
+  const hm = panel('', '🕐', ft('Mejores horas para publicar'), '08–20 h', '<div class="hm">' + DATA.heat.map((r, d) => '<span class="mono dim">' + dd[d] + '</span>' + r.map((v, h) => '<i style="background:rgba(232,195,122,' + (v / 100).toFixed(2) + ')" data-ro="' + dd[d] + ' ' + (8 + h) + ':00 · ' + v + '"></i>').join('')).join('') + '<span></span>' + Array.from({ length: 12 }, (_, h) => '<span class="mono dim">' + (h % 3 === 0 ? 8 + h : '') + '</span>').join('') + '</div>' + roBox('☝ toca una celda'));
   return frame('alcance', sub, M, kp + ch + pl + au + hm);
 }
 
@@ -200,7 +372,7 @@ function vChatbots(M, X, sub) {
     const pend = b.upd.filter((u) => !u.done && !ST.upd[u.id]).length;
     const k = [['💬', 'Conversaciones 7 d', b.c], ['⏱', 'Disponibilidad', b.upT + '%'], ['⚡', 'Respuesta', b.resp], ['★', 'Satisfacción', b.csat], ['🙋', 'A humano', b.hand]];
     return panel('bcol' + (UI.bSel === b.id ? ' hl' : ''), '🤖', esc(b.n), '<span class="led"></span> activo',
-      '<div class="kp3">' + k.map((x) => '<div><span class="bb s">' + x[0] + '</span><b class="serif">' + x[2] + '</b><span class="mono dim">' + x[1] + '</span></div>').join('') + '</div>' +
+      '<div class="kp3">' + k.map((x) => '<div><span class="bb s">' + x[0] + '</span><b class="serif">'  + esc(ft(x[2])) +  '</b><span class="mono dim">' + x[1] + '</span></div>').join('') + '</div>' +
       '<div class="sb mono">Conversaciones · 30 días</div>' + roBox() + lineChart({ series: [{ vals: b.d30, c: '#86B6FF', fill: true }], ro: (i) => { const o = fromDayNum(M.today - 29 + i); return o.d + ' ' + MO[o.m - 1] + ' · ' + Math.round(b.d30[i]) + ' conv.'; } }) +
       '<div class="two"><div><div class="sb mono">Temas más consultados</div>' + hbars(b.intents, 50, (v) => v + '%') + '</div><div><div class="sb mono">Actualizaciones · ' + pend + ' pendientes</div>' + b.upd.map((u) => { const ok = u.done || ST.upd[u.id]; return '<div class="cl2' + (ok ? ' ok' : '') + '"' + (u.done ? '' : act('upd', u.id, u.t)) + '><span class="chk' + (ok ? ' ok' : '') + '">✔</span><span>' + esc(u.t) + '</span></div>'; }).join('') + '</div></div>');
   };
@@ -217,11 +389,11 @@ function vContenido(M, X, sub) {
   const r = DATA.reels.find((x) => x.id === UI.cSel);
   const kp = '<div class="kp2">' + [['👁', 'Vistas', fmt(r.views * 1000)], ['📡', 'Alcance', fmt(r.reach)], ['❤', 'Me gusta', fmt(r.likes)], ['💬', 'Comentarios', fmt(r.com)], ['↗', 'Compartidos', fmt(r.sh)], ['🔖', 'Guardados', fmt(r.sv)], ['💶', 'Ingresos', '€' + r.eur]].map((k) => '<div class="kpi"><div class="top"><span class="bb s">' + k[0] + '</span><span class="k mono">' + k[1] + '</span></div><div class="v serif gld">' + k[2] + '</div></div>').join('') + '</div>';
   const vmax = Math.max(...r.v7);
-  const v7 = panel('', '📊', 'Vistas por día', 'primeros 7 días', roBox() + '<div class="scol">' + r.v7.map((v, i) => '<div class="sc" data-ro="Día ' + (i + 1) + ' · ' + fmt(v) + ' vistas"><div class="stk2c" style="height:' + Math.round(v / vmax * 86) + '%"><i style="height:100%;background:linear-gradient(180deg,#FFE9B0,#A8741F)"></i></div><small class="mono">D' + (i + 1) + '</small></div>').join('') + '</div>');
-  const rt = panel('', '⏳', 'Retención', 'duración ' + r.dur + ' s', roBox() + lineChart({ series: [{ vals: r.ret, c: '#86B6FF', fill: true }], max: 100, min: 0, yf: (v) => Math.round(v) + '%', ro: (i) => Math.round(r.dur * i / 10) + ' s · ' + r.ret[i] + '% sigue viendo', xl: ['0 s', Math.round(r.dur / 2) + ' s', r.dur + ' s'] }));
+  const v7 = panel('', '📊', ft('Vistas por día'), 'primeros 7 días', roBox() + '<div class="scol">' + r.v7.map((v, i) => '<div class="sc" data-ro="Día ' + (i + 1) + ' · ' + fmt(v) + ' vistas"><div class="stk2c" style="height:' + Math.round(v / vmax * 86) + '%"><i style="height:100%;background:linear-gradient(180deg,#FFE9B0,#A8741F)"></i></div><small class="mono">D' + (i + 1) + '</small></div>').join('') + '</div>');
+  const rt = panel('', '⏳', ft('Retención'), 'duración ' + r.dur + ' s', roBox() + lineChart({ series: [{ vals: r.ret, c: '#86B6FF', fill: true }], max: 100, min: 0, yf: (v) => Math.round(v) + '%', ro: (i) => Math.round(r.dur * i / 10) + ' s · ' + r.ret[i] + '% sigue viendo', xl: ['0 s', Math.round(r.dur / 2) + ' s', r.dur + ' s'] }));
   const F = DATA.followers;
-  const src = panel('', '🧭', 'Origen de vistas', '', hbars([['Explorar/Reels', r.src[0], '#E8C37A'], ['Seguidores', r.src[1], '#86B6FF'], ['Perfil', r.src[2], '#5FD39A'], ['Otros', 100 - r.src[0] - r.src[1] - r.src[2], '#8a836f']], 70, (v) => v + '%'));
-  const mon = panel('', '🏁', 'Camino a monetizar', 'seguidores', '<div class="dn2">' + ring(Math.round(F.now / F.goal * 100), '#E8C37A', Math.round(F.now / F.goal * 100) + '%', 70) + '<div><b class="serif big2">' + fmt(F.now) + '</b><div class="mono dim">meta ' + fmt(F.goal) + ' · faltan ' + fmt(F.goal - F.now) + '</div><svg class="spk2" viewBox="0 0 100 26" preserveAspectRatio="none"><path d="' + spk(F.wk, 100, 26) + '" fill="none" stroke="#E8C37A" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="mono dim">8 semanas</div></div></div>');
+  const src = panel('', '🧭', ft('Origen de vistas'), '', hbars([['Explorar/Reels', r.src[0], '#E8C37A'], ['Seguidores', r.src[1], '#86B6FF'], ['Perfil', r.src[2], '#5FD39A'], ['Otros', 100 - r.src[0] - r.src[1] - r.src[2], '#8a836f']], 70, (v) => v + '%'));
+  const mon = panel('', '🏁', ft('Camino a monetizar'), 'seguidores', '<div class="dn2">' + ring(Math.round(F.now / F.goal * 100), '#E8C37A', Math.round(F.now / F.goal * 100) + '%', 70) + '<div><b class="serif big2">' + fmt(F.now) + '</b><div class="mono dim">meta ' + fmt(F.goal) + ' · faltan ' + fmt(F.goal - F.now) + '</div><svg class="spk2" viewBox="0 0 100 26" preserveAspectRatio="none"><path d="' + spk(F.wk, 100, 26) + '" fill="none" stroke="#E8C37A" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="mono dim">8 semanas</div></div></div>');
   return frame('contenido', sub, M, list + '<div class="cright">' + kp + '<div class="two2">' + v7 + rt + '</div><div class="two2">' + src + mon + '</div></div>');
 }
 
@@ -229,12 +401,12 @@ function vContenido(M, X, sub) {
 function vClientes(M, X, sub) {
   if (sub === 'leads' || sub === 'embudo') UI.clCat = 'leads';
   const F = DATA.funnel, C = DATA.mailCats;
-  const fn = panel(sub === 'embudo' ? 'hl' : '', '🔻', 'Embudo comercial', '30 días', '<div class="fun2">' + F.map((f, i) => '<div class="fs" style="width:' + (100 - i * 22) + '%"><span class="bb s">' + f.e + '</span><b class="serif">' + f.n + '</b><span class="mono">' + f.t + '</span></div>' + (i < F.length - 1 ? '<div class="fcv mono">▼ ' + Math.round(F[i + 1].n / f.n * 100) + '%</div>' : '')).join('') + '</div><div class="mono dim c">Conversión total ' + Math.round(F[2].n / F[0].n * 100) + '%</div><div class="sb mono">Días por etapa</div>' + hbars([['📥 → 📅', 4], ['📅 → ✅', 9], ['✅ → 💶', 6]], 10, (v) => v + ' d'));
+  const fn = panel(sub === 'embudo' ? 'hl' : '', '🔻', ft('Embudo comercial'), '30 días', '<div class="fun2">' + F.map((f, i) => '<div class="fs" style="width:' + (100 - i * 22) + '%"><span class="bb s">' + f.e + '</span><b class="serif">' + f.n + '</b><span class="mono">' + f.t + '</span></div>' + (i < F.length - 1 ? '<div class="fcv mono">▼ ' + Math.round(F[i + 1].n / f.n * 100) + '%</div>' : '')).join('') + '</div><div class="mono dim c">Conversión total ' + Math.round(F[2].n / F[0].n * 100) + '%</div><div class="sb mono">Días por etapa</div>' + hbars([['📥 → 📅', 4], ['📅 → ✅', 9], ['✅ → 💶', 6]], 10, (v) => v + ' d'));
   const cat = C.find((c) => c.id === UI.clCat) || C[0];
-  const ls = panel(sub === 'correo' ? 'hl' : '', '✉', 'Correo de empresa', C.reduce((a, c) => a + c.items.length, 0) + ' nuevos', seg('clCat', cat.id, C.map((c) => [c.id, c.e + ' ' + c.n + ' ' + c.items.length])) + '<div class="mls">' + cat.items.map((it, i) => '<div class="ml2' + (i === UI.clSel ? ' on' : '') + '"' + act('clSel', i, it[0]) + '><span class="bb s">' + cat.e + '</span><div class="mid"><div class="who">' + esc(it[0]) + '</div><div class="sj">' + esc(it[1]) + '</div></div>' + pill(esc(it[2])) + '</div>').join('') + '</div>');
+  const ls = panel(sub === 'correo' ? 'hl' : '', '✉', ft('Correo de empresa'), C.reduce((a, c) => a + c.items.length, 0) + ' nuevos', seg('clCat', cat.id, C.map((c) => [c.id, c.e + ' ' + c.n + ' ' + c.items.length])) + '<div class="mls">' + cat.items.map((it, i) => '<div class="ml2' + (i === UI.clSel ? ' on' : '') + '"' + act('clSel', i, it[0]) + '><span class="bb s">' + cat.e + '</span><div class="mid"><div class="who">' + esc(it[0]) + '</div><div class="sj">' + esc(it[1]) + '</div></div>' + pill(esc(it[2])) + '</div>').join('') + '</div>');
   const it = cat.items[clamp(UI.clSel, 0, cat.items.length - 1)];
-  const dt = panel('', '🔎', 'Detalle', cat.n, '<div class="rdh"><span class="bb m">' + cat.e + '</span><div><b class="serif big2">' + esc(it[0]) + '</b><div class="mono dim">Origen: ' + esc(it[1]) + '</div></div></div><div class="sumb"><span class="bb s">➡</span><div><b>Siguiente paso</b><div>' + esc(it[2]) + '</div></div></div><div class="sb mono">Historial</div>' + [['📩', 'Primer contacto', it[1]], ['🤖', 'Respuesta automática', 'enviada'], ['⏭', 'Próximo', it[2]]].map((r) => '<div class="li2"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + esc(r[2]) + '</b></div>').join('') + '<div class="btns"><span class="btn"' + act('evDone', 'lead:' + cat.id + clamp(UI.clSel, 0, cat.items.length - 1)) + '>' + (ST.done['lead:' + cat.id + clamp(UI.clSel, 0, cat.items.length - 1)] ? '✔ Contactado' : '☎ Marcar contactado') + '</span></div><div class="note mono">Ejemplo ilustrativo. Se llenará con el correo real de la empresa.</div>');
-  const nc = panel('', '🆕', 'Clientes nuevos', DATA.newClients.length, DATA.newClients.map((c) => '<div class="li2"><span class="bb s">🤝</span><span>' + esc(c[0]) + '</span><b class="mono">' + c[1] + ' · ' + c[2] + '</b></div>').join(''));
+  const dt = panel('', '🔎', ft('Detalle'), cat.n, '<div class="rdh"><span class="bb m">' + cat.e + '</span><div><b class="serif big2">' + esc(it[0]) + '</b><div class="mono dim">Origen: ' + esc(it[1]) + '</div></div></div><div class="sumb"><span class="bb s">➡</span><div><b>Siguiente paso</b><div>' + esc(it[2]) + '</div></div></div><div class="sb mono">Historial</div>' + [['📩', 'Primer contacto', it[1]], ['🤖', 'Respuesta automática', 'enviada'], ['⏭', 'Próximo', it[2]]].map((r) => '<div class="li2"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + esc(r[2]) + '</b></div>').join('') + '<div class="btns"><span class="btn"' + act('evDone', 'lead:' + cat.id + clamp(UI.clSel, 0, cat.items.length - 1)) + '>' + (ST.done['lead:' + cat.id + clamp(UI.clSel, 0, cat.items.length - 1)] ? '✔ Contactado' : '☎ Marcar contactado') + '</span></div><div class="note mono">Ejemplo ilustrativo. Se llenará con el correo real de la empresa.</div>');
+  const nc = panel('', '🆕', ft('Clientes nuevos'), DATA.newClients.length, DATA.newClients.map((c) => '<div class="li2"><span class="bb s">🤝</span><span>' + esc(c[0]) + '</span><b class="mono">' + c[1] + ' · ' + c[2] + '</b></div>').join(''));
   return frame('clientes', sub, M, fn + ls + '<div class="col3">' + dt + nc + '</div>');
 }
 
@@ -242,12 +414,12 @@ function vClientes(M, X, sub) {
 function vDatos(M) {
   const s = ST.settings, wxs = s.mode !== 'vivo' ? 'Ejemplo (elegido)' : WX.status === 'ok' ? '● En vivo' : WX.status === 'loading' ? 'Cargando…' : 'Sin conexión → ejemplo';
   const rows = [['🚴', 'Clima y bici', 'Open-Meteo (pública, sin clave)', wxs], ['🗓', 'Mi día', 'Google Calendar (principal)', snapshotStatus()], ['🌟', '__HIJA__', 'Calendario «Familia»', 'Sin verificación actual'], ['✉', 'Correos y clientes', 'Gmail', 'Sin verificación actual'], ['🎯', 'Seguimiento', 'JANUS Core (SQLite)', 'Ejemplo · local'], ['⚙', 'Janus', 'janus-core / GitHub', snapshotStatus()], ['💶', 'Ingresos', 'Stripe · Gumroad', 'Ejemplo · conexión por verificar'], ['👁', 'Alcance y Reels', 'Meta (Instagram/Facebook)', 'Ejemplo · por conectar'], ['🤖', 'Chatbots', 'IBA · ChatBox', 'Ejemplo · por conectar']];
-  const st = panel('', '🧭', 'Estado de datos', 'Protocolo de la Verdad', '<div class="tbl dt2"><div class="th2 mono"><span>Módulo</span><span>Fuente prevista</span><span>Estado</span></div>' + rows.map((r) => '<div class="tr"><span>' + r[0] + ' ' + r[1] + '</span><span class="dim">' + r[2] + '</span>' + pill(r[3], /En vivo|Real/.test(r[3]) ? 'g' : /Sin conexión|Reconectar/.test(r[3]) ? 'r' : '') + '</div>').join('') + '</div><div class="note mono">EJEMPLO = dato ficticio para evaluar el diseño. EN VIVO = dato real obtenido ahora.</div>');
+  const st = panel('', '🧭', ft('Estado de datos'), 'Protocolo de la Verdad', '<div class="tbl dt2"><div class="th2 mono"><span>Módulo</span><span>Fuente prevista</span><span>Estado</span></div>' + rows.map((r) => '<div class="tr"><span>' + r[0] + ' ' + r[1] + '</span><span class="dim">' + r[2] + '</span>' + pill(r[3], /En vivo|Real/.test(r[3]) ? 'g' : /Sin conexión|Reconectar/.test(r[3]) ? 'r' : '') + '</div>').join('') + '</div><div class="note mono">EJEMPLO = dato ficticio para evaluar el diseño. EN VIVO = dato real obtenido ahora.</div>');
   const geo = UI.geo.map((g, i) => '<div class="li2"' + act('geoPick', i, g.name) + '><span class="bb s">📍</span><span>' + esc(g.name) + '</span><b class="mono">' + esc([g.admin, g.country].filter(Boolean).join(', ')) + '</b></div>').join('');
-  const loc = panel('', '📍', 'Clima: modo y ubicación', '', seg('mode', s.mode, [['vivo', '● En vivo'], ['ejemplo', 'Ejemplo 07:45']]) +
+  const loc = panel('', '📍', ft('Clima: modo y ubicación'), '', seg('mode', s.mode, [['vivo', '● En vivo'], ['ejemplo', 'Ejemplo 07:45']]) +
     '<div class="kv"><div class="kvr"><span class="bb s">📍</span><span>Ubicación</span><b class="mono">' + esc(s.place) + ' (' + esc(s.placeSrc) + ')</b></div><div class="kvr"><span class="bb s">🌐</span><span>Coordenadas</span><b class="mono">' + s.lat + ', ' + s.lon + '</b></div>' + (WX.err ? '<div class="kvr"><span class="bb s">⚠</span><span>Último error</span><b class="mono">' + esc(WX.err) + '</b></div>' : '') + '</div>' +
     '<div class="addf"><input type="text" placeholder="Buscar ciudad (p. ej. Huissen)" maxlength="40" data-f="geoQ"><span class="btn"' + act('geoSearch') + '>🔎</span><span class="btn"' + act('geoMe') + '>📍 Mi ubicación</span><span class="btn"' + act('wxReload') + '>↻</span></div>' + (UI.geoMsg ? '<div class="note mono">' + esc(UI.geoMsg) + '</div>' : '') + '<div class="mls">' + geo + '</div>');
-  const misc = panel('', '💾', 'Este dispositivo', storeOk ? 'guardado activo' : 'sin almacenamiento', '<div class="dim" style="margin-bottom:5px">Piel del dashboard</div>' + seg('skin', skinNow(), [['a', 'A · Obsidiana (oro)'], ['b', 'B · Platino (claro)']]) + '<div style="height:8px"></div>' + '<div class="dim">Tus marcas (hechos, checklist, umbrales, metas, eventos rápidos) se guardan solo en este navegador. En la versión final vivirán en JANUS Core (SQLite) y se sincronizarán.</div><div class="btns"><span class="btn r"' + act('reset') + '>↺ Restablecer vista previa</span></div><div class="sb mono">Atajos</div><div class="dim">Esc o ← vuelve al dashboard · ↗ abre la pestaña en una ventana nueva · las zonas se iluminan al tocarlas.</div>');
+  const misc = panel('', '💾', ft('Este dispositivo'), storeOk ? 'guardado activo' : 'sin almacenamiento', '<div class="dim" style="margin-bottom:5px">Piel del dashboard</div>' + seg('skin', skinNow(), [['a', 'A · Obsidiana (oro)'], ['b', 'B · Platino (claro)']]) + '<div style="height:8px"></div>' + '<div class="dim">Tus marcas (hechos, checklist, umbrales, metas, eventos rápidos) se guardan solo en este navegador. En la versión final vivirán en JANUS Core (SQLite) y se sincronizarán.</div><div class="btns"><span class="btn r"' + act('reset') + '>↺ Restablecer vista previa</span></div><div class="sb mono">Atajos</div><div class="dim">Esc o ← vuelve al dashboard · ↗ abre la pestaña en una ventana nueva · las zonas se iluminan al tocarlas.</div>');
   return frame('datos', '', M, st + '<div class="col3">' + loc + misc + '</div>');
 }
 const VIEWS = { clima: vClima, dia: vDia, familia: vFamilia, prioridades: vPrioridades, janus: vJanus, ingresos: vIngresos, alcance: vAlcance, chatbots: vChatbots, contenido: vContenido, clientes: vClientes, datos: vDatos };

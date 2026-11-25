@@ -12,7 +12,7 @@ function render() {
   // A: sin cambios. B: el dashboard de tablet se compone aparte; el resto (teléfono, vistas de detalle, Sala) es el HTML de A con la paleta traducida.
   const sk = (h) => (isB ? SkinMap.mapHtml(h) : h);
   dash.innerHTML = phone ? sk(renderPhoneV(M, X)) : tabletHome ? renderApprovedTabletHome(M, X) : '';
-  if (ROUTE.v && VIEWS[ROUTE.v] && !tabletHome) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + TABS.find((t) => t[0] === ROUTE.v)[2]; centerTab(); setTimeout(centerTab, 350); }
+  if (ROUTE.v && VIEWS[ROUTE.v] && !tabletHome) { view.innerHTML = sk(VIEWS[ROUTE.v](M, X, ROUTE.sub)); view.hidden = false; dash.setAttribute('aria-hidden', 'true'); document.title = 'Janus · ' + ft(TABS.find((t) => t[0] === ROUTE.v)[2]); centerTab(); setTimeout(centerTab, 350); }
   else { view.hidden = true; view.innerHTML = ''; dash.removeAttribute('aria-hidden'); document.title = 'Janus · ' + (isB ? 'Platino' : 'Obsidiana'); }
   decorate(ROUTE.v || '');
   if (typeof avatarSync === 'function') avatarSync();
@@ -38,7 +38,7 @@ function go(r) {
 function onRoute() { ROUTE = parseHash(); if (!ROUTE.v || !VIEWS[ROUTE.v]) ROUTE = { v: '', sub: '' }; render(); }
 window.addEventListener('hashchange', onRoute);
 // La bandera existente actualiza la portada, sin crear otra sesión ni perder el borrador.
-document.addEventListener('janus:language-changed', event => { if (event.detail?.scope === 'founder' && document.querySelector('[data-layout="approved-option-2"]')) render(); });
+document.addEventListener('janus:language-changed', event => { if (event.detail?.scope === 'founder') render(); });
 try { matchMedia(PHONE_MQ).addEventListener('change', () => render()); } catch (e) { }
 window.addEventListener('popstate', onRoute);
 

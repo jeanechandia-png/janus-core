@@ -40,13 +40,13 @@ function soliPhoneCard() {
 function vSolicitudes(M, X, sub) {
   void soliLoad(false);
   const products = soliProducts();
-  if (!products.length) return frame('solicitudes', sub, M, '<div class="col3">' + panel('', '📨', 'Solicitudes de los productos', 'privado', '<div class="dim">' + (soliCore() ? (SOLI.err ? esc(SOLI.err) : 'Cargando…') : 'Las solicitudes son privadas: solo se muestran con JANUS encendido y tu sesión iniciada.') + '</div>') + '</div>');
+  if (!products.length) return frame('solicitudes', sub, M, '<div class="col3">' + panel('', '📨', ft('Solicitudes de los productos'), 'privado', '<div class="dim">' + (soliCore() ? (SOLI.err ? esc(SOLI.err) : 'Cargando…') : 'Las solicitudes son privadas: solo se muestran con JANUS encendido y tu sesión iniciada.') + '</div>') + '</div>');
   const sel = products.find((p) => p.productId === SOLI.sel) || products.find((p) => p.newRequests) || products[0];
-  const left = panel('', '🏢', 'Productos', products.length + '',
+  const left = panel('', '🏢', ft('Productos'), products.length + '',
     '<div class="rdl">' + products.map((p) => { const st = SOLI_STATE[p.state] || [p.state, '']; return '<div class="rdo' + (p.productId === sel.productId ? ' on' : '') + '"' + act('soliSel', p.productId, p.name) + '><div class="rdo1">' + pill(st[0], st[1]) + (p.newRequests ? pill(p.newRequests + ' nuevas', 'r') : '') + '</div><div class="rdo2"><b>' + esc(p.name) + '</b></div><div class="rdo3 mono">' + (p.customers ? p.customers.total + ' clientes · ' + p.customers.active + ' activos · ' + p.customers.trial + ' en prueba' : 'sin datos de clientes') + '</div></div>'; }).join('') + '</div>' +
     '<div class="note mono">Total: ' + ((SOLI.data && SOLI.data.customers) || 0) + ' clientes en tus productos.</div>');
   const st = SOLI_STATE[sel.state] || [sel.state, ''];
-  const center = panel('', '📨', 'Solicitudes', esc(sel.name),
+  const center = panel('', '📨', ft('Solicitudes'), esc(sel.name),
     '<div class="kv">' + [['🚦', 'Conexión', st[0]], ['🕒', 'Última lectura', soliWhen(sel.lastSuccess)], ['👥', 'Clientes', sel.customers ? String(sel.customers.total) : '—']].map((r) => '<div class="kvr"><span class="bb s">' + r[0] + '</span><span>' + r[1] + '</span><b class="mono">' + r[2] + '</b></div>').join('') + '</div>' +
     (sel.requests.length ? sel.requests.map((r) => '<div class="rdf"><div class="rdf1"><b class="mono">' + soliWhen(r.createdAt) + '</b>' + (r.status === 'new' ? pill('nueva', 'r') : pill(r.status === 'read' ? 'leída' : r.status === 'handled' ? 'atendida' : 'cerrada', '')) + '</div><div class="rdt"><b>' + esc(r.name || 'Sin nombre') + '</b>' + (r.contact ? ' · <a href="' + esc(soliContactHref(r.contact)) + '">' + esc(r.contact) + '</a>' : '') + '</div><div class="rdt">' + esc(r.message) + '</div></div>').join('') : '<div class="dim">No hay solicitudes en este producto.</div>') +
     '<div class="rdb"><span class="btn"' + act('soliRefresh', sel.productId, 'Comprobar ahora') + '>↻ Comprobar ahora</span>' + (sel.openUrl ? '<a class="btn" href="' + esc(sel.openUrl) + '" target="_blank" rel="noopener noreferrer">Abrir ' + esc(sel.name) + '</a>' : '') + '</div>' +
