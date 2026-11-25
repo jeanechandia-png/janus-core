@@ -149,18 +149,24 @@ function micButton(input) {
 function renderPair(message = '') {
   const code = h('input', { type: 'text', class: 'code', placeholder: 'XXXX-XXXX', maxlength: '9', autocomplete: 'off', autocapitalize: 'characters', 'aria-label': 'Código de papá' });
   const error = h('p', { class: 'err', role: 'alert' }, message);
+  const activate = h('button', { type: 'submit', class: 'primary' }, 'Activar');
   const form = h('form', { class: 'pair' },
     h('div', { class: 'avatar', style: 'margin-inline:auto;inline-size:84px;block-size:84px;font-size:48px' }, '🦄'),
     h('h1', {}, '¡Hola! Vamos a conocernos'),
     h('p', { class: 'muted' }, 'Pídele a papá el código para activar Kendra en este aparato.'),
-    code, error,
-    h('button', { type: 'submit', class: 'primary' }, 'Activar'));
+    code, error, activate);
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    if (activate.disabled) return;
+    activate.disabled = true;
     error.textContent = '';
     const result = await api('POST', '/api/kid/redeem', { code: code.value, label: 'Dispositivo de la niña' });
     if (result.status === 201) { token = result.body.token; writeStorage(TOKEN_KEY, token); await start(); }
-    else error.textContent = result.body.error || 'No pude activarlo. Inténtalo otra vez.';
+    else {
+      activate.disabled = false;
+      error.textContent = result.body.error || 'No pude activarlo. Inténtalo otra vez.';
+      code.focus();
+    }
   });
   app.replaceChildren(form);
 }

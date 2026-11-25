@@ -1071,7 +1071,11 @@ founderSignInButton.addEventListener('click', async () => {
     const returnTo = new URLSearchParams(location.search).get('returnTo');
     const intent = founderLoginIntent;
     founderLoginIntent = null;
-    if (intent === 'parent') {
+    if (intent === 'parent' || (!intent && returnTo === 'kendra-parent')) {
+      const destination = new URL(location.href);
+      destination.searchParams.delete('returnTo');
+      destination.hash = 'kendraTitle';
+      history.replaceState(null, '', destination);
       await openKendraParentPanel();
       void refreshKendraSummary();
     } else if (intent === 'voice') {
@@ -1183,6 +1187,10 @@ kendraOpenPanel?.addEventListener('click', async () => {
   if (kendraPanelHandle) { clearKendraParentPanel(); void refreshKendraSummary(); return; }
   if (!sessionToken()) {
     founderLoginIntent = 'parent';
+    const destination = new URL(location.href);
+    destination.searchParams.set('returnTo', 'kendra-parent');
+    destination.hash = 'approvals';
+    history.replaceState(null, '', destination);
     kendraSummary.textContent = 'Identifícate para administrar la cuenta de Kendra.';
     await focusFounderAccess();
     return;

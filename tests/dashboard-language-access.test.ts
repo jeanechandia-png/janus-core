@@ -36,7 +36,8 @@ test('independent Kendra app retains its pairing, role isolation and original sc
   assert.match(child, /rebuildNav\(\); rebuildTop\(\);/);
   assert.match(html, /\/kendra\.webmanifest/);
   assert.match(html, /language-buttons\.css/);
-  assert.match(html, /Content-Security-Policy/);
+  assert.match(html, /script-src 'self' 'wasm-unsafe-eval';/);
+  assert.doesNotMatch(html, /'unsafe-eval'/);
   assert.ok(!existsSync('apps/pwa/companion.html'), 'Do not replace the real protected Kendra app with a parallel screen');
 });
 

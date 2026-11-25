@@ -104,6 +104,7 @@ try {
   await page.goto(origin + '/');
   await page.locator('#founderSignOutButton').click();
   await page.locator('#kendraOpenPanel').click();
+  await page.reload(); // el alta inicial de la llave puede exigir reiniciar el Core
   await page.locator('#founderSignInButton').click();
   await page.getByRole('button', { name: 'Emparejar un dispositivo nuevo' }).click();
   await page.waitForFunction(() => document.querySelector('.kp-code')?.textContent.startsWith('Código: '));
@@ -127,9 +128,25 @@ try {
     mkdirSync(process.env.SHOTS, { recursive: true });
     await kid.screenshot({ path: join(process.env.SHOTS, 'kendra-inicio-tablet.png') });
   }
-  await kid.getByRole('button', { name: 'School', exact: true }).click();
-  await kid.locator('.kid-school-subject button').first().waitFor();
-  await kid.getByRole('button', { name: 'Baile', exact: true }).click();
+  await kid.evaluate(() => window.JanusGLTF.MeshoptDecoder.ready);
+  const setPracticeWindow = async (allowedFrom, allowedUntil) => {
+    const status = await page.evaluate(async limits => (await fetch('/api/parent/kid/settings', {
+      method: 'PUT', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + sessionStorage.getItem('janus.founder.session') },
+      body: JSON.stringify({ kidId: 'kendra', timeZone: 'UTC', limits }),
+    })).status, { allowedFrom, allowedUntil });
+    assert.equal(status, 200);
+  };
+  await setPracticeWindow('00:00', '00:00');
+  await kid.getByRole('navigation').getByRole('button', { name: 'School', exact: true }).click();
+  await kid.getByText(/Ahora toca descansar/).first().waitFor();
+  assert.equal(await kid.locator('.kid-school-subject').count(), 0);
+  const hour = new Date().getUTCHours();
+  const hourAt = delta => String((hour + delta + 24) % 24).padStart(2, '0') + ':00';
+  await setPracticeWindow(hourAt(-2), hourAt(2));
+  await kid.getByRole('button', { name: 'Reintentar', exact: true }).click();
+  await kid.locator('.kid-school-subject button').first().click();
+  await kid.locator('.kid-school-instruction').waitFor();
+  await kid.getByRole('navigation').getByRole('button', { name: 'Baile', exact: true }).click();
   await kid.getByRole('heading', { name: 'Baile', exact: true }).waitFor();
   await kidContext.close();
   await page.locator('#founderSignOutButton').click();

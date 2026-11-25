@@ -4,6 +4,8 @@ Continuidad local comprobada desde d98c102b y main 480a0b9. Se reprodujo la úni
 
 Prueba de navegador ampliada sobre Core, SQLite y perfiles temporales independientes a 1280×800: autenticación, ambas portadas, alta y reentrada infantil, School, Baile y separación de roles. Se ejecuta también en Dashboard CI y adjunta capturas con datos de prueba. Consultar el resultado del commit en la PR. La Samsung personal, sus credenciales y la aceptación visual siguen pendientes. El estado de los activos originales e integraciones se detalla a continuación.
 
+Primera ejecución Chromium 45516484834: alta de llave y entrada a A/B, persistencia cifrada y emparejamiento infantil alcanzados. Durante la madrugada School aplicó el horario parental y el ensayo que esperaba ejercicios falló. El ensayo ahora comprueba descanso y después una franja autorizada por el tutor en la base temporal. Chromium también reveló que la política de la app infantil bloqueaba el decodificador WebAssembly de los modelos 3D locales. Se habilitó únicamente WebAssembly en la directiva de scripts, manteniendo el origen local y sin habilitar evaluación de JavaScript. El retorno al panel del tutor sobrevive a una recarga y se bloquea el doble envío del código de emparejamiento.
+
 ## AHORA — 24/25-nov-2026 · Continuidad real, PR #98 (sin intervención del Founder)
 
 - **Identidad:** jeanechandia-png/janus-core, base main 480a0b9, única rama existente chatgpt/approved-tablet-layout-20261124. Continuación del 847a7043. PR sigue en borrador; no merge, despliegue ni reinstalación. Preflight remoto parcial: DNS del entorno local no permite checkout y no hay dispositivo remoto conectado.
